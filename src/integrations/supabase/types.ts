@@ -58,9 +58,16 @@ export type Database = {
       }
       bets: {
         Row: {
+          away_team: string | null
+          book: string | null
           confidence: number | null
           created_at: string
+          edge_score: number | null
+          edge_tier: string | null
+          external_game_id: number | null
+          game_date: string | null
           game_id: string
+          home_team: string | null
           horary_lean: string | null
           horary_strength: number | null
           id: string
@@ -73,17 +80,35 @@ export type Database = {
           player_id: string | null
           recommendation: string | null
           result: string | null
+          result_notes: string | null
+          season: number | null
           selection: string
+          settled_at: string | null
+          side: string | null
+          sport: string | null
           stake: number | null
+          stake_amount: number | null
+          stake_unit: string | null
+          start_time: string | null
+          status: string | null
+          to_win_amount: number | null
           transit_boost: number | null
           updated_at: string
           user_id: string
           volatility: string | null
+          why_summary: string | null
         }
         Insert: {
+          away_team?: string | null
+          book?: string | null
           confidence?: number | null
           created_at?: string
+          edge_score?: number | null
+          edge_tier?: string | null
+          external_game_id?: number | null
+          game_date?: string | null
           game_id: string
+          home_team?: string | null
           horary_lean?: string | null
           horary_strength?: number | null
           id?: string
@@ -96,17 +121,35 @@ export type Database = {
           player_id?: string | null
           recommendation?: string | null
           result?: string | null
+          result_notes?: string | null
+          season?: number | null
           selection: string
+          settled_at?: string | null
+          side?: string | null
+          sport?: string | null
           stake?: number | null
+          stake_amount?: number | null
+          stake_unit?: string | null
+          start_time?: string | null
+          status?: string | null
+          to_win_amount?: number | null
           transit_boost?: number | null
           updated_at?: string
           user_id: string
           volatility?: string | null
+          why_summary?: string | null
         }
         Update: {
+          away_team?: string | null
+          book?: string | null
           confidence?: number | null
           created_at?: string
+          edge_score?: number | null
+          edge_tier?: string | null
+          external_game_id?: number | null
+          game_date?: string | null
           game_id?: string
+          home_team?: string | null
           horary_lean?: string | null
           horary_strength?: number | null
           id?: string
@@ -119,12 +162,23 @@ export type Database = {
           player_id?: string | null
           recommendation?: string | null
           result?: string | null
+          result_notes?: string | null
+          season?: number | null
           selection?: string
+          settled_at?: string | null
+          side?: string | null
+          sport?: string | null
           stake?: number | null
+          stake_amount?: number | null
+          stake_unit?: string | null
+          start_time?: string | null
+          status?: string | null
+          to_win_amount?: number | null
           transit_boost?: number | null
           updated_at?: string
           user_id?: string
           volatility?: string | null
+          why_summary?: string | null
         }
         Relationships: [
           {
@@ -213,6 +267,47 @@ export type Database = {
             columns: ["referee_id"]
             isOneToOne: false
             referencedRelation: "referees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      game_state_snapshots: {
+        Row: {
+          away_score: number | null
+          captured_at: string
+          clock: string | null
+          game_id: string
+          home_score: number | null
+          id: string
+          quarter: string | null
+          status: string | null
+        }
+        Insert: {
+          away_score?: number | null
+          captured_at?: string
+          clock?: string | null
+          game_id: string
+          home_score?: number | null
+          id?: string
+          quarter?: string | null
+          status?: string | null
+        }
+        Update: {
+          away_score?: number | null
+          captured_at?: string
+          clock?: string | null
+          game_id?: string
+          home_score?: number | null
+          id?: string
+          quarter?: string | null
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "game_state_snapshots_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
             referencedColumns: ["id"]
           },
         ]
@@ -318,6 +413,41 @@ export type Database = {
             columns: ["player_id"]
             isOneToOne: false
             referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      live_board_items: {
+        Row: {
+          bet_id: string
+          created_at: string
+          id: string
+          is_pinned: boolean | null
+          order_index: number | null
+          user_id: string
+        }
+        Insert: {
+          bet_id: string
+          created_at?: string
+          id?: string
+          is_pinned?: boolean | null
+          order_index?: number | null
+          user_id: string
+        }
+        Update: {
+          bet_id?: string
+          created_at?: string
+          id?: string
+          is_pinned?: boolean | null
+          order_index?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "live_board_items_bet_id_fkey"
+            columns: ["bet_id"]
+            isOneToOne: false
+            referencedRelation: "bets"
             referencedColumns: ["id"]
           },
         ]
