@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Plus, X, CalendarDays } from "lucide-react";
+import { useState, useMemo } from "react";
+import { Plus, X, CalendarDays, DollarSign, Zap } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { format, addDays } from "date-fns";
+import { format, addDays, subDays } from "date-fns";
 import type { Tables } from "@/integrations/supabase/types";
 
 type GameRow = Tables<"games">;
@@ -21,6 +21,9 @@ const MARKET_TYPES = [
   { value: "total", label: "Total" },
   { value: "team_total", label: "Team Total" },
   { value: "player_prop", label: "Player Prop" },
+  { value: "first_half", label: "1st Half" },
+  { value: "second_half", label: "2nd Half" },
+  { value: "first_quarter", label: "1st Quarter" },
 ];
 
 const SIDES = [
@@ -48,57 +51,77 @@ interface CreateBetFormProps {
   userId: string;
 }
 
+function americanToDecimal(odds: number): number {
+  if (odds > 0) return (odds / 100) + 1;
+  return (100 / Math.abs(odds)) + 1;
+}
+
 export default function CreateBetForm({ userId }: CreateBetFormProps) {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-  // Date picker state
   const [selectedDate, setSelectedDate] = useState<string>("all");
-
-  // Multi-leg (parlay) state
   const [legs, setLegs] = useState<BetLeg[]>([emptyLeg()]);
+  const [sgpMode, setSgpMode] = useState(false);
   const isParlay = legs.length > 1;
 
-  // Shared fields
   const [book, setBook] = useState("");
   const [stakeAmount, setStakeAmount] = useState("");
-  const [stakeUnit, setStakeUnit] = useState("units");
+  const [stakeUnit, setStakeUnit] = useState("$");
   const [confidence, setConfidence] = useState([50]);
   const [edgeScore, setEdgeScore] = useState([50]);
   const [whySummary, setWhySummary] = useState("");
   const [notes, setNotes] = useState("");
 
-  // Build date options for the next 7 days
-  const dateOptions = Array.from({ length: 8 }, (_, i) => {
-    const d = addDays(new Date(), i);
-    return { value: format(d, "yyyy-MM-dd"), label: i === 0 ? "Today" : i === 1 ? "Tomorrow" : format(d, "EEE, MMM d") };
-  });
+  // Past 7 + future 7 days
+  const dateOptions = useMemo(() => {
+    const opts: { value: string; label: string }[] = [];
+    for (let i = -7; i <= 7; i++) {
+      const d = addDays(new Date(), i);
+      const label = i === 0 ? "Today" : i === 1 ? "Tomorrow" : i === -1 ? "Yesterday" : format(d, "EEE, MMM d");
+      opts.push({ value: format(d, "yyyy-MM-dd"), label });
+    }
+    return opts;
+  }, []);
 
   const { data: games } = useQuery({
     queryKey: ["games-for-bet-form", selectedDate],
     queryFn: async () => {
       let query = supabase.from("games").select("*").order("start_time", { ascending: true });
-
       if (selectedDate === "all") {
-        const today = new Date().toISOString().slice(0, 10);
-        query = query.gte("start_time", today).limit(100);
+        const pastWeek = format(subDays(new Date(), 7), "yyyy-MM-dd");
+        query = query.gte("start_time", pastWeek).limit(200);
       } else {
         const nextDay = format(addDays(new Date(selectedDate + "T00:00:00"), 1), "yyyy-MM-dd");
         query = query.gte("start_time", selectedDate).lt("start_time", nextDay);
       }
-
       const { data, error } = await query;
       if (error) throw error;
       return (data || []) as GameRow[];
     },
   });
 
+  // In SGP mode, lock all legs to the same game
+  const sgpGameId = sgpMode && legs.length > 0 ? legs[0].gameId : null;
+
   const updateLeg = (idx: number, patch: Partial<BetLeg>) => {
-    setLegs(prev => prev.map((l, i) => i === idx ? { ...l, ...patch } : l));
+    setLegs(prev => prev.map((l, i) => {
+      if (i !== idx) return l;
+      const updated = { ...l, ...patch };
+      // SGP: force same game
+      if (sgpMode && idx > 0 && patch.gameId === undefined && sgpGameId) {
+        updated.gameId = sgpGameId;
+      }
+      return updated;
+    }));
   };
 
-  const addLeg = () => setLegs(prev => [...prev, emptyLeg()]);
+  const addLeg = () => {
+    const newLeg = emptyLeg();
+    if (sgpMode && sgpGameId) newLeg.gameId = sgpGameId;
+    setLegs(prev => [...prev, newLeg]);
+  };
 
   const removeLeg = (idx: number) => {
     if (legs.length <= 1) return;
@@ -109,26 +132,42 @@ export default function CreateBetForm({ userId }: CreateBetFormProps) {
     setLegs([emptyLeg()]);
     setBook("");
     setStakeAmount("");
-    setStakeUnit("units");
+    setStakeUnit("$");
     setConfidence([50]);
     setEdgeScore([50]);
     setWhySummary("");
     setNotes("");
     setSelectedDate("all");
+    setSgpMode(false);
   };
 
   const calculateParlayOdds = (): number | null => {
     const oddsValues = legs.map(l => parseInt(l.odds, 10)).filter(o => !isNaN(o));
     if (oddsValues.length < 2) return null;
-    // Convert to decimal, multiply, convert back to American
-    const decimalOdds = oddsValues.map(o => o > 0 ? (o / 100) + 1 : (100 / Math.abs(o)) + 1);
+    const decimalOdds = oddsValues.map(americanToDecimal);
     const combinedDecimal = decimalOdds.reduce((acc, d) => acc * d, 1);
     if (combinedDecimal >= 2) return Math.round((combinedDecimal - 1) * 100);
     return Math.round(-100 / (combinedDecimal - 1));
   };
 
+  const projectedWin = useMemo(() => {
+    const stake = parseFloat(stakeAmount);
+    if (!stake || isNaN(stake)) return null;
+
+    if (isParlay) {
+      const parlayOdds = calculateParlayOdds();
+      if (!parlayOdds) return null;
+      const dec = americanToDecimal(parlayOdds);
+      return (stake * dec).toFixed(2);
+    } else {
+      const odds = parseInt(legs[0]?.odds, 10);
+      if (isNaN(odds)) return null;
+      const dec = americanToDecimal(odds);
+      return (stake * dec).toFixed(2);
+    }
+  }, [stakeAmount, legs, isParlay]);
+
   const handleSubmit = async () => {
-    // Validate all legs
     for (let i = 0; i < legs.length; i++) {
       const leg = legs[i];
       if (!leg.gameId || !leg.selection || !leg.odds) {
@@ -144,74 +183,44 @@ export default function CreateBetForm({ userId }: CreateBetFormProps) {
     setSubmitting(true);
 
     if (isParlay) {
-      // Create each leg as a separate bet linked by notes
       const parlayId = `parlay_${Date.now()}`;
       const parlayOdds = calculateParlayOdds();
       const inserts = legs.map((leg, i) => {
         const game = games?.find(g => g.id === leg.gameId);
         return {
-          user_id: userId,
-          game_id: leg.gameId,
-          home_team: game?.home_team ?? null,
-          away_team: game?.away_team ?? null,
-          start_time: game?.start_time ?? null,
-          market_type: leg.marketType,
-          selection: leg.selection,
-          side: leg.side || null,
+          user_id: userId, game_id: leg.gameId,
+          home_team: game?.home_team ?? null, away_team: game?.away_team ?? null,
+          start_time: game?.start_time ?? null, market_type: leg.marketType,
+          selection: leg.selection, side: leg.side || null,
           line: leg.line ? parseFloat(leg.line) : null,
-          odds: parseInt(leg.odds, 10),
-          book: book || null,
+          odds: parseInt(leg.odds, 10), book: book || null,
           stake_amount: stakeAmount ? parseFloat(stakeAmount) : null,
-          stake_unit: stakeUnit,
-          confidence: confidence[0],
-          edge_score: edgeScore[0],
+          stake_unit: stakeUnit, confidence: confidence[0], edge_score: edgeScore[0],
           why_summary: whySummary || null,
-          notes: `${parlayId} | Leg ${i + 1}/${legs.length}${parlayOdds ? ` | Parlay odds: ${parlayOdds > 0 ? "+" : ""}${parlayOdds}` : ""}${notes ? ` | ${notes}` : ""}`,
+          notes: `${parlayId} | ${sgpMode ? "SGP" : "Parlay"} Leg ${i + 1}/${legs.length}${parlayOdds ? ` | Combined: ${parlayOdds > 0 ? "+" : ""}${parlayOdds}` : ""}${notes ? ` | ${notes}` : ""}`,
         };
       });
-
       const { error } = await supabase.from("bets").insert(inserts);
       setSubmitting(false);
-      if (error) {
-        toast.error("Failed to create parlay: " + error.message);
-      } else {
-        toast.success(`${legs.length}-leg parlay created!`);
-        resetForm();
-        setOpen(false);
-        queryClient.invalidateQueries({ queryKey: ["skyspread-bets"] });
-      }
+      if (error) { toast.error("Failed: " + error.message); }
+      else { toast.success(`${sgpMode ? "SGP" : "Parlay"} (${legs.length} legs) created!`); resetForm(); setOpen(false); queryClient.invalidateQueries({ queryKey: ["skyspread-bets"] }); }
     } else {
-      // Single bet
       const leg = legs[0];
       const game = games?.find(g => g.id === leg.gameId);
       const { error } = await supabase.from("bets").insert({
-        user_id: userId,
-        game_id: leg.gameId,
-        home_team: game?.home_team ?? null,
-        away_team: game?.away_team ?? null,
-        start_time: game?.start_time ?? null,
-        market_type: leg.marketType,
-        selection: leg.selection,
-        side: leg.side || null,
+        user_id: userId, game_id: leg.gameId,
+        home_team: game?.home_team ?? null, away_team: game?.away_team ?? null,
+        start_time: game?.start_time ?? null, market_type: leg.marketType,
+        selection: leg.selection, side: leg.side || null,
         line: leg.line ? parseFloat(leg.line) : null,
-        odds: parseInt(leg.odds, 10),
-        book: book || null,
+        odds: parseInt(leg.odds, 10), book: book || null,
         stake_amount: stakeAmount ? parseFloat(stakeAmount) : null,
-        stake_unit: stakeUnit,
-        confidence: confidence[0],
-        edge_score: edgeScore[0],
-        why_summary: whySummary || null,
-        notes: notes || null,
+        stake_unit: stakeUnit, confidence: confidence[0], edge_score: edgeScore[0],
+        why_summary: whySummary || null, notes: notes || null,
       });
       setSubmitting(false);
-      if (error) {
-        toast.error("Failed to create bet: " + error.message);
-      } else {
-        toast.success("Bet created!");
-        resetForm();
-        setOpen(false);
-        queryClient.invalidateQueries({ queryKey: ["skyspread-bets"] });
-      }
+      if (error) { toast.error("Failed: " + error.message); }
+      else { toast.success("Bet created!"); resetForm(); setOpen(false); queryClient.invalidateQueries({ queryKey: ["skyspread-bets"] }); }
     }
   };
 
@@ -225,20 +234,30 @@ export default function CreateBetForm({ userId }: CreateBetFormProps) {
       <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="font-display">
-            {isParlay ? `Create Parlay (${legs.length} legs)` : "Create Bet"}
+            {sgpMode ? "Same Game Parlay" : isParlay ? `Create Parlay (${legs.length} legs)` : "Create Bet"}
           </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4 pt-2">
+          {/* SGP Toggle */}
+          <div className="flex gap-2">
+            <button onClick={() => setSgpMode(false)}
+              className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition-colors ${!sgpMode ? "bg-primary text-primary-foreground" : "bg-secondary/60 text-muted-foreground"}`}>
+              Standard
+            </button>
+            <button onClick={() => { setSgpMode(true); if (legs.length < 2) addLeg(); }}
+              className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center justify-center gap-1 ${sgpMode ? "bg-primary text-primary-foreground" : "bg-secondary/60 text-muted-foreground"}`}>
+              <Zap className="h-3 w-3" /> SGP
+            </button>
+          </div>
+
           {/* Date Filter */}
           <div className="space-y-1.5">
-            <Label className="text-xs flex items-center gap-1">
-              <CalendarDays className="h-3 w-3" /> Day
-            </Label>
+            <Label className="text-xs flex items-center gap-1"><CalendarDays className="h-3 w-3" /> Day</Label>
             <Select value={selectedDate} onValueChange={setSelectedDate}>
-              <SelectTrigger><SelectValue placeholder="All upcoming" /></SelectTrigger>
+              <SelectTrigger><SelectValue placeholder="All games" /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All upcoming</SelectItem>
+                <SelectItem value="all">All games (±7 days)</SelectItem>
                 {dateOptions.map(d => (
                   <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>
                 ))}
@@ -253,21 +272,28 @@ export default function CreateBetForm({ userId }: CreateBetFormProps) {
               leg={leg}
               legIndex={idx}
               totalLegs={legs.length}
-              games={games || []}
-              onUpdate={(patch) => updateLeg(idx, patch)}
+              games={sgpMode && idx > 0 && sgpGameId ? (games || []).filter(g => g.id === sgpGameId) : (games || [])}
+              sgpMode={sgpMode}
+              onUpdate={(patch) => {
+                updateLeg(idx, patch);
+                // SGP: when first leg game changes, update all others
+                if (sgpMode && idx === 0 && patch.gameId) {
+                  setLegs(prev => prev.map((l, i) => i === 0 ? { ...l, ...patch } : { ...l, gameId: patch.gameId! }));
+                }
+              }}
               onRemove={() => removeLeg(idx)}
             />
           ))}
 
           {/* Add Leg Button */}
           <Button variant="outline" size="sm" onClick={addLeg} className="w-full text-xs">
-            <Plus className="h-3 w-3 mr-1" /> Add Leg (Parlay)
+            <Plus className="h-3 w-3 mr-1" /> Add Leg {sgpMode ? "(SGP)" : "(Parlay)"}
           </Button>
 
           {/* Parlay odds preview */}
           {isParlay && calculateParlayOdds() && (
             <div className="cosmic-card rounded-lg p-2 text-center">
-              <p className="text-[10px] text-muted-foreground">Combined Parlay Odds</p>
+              <p className="text-[10px] text-muted-foreground">Combined {sgpMode ? "SGP" : "Parlay"} Odds</p>
               <p className="text-sm font-bold font-display text-primary tabular-nums">
                 {calculateParlayOdds()! > 0 ? "+" : ""}{calculateParlayOdds()}
               </p>
@@ -283,20 +309,34 @@ export default function CreateBetForm({ userId }: CreateBetFormProps) {
           {/* Stake */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label className="text-xs">Stake Amount</Label>
-              <Input type="number" placeholder="1" value={stakeAmount} onChange={(e) => setStakeAmount(e.target.value)} />
+              <Label className="text-xs flex items-center gap-1"><DollarSign className="h-3 w-3" /> Stake</Label>
+              <Input type="number" placeholder="25.00" value={stakeAmount} onChange={(e) => setStakeAmount(e.target.value)} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Stake Unit</Label>
+              <Label className="text-xs">Unit</Label>
               <Select value={stakeUnit} onValueChange={setStakeUnit}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="units">Units</SelectItem>
                   <SelectItem value="$">$</SelectItem>
+                  <SelectItem value="units">Units</SelectItem>
                 </SelectContent>
               </Select>
             </div>
           </div>
+
+          {/* Projected Win Summary Bar */}
+          {(stakeAmount && projectedWin) && (
+            <div className="bg-primary/10 rounded-xl p-3 flex items-center justify-between">
+              <div>
+                <p className="text-[10px] text-muted-foreground">Stake</p>
+                <p className="text-sm font-bold tabular-nums">{stakeUnit === "$" ? "$" : ""}{stakeAmount}{stakeUnit !== "$" ? ` ${stakeUnit}` : ""}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-[10px] text-muted-foreground">Projected Win</p>
+                <p className="text-sm font-bold text-cosmic-green tabular-nums">{stakeUnit === "$" ? "$" : ""}{projectedWin}</p>
+              </div>
+            </div>
+          )}
 
           {/* Confidence slider */}
           <div className="space-y-1.5">
@@ -329,7 +369,7 @@ export default function CreateBetForm({ userId }: CreateBetFormProps) {
           </div>
 
           <Button onClick={handleSubmit} disabled={submitting} className="w-full">
-            {submitting ? "Creating..." : isParlay ? `Create ${legs.length}-Leg Parlay` : "Create Bet"}
+            {submitting ? "Creating..." : sgpMode ? `Create SGP (${legs.length} legs)` : isParlay ? `Create ${legs.length}-Leg Parlay` : "Create Bet"}
           </Button>
         </div>
       </DialogContent>
@@ -339,25 +379,17 @@ export default function CreateBetForm({ userId }: CreateBetFormProps) {
 
 // ── Individual Leg Component ──
 function LegForm({
-  leg,
-  legIndex,
-  totalLegs,
-  games,
-  onUpdate,
-  onRemove,
+  leg, legIndex, totalLegs, games, sgpMode, onUpdate, onRemove,
 }: {
-  leg: BetLeg;
-  legIndex: number;
-  totalLegs: number;
-  games: GameRow[];
-  onUpdate: (patch: Partial<BetLeg>) => void;
-  onRemove: () => void;
+  leg: BetLeg; legIndex: number; totalLegs: number; games: GameRow[];
+  sgpMode: boolean;
+  onUpdate: (patch: Partial<BetLeg>) => void; onRemove: () => void;
 }) {
   return (
     <div className="space-y-3 cosmic-card rounded-xl p-3">
       <div className="flex items-center justify-between">
         <span className="text-xs font-semibold text-muted-foreground">
-          {totalLegs > 1 ? `Leg ${legIndex + 1}` : "Pick"}
+          {totalLegs > 1 ? `${sgpMode ? "SGP " : ""}Leg ${legIndex + 1}` : "Pick"}
         </span>
         {totalLegs > 1 && (
           <button onClick={onRemove} className="text-muted-foreground hover:text-destructive transition-colors">
@@ -366,27 +398,35 @@ function LegForm({
         )}
       </div>
 
-      {/* Game Selector */}
-      <div className="space-y-1.5">
-        <Label className="text-xs">Game *</Label>
-        <Select value={leg.gameId} onValueChange={(v) => onUpdate({ gameId: v })}>
-          <SelectTrigger><SelectValue placeholder="Select a game" /></SelectTrigger>
-          <SelectContent>
-            {games.map((g) => (
-              <SelectItem key={g.id} value={g.id}>
-                <span className="text-[10px] text-muted-foreground mr-1">[{g.league}]</span>
-                {g.away_abbr} @ {g.home_abbr}
-                <span className="text-[10px] text-muted-foreground ml-1">
-                  {format(new Date(g.start_time), "h:mm a")}
-                </span>
-              </SelectItem>
-            ))}
-            {games.length === 0 && (
-              <SelectItem value="none" disabled>No games found</SelectItem>
-            )}
-          </SelectContent>
-        </Select>
-      </div>
+      {/* Game Selector - hidden for SGP legs > 0 */}
+      {(!sgpMode || legIndex === 0) && (
+        <div className="space-y-1.5">
+          <Label className="text-xs">Game *</Label>
+          <Select value={leg.gameId} onValueChange={(v) => onUpdate({ gameId: v })}>
+            <SelectTrigger><SelectValue placeholder="Select a game" /></SelectTrigger>
+            <SelectContent>
+              {games.map((g) => (
+                <SelectItem key={g.id} value={g.id}>
+                  <span className="text-[10px] text-muted-foreground mr-1">[{g.league}]</span>
+                  {g.away_abbr} @ {g.home_abbr}
+                  <span className="text-[10px] text-muted-foreground ml-1">
+                    {format(new Date(g.start_time), "M/d h:mm a")}
+                  </span>
+                </SelectItem>
+              ))}
+              {games.length === 0 && (
+                <SelectItem value="none" disabled>No games found</SelectItem>
+              )}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+
+      {sgpMode && legIndex > 0 && leg.gameId && (
+        <p className="text-[10px] text-primary/70">
+          🔒 Same game as Leg 1: {games.find(g => g.id === leg.gameId)?.away_abbr} @ {games.find(g => g.id === leg.gameId)?.home_abbr}
+        </p>
+      )}
 
       {/* Market Type */}
       <div className="space-y-1.5">

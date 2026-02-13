@@ -1,5 +1,6 @@
+import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Star, MapPin, Orbit, Moon, Zap, Users } from "lucide-react";
+import { ArrowLeft, Star, MapPin, Orbit, Moon, Zap, Users, ChevronDown, ChevronUp, TrendingUp, TrendingDown } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
@@ -13,6 +14,7 @@ import { PeriodOddsSection } from "@/components/game/PeriodOddsSection";
 import { HoraryChartSection } from "@/components/game/HoraryChartSection";
 import { TransitScrubber } from "@/components/game/TransitScrubber";
 import { GameChartRulers } from "@/components/game/GameChartRulers";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 function formatOdds(odds: number): string {
   if (!odds) return "—";
@@ -114,7 +116,6 @@ function getAstroCartographyNote(venueLat: number | null, venueLng: number | nul
   return "Eastern seaboard: Mercury DSC lines favor quick passing and transition offense.";
 }
 
-// ── Team zodiac assignment (based on founding/city energy — simplified) ──
 const TEAM_ZODIAC: Record<string, string> = {
   ATL: "Sagittarius", BOS: "Aries", BKN: "Scorpio", CHA: "Virgo", CHI: "Taurus",
   CLE: "Capricorn", DAL: "Leo", DEN: "Aquarius", DET: "Capricorn", GSW: "Gemini",
@@ -123,6 +124,172 @@ const TEAM_ZODIAC: Record<string, string> = {
   OKC: "Aries", ORL: "Pisces", PHI: "Capricorn", PHX: "Aries", POR: "Aquarius",
   SAC: "Sagittarius", SAS: "Virgo", TOR: "Scorpio", UTA: "Capricorn", WAS: "Libra",
 };
+
+// ── Expandable Player Card ──
+function PlayerCard({
+  player,
+  gameId,
+  navigate,
+}: {
+  player: { id: string; name: string; position: string | null; team: string | null; birth_date: string | null; league: string | null };
+  gameId: string;
+  navigate: (path: string) => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const pz = player.birth_date ? getZodiacFromDateStr(player.birth_date) : null;
+
+  // Fetch last 5 game stats when expanded
+  const { data: recentStats } = useQuery({
+    queryKey: ["player-recent-stats", player.id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("player_game_stats")
+        .select("points, rebounds, assists, steals, blocks, minutes, game_id")
+        .eq("player_id", player.id)
+        .order("created_at", { ascending: false })
+        .limit(5);
+      return data || [];
+    },
+    enabled: expanded,
+  });
+
+  // Fetch player props for this game when expanded
+  const { data: playerProps } = useQuery({
+    queryKey: ["player-props-card", player.name, gameId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("player_props")
+        .select("market_key, market_label, line, over_price, under_price")
+        .eq("game_id", gameId)
+        .eq("player_name", player.name)
+        .limit(10);
+      return data || [];
+    },
+    enabled: expanded,
+  });
+
+  const avgPts = recentStats && recentStats.length > 0
+    ? (recentStats.reduce((s, r) => s + (r.points || 0), 0) / recentStats.length).toFixed(1)
+    : null;
+
+  return (
+    <Collapsible open={expanded} onOpenChange={setExpanded}>
+      <CollapsibleTrigger asChild>
+        <button className="w-full cosmic-card rounded-lg p-2 flex items-start gap-2 text-left hover:border-primary/30 transition-colors">
+          {pz && <span className="text-sm mt-0.5">{pz.symbol}</span>}
+          <div className="flex-1 min-w-0">
+            <p className="text-[10px] font-medium text-foreground truncate">{player.name}</p>
+            <div className="flex items-center gap-1">
+              <p className="text-[9px] text-muted-foreground">{pz?.sign} · {pz?.element}</p>
+              {player.position && <span className="text-[9px] text-primary/70">· {player.position}</span>}
+            </div>
+            {player.birth_date && (
+              <p className="text-[8px] text-muted-foreground/60">🎂 {player.birth_date}</p>
+            )}
+            <TransitModifiers player={player} />
+          </div>
+          <div className="flex items-center gap-1 text-muted-foreground">
+            {expanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+          </div>
+        </button>
+      </CollapsibleTrigger>
+      <CollapsibleContent>
+        <div className="cosmic-card rounded-b-lg border-t-0 -mt-1 p-2 space-y-2">
+          {/* Last 5 games */}
+          {recentStats && recentStats.length > 0 && (
+            <div>
+              <p className="text-[9px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">Last {recentStats.length} Games</p>
+              <div className="grid grid-cols-5 gap-1 text-center">
+                <div className="text-[8px] text-muted-foreground">PTS</div>
+                <div className="text-[8px] text-muted-foreground">REB</div>
+                <div className="text-[8px] text-muted-foreground">AST</div>
+                <div className="text-[8px] text-muted-foreground">STL</div>
+                <div className="text-[8px] text-muted-foreground">BLK</div>
+                {recentStats.map((s, i) => (
+                  <div key={i} className="contents">
+                    <div className="text-[9px] font-medium tabular-nums">{s.points ?? 0}</div>
+                    <div className="text-[9px] font-medium tabular-nums">{s.rebounds ?? 0}</div>
+                    <div className="text-[9px] font-medium tabular-nums">{s.assists ?? 0}</div>
+                    <div className="text-[9px] font-medium tabular-nums">{s.steals ?? 0}</div>
+                    <div className="text-[9px] font-medium tabular-nums">{s.blocks ?? 0}</div>
+                  </div>
+                ))}
+              </div>
+              {avgPts && (
+                <p className="text-[8px] text-muted-foreground mt-1">Avg: {avgPts} PTS</p>
+              )}
+            </div>
+          )}
+
+          {/* Player Props for this game */}
+          {playerProps && playerProps.length > 0 && (
+            <div>
+              <p className="text-[9px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">Props</p>
+              <div className="space-y-1">
+                {playerProps.map((pp, i) => {
+                  const avg = avgPts ? parseFloat(avgPts) : null;
+                  const isPointsProp = pp.market_key?.includes("points");
+                  const highLow = isPointsProp && avg && pp.line
+                    ? avg > Number(pp.line) ? "HIGH" : "LOW"
+                    : null;
+
+                  return (
+                    <div key={i} className="flex items-center justify-between text-[9px]">
+                      <span className="text-muted-foreground truncate max-w-[60px]">
+                        {pp.market_label || pp.market_key?.replace("player_", "").replace(/_/g, " ")}
+                      </span>
+                      <span className="font-bold tabular-nums">{pp.line != null ? Number(pp.line) : "—"}</span>
+                      <div className="flex items-center gap-1.5">
+                        {pp.over_price != null && (
+                          <span className="text-cosmic-green flex items-center gap-0.5">
+                            <TrendingUp className="h-2 w-2" />
+                            {pp.over_price > 0 ? "+" : ""}{pp.over_price}
+                          </span>
+                        )}
+                        {pp.under_price != null && (
+                          <span className="text-cosmic-red flex items-center gap-0.5">
+                            <TrendingDown className="h-2 w-2" />
+                            {pp.under_price > 0 ? "+" : ""}{pp.under_price}
+                          </span>
+                        )}
+                        {highLow && (
+                          <span className={cn(
+                            "px-1 py-0.5 rounded text-[7px] font-bold",
+                            highLow === "HIGH" ? "bg-cosmic-green/20 text-cosmic-green" : "bg-cosmic-red/20 text-cosmic-red"
+                          )}>
+                            {highLow}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Astro info summary */}
+          {pz && (
+            <div className="flex items-center gap-2 text-[8px] text-muted-foreground">
+              <span>{pz.symbol} {pz.sign}</span>
+              <span>·</span>
+              <span>{pz.element} {pz.quality}</span>
+              <span>·</span>
+              <span>Ruler: {pz.rulerSymbol} {pz.ruler}</span>
+            </div>
+          )}
+
+          <button
+            onClick={(e) => { e.stopPropagation(); navigate(`/player/${player.id}`); }}
+            className="text-[9px] text-primary hover:underline"
+          >
+            View full profile →
+          </button>
+        </div>
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
 
 const GameDetail = () => {
   const { id } = useParams();
@@ -150,9 +317,9 @@ const GameDetail = () => {
     enabled: !!id,
   });
 
-  // Fetch players for both teams
+  // Fetch players for both teams - league-filtered
   const { data: players } = useQuery({
-    queryKey: ["game-players", game?.home_abbr, game?.away_abbr],
+    queryKey: ["game-players", game?.home_abbr, game?.away_abbr, game?.league],
     queryFn: async () => {
       if (!game) return [];
       const { data } = await supabase
@@ -160,8 +327,7 @@ const GameDetail = () => {
         .select("id, name, position, team, birth_date, league")
         .in("team", [game.home_abbr, game.away_abbr])
         .eq("league", game.league)
-        .not("birth_date", "is", null)
-        .limit(30);
+        .limit(50);
       return data || [];
     },
     enabled: !!game,
@@ -248,7 +414,6 @@ const GameDetail = () => {
               Zodiac Matchup
             </h3>
             <div className="celestial-gradient rounded-xl p-4">
-              {/* Team signs */}
               <div className="flex items-center justify-between mb-3">
                 <div className="text-center flex-1">
                   <span className="text-2xl">{awayZodiac.symbol}</span>
@@ -272,7 +437,6 @@ const GameDetail = () => {
                   <p className="text-[10px] text-cosmic-indigo">{homeZodiac.rulerSymbol} {homeZodiac.ruler}</p>
                 </div>
               </div>
-              {/* Compatibility bar */}
               <div className="h-2 bg-border rounded-full overflow-hidden mb-2">
                 <div
                   className={cn(
@@ -329,58 +493,33 @@ const GameDetail = () => {
           </div>
         </section>
 
-        {/* Player Zodiac Compatibility Grid */}
+        {/* Player Props */}
+        <PlayerPropsSection gameId={game.id} />
+
+        {/* PrizePicks-Style Player Cards */}
         {(awayPlayers.length > 0 || homePlayers.length > 0) && (
           <section>
             <h3 className="text-xs font-semibold text-primary uppercase tracking-widest mb-3 flex items-center gap-1.5">
               <Users className="h-3.5 w-3.5" />
-              Player Zodiac Map
+              Player Zodiac Map · Tap to expand
             </h3>
             <div className="grid grid-cols-2 gap-3">
               {/* Away team */}
               <div>
                 <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">{game.away_abbr}</p>
                 <div className="space-y-1.5">
-                  {awayPlayers.slice(0, 8).map((p) => {
-                    const pz = p.birth_date ? getZodiacFromDateStr(p.birth_date) : null;
-                    return (
-                      <button
-                        key={p.id}
-                        onClick={() => navigate(`/player/${p.id}`)}
-                        className="w-full cosmic-card rounded-lg p-2 flex items-start gap-2 text-left hover:border-primary/30 transition-colors"
-                      >
-                        {pz && <span className="text-sm mt-0.5">{pz.symbol}</span>}
-                        <div className="flex-1 min-w-0">
-                          <p className="text-[10px] font-medium text-foreground truncate">{p.name}</p>
-                          <p className="text-[9px] text-muted-foreground">{pz?.sign} · {pz?.element}</p>
-                          <TransitModifiers player={p} />
-                        </div>
-                      </button>
-                    );
-                  })}
+                  {awayPlayers.slice(0, 12).map((p) => (
+                    <PlayerCard key={p.id} player={p} gameId={game.id} navigate={navigate} />
+                  ))}
                 </div>
               </div>
               {/* Home team */}
               <div>
                 <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">{game.home_abbr}</p>
                 <div className="space-y-1.5">
-                  {homePlayers.slice(0, 8).map((p) => {
-                    const pz = p.birth_date ? getZodiacFromDateStr(p.birth_date) : null;
-                    return (
-                      <button
-                        key={p.id}
-                        onClick={() => navigate(`/player/${p.id}`)}
-                        className="w-full cosmic-card rounded-lg p-2 flex items-start gap-2 text-left hover:border-primary/30 transition-colors"
-                      >
-                        {pz && <span className="text-sm mt-0.5">{pz.symbol}</span>}
-                        <div className="flex-1 min-w-0">
-                          <p className="text-[10px] font-medium text-foreground truncate">{p.name}</p>
-                          <p className="text-[9px] text-muted-foreground">{pz?.sign} · {pz?.element}</p>
-                          <TransitModifiers player={p} />
-                        </div>
-                      </button>
-                    );
-                  })}
+                  {homePlayers.slice(0, 12).map((p) => (
+                    <PlayerCard key={p.id} player={p} gameId={game.id} navigate={navigate} />
+                  ))}
                 </div>
               </div>
             </div>
@@ -396,9 +535,6 @@ const GameDetail = () => {
             homeAbbr={game.home_abbr}
           />
         )}
-
-        {/* Player Props */}
-        <PlayerPropsSection gameId={game.id} />
 
         {/* Horary Chart Analysis */}
         <HoraryChartSection
