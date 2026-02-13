@@ -209,6 +209,7 @@ export default function TrendsPage() {
         hitRate,
         sampleSize,
         hitGames,
+        statValues: values,
       });
     }
 

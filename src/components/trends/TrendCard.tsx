@@ -1,5 +1,6 @@
 import { BarChart3 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { BarChart, Bar, ReferenceLine, XAxis, YAxis, ResponsiveContainer, Cell } from "recharts";
 
 export interface TrendInsight {
   id: string;
@@ -15,6 +16,8 @@ export interface TrendInsight {
   hitRate: number;
   sampleSize: number;
   hitGames: number[];
+  /** Raw stat values for bar chart (most recent last) */
+  statValues?: number[];
 }
 
 function formatOdds(odds: number | null): string {
@@ -25,6 +28,11 @@ function formatOdds(odds: number | null): string {
 export function TrendCard({ insight }: { insight: TrendInsight }) {
   const dirLabel = insight.direction === "over" ? "Over" : "Under";
   const hitPct = insight.hitRate;
+
+  const chartData = (insight.statValues || []).map((val, i) => ({
+    game: `G${i + 1}`,
+    value: val,
+  }));
 
   return (
     <div className="cosmic-card rounded-xl p-4 space-y-3">
@@ -43,6 +51,38 @@ export function TrendCard({ insight }: { insight: TrendInsight }) {
       <p className="text-sm font-semibold text-foreground leading-snug">
         {insight.insightText}
       </p>
+
+      {/* Bar chart showing last N games vs line */}
+      {chartData.length > 0 && (
+        <div className="h-24 -mx-1">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={chartData} barCategoryGap="20%">
+              <XAxis dataKey="game" tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
+              <YAxis hide domain={[0, (dataMax: number) => Math.max(dataMax * 1.15, (insight.line || 0) * 1.15)]} />
+              <ReferenceLine
+                y={insight.line}
+                stroke="hsl(var(--primary))"
+                strokeDasharray="4 3"
+                strokeWidth={1.5}
+                label={{ value: `${insight.line}`, position: "right", fontSize: 10, fill: "hsl(var(--primary))" }}
+              />
+              <Bar dataKey="value" radius={[3, 3, 0, 0]} maxBarSize={24}>
+                {chartData.map((entry, i) => {
+                  const hit = insight.direction === "over"
+                    ? entry.value > insight.line
+                    : entry.value < insight.line;
+                  return (
+                    <Cell
+                      key={i}
+                      fill={hit ? "hsl(var(--cosmic-green, 142 71% 45%))" : "hsl(var(--cosmic-red, 0 84% 60%) / 0.4)"}
+                    />
+                  );
+                })}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      )}
 
       {/* Prop selection row */}
       <div className="flex items-center justify-between cosmic-card rounded-lg p-2.5">
