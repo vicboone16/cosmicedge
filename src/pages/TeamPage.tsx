@@ -7,19 +7,6 @@ const TeamPage = () => {
   const { abbr } = useParams();
   const navigate = useNavigate();
 
-  const { data: players, isLoading: loadingPlayers } = useQuery({
-    queryKey: ["team-roster", abbr],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("players")
-        .select("*")
-        .eq("team", abbr!)
-        .order("name");
-      return data || [];
-    },
-    enabled: !!abbr,
-  });
-
   const { data: standings } = useQuery({
     queryKey: ["team-standings", abbr],
     queryFn: async () => {
@@ -31,6 +18,24 @@ const TeamPage = () => {
         .limit(1)
         .maybeSingle();
       return data;
+    },
+    enabled: !!abbr,
+  });
+
+  const { data: players, isLoading: loadingPlayers } = useQuery({
+    queryKey: ["team-roster", abbr, standings?.league],
+    queryFn: async () => {
+      let query = supabase
+        .from("players")
+        .select("*")
+        .eq("team", abbr!)
+        .order("name");
+      // Filter by league if we know it from standings
+      if (standings?.league) {
+        query = query.eq("league", standings.league);
+      }
+      const { data } = await query;
+      return data || [];
     },
     enabled: !!abbr,
   });
