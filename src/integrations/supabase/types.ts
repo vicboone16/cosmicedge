@@ -1360,6 +1360,87 @@ export type Database = {
         }
         Relationships: []
       }
+      tracked_props: {
+        Row: {
+          book: string | null
+          created_at: string
+          direction: string
+          game_id: string
+          id: string
+          line: number
+          live_stat_value: number | null
+          market_type: string
+          notes: string | null
+          odds: number | null
+          player_id: string | null
+          player_name: string
+          progress: number | null
+          settled_at: string | null
+          stake: number | null
+          stake_unit: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          book?: string | null
+          created_at?: string
+          direction: string
+          game_id: string
+          id?: string
+          line: number
+          live_stat_value?: number | null
+          market_type: string
+          notes?: string | null
+          odds?: number | null
+          player_id?: string | null
+          player_name: string
+          progress?: number | null
+          settled_at?: string | null
+          stake?: number | null
+          stake_unit?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          book?: string | null
+          created_at?: string
+          direction?: string
+          game_id?: string
+          id?: string
+          line?: number
+          live_stat_value?: number | null
+          market_type?: string
+          notes?: string | null
+          odds?: number | null
+          player_id?: string | null
+          player_name?: string
+          progress?: number | null
+          settled_at?: string | null
+          stake?: number | null
+          stake_unit?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tracked_props_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tracked_props_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

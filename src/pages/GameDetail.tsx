@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Star, MapPin, Orbit, Moon, Zap, Users, ChevronDown, ChevronUp, TrendingUp, TrendingDown } from "lucide-react";
+import { ArrowLeft, Star, MapPin, Orbit, Moon, Zap, Users, ChevronDown, ChevronUp, TrendingUp, TrendingDown, BarChart3, Lightbulb, Swords } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
@@ -14,6 +14,8 @@ import { PeriodOddsSection } from "@/components/game/PeriodOddsSection";
 import { HoraryChartSection } from "@/components/game/HoraryChartSection";
 import { TransitScrubber } from "@/components/game/TransitScrubber";
 import { GameChartRulers } from "@/components/game/GameChartRulers";
+import { GameMatchupTab } from "@/components/game/GameMatchupTab";
+import { TrackedPropsWidget } from "@/components/tracking/TrackedProps";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 function formatOdds(odds: number): string {
@@ -295,6 +297,8 @@ const GameDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { formatInUserTZ, getTZAbbrev } = useTimezone();
+  const [activeTab, setActiveTab] = useState<"odds" | "insights" | "matchup">("odds");
+  const [gameSubTab, setGameSubTab] = useState<"gamelines" | "player_props" | "team_props" | "game_props">("gamelines");
 
   const { data: game, isLoading } = useQuery({
     queryKey: ["game", id],
@@ -398,204 +402,270 @@ const GameDetail = () => {
         </div>
 
         {game.venue && (
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground justify-center">
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground justify-center mb-3">
             <MapPin className="h-3 w-3" />
             <span>{game.venue}</span>
           </div>
         )}
+
+        {/* Top tabs: Odds / Insights / Matchup */}
+        <div className="flex gap-2 justify-center">
+          {([
+            { val: "odds" as const, icon: BarChart3, label: "Odds" },
+            { val: "insights" as const, icon: Lightbulb, label: "Insights" },
+            { val: "matchup" as const, icon: Swords, label: "Matchup" },
+          ]).map(t => (
+            <button
+              key={t.val}
+              onClick={() => setActiveTab(t.val)}
+              className={cn(
+                "flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-semibold transition-colors border",
+                activeTab === t.val
+                  ? "bg-secondary border-border text-foreground"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <t.icon className="h-3.5 w-3.5" />
+              {t.label}
+            </button>
+          ))}
+        </div>
       </header>
 
       <div className="px-4 py-4 space-y-4">
-        {/* Team Zodiac Compatibility */}
-        {awayZodiac && homeZodiac && elementCompat && (
-          <section>
-            <h3 className="text-xs font-semibold text-primary uppercase tracking-widest mb-3 flex items-center gap-1.5">
-              <Zap className="h-3.5 w-3.5" />
-              Zodiac Matchup
-            </h3>
-            <div className="celestial-gradient rounded-xl p-4">
-              <div className="flex items-center justify-between mb-3">
-                <div className="text-center flex-1">
-                  <span className="text-2xl">{awayZodiac.symbol}</span>
-                  <p className="text-xs font-semibold text-foreground mt-1">{awayZodiacSign}</p>
-                  <p className="text-[10px] text-muted-foreground">{awayZodiac.element} · {awayZodiac.quality}</p>
-                  <p className="text-[10px] text-cosmic-indigo">{awayZodiac.rulerSymbol} {awayZodiac.ruler}</p>
-                </div>
-                <div className="text-center px-3">
-                  <div className={cn(
-                    "text-lg font-bold font-display",
-                    elementCompat.rating >= 80 ? "text-cosmic-green" : elementCompat.rating >= 60 ? "text-cosmic-gold" : "text-cosmic-red"
-                  )}>
-                    {elementCompat.rating}%
-                  </div>
-                  <p className="text-[10px] font-semibold text-foreground">{elementCompat.label}</p>
-                </div>
-                <div className="text-center flex-1">
-                  <span className="text-2xl">{homeZodiac.symbol}</span>
-                  <p className="text-xs font-semibold text-foreground mt-1">{homeZodiacSign}</p>
-                  <p className="text-[10px] text-muted-foreground">{homeZodiac.element} · {homeZodiac.quality}</p>
-                  <p className="text-[10px] text-cosmic-indigo">{homeZodiac.rulerSymbol} {homeZodiac.ruler}</p>
-                </div>
-              </div>
-              <div className="h-2 bg-border rounded-full overflow-hidden mb-2">
-                <div
+        {/* Tracked Props */}
+        <TrackedPropsWidget />
+
+        {activeTab === "odds" && (
+          <>
+            {/* Sub-tabs for odds */}
+            <div className="flex gap-3 overflow-x-auto no-scrollbar">
+              {([
+                { val: "gamelines" as const, label: "Gamelines" },
+                { val: "player_props" as const, label: "Player props" },
+                { val: "team_props" as const, label: "Team props" },
+                { val: "game_props" as const, label: "Game props" },
+              ]).map(t => (
+                <button
+                  key={t.val}
+                  onClick={() => setGameSubTab(t.val)}
                   className={cn(
-                    "h-full rounded-full transition-all",
-                    elementCompat.rating >= 80 ? "bg-cosmic-green" : elementCompat.rating >= 60 ? "bg-cosmic-gold" : "bg-cosmic-red"
+                    "text-sm font-semibold whitespace-nowrap transition-colors pb-1 border-b-2",
+                    gameSubTab === t.val
+                      ? "text-foreground border-foreground"
+                      : "text-muted-foreground border-transparent hover:text-foreground"
                   )}
-                  style={{ width: `${elementCompat.rating}%` }}
-                />
-              </div>
-              <p className="text-[10px] text-muted-foreground italic leading-relaxed">
-                ✦ {elementCompat.description}
-              </p>
+                >
+                  {t.label}
+                </button>
+              ))}
             </div>
-          </section>
+
+            {gameSubTab === "gamelines" && (
+              <>
+                {/* Markets */}
+                <section>
+                  <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-3">Markets</h3>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="cosmic-card rounded-xl p-3 text-center">
+                      <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Moneyline</span>
+                      <div className="mt-2 space-y-1">
+                        <p className="text-sm font-semibold tabular-nums">{formatOdds(game.odds.moneyline.away)}</p>
+                        <p className="text-sm font-semibold tabular-nums">{formatOdds(game.odds.moneyline.home)}</p>
+                      </div>
+                    </div>
+                    <div className="cosmic-card rounded-xl p-3 text-center">
+                      <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Spread</span>
+                      <div className="mt-2 space-y-1">
+                        <p className="text-sm font-semibold tabular-nums">{game.odds.spread.line ? `${game.odds.spread.line > 0 ? "+" : ""}${-game.odds.spread.line}` : "—"}</p>
+                        <p className="text-sm font-semibold tabular-nums">{game.odds.spread.line ? `${game.odds.spread.line > 0 ? "" : "+"}${game.odds.spread.line}` : "—"}</p>
+                      </div>
+                    </div>
+                    <div className="cosmic-card rounded-xl p-3 text-center">
+                      <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Total</span>
+                      <div className="mt-2 space-y-1">
+                        <p className="text-sm font-semibold tabular-nums">{game.odds.total.line ? `O ${game.odds.total.line}` : "—"}</p>
+                        <p className="text-sm font-semibold tabular-nums">{game.odds.total.line ? `U ${game.odds.total.line}` : "—"}</p>
+                      </div>
+                    </div>
+                  </div>
+                </section>
+
+                {/* Period Markets */}
+                <PeriodOddsSection gameId={game.id} league={game.league} />
+              </>
+            )}
+
+            {gameSubTab === "player_props" && (
+              <PlayerPropsSection gameId={game.id} />
+            )}
+
+            {(gameSubTab === "team_props" || gameSubTab === "game_props") && (
+              <div className="text-center py-8">
+                <p className="text-sm text-muted-foreground">Coming soon</p>
+              </div>
+            )}
+          </>
         )}
 
-        {/* Celestial Insights */}
-        <section className="space-y-3">
-          <h3 className="text-xs font-semibold text-primary uppercase tracking-widest flex items-center gap-1.5">
-            <Star className="h-3.5 w-3.5" />
-            Celestial Insights
-          </h3>
+        {activeTab === "insights" && (
+          <>
+            {/* Zodiac Matchup */}
+            {awayZodiac && homeZodiac && elementCompat && (
+              <section>
+                <h3 className="text-xs font-semibold text-primary uppercase tracking-widest mb-3 flex items-center gap-1.5">
+                  <Zap className="h-3.5 w-3.5" />
+                  Zodiac Matchup
+                </h3>
+                <div className="celestial-gradient rounded-xl p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="text-center flex-1">
+                      <span className="text-2xl">{awayZodiac.symbol}</span>
+                      <p className="text-xs font-semibold text-foreground mt-1">{awayZodiacSign}</p>
+                      <p className="text-[10px] text-muted-foreground">{awayZodiac.element} · {awayZodiac.quality}</p>
+                    </div>
+                    <div className="text-center px-3">
+                      <div className={cn(
+                        "text-lg font-bold font-display",
+                        elementCompat.rating >= 80 ? "text-cosmic-green" : elementCompat.rating >= 60 ? "text-cosmic-gold" : "text-cosmic-red"
+                      )}>
+                        {elementCompat.rating}%
+                      </div>
+                      <p className="text-[10px] font-semibold text-foreground">{elementCompat.label}</p>
+                    </div>
+                    <div className="text-center flex-1">
+                      <span className="text-2xl">{homeZodiac.symbol}</span>
+                      <p className="text-xs font-semibold text-foreground mt-1">{homeZodiacSign}</p>
+                      <p className="text-[10px] text-muted-foreground">{homeZodiac.element} · {homeZodiac.quality}</p>
+                    </div>
+                  </div>
+                  <div className="h-2 bg-border rounded-full overflow-hidden mb-2">
+                    <div
+                      className={cn(
+                        "h-full rounded-full transition-all",
+                        elementCompat.rating >= 80 ? "bg-cosmic-green" : elementCompat.rating >= 60 ? "bg-cosmic-gold" : "bg-cosmic-red"
+                      )}
+                      style={{ width: `${elementCompat.rating}%` }}
+                    />
+                  </div>
+                  <p className="text-[10px] text-muted-foreground italic leading-relaxed">
+                    ✦ {elementCompat.description}
+                  </p>
+                </div>
+              </section>
+            )}
 
-          <div className="cosmic-card rounded-xl p-4">
-            <div className="flex items-start gap-3">
-              <div className="p-2 rounded-lg bg-primary/10">
-                <Moon className="h-4 w-4 text-primary" />
-              </div>
-              <div>
-                <p className="text-xs font-semibold text-foreground mb-1">Horary Reading</p>
-                <p className="text-xs text-muted-foreground leading-relaxed">{getHoraryInsight(game)}</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="cosmic-card rounded-xl p-4">
-            <div className="flex items-start gap-3">
-              <div className="p-2 rounded-lg bg-accent/10">
-                <Orbit className="h-4 w-4 text-accent" />
-              </div>
-              <div>
-                <p className="text-xs font-semibold text-foreground mb-1">Astrocartography</p>
-                <p className="text-xs text-muted-foreground leading-relaxed">{getAstroCartographyNote(game.venue_lat ?? null, game.venue_lng ?? null)}</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="celestial-gradient rounded-xl p-3 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="text-lg">{zodiac.symbol}</span>
-              <p className="text-xs font-medium text-foreground">Sun in {zodiac.sign}</p>
-            </div>
-            <p className="text-[10px] text-muted-foreground">Current Season</p>
-          </div>
-        </section>
-
-        {/* Player Props */}
-        <PlayerPropsSection gameId={game.id} />
-
-        {/* PrizePicks-Style Player Cards */}
-        {(awayPlayers.length > 0 || homePlayers.length > 0) && (
-          <section>
-            <h3 className="text-xs font-semibold text-primary uppercase tracking-widest mb-3 flex items-center gap-1.5">
-              <Users className="h-3.5 w-3.5" />
-              Player Zodiac Map · Tap to expand
-            </h3>
-            <div className="grid grid-cols-2 gap-3">
-              {/* Away team */}
-              <div>
-                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">{game.away_abbr}</p>
-                <div className="space-y-1.5">
-                  {awayPlayers.slice(0, 12).map((p) => (
-                    <PlayerCard key={p.id} player={p} gameId={game.id} navigate={navigate} />
-                  ))}
+            {/* Celestial Insights */}
+            <section className="space-y-3">
+              <h3 className="text-xs font-semibold text-primary uppercase tracking-widest flex items-center gap-1.5">
+                <Star className="h-3.5 w-3.5" />
+                Celestial Insights
+              </h3>
+              <div className="cosmic-card rounded-xl p-4">
+                <div className="flex items-start gap-3">
+                  <div className="p-2 rounded-lg bg-primary/10">
+                    <Moon className="h-4 w-4 text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-foreground mb-1">Horary Reading</p>
+                    <p className="text-xs text-muted-foreground leading-relaxed">{getHoraryInsight(game)}</p>
+                  </div>
                 </div>
               </div>
-              {/* Home team */}
-              <div>
-                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">{game.home_abbr}</p>
-                <div className="space-y-1.5">
-                  {homePlayers.slice(0, 12).map((p) => (
-                    <PlayerCard key={p.id} player={p} gameId={game.id} navigate={navigate} />
-                  ))}
+              <div className="cosmic-card rounded-xl p-4">
+                <div className="flex items-start gap-3">
+                  <div className="p-2 rounded-lg bg-accent/10">
+                    <Orbit className="h-4 w-4 text-accent" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-foreground mb-1">Astrocartography</p>
+                    <p className="text-xs text-muted-foreground leading-relaxed">{getAstroCartographyNote(game.venue_lat ?? null, game.venue_lng ?? null)}</p>
+                  </div>
                 </div>
               </div>
-            </div>
-          </section>
+            </section>
+
+            {/* Horary Chart Analysis */}
+            <HoraryChartSection
+              gameId={game.id}
+              startTime={game.start_time}
+              venueLat={game.venue_lat ?? null}
+              venueLng={game.venue_lng ?? null}
+              homeAbbr={game.home_abbr}
+              awayAbbr={game.away_abbr}
+            />
+
+            {/* Game Chart Rulers */}
+            <GameChartRulers
+              startTime={game.start_time}
+              homeAbbr={game.home_abbr}
+              awayAbbr={game.away_abbr}
+              homeML={game.odds.moneyline.home}
+              awayML={game.odds.moneyline.away}
+              venueLat={game.venue_lat ?? null}
+            />
+
+            {/* Transit Scrubber */}
+            <TransitScrubber
+              startTime={game.start_time}
+              venueLat={game.venue_lat ?? null}
+              awayPlayers={awayPlayers}
+              homePlayers={homePlayers}
+              awayAbbr={game.away_abbr}
+              homeAbbr={game.home_abbr}
+            />
+
+            {/* Synastry */}
+            {awayPlayers.length > 0 && homePlayers.length > 0 && (
+              <SynastrySection
+                awayPlayers={awayPlayers}
+                homePlayers={homePlayers}
+                awayAbbr={game.away_abbr}
+                homeAbbr={game.home_abbr}
+              />
+            )}
+          </>
         )}
 
-        {/* Synastry · Key Matchups */}
-        {awayPlayers.length > 0 && homePlayers.length > 0 && (
-          <SynastrySection
-            awayPlayers={awayPlayers}
-            homePlayers={homePlayers}
-            awayAbbr={game.away_abbr}
-            homeAbbr={game.home_abbr}
-          />
+        {activeTab === "matchup" && (
+          <>
+            <GameMatchupTab
+              gameId={game.id}
+              homeAbbr={game.home_abbr}
+              awayAbbr={game.away_abbr}
+              homeTeam={game.home_team}
+              awayTeam={game.away_team}
+            />
+
+            {/* Player Cards */}
+            {(awayPlayers.length > 0 || homePlayers.length > 0) && (
+              <section>
+                <h3 className="text-xs font-semibold text-primary uppercase tracking-widest mb-3 flex items-center gap-1.5">
+                  <Users className="h-3.5 w-3.5" />
+                  Rosters
+                </h3>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">{game.away_abbr}</p>
+                    <div className="space-y-1.5">
+                      {awayPlayers.slice(0, 12).map((p) => (
+                        <PlayerCard key={p.id} player={p} gameId={game.id} navigate={navigate} />
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">{game.home_abbr}</p>
+                    <div className="space-y-1.5">
+                      {homePlayers.slice(0, 12).map((p) => (
+                        <PlayerCard key={p.id} player={p} gameId={game.id} navigate={navigate} />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </section>
+            )}
+          </>
         )}
-
-        {/* Horary Chart Analysis */}
-        <HoraryChartSection
-          gameId={game.id}
-          startTime={game.start_time}
-          venueLat={game.venue_lat ?? null}
-          venueLng={game.venue_lng ?? null}
-          homeAbbr={game.home_abbr}
-          awayAbbr={game.away_abbr}
-        />
-
-        {/* Game Chart Rulers */}
-        <GameChartRulers
-          startTime={game.start_time}
-          homeAbbr={game.home_abbr}
-          awayAbbr={game.away_abbr}
-          homeML={game.odds.moneyline.home}
-          awayML={game.odds.moneyline.away}
-          venueLat={game.venue_lat ?? null}
-        />
-
-        {/* Transit Scrubber */}
-        <TransitScrubber
-          startTime={game.start_time}
-          venueLat={game.venue_lat ?? null}
-          awayPlayers={awayPlayers}
-          homePlayers={homePlayers}
-          awayAbbr={game.away_abbr}
-          homeAbbr={game.home_abbr}
-        />
-
-        {/* Period Markets */}
-        <PeriodOddsSection gameId={game.id} league={game.league} />
-
-        {/* Markets */}
-        <section>
-          <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-3">Markets</h3>
-          <div className="grid grid-cols-3 gap-3">
-            <div className="cosmic-card rounded-xl p-3 text-center">
-              <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Moneyline</span>
-              <div className="mt-2 space-y-1">
-                <p className="text-sm font-semibold tabular-nums">{formatOdds(game.odds.moneyline.away)}</p>
-                <p className="text-sm font-semibold tabular-nums">{formatOdds(game.odds.moneyline.home)}</p>
-              </div>
-            </div>
-            <div className="cosmic-card rounded-xl p-3 text-center">
-              <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Spread</span>
-              <div className="mt-2 space-y-1">
-                <p className="text-sm font-semibold tabular-nums">{game.odds.spread.line ? `${game.odds.spread.line > 0 ? "+" : ""}${-game.odds.spread.line}` : "—"}</p>
-                <p className="text-sm font-semibold tabular-nums">{game.odds.spread.line ? `${game.odds.spread.line > 0 ? "" : "+"}${game.odds.spread.line}` : "—"}</p>
-              </div>
-            </div>
-            <div className="cosmic-card rounded-xl p-3 text-center">
-              <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Total</span>
-              <div className="mt-2 space-y-1">
-                <p className="text-sm font-semibold tabular-nums">{game.odds.total.line ? `O ${game.odds.total.line}` : "—"}</p>
-                <p className="text-sm font-semibold tabular-nums">{game.odds.total.line ? `U ${game.odds.total.line}` : "—"}</p>
-              </div>
-            </div>
-          </div>
-        </section>
       </div>
     </div>
   );
