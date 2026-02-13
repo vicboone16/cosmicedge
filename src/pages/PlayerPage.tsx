@@ -1,32 +1,101 @@
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Star, TrendingUp } from "lucide-react";
+import { ArrowLeft, Star, TrendingUp, Zap, Shield, Flame, ArrowUp, ArrowDown } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { cn } from "@/lib/utils";
 
-function getZodiacFromDate(dateStr: string): { sign: string; symbol: string } {
+function getZodiacFromDate(dateStr: string): { sign: string; symbol: string; element: string; quality: string } {
   const d = new Date(dateStr + "T12:00:00");
   const month = d.getMonth() + 1;
   const day = d.getDate();
-  const signs = [
-    { sign: "Capricorn", symbol: "♑", m1: 1, d1: 1, m2: 1, d2: 19 },
-    { sign: "Aquarius", symbol: "♒", m1: 1, d1: 20, m2: 2, d2: 18 },
-    { sign: "Pisces", symbol: "♓", m1: 2, d1: 19, m2: 3, d2: 20 },
-    { sign: "Aries", symbol: "♈", m1: 3, d1: 21, m2: 4, d2: 19 },
-    { sign: "Taurus", symbol: "♉", m1: 4, d1: 20, m2: 5, d2: 20 },
-    { sign: "Gemini", symbol: "♊", m1: 5, d1: 21, m2: 6, d2: 20 },
-    { sign: "Cancer", symbol: "♋", m1: 6, d1: 21, m2: 7, d2: 22 },
-    { sign: "Leo", symbol: "♌", m1: 7, d1: 23, m2: 8, d2: 22 },
-    { sign: "Virgo", symbol: "♍", m1: 8, d1: 23, m2: 9, d2: 22 },
-    { sign: "Libra", symbol: "♎", m1: 9, d1: 23, m2: 10, d2: 22 },
-    { sign: "Scorpio", symbol: "♏", m1: 10, d1: 23, m2: 11, d2: 21 },
-    { sign: "Sagittarius", symbol: "♐", m1: 11, d1: 22, m2: 12, d2: 21 },
-    { sign: "Capricorn", symbol: "♑", m1: 12, d1: 22, m2: 12, d2: 31 },
+  const signs: { sign: string; symbol: string; element: string; quality: string; m1: number; d1: number; m2: number; d2: number }[] = [
+    { sign: "Capricorn", symbol: "♑", element: "Earth", quality: "Cardinal", m1: 1, d1: 1, m2: 1, d2: 19 },
+    { sign: "Aquarius", symbol: "♒", element: "Air", quality: "Fixed", m1: 1, d1: 20, m2: 2, d2: 18 },
+    { sign: "Pisces", symbol: "♓", element: "Water", quality: "Mutable", m1: 2, d1: 19, m2: 3, d2: 20 },
+    { sign: "Aries", symbol: "♈", element: "Fire", quality: "Cardinal", m1: 3, d1: 21, m2: 4, d2: 19 },
+    { sign: "Taurus", symbol: "♉", element: "Earth", quality: "Fixed", m1: 4, d1: 20, m2: 5, d2: 20 },
+    { sign: "Gemini", symbol: "♊", element: "Air", quality: "Mutable", m1: 5, d1: 21, m2: 6, d2: 20 },
+    { sign: "Cancer", symbol: "♋", element: "Water", quality: "Cardinal", m1: 6, d1: 21, m2: 7, d2: 22 },
+    { sign: "Leo", symbol: "♌", element: "Fire", quality: "Fixed", m1: 7, d1: 23, m2: 8, d2: 22 },
+    { sign: "Virgo", symbol: "♍", element: "Earth", quality: "Mutable", m1: 8, d1: 23, m2: 9, d2: 22 },
+    { sign: "Libra", symbol: "♎", element: "Air", quality: "Cardinal", m1: 9, d1: 23, m2: 10, d2: 22 },
+    { sign: "Scorpio", symbol: "♏", element: "Water", quality: "Fixed", m1: 10, d1: 23, m2: 11, d2: 21 },
+    { sign: "Sagittarius", symbol: "♐", element: "Fire", quality: "Mutable", m1: 11, d1: 22, m2: 12, d2: 21 },
+    { sign: "Capricorn", symbol: "♑", element: "Earth", quality: "Cardinal", m1: 12, d1: 22, m2: 12, d2: 31 },
   ];
   for (const s of signs) {
     if ((month === s.m1 && day >= s.d1) || (month === s.m2 && day <= s.d2))
-      return { sign: s.sign, symbol: s.symbol };
+      return { sign: s.sign, symbol: s.symbol, element: s.element, quality: s.quality };
   }
-  return { sign: "Capricorn", symbol: "♑" };
+  return { sign: "Capricorn", symbol: "♑", element: "Earth", quality: "Cardinal" };
+}
+
+// Transit boosts/risks based on zodiac element + current transits
+function getTransitModifiers(element: string): { stat: string; modifier: number; reason: string; type: "boost" | "risk" }[] {
+  const now = new Date();
+  const marsRetro = now >= new Date("2025-12-06") && now <= new Date("2026-02-24");
+  const mercuryRetro = now >= new Date("2026-01-25") && now <= new Date("2026-02-15");
+
+  const mods: { stat: string; modifier: number; reason: string; type: "boost" | "risk" }[] = [];
+
+  // Mars retrograde affects physicality
+  if (marsRetro) {
+    if (element === "Fire") {
+      mods.push({ stat: "PTS", modifier: -8, reason: "Mars ℞ dampens Fire sign scoring energy", type: "risk" });
+      mods.push({ stat: "STL", modifier: -12, reason: "Aggressive instincts muted under Mars ℞", type: "risk" });
+    } else if (element === "Water") {
+      mods.push({ stat: "AST", modifier: +6, reason: "Water signs channel Mars ℞ into court vision", type: "boost" });
+    } else if (element === "Earth") {
+      mods.push({ stat: "REB", modifier: +5, reason: "Earth signs grind harder when Mars ℞ slows pace", type: "boost" });
+    }
+  }
+
+  // Mercury retrograde affects playmaking
+  if (mercuryRetro) {
+    if (element === "Air") {
+      mods.push({ stat: "TOV", modifier: +15, reason: "Mercury ℞ disrupts Air sign passing lanes", type: "risk" });
+      mods.push({ stat: "AST", modifier: -10, reason: "Miscommunication under Mercury ℞", type: "risk" });
+    } else if (element === "Earth") {
+      mods.push({ stat: "FG%", modifier: +4, reason: "Earth signs stay methodical despite Mercury ℞", type: "boost" });
+    }
+  }
+
+  // Sun in Aquarius boost for Air signs
+  if (element === "Air") {
+    mods.push({ stat: "3P%", modifier: +7, reason: "Sun in Aquarius empowers Air sign shooting", type: "boost" });
+  }
+
+  // Jupiter in Cancer boost for Water signs
+  if (element === "Water") {
+    mods.push({ stat: "PTS", modifier: +5, reason: "Jupiter in Cancer expands Water sign scoring", type: "boost" });
+  }
+
+  return mods;
+}
+
+function getPlayerProps(stats: any, element: string) {
+  if (!stats) return [];
+  const mods = getTransitModifiers(element);
+
+  const props = [
+    { stat: "PTS", baseline: stats.points_per_game, label: "Points" },
+    { stat: "REB", baseline: stats.rebounds_per_game, label: "Rebounds" },
+    { stat: "AST", baseline: stats.assists_per_game, label: "Assists" },
+    { stat: "STL", baseline: stats.steals_per_game, label: "Steals" },
+    { stat: "BLK", baseline: stats.blocks_per_game, label: "Blocks" },
+    { stat: "3P%", baseline: stats.three_pct ? stats.three_pct * 100 : null, label: "3PT %" },
+  ].filter(p => p.baseline != null);
+
+  return props.map(p => {
+    const mod = mods.find(m => m.stat === p.stat);
+    const adjustedPct = mod ? mod.modifier : 0;
+    const projected = p.baseline * (1 + adjustedPct / 100);
+    return {
+      ...p,
+      projected: Math.round(projected * 10) / 10,
+      modifier: mod,
+    };
+  });
 }
 
 const PlayerPage = () => {
@@ -64,7 +133,7 @@ const PlayerPage = () => {
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <p className="text-muted-foreground text-sm">Loading player...</p>
+        <p className="text-muted-foreground text-sm">Consulting the natal chart...</p>
       </div>
     );
   }
@@ -78,6 +147,8 @@ const PlayerPage = () => {
   }
 
   const zodiac = player.birth_date ? getZodiacFromDate(player.birth_date) : null;
+  const props = zodiac && seasonStats ? getPlayerProps(seasonStats, zodiac.element) : [];
+  const transitMods = zodiac ? getTransitModifiers(zodiac.element) : [];
 
   return (
     <div className="min-h-screen">
@@ -99,8 +170,8 @@ const PlayerPage = () => {
         </div>
       </header>
 
-      <div className="px-4 py-4 space-y-4">
-        {/* Astro Profile */}
+      <div className="px-4 py-4 space-y-5">
+        {/* Natal Profile */}
         {zodiac && (
           <section>
             <h3 className="text-xs font-semibold text-primary uppercase tracking-widest mb-3 flex items-center gap-1.5">
@@ -113,15 +184,102 @@ const PlayerPage = () => {
                 <div>
                   <p className="text-sm font-semibold text-foreground">Sun in {zodiac.sign}</p>
                   <p className="text-[10px] text-muted-foreground">
-                    Born {player.birth_date} {player.birth_place ? `· ${player.birth_place}` : ""}
+                    {zodiac.element} · {zodiac.quality} · Born {player.birth_date} {player.birth_place ? `· ${player.birth_place}` : ""}
                   </p>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <span className="astro-badge rounded-full px-2 py-0.5 text-[10px] font-medium text-cosmic-indigo">
                   {player.natal_data_quality === "exact" ? "Exact Birth Time" : "Noon Projection"}
                 </span>
+                <span className="astro-badge rounded-full px-2 py-0.5 text-[10px] font-medium text-cosmic-indigo">
+                  {zodiac.element} Element
+                </span>
               </div>
+            </div>
+          </section>
+        )}
+
+        {/* Active Transit Effects */}
+        {transitMods.length > 0 && (
+          <section>
+            <h3 className="text-xs font-semibold text-primary uppercase tracking-widest mb-3 flex items-center gap-1.5">
+              <Zap className="h-3.5 w-3.5" />
+              Active Transit Effects
+            </h3>
+            <div className="space-y-2">
+              {transitMods.map((mod, i) => (
+                <div key={i} className={cn(
+                  "cosmic-card rounded-xl p-3 flex items-start gap-3",
+                  mod.type === "boost" ? "border-l-2 border-l-cosmic-green" : "border-l-2 border-l-cosmic-red"
+                )}>
+                  <div className={cn(
+                    "p-1.5 rounded-lg mt-0.5",
+                    mod.type === "boost" ? "bg-cosmic-green/10" : "bg-cosmic-red/10"
+                  )}>
+                    {mod.type === "boost" ? (
+                      <ArrowUp className="h-3.5 w-3.5 text-cosmic-green" />
+                    ) : (
+                      <ArrowDown className="h-3.5 w-3.5 text-cosmic-red" />
+                    )}
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-semibold text-foreground">{mod.stat}</span>
+                      <span className={cn(
+                        "text-[10px] font-bold",
+                        mod.type === "boost" ? "text-cosmic-green" : "text-cosmic-red"
+                      )}>
+                        {mod.modifier > 0 ? "+" : ""}{mod.modifier}%
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">{mod.reason}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Player Props with Astro Projections */}
+        {props.length > 0 && (
+          <section>
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-3 flex items-center gap-1.5">
+              <Flame className="h-3.5 w-3.5 text-cosmic-gold" />
+              Projected Props · Transit-Adjusted
+            </h3>
+            <div className="space-y-2">
+              {props.map(({ stat, label, baseline, projected, modifier }) => (
+                <div key={stat} className="cosmic-card rounded-xl p-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs font-semibold text-foreground">{label}</p>
+                      <p className="text-[10px] text-muted-foreground">Season avg: {baseline}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-lg font-bold font-display tabular-nums text-foreground">{projected}</p>
+                      {modifier && (
+                        <span className={cn(
+                          "text-[10px] font-semibold",
+                          modifier.type === "boost" ? "text-cosmic-green" : "text-cosmic-red"
+                        )}>
+                          {modifier.type === "boost" ? "↑" : "↓"} {modifier.reason.split(" ").slice(0, 3).join(" ")}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  {/* Visual bar */}
+                  <div className="mt-2 h-1.5 bg-border rounded-full overflow-hidden">
+                    <div
+                      className={cn(
+                        "h-full rounded-full transition-all",
+                        modifier?.type === "boost" ? "bg-cosmic-green" : modifier?.type === "risk" ? "bg-cosmic-red" : "bg-primary"
+                      )}
+                      style={{ width: `${Math.min((projected / (baseline * 1.5)) * 100, 100)}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
             </div>
           </section>
         )}

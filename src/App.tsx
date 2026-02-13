@@ -8,6 +8,7 @@ import Index from "./pages/Index";
 import GameDetail from "./pages/GameDetail";
 import TeamPage from "./pages/TeamPage";
 import PlayerPage from "./pages/PlayerPage";
+import TransitsPage from "./pages/TransitsPage";
 import Results from "./pages/Results";
 import Analytics from "./pages/Analytics";
 import SettingsPage from "./pages/SettingsPage";
@@ -27,6 +28,7 @@ const App = () => (
             <Route path="/game/:id" element={<GameDetail />} />
             <Route path="/team/:abbr" element={<TeamPage />} />
             <Route path="/player/:id" element={<PlayerPage />} />
+            <Route path="/transits" element={<TransitsPage />} />
             <Route path="/results" element={<Results />} />
             <Route path="/analytics" element={<Analytics />} />
             <Route path="/settings" element={<SettingsPage />} />

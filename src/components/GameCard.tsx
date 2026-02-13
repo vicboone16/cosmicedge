@@ -8,7 +8,6 @@ function formatOdds(odds: number): string {
   return odds > 0 ? `+${odds}` : `${odds}`;
 }
 
-// Elemental energy based on game time
 function getElementalTag(startTime: string): { label: string; color: string } {
   const hour = new Date(startTime).getHours();
   if (hour < 14) return { label: "☉ Solar", color: "text-cosmic-gold" };
@@ -17,7 +16,6 @@ function getElementalTag(startTime: string): { label: string; color: string } {
   return { label: "♄ Saturnian", color: "text-cosmic-indigo" };
 }
 
-// Quick horary snippet
 function getQuickHorary(game: GameWithOdds): string {
   const hour = new Date(game.start_time).getHours();
   if (hour < 14) return "Day chart — Sun favors home team energy";
@@ -31,6 +29,11 @@ export function GameCard({ game }: { game: GameWithOdds }) {
   const isLive = game.status === "live";
   const isFinal = game.status === "final";
   const elemental = getElementalTag(game.start_time);
+
+  const handleTeamClick = (e: React.MouseEvent, abbr: string) => {
+    e.stopPropagation();
+    navigate(`/team/${abbr}`);
+  };
 
   return (
     <button
@@ -64,7 +67,12 @@ export function GameCard({ game }: { game: GameWithOdds }) {
       <div className="space-y-2">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <span className="text-xs font-bold text-muted-foreground w-8">{game.away_abbr}</span>
+            <span
+              onClick={(e) => handleTeamClick(e, game.away_abbr)}
+              className="text-xs font-bold text-primary w-8 hover:underline cursor-pointer"
+            >
+              {game.away_abbr}
+            </span>
             <span className={cn("text-sm font-medium", isFinal && (game.away_score ?? 0) > (game.home_score ?? 0) && "text-foreground", isFinal && (game.away_score ?? 0) <= (game.home_score ?? 0) && "text-muted-foreground")}>
               {game.away_team}
             </span>
@@ -83,7 +91,12 @@ export function GameCard({ game }: { game: GameWithOdds }) {
 
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <span className="text-xs font-bold text-muted-foreground w-8">{game.home_abbr}</span>
+            <span
+              onClick={(e) => handleTeamClick(e, game.home_abbr)}
+              className="text-xs font-bold text-primary w-8 hover:underline cursor-pointer"
+            >
+              {game.home_abbr}
+            </span>
             <span className={cn("text-sm font-medium", isFinal && (game.home_score ?? 0) > (game.away_score ?? 0) && "text-foreground", isFinal && (game.home_score ?? 0) <= (game.away_score ?? 0) && "text-muted-foreground")}>
               {game.home_team}
             </span>
@@ -103,11 +116,9 @@ export function GameCard({ game }: { game: GameWithOdds }) {
 
       {/* Astro + Spread & Total */}
       <div className="mt-3 pt-3 border-t border-border/50 space-y-2">
-        {/* Horary snippet */}
         <p className="text-[10px] text-cosmic-indigo italic leading-relaxed">
           ✦ {getQuickHorary(game)}
         </p>
-
         <div className="flex items-center gap-3">
           <div className="flex-1 text-center">
             <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Spread</span>
