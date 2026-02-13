@@ -18,20 +18,32 @@ function formatPrice(p: number | null): string {
   return p > 0 ? `+${p}` : `${p}`;
 }
 
-// Season definitions
-const SEASONS = [
-  { label: "2024-25", start: new Date(2024, 9, 1), end: new Date(2025, 6, 30) },
-  { label: "2025-26", start: new Date(2025, 9, 1), end: new Date(2026, 6, 30) },
-];
+// League-specific season definitions (month is 0-indexed)
+const LEAGUE_SEASONS: Record<string, { label: string; start: Date; end: Date }[]> = {
+  NBA: [
+    { label: "2024-25", start: new Date(2024, 9, 22), end: new Date(2025, 5, 30) },  // Oct 22 – Jun 30
+    { label: "2025-26", start: new Date(2025, 9, 21), end: new Date(2026, 5, 30) },
+  ],
+  NHL: [
+    { label: "2024-25", start: new Date(2024, 9, 4), end: new Date(2025, 5, 30) },   // Oct 4 – Jun 30
+    { label: "2025-26", start: new Date(2025, 9, 7), end: new Date(2026, 5, 30) },
+  ],
+  MLB: [
+    { label: "2024", start: new Date(2024, 2, 20), end: new Date(2024, 10, 5) },     // Mar 20 – Nov 5
+    { label: "2025", start: new Date(2025, 2, 27), end: new Date(2025, 10, 5) },
+  ],
+  NFL: [
+    { label: "2024-25", start: new Date(2024, 8, 5), end: new Date(2025, 1, 15) },   // Sep 5 – Feb 15
+    { label: "2025-26", start: new Date(2025, 8, 4), end: new Date(2026, 1, 15) },
+  ],
+};
 
-function getCurrentSeason(): typeof SEASONS[number] {
-  const now = new Date();
-  return SEASONS.find(s => now >= s.start && now <= s.end) || SEASONS[SEASONS.length - 1];
+function getSeasonsForLeague(lg: string) {
+  return LEAGUE_SEASONS[lg] || LEAGUE_SEASONS.NBA;
 }
 
 export default function HistoricalPage() {
   const [league, setLeague] = useState("NBA");
-  const [season, setSeason] = useState(getCurrentSeason().label);
   const [selectedDate, setSelectedDate] = useState(subDays(new Date(), 1));
   const [selectedGameId, setSelectedGameId] = useState<string | null>(null);
   const [marketType, setMarketType] = useState("moneyline");
@@ -209,15 +221,18 @@ export default function HistoricalPage() {
           </button>
         </div>
 
-        {/* Season selector */}
+        {/* Season selector (league-aware) */}
         <div className="flex items-center gap-2 mb-2">
           <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Season:</span>
-          {SEASONS.map(s => (
-            <button key={s.label} onClick={() => { setSeason(s.label); setSelectedDate(s.start); setSelectedGameId(null); }}
-              className={`px-2.5 py-1 rounded-full text-[10px] font-semibold transition-colors ${
-                season === s.label ? "bg-primary text-primary-foreground" : "bg-secondary/60 text-muted-foreground hover:bg-secondary"
-              }`}>{s.label}</button>
-          ))}
+          {getSeasonsForLeague(league).map(s => {
+            const isActive = selectedDate >= s.start && selectedDate <= s.end;
+            return (
+              <button key={s.label} onClick={() => { setSelectedDate(s.start); setSelectedGameId(null); }}
+                className={`px-2.5 py-1 rounded-full text-[10px] font-semibold transition-colors ${
+                  isActive ? "bg-primary text-primary-foreground" : "bg-secondary/60 text-muted-foreground hover:bg-secondary"
+                }`}>{s.label}</button>
+            );
+          })}
         </div>
 
         {/* Date nav */}
@@ -239,7 +254,14 @@ export default function HistoricalPage() {
         {/* League chips */}
         <div className="flex gap-1.5">
           {["NBA", "NHL", "MLB", "NFL"].map((lg) => (
-            <button key={lg} onClick={() => { setLeague(lg); setSelectedGameId(null); }}
+            <button key={lg} onClick={() => {
+              setLeague(lg);
+              setSelectedGameId(null);
+              // Jump to the matching season start for the new league
+              const seasons = getSeasonsForLeague(lg);
+              const current = seasons.find(s => selectedDate >= s.start && selectedDate <= s.end);
+              if (!current) setSelectedDate(seasons[0].start);
+            }}
               className={`px-3 py-1 rounded-full text-[11px] font-semibold transition-colors ${
                 league === lg ? "bg-primary text-primary-foreground" : "bg-secondary/60 text-muted-foreground hover:bg-secondary hover:text-foreground"
               }`}>{lg}</button>
