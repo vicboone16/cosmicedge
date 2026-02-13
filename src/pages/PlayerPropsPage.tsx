@@ -97,6 +97,7 @@ export default function PlayerPropsPage() {
       return (data || []) as PropRow[];
     },
     enabled: gameIds.length > 0,
+    refetchInterval: 60_000,
   });
 
   const handleRefreshAll = async () => {
