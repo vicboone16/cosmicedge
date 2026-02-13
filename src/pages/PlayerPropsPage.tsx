@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { TrendingUp, TrendingDown, RefreshCw, ArrowUpDown, Search, ChevronLeft, ChevronRight } from "lucide-react";
+import { TrendingUp, TrendingDown, RefreshCw, ArrowUpDown, Search, ChevronLeft, ChevronRight, ToggleLeft, ToggleRight } from "lucide-react";
 import { format, addDays, isToday } from "date-fns";
 import { Input } from "@/components/ui/input";
 import {
@@ -55,6 +55,7 @@ export default function PlayerPropsPage() {
   const [sortKey, setSortKey] = useState<SortKey>("player");
   const [sortAsc, setSortAsc] = useState(true);
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const [includeAlternates, setIncludeAlternates] = useState(false);
 
   const canGoForward = selectedDate < addDays(new Date(), 7);
   const goBack = () => setSelectedDate((d) => addDays(d, -1));
@@ -109,7 +110,7 @@ export default function PlayerPropsPage() {
       await Promise.allSettled(
         leagues.map((league) =>
           fetch(
-            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/fetch-player-props?league=${league}`,
+            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/fetch-player-props?league=${league}${includeAlternates ? "&alternates=true" : ""}`,
             {
               method: "POST",
               headers: {
@@ -212,6 +213,17 @@ export default function PlayerPropsPage() {
             {isFetching ? "Fetching..." : "Refresh All"}
           </button>
         </div>
+
+        {/* Alternates toggle */}
+        <button
+          onClick={() => setIncludeAlternates(!includeAlternates)}
+          className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors mb-2"
+        >
+          {includeAlternates ? <ToggleRight className="h-4 w-4 text-primary" /> : <ToggleLeft className="h-4 w-4" />}
+          <span className={includeAlternates ? "text-primary font-medium" : ""}>
+            {includeAlternates ? "Alternates ON" : "Include Alternates"}
+          </span>
+        </button>
 
         {/* Date nav */}
         <div className="flex items-center gap-2 mb-3">
