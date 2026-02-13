@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import type { Tables } from "@/integrations/supabase/types";
+import CreateBetForm from "@/components/skyspread/CreateBetForm";
 
 type BetRow = Tables<"bets">;
 
@@ -114,8 +115,13 @@ const SkySpreadPage = () => {
   return (
     <div className="min-h-screen">
       <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-xl border-b border-border/50 px-4 pt-12 pb-3">
-        <h1 className="text-xl font-bold font-display">SkySpread</h1>
-        <p className="text-xs text-muted-foreground">Where the line meets the sky.</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-xl font-bold font-display">SkySpread</h1>
+            <p className="text-xs text-muted-foreground">Where the line meets the sky.</p>
+          </div>
+          <CreateBetForm userId={userId} />
+        </div>
 
         {/* Filters */}
         <div className="flex items-center gap-2 mt-3 overflow-x-auto no-scrollbar">
