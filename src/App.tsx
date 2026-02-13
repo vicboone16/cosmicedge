@@ -20,6 +20,7 @@ import PlayerPropsPage from "./pages/PlayerPropsPage";
 import TrendsPage from "./pages/TrendsPage";
 import HistoricalPage from "./pages/HistoricalPage";
 import CLVCalculatorPage from "./pages/CLVCalculatorPage";
+import AstraPage from "./pages/AstraPage";
 import AuthPage from "./pages/AuthPage";
 import NotFound from "./pages/NotFound";
 
@@ -49,6 +50,7 @@ const App = () => (
               <Route path="/props" element={<PlayerPropsPage />} />
               <Route path="/historical" element={<HistoricalPage />} />
               <Route path="/clv" element={<CLVCalculatorPage />} />
+              <Route path="/astra" element={<AstraPage />} />
             </Route>
             <Route path="/auth" element={<AuthPage />} />
             <Route path="*" element={<NotFound />} />
