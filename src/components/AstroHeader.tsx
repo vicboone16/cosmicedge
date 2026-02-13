@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Orbit } from "lucide-react";
-import { useCurrentEphemeris } from "@/hooks/use-astro";
+import { useCurrentEphemeris, useRisingSign } from "@/hooks/use-astro";
 
 // ── Moon Phase Calculator ──
 function getMoonPhase(forDate?: Date): { name: string; emoji: string; dayInCycle: number; advice: string } {
@@ -133,6 +133,7 @@ export function AstroHeader({ date }: { date?: Date } = {}) {
   const [tick, setTick] = useState(0);
   const forDate = date || new Date();
   const { data: liveEphemeris } = useCurrentEphemeris(forDate);
+  const { data: liveRising } = useRisingSign(forDate);
 
   useEffect(() => {
     const interval = setInterval(() => setTick((t) => t + 1), 30 * 60 * 1000);
@@ -142,7 +143,14 @@ export function AstroHeader({ date }: { date?: Date } = {}) {
   const moon = getMoonPhase(forDate);
   const retrogrades = getRetrogradePlanets(forDate);
   const energy = getDailyEnergy(forDate);
-  const rising = getRisingSign(forDate);
+  const risingFallback = getRisingSign(forDate);
+  const signSymbols: Record<string, string> = {
+    Aries: "♈", Taurus: "♉", Gemini: "♊", Cancer: "♋", Leo: "♌", Virgo: "♍",
+    Libra: "♎", Scorpio: "♏", Sagittarius: "♐", Capricorn: "♑", Aquarius: "♒", Pisces: "♓",
+  };
+  const rising = liveRising
+    ? { sign: liveRising.sign, symbol: signSymbols[liveRising.sign] || "⬆" }
+    : risingFallback;
 
   // Use live ephemeris if available, otherwise fall back to approximation
   const planets = liveEphemeris

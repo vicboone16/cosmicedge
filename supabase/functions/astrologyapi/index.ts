@@ -385,7 +385,31 @@ Deno.serve(async (req) => {
     }
 
     // ══════════════════════════════════════════
-    // MODE: house_cusps — house cusp positions
+    // MODE: transit_houses — house cusps for a transit date/time/location (no entity needed)
+    // Used for computing the current Ascendant / Rising sign
+    // ══════════════════════════════════════════
+    if (mode === "transit_houses") {
+      const tp = parseTimeParts(url.searchParams.get("transit_time") || new Date().toISOString().slice(11, 16));
+      const dp = parseDateParts(transitDate);
+      const lat = locationLat || 40.7128;
+      const lng = locationLng || -74.006;
+      result = await apiCall("/data/house-cusps", apiKey, {
+        subject: {
+          name: "Transit Rising",
+          birth_data: { ...dp, ...tp, latitude: lat, longitude: lng },
+        },
+        options: { house_system: url.searchParams.get("house_system") || "P", zodiac_type: "Tropic", active_points: TRADITIONAL_POINTS, precision: 2 },
+      });
+      const cacheId = entityId || `transit_houses_${transitDate}_${lat}_${lng}`;
+      await cacheResult(cacheId, "transit", "transit_houses", result, 2 * 60 * 60 * 1000);
+      return new Response(
+        JSON.stringify({ success: true, cached: false, provider: "astrology-api", result }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // ══════════════════════════════════════════
+    // MODE: house_cusps — house cusp positions (natal, requires entity)
     // ══════════════════════════════════════════
     if (mode === "house_cusps") {
       if (!entityId) throw new Error("entity_id required");

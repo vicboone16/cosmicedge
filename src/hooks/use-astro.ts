@@ -191,33 +191,51 @@ export function useCurrentEphemeris(forDate?: Date) {
   });
 }
 
+// ── Sign abbreviation mapping ──
+const SIGN_ABBREV: Record<string, string> = {
+  Ari: "Aries", Tau: "Taurus", Gem: "Gemini", Can: "Cancer", Leo: "Leo", Vir: "Virgo",
+  Lib: "Libra", Sco: "Scorpio", Sag: "Sagittarius", Cap: "Capricorn", Aqu: "Aquarius", Pis: "Pisces",
+  Aries: "Aries", Taurus: "Taurus", Gemini: "Gemini", Cancer: "Cancer", Virgo: "Virgo",
+  Libra: "Libra", Scorpio: "Scorpio", Sagittarius: "Sagittarius", Capricorn: "Capricorn", Aquarius: "Aquarius", Pisces: "Pisces",
+};
+
+function normalizeSign(s: string): string {
+  return SIGN_ABBREV[s] || s;
+}
+
 // ── Extract from astrology-api global-positions response ──
 function extractFromGlobalPositions(result: any): PlanetPosition[] | null {
   if (!result) return null;
 
-  // The API returns positions keyed by planet name or as an array
+  // Handle the v3 API nested structure: { success, data: { positions: [...] } }
+  if (result?.data?.positions && Array.isArray(result.data.positions)) {
+    return result.data.positions.map((p: any) => ({
+      planet: p.name || p.planet || p.point,
+      sign: normalizeSign(p.sign || p.zodiac_sign || ""),
+      degree: Math.floor(p.degree ?? p.sign_degree ?? (p.absolute_longitude != null ? p.absolute_longitude % 30 : 0)),
+      retrograde: p.is_retrograde ?? p.retrograde ?? false,
+    })).filter((p: PlanetPosition) => p.sign);
+  }
+
   if (Array.isArray(result)) {
     return result.map((p: any) => ({
       planet: p.name || p.planet || p.point,
-      sign: p.sign || p.zodiac_sign || "",
+      sign: normalizeSign(p.sign || p.zodiac_sign || ""),
       degree: Math.floor(p.degree ?? p.sign_degree ?? (p.longitude != null ? p.longitude % 30 : 0)),
       retrograde: p.retrograde ?? p.is_retrograde ?? false,
     })).filter((p: PlanetPosition) => p.sign);
   }
 
-  // Object keyed by planet name
   if (typeof result === "object" && !Array.isArray(result)) {
-    // Check for nested positions key
     const positions = result.positions || result.planets || result.data || result;
     if (Array.isArray(positions)) {
       return extractFromGlobalPositions(positions);
     }
-    // Object like { Sun: { sign: "Aquarius", degree: 24 }, ... }
     const entries = Object.entries(positions);
     if (entries.length > 0 && typeof entries[0][1] === "object") {
       return entries.map(([name, data]: [string, any]) => ({
         planet: name,
-        sign: data.sign || data.zodiac_sign || "",
+        sign: normalizeSign(data.sign || data.zodiac_sign || ""),
         degree: Math.floor(data.degree ?? data.sign_degree ?? (data.longitude != null ? data.longitude % 30 : 0)),
         retrograde: data.retrograde ?? data.is_retrograde ?? false,
       })).filter((p: PlanetPosition) => p.sign);
@@ -242,6 +260,74 @@ function extractPlanetaryPositions(transit: TransitResult): PlanetPosition[] | n
     }
   }
   return null;
+}
+
+// ── Fetch rising sign (Ascendant) for a date/time/location ──
+export function useRisingSign(forDate?: Date, lat?: number, lng?: number) {
+  const dateStr = (forDate || new Date()).toISOString().slice(0, 10);
+  const now = forDate || new Date();
+  const timeStr = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+
+  return useQuery({
+    queryKey: ["rising-sign", dateStr, timeStr, lat, lng],
+    queryFn: async () => {
+      // Check cache
+      const cacheId = `transit_houses_${dateStr}_${lat || 40.7128}_${lng || -74.006}`;
+      const { data: cached } = await supabase
+        .from("astro_calculations")
+        .select("result")
+        .eq("entity_id", cacheId)
+        .eq("calc_type", "aapi_transit_houses")
+        .eq("calc_date", dateStr)
+        .gt("expires_at", new Date().toISOString())
+        .maybeSingle();
+
+      const result = cached?.result || await (async () => {
+        try {
+          const params = new URLSearchParams({
+            mode: "transit_houses",
+            transit_date: dateStr,
+            transit_time: timeStr,
+            ...(lat ? { lat: String(lat) } : {}),
+            ...(lng ? { lng: String(lng) } : {}),
+          });
+          const resp = await fetch(
+            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/astrologyapi?${params}`,
+            {
+              headers: {
+                Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+                apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+              },
+            }
+          );
+          if (!resp.ok) return null;
+          const json = await resp.json();
+          return json?.result || null;
+        } catch {
+          return null;
+        }
+      })();
+
+      if (!result) return null;
+
+      // Extract Ascendant from house cusps result
+      // API may return houses as array or object
+      const houses = result?.houses || result?.cusps || result?.data?.houses;
+      if (Array.isArray(houses)) {
+        const h1 = houses.find((h: any) => h.house === 1 || h.number === 1 || h.cusp === 1);
+        if (h1) return { sign: h1.sign || h1.zodiac_sign || "", degree: Math.floor(h1.degree ?? h1.sign_degree ?? 0) };
+      }
+      // Check for direct ascendant field
+      if (result?.ascendant || result?.Ascendant) {
+        const asc = result.ascendant || result.Ascendant;
+        if (typeof asc === "object") return { sign: asc.sign || asc.zodiac_sign || "", degree: Math.floor(asc.degree ?? asc.sign_degree ?? 0) };
+        if (typeof asc === "string") return { sign: asc, degree: 0 };
+      }
+      return null;
+    },
+    staleTime: 30 * 60 * 1000,
+    retry: 1,
+  });
 }
 
 // ── Types ──
@@ -279,7 +365,7 @@ export interface TransitResult {
 export interface AspectData {
   planet1: string;
   planet2: string;
-  aspect: string; // conjunction, opposition, trine, square, sextile
+  aspect: string;
   orb?: number;
   applying?: boolean;
 }
