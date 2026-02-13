@@ -2,6 +2,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Users, TrendingUp } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 
 const TeamPage = () => {
   const { abbr } = useParams();
@@ -96,9 +97,15 @@ const TeamPage = () => {
                 <button
                   key={p.id}
                   onClick={() => navigate(`/player/${p.id}`)}
-                  className="w-full cosmic-card rounded-xl p-3 flex items-center justify-between hover:border-primary/30 transition-colors text-left"
+                  className="w-full cosmic-card rounded-xl p-3 flex items-center gap-3 hover:border-primary/30 transition-colors text-left"
                 >
-                  <div>
+                  <Avatar className="h-9 w-9 shrink-0">
+                    {p.headshot_url && <AvatarImage src={p.headshot_url} alt={p.name} />}
+                    <AvatarFallback className="text-[10px] bg-secondary">
+                      {p.name.slice(0, 2).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-foreground">{p.name}</p>
                     <p className="text-[10px] text-muted-foreground">{p.position || "—"}</p>
                   </div>

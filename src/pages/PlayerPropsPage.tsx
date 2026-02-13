@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { TrendingUp, TrendingDown, RefreshCw, ArrowUpDown, Search, ChevronLeft, ChevronRight, ToggleLeft, ToggleRight, Flame, Users, User, X } from "lucide-react";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { format, addDays, isToday } from "date-fns";
 import { Input } from "@/components/ui/input";
 import {
@@ -70,7 +71,7 @@ function EntitySearch({ navigate }: { navigate: (path: string) => void }) {
       if (query.length < 2) return [];
       const { data } = await supabase
         .from("players")
-        .select("id, name, team, position, league")
+        .select("id, name, team, position, league, headshot_url")
         .ilike("name", `%${query}%`)
         .order("name")
         .limit(10);
@@ -133,9 +134,13 @@ function EntitySearch({ navigate }: { navigate: (path: string) => void }) {
                 <button
                   key={p.id}
                   onClick={() => { navigate(`/player/${p.id}`); setOpen(false); setQuery(""); }}
-                  className="w-full text-left px-3 py-2 hover:bg-secondary/60 transition-colors flex items-center justify-between"
+                  className="w-full text-left px-3 py-2 hover:bg-secondary/60 transition-colors flex items-center gap-2"
                 >
-                  <div>
+                  <Avatar className="h-7 w-7 shrink-0">
+                    {p.headshot_url && <AvatarImage src={p.headshot_url} alt={p.name} />}
+                    <AvatarFallback className="text-[9px] bg-secondary">{p.name.slice(0, 2).toUpperCase()}</AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 min-w-0">
                     <p className="text-xs font-semibold text-foreground">{p.name}</p>
                     <p className="text-[10px] text-muted-foreground">{p.position || "—"} · {p.team || "—"}</p>
                   </div>

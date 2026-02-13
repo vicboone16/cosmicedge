@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { ArrowLeft, Star, TrendingUp, Zap, Shield, Flame, ArrowUp, ArrowDown, BarChart3, Users } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -219,13 +220,23 @@ const PlayerPage = () => {
           <ArrowLeft className="h-4 w-4" />
           <span className="text-sm">Back</span>
         </button>
-        <h1 className="text-xl font-bold font-display">{player.name}</h1>
-        <div className="flex items-center gap-2 mt-1">
-          <span className="text-xs text-muted-foreground">{player.position || "—"}</span>
-          <span className="text-xs text-muted-foreground">·</span>
-          <button onClick={() => navigate(`/team/${player.team}`)} className="text-xs text-primary hover:underline">
-            {player.team}
-          </button>
+        <div className="flex items-center gap-3">
+          <Avatar className="h-14 w-14">
+            {player.headshot_url && <AvatarImage src={player.headshot_url} alt={player.name} />}
+            <AvatarFallback className="text-lg bg-secondary">
+              {zodiac ? zodiac.symbol : player.name.slice(0, 2).toUpperCase()}
+            </AvatarFallback>
+          </Avatar>
+          <div>
+            <h1 className="text-xl font-bold font-display">{player.name}</h1>
+            <div className="flex items-center gap-2 mt-1">
+              <span className="text-xs text-muted-foreground">{player.position || "—"}</span>
+              <span className="text-xs text-muted-foreground">·</span>
+              <button onClick={() => navigate(`/team/${player.team}`)} className="text-xs text-primary hover:underline">
+                {player.team}
+              </button>
+            </div>
+          </div>
         </div>
         <div className="mt-3 flex gap-2">
           <button
