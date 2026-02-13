@@ -98,7 +98,7 @@ async function fetchFromTheOddsAPI(apiKey: string, leagues: string[]): Promise<{
     const sportKey = THE_ODDS_SPORT_KEYS[league];
     if (!sportKey) continue;
 
-    const url = `${THE_ODDS_API_BASE}/sports/${sportKey}/odds/?apiKey=${apiKey}&regions=us&markets=h2h,spreads,totals&oddsFormat=american`;
+    const url = `${THE_ODDS_API_BASE}/sports/${sportKey}/odds/?apiKey=${apiKey}&regions=us&markets=h2h,spreads,totals,team_totals,alternate_spreads,alternate_totals&oddsFormat=american`;
     const resp = await fetch(url);
     remaining = resp.headers.get("x-requests-remaining");
 
@@ -136,6 +136,38 @@ async function fetchFromTheOddsAPI(apiKey: string, leagues: string[]): Promise<{
             if (overOut && !totalLine) { totalLine = overOut.point; totalOver = overOut.price; }
             if (underOut) totalUnder = underOut.price;
             snapshots.push({ bookmaker: bk.key, market_type: "total", home_price: overOut?.price, away_price: underOut?.price, line: overOut?.point || null });
+          }
+          // Additional base-tier markets
+          if (market.key === "team_totals") {
+            for (const out of market.outcomes || []) {
+              const isOver = out.name === "Over";
+              const teamSide = out.description === event.home_team ? "home" : "away";
+              snapshots.push({
+                bookmaker: bk.key,
+                market_type: `team_total_${teamSide}`,
+                home_price: isOver ? out.price : null,
+                away_price: isOver ? null : out.price,
+                line: out.point || null,
+              });
+            }
+          }
+          if (market.key === "alternate_spreads") {
+            snapshots.push({
+              bookmaker: bk.key,
+              market_type: "alt_spread",
+              home_price: homeOut?.price || null,
+              away_price: awayOut?.price || null,
+              line: homeOut?.point || null,
+            });
+          }
+          if (market.key === "alternate_totals") {
+            snapshots.push({
+              bookmaker: bk.key,
+              market_type: "alt_total",
+              home_price: overOut?.price || null,
+              away_price: underOut?.price || null,
+              line: overOut?.point || null,
+            });
           }
         }
       }

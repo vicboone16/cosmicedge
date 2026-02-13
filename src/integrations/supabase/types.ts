@@ -369,6 +369,65 @@ export type Database = {
         }
         Relationships: []
       }
+      historical_odds: {
+        Row: {
+          away_price: number | null
+          away_team: string
+          bookmaker: string
+          captured_at: string
+          external_event_id: string | null
+          game_id: string | null
+          home_price: number | null
+          home_team: string
+          id: string
+          league: string
+          line: number | null
+          market_type: string
+          snapshot_date: string
+          start_time: string
+        }
+        Insert: {
+          away_price?: number | null
+          away_team: string
+          bookmaker: string
+          captured_at?: string
+          external_event_id?: string | null
+          game_id?: string | null
+          home_price?: number | null
+          home_team: string
+          id?: string
+          league: string
+          line?: number | null
+          market_type: string
+          snapshot_date: string
+          start_time: string
+        }
+        Update: {
+          away_price?: number | null
+          away_team?: string
+          bookmaker?: string
+          captured_at?: string
+          external_event_id?: string | null
+          game_id?: string | null
+          home_price?: number | null
+          home_team?: string
+          id?: string
+          league?: string
+          line?: number | null
+          market_type?: string
+          snapshot_date?: string
+          start_time?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "historical_odds_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       intel_notes: {
         Row: {
           content: string

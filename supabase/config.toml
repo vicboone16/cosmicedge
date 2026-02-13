@@ -17,3 +17,9 @@ verify_jwt = false
 
 [functions.fetch-player-props]
 verify_jwt = false
+
+[functions.fetch-participants]
+verify_jwt = false
+
+[functions.fetch-historical-odds]
+verify_jwt = false
