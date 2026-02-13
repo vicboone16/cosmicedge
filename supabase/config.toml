@@ -35,3 +35,18 @@ verify_jwt = false
 
 [functions.astro-batch]
 verify_jwt = false
+
+[functions.fetch-injuries-lineups]
+verify_jwt = false
+
+[functions.fetch-headshots]
+verify_jwt = false
+
+[functions.fetch-sdio-lines]
+verify_jwt = false
+
+[functions.fetch-news]
+verify_jwt = false
+
+[functions.fetch-projections]
+verify_jwt = false
