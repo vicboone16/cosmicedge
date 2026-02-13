@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Sparkles, RefreshCw, Loader2 } from "lucide-react";
+import { Sparkles, RefreshCw, Loader2, Star } from "lucide-react";
 import { GameCard } from "@/components/GameCard";
 import { LeagueFilter } from "@/components/LeagueFilter";
 import { AstroHeader } from "@/components/AstroHeader";
@@ -22,7 +22,7 @@ const Index = () => {
         <div className="px-4 pt-12 pb-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 mb-1">
-              <Sparkles className="h-5 w-5 text-primary" />
+              <Star className="h-5 w-5 text-primary" />
               <h1 className="text-xl font-bold font-display tracking-tight">Cosmic Edge</h1>
             </div>
             <button
@@ -38,11 +38,11 @@ const Index = () => {
             </button>
           </div>
           <p className="text-xs text-muted-foreground">
-            {format(new Date(), "EEEE, MMMM d")} · Today's Slate
+            {format(new Date(), "EEEE, MMMM d")} · Celestial Slate
           </p>
         </div>
 
-        {/* Astro Banner */}
+        {/* Rich Astro Dashboard */}
         <AstroHeader />
 
         <LeagueFilter selected={selectedLeague} onSelect={setSelectedLeague} />
@@ -51,17 +51,17 @@ const Index = () => {
       {/* Content */}
       <div className="px-4 py-4 space-y-6">
         {isLoading && (
-          <div className="flex items-center justify-center py-16">
+          <div className="flex flex-col items-center justify-center py-16 gap-3">
             <Loader2 className="h-6 w-6 animate-spin text-primary" />
-            <span className="ml-2 text-sm text-muted-foreground">Fetching odds...</span>
+            <span className="text-sm text-muted-foreground">Consulting the stars...</span>
           </div>
         )}
 
         {isError && (
           <div className="text-center py-16">
-            <p className="text-sm text-destructive mb-2">Failed to load games</p>
+            <p className="text-sm text-destructive mb-2">The cosmos are misaligned</p>
             <button onClick={() => refetch()} className="text-xs text-primary hover:underline">
-              Try again
+              Realign & retry
             </button>
           </div>
         )}
@@ -72,7 +72,7 @@ const Index = () => {
               <section>
                 <h2 className="text-xs font-semibold text-cosmic-green uppercase tracking-widest mb-3 flex items-center gap-2">
                   <span className="h-1.5 w-1.5 rounded-full bg-cosmic-green animate-pulse-glow" />
-                  Live Now
+                  Live · Celestial Energy Active
                 </h2>
                 <div className="space-y-3">
                   {liveGames.map((game) => (
@@ -84,8 +84,9 @@ const Index = () => {
 
             {upcoming.length > 0 && (
               <section>
-                <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-3">
-                  Upcoming
+                <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-3 flex items-center gap-2">
+                  <Star className="h-3 w-3 text-cosmic-lavender" />
+                  Upcoming · Chart Alignments
                 </h2>
                 <div className="space-y-3">
                   {upcoming.map((game) => (
@@ -98,7 +99,7 @@ const Index = () => {
             {final.length > 0 && (
               <section>
                 <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-3">
-                  Final
+                  Settled · Outcomes Recorded
                 </h2>
                 <div className="space-y-3">
                   {final.map((game) => (
@@ -110,8 +111,9 @@ const Index = () => {
 
             {!games?.length && (
               <div className="text-center py-16">
-                <p className="text-muted-foreground text-sm">No games found for today</p>
-                <p className="text-xs text-muted-foreground mt-1">Try refreshing or check back later</p>
+                <p className="text-2xl mb-2">✦</p>
+                <p className="text-muted-foreground text-sm">No games aligned for today</p>
+                <p className="text-xs text-muted-foreground mt-1">The stars rest — check back for tomorrow's slate</p>
               </div>
             )}
           </>
