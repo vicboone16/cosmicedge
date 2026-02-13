@@ -17,6 +17,7 @@ import CosmicCalendar from "./pages/CosmicCalendar";
 import SkySpreadPage from "./pages/SkySpreadPage";
 import LiveBoardPage from "./pages/LiveBoardPage";
 import PlayerPropsPage from "./pages/PlayerPropsPage";
+import TrendsPage from "./pages/TrendsPage";
 import HistoricalPage from "./pages/HistoricalPage";
 import CLVCalculatorPage from "./pages/CLVCalculatorPage";
 import AuthPage from "./pages/AuthPage";
@@ -44,6 +45,7 @@ const App = () => (
               <Route path="/calendar" element={<CosmicCalendar />} />
               <Route path="/skyspread" element={<SkySpreadPage />} />
               <Route path="/live-board" element={<LiveBoardPage />} />
+              <Route path="/trends" element={<TrendsPage />} />
               <Route path="/props" element={<PlayerPropsPage />} />
               <Route path="/historical" element={<HistoricalPage />} />
               <Route path="/clv" element={<CLVCalculatorPage />} />
