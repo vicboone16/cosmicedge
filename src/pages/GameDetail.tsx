@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import type { GameWithOdds } from "@/hooks/use-games";
+import { SynastrySection } from "@/components/game/SynastrySection";
 
 function formatOdds(odds: number): string {
   if (!odds) return "—";
@@ -371,6 +372,16 @@ const GameDetail = () => {
               </div>
             </div>
           </section>
+        )}
+
+        {/* Synastry · Key Matchups */}
+        {awayPlayers.length > 0 && homePlayers.length > 0 && (
+          <SynastrySection
+            awayPlayers={awayPlayers}
+            homePlayers={homePlayers}
+            awayAbbr={game.away_abbr}
+            homeAbbr={game.home_abbr}
+          />
         )}
 
         {/* Markets */}
