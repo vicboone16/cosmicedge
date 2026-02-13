@@ -63,7 +63,7 @@ interface NormalizedGame {
   away_team: string;
   home_abbr: string;
   away_abbr: string;
-  start_time: string;
+  start_time: string | null;
   status: string;
   venue?: string;
   odds: {
@@ -318,7 +318,7 @@ async function fetchFromSportsGameOdds(apiKey: string, leagues: string[]): Promi
         away_team: awayTeam,
         home_abbr: homeAbbr,
         away_abbr: awayAbbr,
-        start_time: event.start || event.startTime || new Date().toISOString(),
+        start_time: event.start || event.startTime || event.startDate || null,
         status,
         odds: {
           moneyline: { home: mlHome, away: mlAway },
@@ -402,7 +402,7 @@ async function fetchOddsFromSportsDataIO(apiKey: string, leagues: string[]): Pro
           away_team: awayTeam,
           home_abbr: makeAbbr(homeTeam),
           away_abbr: makeAbbr(awayTeam),
-          start_time: game.DateTime || game.Day || new Date().toISOString(),
+          start_time: game.DateTime || game.Day || null,
           status,
           venue: game.StadiumDetails?.Name || game.Stadium || undefined,
           odds: {
@@ -584,6 +584,12 @@ Deno.serve(async (req) => {
     // Save to database
     const savedGames: any[] = [];
     for (const game of deduped.values()) {
+      // Skip games without a valid start time
+      if (!game.start_time) {
+        console.warn(`Skipping game ${game.external_id} (${game.away_team} @ ${game.home_team}) — no start_time`);
+        continue;
+      }
+
       const gameData = {
         external_id: game.external_id,
         league: game.league,

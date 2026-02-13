@@ -66,11 +66,11 @@ const Index = () => {
           </div>
         </div>
 
-        {/* Rich Astro Dashboard */}
-        <AstroHeader />
-
         <LeagueFilter selected={selectedLeague} onSelect={setSelectedLeague} />
       </header>
+
+      {/* Rich Astro Dashboard - scrollable, not in sticky header */}
+      <AstroHeader />
 
       {/* Content */}
       <div className="px-4 py-4 space-y-6">
