@@ -54,6 +54,7 @@ function formatPrice(price: number | null): string {
 export default function PlayerPropsPage() {
   const [search, setSearch] = useState("");
   const [marketFilter, setMarketFilter] = useState<string>("all");
+  const [leagueFilter, setLeagueFilter] = useState<string>("ALL");
   const [sortKey, setSortKey] = useState<SortKey>("player");
   const [sortAsc, setSortAsc] = useState(true);
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -154,6 +155,12 @@ export default function PlayerPropsPage() {
   // Filter & sort
   const filtered = useMemo(() => {
     let rows = deduped;
+    if (leagueFilter !== "ALL") {
+      const leagueGameIds = new Set(
+        (games || []).filter((g) => g.league === leagueFilter).map((g) => g.id)
+      );
+      rows = rows.filter((r) => r.game_id && leagueGameIds.has(r.game_id));
+    }
     if (search) {
       const q = search.toLowerCase();
       rows = rows.filter((r) => r.player_name.toLowerCase().includes(q));
@@ -183,7 +190,7 @@ export default function PlayerPropsPage() {
       return sortAsc ? cmp : -cmp;
     });
     return rows;
-  }, [deduped, search, marketFilter, sortKey, sortAsc]);
+  }, [deduped, search, marketFilter, leagueFilter, games, sortKey, sortAsc]);
 
   const toggleSort = (key: SortKey) => {
     if (sortKey === key) setSortAsc(!sortAsc);
@@ -237,6 +244,23 @@ export default function PlayerPropsPage() {
               Today
             </button>
           )}
+        </div>
+
+        {/* League filter chips */}
+        <div className="flex gap-1.5 mb-3">
+          {["ALL", "NBA", "NHL", "MLB"].map((lg) => (
+            <button
+              key={lg}
+              onClick={() => setLeagueFilter(lg)}
+              className={`px-3 py-1 rounded-full text-[11px] font-semibold transition-colors ${
+                leagueFilter === lg
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-secondary/60 text-muted-foreground hover:bg-secondary hover:text-foreground"
+              }`}
+            >
+              {lg}
+            </button>
+          ))}
         </div>
 
         {/* Filters */}
