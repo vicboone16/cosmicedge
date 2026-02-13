@@ -1,7 +1,8 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { TrendingUp, TrendingDown, RefreshCw, ArrowUpDown, Search } from "lucide-react";
+import { TrendingUp, TrendingDown, RefreshCw, ArrowUpDown, Search, ChevronLeft, ChevronRight } from "lucide-react";
+import { format, addDays, isToday } from "date-fns";
 import { Input } from "@/components/ui/input";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -54,15 +55,20 @@ export default function PlayerPropsPage() {
   const [marketFilter, setMarketFilter] = useState<string>("all");
   const [sortKey, setSortKey] = useState<SortKey>("player");
   const [sortAsc, setSortAsc] = useState(true);
+  const [selectedDate, setSelectedDate] = useState(new Date());
 
-  // Fetch today's games
+  const canGoForward = selectedDate < addDays(new Date(), 7);
+  const goBack = () => setSelectedDate((d) => addDays(d, -1));
+  const goForward = () => canGoForward && setSelectedDate((d) => addDays(d, 1));
+  const goToday = () => setSelectedDate(new Date());
+
+  // Fetch games for selected date
   const { data: games } = useQuery({
-    queryKey: ["today-games-for-props"],
+    queryKey: ["games-for-props", selectedDate.toDateString()],
     queryFn: async () => {
-      const today = new Date();
-      const start = new Date(today);
+      const start = new Date(selectedDate);
       start.setHours(0, 0, 0, 0);
-      const end = new Date(today);
+      const end = new Date(selectedDate);
       end.setHours(23, 59, 59, 999);
 
       const { data } = await supabase
@@ -195,7 +201,7 @@ export default function PlayerPropsPage() {
   return (
     <div className="min-h-screen pb-24">
       <header className="px-4 pt-12 pb-4 bg-background/80 backdrop-blur-xl border-b border-border/50">
-        <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center justify-between mb-1">
           <h1 className="text-lg font-bold font-display flex items-center gap-2">
             <TrendingUp className="h-5 w-5 text-primary" />
             Player Props
@@ -208,6 +214,24 @@ export default function PlayerPropsPage() {
             <RefreshCw className={`h-3 w-3 ${isFetching ? "animate-spin" : ""}`} />
             {isFetching ? "Fetching..." : "Refresh All"}
           </button>
+        </div>
+        <div className="flex items-center gap-2 mb-3">
+          <button onClick={goBack} className="p-1 rounded hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors">
+            <ChevronLeft className="h-3.5 w-3.5" />
+          </button>
+          <button onClick={goToday} className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+            {isToday(selectedDate)
+              ? `${format(selectedDate, "EEE, MMM d")} · Today`
+              : format(selectedDate, "EEE, MMM d")}
+          </button>
+          <button onClick={goForward} disabled={!canGoForward} className="p-1 rounded hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors disabled:opacity-30">
+            <ChevronRight className="h-3.5 w-3.5" />
+          </button>
+          {!isToday(selectedDate) && (
+            <button onClick={goToday} className="text-[10px] text-primary hover:underline ml-1">
+              Today
+            </button>
+          )}
         </div>
 
         {/* Filters */}
