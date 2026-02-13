@@ -7,8 +7,6 @@ export function useNatalChart(entityId: string | undefined, entityType = "player
     queryKey: ["natal-chart", entityId, entityType],
     queryFn: async () => {
       if (!entityId) return null;
-
-      // Try cache first
       const { data: cached } = await supabase
         .from("astro_calculations")
         .select("*")
@@ -17,33 +15,19 @@ export function useNatalChart(entityId: string | undefined, entityType = "player
         .eq("calc_type", "natal")
         .gt("expires_at", new Date().toISOString())
         .maybeSingle();
-
       if (cached) return cached.result as NatalChartResult;
-
-      // If not cached, call edge function to compute & cache
       try {
-        const { data, error } = await supabase.functions.invoke("astrovisor", {
-          body: null,
-          headers: {},
-        });
-        // Use query params approach
         const resp = await fetch(
           `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/astrovisor?mode=natal&entity_id=${entityId}&entity_type=${entityType}`,
-          {
-            headers: {
-              Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-            },
-          }
+          { headers: { Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}` } }
         );
         if (!resp.ok) return null;
         const json = await resp.json();
         return json.result as NatalChartResult || null;
-      } catch {
-        return null;
-      }
+      } catch { return null; }
     },
     enabled: !!entityId,
-    staleTime: 60 * 60 * 1000, // 1 hour
+    staleTime: 60 * 60 * 1000,
     retry: 1,
   });
 }
@@ -54,8 +38,6 @@ export function useSynastry(entity1Id: string | undefined, entity2Id: string | u
     queryKey: ["synastry", entity1Id, entity2Id],
     queryFn: async () => {
       if (!entity1Id || !entity2Id) return null;
-
-      // Try cache
       const { data: cached } = await supabase
         .from("astro_calculations")
         .select("*")
@@ -63,27 +45,19 @@ export function useSynastry(entity1Id: string | undefined, entity2Id: string | u
         .eq("calc_type", "synastry")
         .gt("expires_at", new Date().toISOString())
         .maybeSingle();
-
       if (cached) return cached.result as SynastryResult;
-
       try {
         const resp = await fetch(
           `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/astrovisor?mode=synastry&entity_id=${entity1Id}&entity2_id=${entity2Id}&entity_type=player`,
-          {
-            headers: {
-              Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-            },
-          }
+          { headers: { Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}` } }
         );
         if (!resp.ok) return null;
         const json = await resp.json();
         return json.result as SynastryResult || null;
-      } catch {
-        return null;
-      }
+      } catch { return null; }
     },
     enabled: !!entity1Id && !!entity2Id,
-    staleTime: 24 * 60 * 60 * 1000, // 24 hours
+    staleTime: 24 * 60 * 60 * 1000,
     retry: 1,
   });
 }
@@ -95,7 +69,6 @@ export function useTransits(entityId: string | undefined, transitDate?: string) 
     queryKey: ["transits", entityId, date],
     queryFn: async () => {
       if (!entityId) return null;
-
       const { data: cached } = await supabase
         .from("astro_calculations")
         .select("*")
@@ -104,24 +77,16 @@ export function useTransits(entityId: string | undefined, transitDate?: string) 
         .eq("calc_date", date)
         .gt("expires_at", new Date().toISOString())
         .maybeSingle();
-
       if (cached) return cached.result as TransitResult;
-
       try {
         const resp = await fetch(
           `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/astrovisor?mode=transits&entity_id=${entityId}&transit_date=${date}`,
-          {
-            headers: {
-              Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-            },
-          }
+          { headers: { Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}` } }
         );
         if (!resp.ok) return null;
         const json = await resp.json();
         return json.result as TransitResult || null;
-      } catch {
-        return null;
-      }
+      } catch { return null; }
     },
     enabled: !!entityId,
     staleTime: 6 * 60 * 60 * 1000,
@@ -184,7 +149,107 @@ export function useCurrentEphemeris(forDate?: Date) {
         return extractPlanetaryPositions(cachedTransit.result as TransitResult);
       }
 
-      return null; // Fall back to approximation in component
+      return null;
+    },
+    staleTime: 30 * 60 * 1000,
+    retry: 1,
+  });
+}
+
+// ── Fetch live lunar metrics from the API ──
+export function useLunarMetrics(forDate?: Date) {
+  const dateStr = (forDate || new Date()).toISOString().slice(0, 10);
+  return useQuery({
+    queryKey: ["lunar-metrics", dateStr],
+    queryFn: async () => {
+      try {
+        const resp = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/astrologyapi?mode=lunar_metrics&transit_date=${dateStr}&entity_id=lunar_${dateStr}`,
+          {
+            headers: {
+              Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+              apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+            },
+          }
+        );
+        if (!resp.ok) return null;
+        const json = await resp.json();
+        return json?.result || null;
+      } catch {
+        return null;
+      }
+    },
+    staleTime: 30 * 60 * 1000,
+    retry: 1,
+  });
+}
+
+// ── Fetch rising sign (Ascendant) for a date/time/location ──
+// Uses user's timezone current hour, or noon for non-today dates
+export function useRisingSign(forDate?: Date, lat?: number, lng?: number) {
+  const now = new Date();
+  const target = forDate || now;
+  const dateStr = target.toISOString().slice(0, 10);
+  const isToday = dateStr === now.toISOString().slice(0, 10);
+  // For today use current time; for other dates use noon in user's local time
+  const timeStr = isToday
+    ? `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`
+    : "12:00";
+
+  return useQuery({
+    queryKey: ["rising-sign", dateStr, timeStr, lat, lng],
+    queryFn: async () => {
+      const cacheId = `transit_houses_${dateStr}_${lat || 40.7128}_${lng || -74.006}`;
+      const { data: cached } = await supabase
+        .from("astro_calculations")
+        .select("result")
+        .eq("entity_id", cacheId)
+        .eq("calc_type", "aapi_transit_houses")
+        .eq("calc_date", dateStr)
+        .gt("expires_at", new Date().toISOString())
+        .maybeSingle();
+
+      const result = cached?.result || await (async () => {
+        try {
+          const params = new URLSearchParams({
+            mode: "transit_houses",
+            transit_date: dateStr,
+            transit_time: timeStr,
+            ...(lat ? { lat: String(lat) } : {}),
+            ...(lng ? { lng: String(lng) } : {}),
+          });
+          const resp = await fetch(
+            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/astrologyapi?${params}`,
+            {
+              headers: {
+                Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+                apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+              },
+            }
+          );
+          if (!resp.ok) return null;
+          const json = await resp.json();
+          return json?.result || null;
+        } catch { return null; }
+      })();
+
+      if (!result) return null;
+
+      // Extract Ascendant — handle multiple response formats
+      const houses = result?.houses || result?.cusps || result?.data?.houses || result?.data?.cusps;
+      if (Array.isArray(houses)) {
+        const h1 = houses.find((h: any) => h.house === 1 || h.number === 1 || h.cusp === 1);
+        if (h1) {
+          const sign = normalizeSign(h1.sign || h1.zodiac_sign || "");
+          return { sign, degree: Math.floor(h1.degree ?? h1.sign_degree ?? 0) };
+        }
+      }
+      if (result?.ascendant || result?.Ascendant || result?.data?.ascendant) {
+        const asc = result.ascendant || result.Ascendant || result.data?.ascendant;
+        if (typeof asc === "object") return { sign: normalizeSign(asc.sign || asc.zodiac_sign || ""), degree: Math.floor(asc.degree ?? asc.sign_degree ?? 0) };
+        if (typeof asc === "string") return { sign: normalizeSign(asc), degree: 0 };
+      }
+      return null;
     },
     staleTime: 30 * 60 * 1000,
     retry: 1,
@@ -244,6 +309,7 @@ function extractFromGlobalPositions(result: any): PlanetPosition[] | null {
 
   return null;
 }
+
 // ── Extract planetary positions from astrovisor transit data ──
 function extractPlanetaryPositions(transit: TransitResult): PlanetPosition[] | null {
   if (!transit) return null;
@@ -253,7 +319,7 @@ function extractPlanetaryPositions(transit: TransitResult): PlanetPosition[] | n
     if (Array.isArray(planets)) {
       return planets.map((p: any) => ({
         planet: p.name || p.planet,
-        sign: p.sign,
+        sign: normalizeSign(p.sign || ""),
         degree: Math.floor(p.degree || p.longitude % 30),
         retrograde: p.retrograde || false,
       }));
@@ -262,83 +328,9 @@ function extractPlanetaryPositions(transit: TransitResult): PlanetPosition[] | n
   return null;
 }
 
-// ── Fetch rising sign (Ascendant) for a date/time/location ──
-export function useRisingSign(forDate?: Date, lat?: number, lng?: number) {
-  const dateStr = (forDate || new Date()).toISOString().slice(0, 10);
-  const now = forDate || new Date();
-  const timeStr = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
-
-  return useQuery({
-    queryKey: ["rising-sign", dateStr, timeStr, lat, lng],
-    queryFn: async () => {
-      // Check cache
-      const cacheId = `transit_houses_${dateStr}_${lat || 40.7128}_${lng || -74.006}`;
-      const { data: cached } = await supabase
-        .from("astro_calculations")
-        .select("result")
-        .eq("entity_id", cacheId)
-        .eq("calc_type", "aapi_transit_houses")
-        .eq("calc_date", dateStr)
-        .gt("expires_at", new Date().toISOString())
-        .maybeSingle();
-
-      const result = cached?.result || await (async () => {
-        try {
-          const params = new URLSearchParams({
-            mode: "transit_houses",
-            transit_date: dateStr,
-            transit_time: timeStr,
-            ...(lat ? { lat: String(lat) } : {}),
-            ...(lng ? { lng: String(lng) } : {}),
-          });
-          const resp = await fetch(
-            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/astrologyapi?${params}`,
-            {
-              headers: {
-                Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-                apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-              },
-            }
-          );
-          if (!resp.ok) return null;
-          const json = await resp.json();
-          return json?.result || null;
-        } catch {
-          return null;
-        }
-      })();
-
-      if (!result) return null;
-
-      // Extract Ascendant from house cusps result
-      // API may return houses as array or object
-      const houses = result?.houses || result?.cusps || result?.data?.houses;
-      if (Array.isArray(houses)) {
-        const h1 = houses.find((h: any) => h.house === 1 || h.number === 1 || h.cusp === 1);
-        if (h1) return { sign: h1.sign || h1.zodiac_sign || "", degree: Math.floor(h1.degree ?? h1.sign_degree ?? 0) };
-      }
-      // Check for direct ascendant field
-      if (result?.ascendant || result?.Ascendant) {
-        const asc = result.ascendant || result.Ascendant;
-        if (typeof asc === "object") return { sign: asc.sign || asc.zodiac_sign || "", degree: Math.floor(asc.degree ?? asc.sign_degree ?? 0) };
-        if (typeof asc === "string") return { sign: asc, degree: 0 };
-      }
-      return null;
-    },
-    staleTime: 30 * 60 * 1000,
-    retry: 1,
-  });
-}
-
 // ── Types ──
 export interface NatalChartResult {
-  planets?: Array<{
-    name: string;
-    sign: string;
-    degree: number;
-    house?: number;
-    retrograde?: boolean;
-  }>;
+  planets?: Array<{ name: string; sign: string; degree: number; house?: number; retrograde?: boolean }>;
   houses?: Array<{ house: number; sign: string; degree: number }>;
   aspects?: AspectData[];
   [key: string]: any;
@@ -352,12 +344,7 @@ export interface SynastryResult {
 }
 
 export interface TransitResult {
-  transit_planets?: Array<{
-    name: string;
-    sign: string;
-    degree: number;
-    retrograde?: boolean;
-  }>;
+  transit_planets?: Array<{ name: string; sign: string; degree: number; retrograde?: boolean }>;
   aspects?: AspectData[];
   [key: string]: any;
 }
@@ -375,4 +362,12 @@ export interface PlanetPosition {
   sign: string;
   degree: number;
   retrograde: boolean;
+}
+
+export interface LunarData {
+  moon_phase?: any;
+  void_of_course?: any;
+  phase?: any;
+  voc?: any;
+  [key: string]: any;
 }
