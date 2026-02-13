@@ -16,6 +16,7 @@ import SettingsPage from "./pages/SettingsPage";
 import CosmicCalendar from "./pages/CosmicCalendar";
 import SkySpreadPage from "./pages/SkySpreadPage";
 import LiveBoardPage from "./pages/LiveBoardPage";
+import PlayerPropsPage from "./pages/PlayerPropsPage";
 import AuthPage from "./pages/AuthPage";
 import NotFound from "./pages/NotFound";
 
@@ -41,6 +42,7 @@ const App = () => (
               <Route path="/calendar" element={<CosmicCalendar />} />
               <Route path="/skyspread" element={<SkySpreadPage />} />
               <Route path="/live-board" element={<LiveBoardPage />} />
+              <Route path="/props" element={<PlayerPropsPage />} />
             </Route>
             <Route path="/auth" element={<AuthPage />} />
             <Route path="*" element={<NotFound />} />
