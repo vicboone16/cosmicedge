@@ -197,6 +197,33 @@ export type Database = {
           },
         ]
       }
+      friendships: {
+        Row: {
+          addressee_id: string
+          created_at: string
+          id: string
+          requester_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          addressee_id: string
+          created_at?: string
+          id?: string
+          requester_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          addressee_id?: string
+          created_at?: string
+          id?: string
+          requester_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       game_quarters: {
         Row: {
           away_score: number | null
@@ -911,33 +938,63 @@ export type Database = {
       profiles: {
         Row: {
           avatar_url: string | null
+          bio: string | null
           created_at: string
           default_book: string | null
           display_name: string | null
+          first_name: string | null
           id: string
+          last_name: string | null
+          moon_sign: string | null
+          phone: string | null
+          rising_sign: string | null
+          share_astro: boolean
+          share_picks: boolean
+          sun_sign: string | null
           timezone: string | null
           updated_at: string
           user_id: string
+          username: string | null
         }
         Insert: {
           avatar_url?: string | null
+          bio?: string | null
           created_at?: string
           default_book?: string | null
           display_name?: string | null
+          first_name?: string | null
           id?: string
+          last_name?: string | null
+          moon_sign?: string | null
+          phone?: string | null
+          rising_sign?: string | null
+          share_astro?: boolean
+          share_picks?: boolean
+          sun_sign?: string | null
           timezone?: string | null
           updated_at?: string
           user_id: string
+          username?: string | null
         }
         Update: {
           avatar_url?: string | null
+          bio?: string | null
           created_at?: string
           default_book?: string | null
           display_name?: string | null
+          first_name?: string | null
           id?: string
+          last_name?: string | null
+          moon_sign?: string | null
+          phone?: string | null
+          rising_sign?: string | null
+          share_astro?: boolean
+          share_picks?: boolean
+          sun_sign?: string | null
           timezone?: string | null
           updated_at?: string
           user_id?: string
+          username?: string | null
         }
         Relationships: []
       }

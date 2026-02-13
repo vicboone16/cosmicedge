@@ -21,6 +21,8 @@ import TrendsPage from "./pages/TrendsPage";
 import HistoricalPage from "./pages/HistoricalPage";
 import CLVCalculatorPage from "./pages/CLVCalculatorPage";
 import AstraPage from "./pages/AstraPage";
+import ProfilePage from "./pages/ProfilePage";
+import FriendsPage from "./pages/FriendsPage";
 import AuthPage from "./pages/AuthPage";
 import NotFound from "./pages/NotFound";
 
@@ -51,6 +53,8 @@ const App = () => (
               <Route path="/historical" element={<HistoricalPage />} />
               <Route path="/clv" element={<CLVCalculatorPage />} />
               <Route path="/astra" element={<AstraPage />} />
+              <Route path="/profile" element={<ProfilePage />} />
+              <Route path="/friends" element={<FriendsPage />} />
             </Route>
             <Route path="/auth" element={<AuthPage />} />
             <Route path="*" element={<NotFound />} />
