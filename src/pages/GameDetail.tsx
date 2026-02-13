@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import type { GameWithOdds } from "@/hooks/use-games";
 import { SynastrySection } from "@/components/game/SynastrySection";
+import { TransitModifiers } from "@/components/game/TransitModifiers";
 
 function formatOdds(odds: number): string {
   if (!odds) return "—";
@@ -336,12 +337,13 @@ const GameDetail = () => {
                       <button
                         key={p.id}
                         onClick={() => navigate(`/player/${p.id}`)}
-                        className="w-full cosmic-card rounded-lg p-2 flex items-center gap-2 text-left hover:border-primary/30 transition-colors"
+                        className="w-full cosmic-card rounded-lg p-2 flex items-start gap-2 text-left hover:border-primary/30 transition-colors"
                       >
-                        {pz && <span className="text-sm">{pz.symbol}</span>}
+                        {pz && <span className="text-sm mt-0.5">{pz.symbol}</span>}
                         <div className="flex-1 min-w-0">
                           <p className="text-[10px] font-medium text-foreground truncate">{p.name}</p>
                           <p className="text-[9px] text-muted-foreground">{pz?.sign} · {pz?.element}</p>
+                          <TransitModifiers player={p} />
                         </div>
                       </button>
                     );
@@ -358,12 +360,13 @@ const GameDetail = () => {
                       <button
                         key={p.id}
                         onClick={() => navigate(`/player/${p.id}`)}
-                        className="w-full cosmic-card rounded-lg p-2 flex items-center gap-2 text-left hover:border-primary/30 transition-colors"
+                        className="w-full cosmic-card rounded-lg p-2 flex items-start gap-2 text-left hover:border-primary/30 transition-colors"
                       >
-                        {pz && <span className="text-sm">{pz.symbol}</span>}
+                        {pz && <span className="text-sm mt-0.5">{pz.symbol}</span>}
                         <div className="flex-1 min-w-0">
                           <p className="text-[10px] font-medium text-foreground truncate">{p.name}</p>
                           <p className="text-[9px] text-muted-foreground">{pz?.sign} · {pz?.element}</p>
+                          <TransitModifiers player={p} />
                         </div>
                       </button>
                     );

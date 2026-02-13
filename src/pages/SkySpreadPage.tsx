@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Star, Filter, ArrowUpDown, CheckSquare, Square, Zap, TrendingUp, AlertTriangle, ChevronDown, ChevronUp } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import type { Tables } from "@/integrations/supabase/types";
+import { useAuth } from "@/hooks/use-auth";
 import CreateBetForm from "@/components/skyspread/CreateBetForm";
 
 type BetRow = Tables<"bets">;
@@ -36,19 +37,12 @@ function ScoreBar({ value, max = 100, color }: { value: number; max?: number; co
 
 const SkySpreadPage = () => {
   const navigate = useNavigate();
-  const [userId, setUserId] = useState<string | null>(null);
+  const { user } = useAuth();
+  const userId = user?.id ?? null;
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [sortBy, setSortBy] = useState<string>("confidence");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [expandedId, setExpandedId] = useState<string | null>(null);
-
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => setUserId(data.session?.user?.id ?? null));
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
-      setUserId(session?.user?.id ?? null);
-    });
-    return () => subscription.unsubscribe();
-  }, []);
 
   const { data: bets, isLoading, refetch } = useQuery({
     queryKey: ["skyspread-bets", userId, statusFilter],
@@ -107,7 +101,10 @@ const SkySpreadPage = () => {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center px-4">
         <Star className="h-8 w-8 text-primary mb-3" />
-        <p className="text-sm text-muted-foreground text-center">Please log in to access SkySpread.</p>
+        <p className="text-sm text-muted-foreground text-center mb-3">Log in to access SkySpread.</p>
+        <button onClick={() => navigate("/auth")} className="text-xs text-primary hover:underline">
+          Go to Login →
+        </button>
       </div>
     );
   }
