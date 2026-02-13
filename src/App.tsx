@@ -13,6 +13,8 @@ import Results from "./pages/Results";
 import Analytics from "./pages/Analytics";
 import SettingsPage from "./pages/SettingsPage";
 import CosmicCalendar from "./pages/CosmicCalendar";
+import SkySpreadPage from "./pages/SkySpreadPage";
+import LiveBoardPage from "./pages/LiveBoardPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -34,6 +36,8 @@ const App = () => (
             <Route path="/analytics" element={<Analytics />} />
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="/calendar" element={<CosmicCalendar />} />
+            <Route path="/skyspread" element={<SkySpreadPage />} />
+            <Route path="/live-board" element={<LiveBoardPage />} />
           </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>
