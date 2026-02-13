@@ -157,10 +157,11 @@ const GameDetail = () => {
       if (!game) return [];
       const { data } = await supabase
         .from("players")
-        .select("id, name, position, team, birth_date")
+        .select("id, name, position, team, birth_date, league")
         .in("team", [game.home_abbr, game.away_abbr])
+        .eq("league", game.league)
         .not("birth_date", "is", null)
-        .limit(20);
+        .limit(30);
       return data || [];
     },
     enabled: !!game,
@@ -423,6 +424,10 @@ const GameDetail = () => {
         <TransitScrubber
           startTime={game.start_time}
           venueLat={game.venue_lat ?? null}
+          awayPlayers={awayPlayers}
+          homePlayers={homePlayers}
+          awayAbbr={game.away_abbr}
+          homeAbbr={game.home_abbr}
         />
 
         {/* Period Markets */}
