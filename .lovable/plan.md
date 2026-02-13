@@ -1,68 +1,100 @@
 
 
-# Cosmic Edge — Implementation Plan
+# Plan: Create Bet Form, Live Scores Edge Function, and E2E Wiring
 
-## Design Direction
-Dark theme with professional sports analytics layout, accented with subtle cosmic/astrology visual elements (star field backgrounds, gradient glows, constellation-inspired lines). Clean data presentation with a premium feel.
+## Overview
+Three additions to the Cosmic Edge app:
+1. A "Create Bet" form on the SkySpread page
+2. A backend function that fetches live scores and writes to `game_state_snapshots`
+3. Wire the Live Board to display real-time scores from snapshots
 
-## Phase 1: Foundation & Core Layout
-- Set up Capacitor for native mobile wrapping
-- Create the app shell with bottom tab navigation (Today Slate, Game Detail, Results, Settings)
-- Build the **Today Slate** screen — a filterable list of today's games by league (NBA, NFL, MLB, etc.) with live odds display
-- Implement dark cosmic theme with professional data cards
-- Set up Supabase/Lovable Cloud backend with initial tables (games, odds_snapshots, players, bets, results)
+---
 
-## Phase 2: Odds Integration & Game Detail
-- Integrate a live odds provider API (e.g., The Odds API) via edge functions
-- Build the **Game Detail** screen with tabs: Team Bets | Player Props
-- Display moneyline, spread, and total markets with line movement charts
-- Show odds comparison across multiple books
-- Store odds snapshots over time for line movement tracking
+## 1. Create Bet Form on SkySpread
 
-## Phase 3: Team Bets Mode — Scoring Engine
-- Build the **Bet Card** screen with inputs (market selection, stake) and output display (Likelihood, Confidence, Volatility)
-- Implement the base scoring model: blend of statistical probability + market implied probability
-- Add the Asc/Desc assignment engine (Home=Asc, Favorite=Asc, etc.)
-- Display Top Drivers, Top Risks, and Recommendation tags (Pass/Small/Normal/Aggressive)
-- Build the **Explain** screen showing full breakdown of all score contributions
+**File: `src/pages/SkySpreadPage.tsx`**
 
-## Phase 4: Horary Astrology Engine
-- Integrate an ephemeris library for planetary position calculations
-- Build event chart generation at game start time (with toggle for question time)
-- Compute horary significators: L1/L7, Moon condition, angularity, receptions, applying aspects, prohibitions, VOC, early/late degree flags
-- Produce HoraryLean (Asc/Desc/NoCall), HoraryStrength (0–1), and explanation text
-- Integrate horary results into the scoring model as a gate/modifier
+Add a slide-up sheet/dialog triggered by a floating "+" button in the SkySpread header. The form will include:
 
-## Phase 5: Player Props Mode
-- Build the Player Props tab within Game Detail
-- Input fields: player, line, opponent, expected minutes, injury designation, role notes
-- Display projections, recent form, and matchup data
-- Store and display natal chart data with data-quality rating (A/B/C)
-- Compute transits at game time to natal chart key points
-- Produce TransitBoost (-20 to +20) and AstroVolatility (0–1)
+- **Game selector**: Dropdown populated from the `games` table (today's and upcoming games), showing "Away @ Home" format. This provides the required `game_id` (uuid) plus auto-fills `home_team` and `away_team`.
+- **Market type**: Select with options: Moneyline, Spread, Total, Team Total, Player Prop
+- **Selection**: Text input for the pick description (e.g., "Lakers -3.5")
+- **Side**: Optional select (Home / Away / Over / Under / Player)
+- **Line**: Optional numeric input (e.g., -3.5, 226.5)
+- **Odds**: Required numeric input for American odds (e.g., -110, +120)
+- **Book**: Optional text input for sportsbook name
+- **Stake amount + unit**: Numeric input + toggle between "units" and "$"
+- **Confidence**: Slider 0-100 (default 50)
+- **Edge score**: Slider 0-100 (default 50)
+- **Why summary**: Optional text area
+- **Notes**: Optional text area
 
-## Phase 6: Intel Notes & News Integration
-- Build "Intel Notes" creation — user-entered notes attached to games/players with tags (injury rumor, minutes restriction, personal event, coach quote)
-- Integrate injury/news feeds (RSS or API)
-- Full audit log: capture what the model knew at prediction time
+On submit, insert into `bets` table with `user_id` from auth session, then invalidate the query cache to refresh the list.
 
-## Phase 7: Results & Calibration
-- Build the **Results** screen with bet history
-- Track hit rate by lane, league, and market type
-- Calibration charts (predicted likelihood vs actual outcomes)
-- Post-game result tracker for player props
+Uses existing UI components: `Dialog` or `Sheet` from radix, `Input`, `Label`, `Select`, `Slider`.
 
-## Phase 8: Settings & Configuration
-- Configurable scoring weights (user can adjust stat vs market vs astro blend)
-- Horary ruleset toggles (which traditional rules to apply)
-- Astrology settings (house system, orb sizes)
-- Odds provider configuration
-- Responsible gambling disclaimers and resources
-- User staking rubric configuration
+---
 
-## Phase 9: Location & Astrocartography (Advanced)
-- Compute travel distance/time zone factors
-- Astrocartography overlay for team/city or key roster at venue location
-- Optional astrocartography for individual players at venue
-- Integrate location factors into scoring model
+## 2. Live Scores Edge Function
 
+**File: `supabase/functions/fetch-live-scores/index.ts`** (new function)
+
+This function will:
+1. Query the `games` table for games with status = 'live' or today's scheduled games
+2. For each game with an `external_id`, call the SportsData.io NBA API (using `SPORTSDATAIO_API_KEY`) to get live box scores
+3. Upsert results into `game_state_snapshots` with `game_id`, `status`, `home_score`, `away_score`, `quarter`, `clock`
+4. Also update the `games` table `home_score`, `away_score`, and `status` fields
+
+The existing `fetch-live` function uses API-Basketball but doesn't write to `game_state_snapshots`. This new function fills that gap using SportsData.io and writes snapshots.
+
+**Config update: `supabase/config.toml`**
+```toml
+[functions.fetch-live-scores]
+verify_jwt = false
+```
+
+---
+
+## 3. Wire Live Board to Display Real-Time Scores
+
+**File: `src/pages/LiveBoardPage.tsx`**
+
+Enhance the `LiveCard` component to:
+1. Fetch the latest `game_state_snapshot` for each bet's `game_id`
+2. Display live score, quarter, and clock when available
+3. Derive the "On Track / Sweating / Danger" indicator by comparing bet selection against live score (e.g., if user bet the over at 226.5 and the current pace projects under, show "Sweating")
+4. Call the `fetch-live-scores` edge function on mount and on each refetch interval to ensure snapshots are fresh
+
+The Live Board already has `refetchInterval` logic (15s for live, 5min for pregame). The snapshot query will piggyback on this same interval.
+
+---
+
+## 4. End-to-End Testing
+
+After implementation, I will:
+1. Navigate to SkySpread and open the Create Bet form
+2. Fill in a test bet and submit
+3. Verify it appears in the bet list
+4. Select the bet and tap "Add to Live Board"
+5. Verify it appears on the Live Board
+6. Pin it, verify pin state, unpin it
+7. Remove it from Live Board
+8. Confirm it still exists in SkySpread (copy, not move)
+
+---
+
+## Technical Details
+
+**Database**: No schema changes needed. All required tables (`bets`, `live_board_items`, `game_state_snapshots`, `games`) already exist with appropriate RLS policies.
+
+**Key constraint**: `bets.game_id` is a required uuid FK to `games`. The Create Bet form must select from existing games, not accept free-text game IDs.
+
+**Key constraint**: `bets.odds` is a required integer. The form must enforce this.
+
+**Files to create:**
+- `supabase/functions/fetch-live-scores/index.ts`
+
+**Files to modify:**
+- `src/pages/SkySpreadPage.tsx` (add Create Bet form + button)
+- `src/pages/LiveBoardPage.tsx` (add snapshot display + edge function call)
+- `supabase/config.toml` (add fetch-live-scores function config)
