@@ -26,7 +26,10 @@ export default function HistoricalPage() {
   const [playerSearch, setPlayerSearch] = useState("");
 
   const dateStr = format(selectedDate, "yyyy-MM-dd");
-  const nextDay = format(addDays(selectedDate, 1), "yyyy-MM-dd");
+
+  // Use local date boundaries (midnight-to-midnight local time) converted to ISO for UTC comparison
+  const localStart = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate(), 0, 0, 0);
+  const localEnd = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate(), 23, 59, 59, 999);
 
   // ── Tab 1: Past games ──
   const { data: pastGames } = useQuery({
@@ -36,8 +39,8 @@ export default function HistoricalPage() {
         .from("games")
         .select("*")
         .eq("league", league)
-        .gte("start_time", dateStr)
-        .lt("start_time", nextDay)
+        .gte("start_time", localStart.toISOString())
+        .lte("start_time", localEnd.toISOString())
         .order("start_time");
       return data || [];
     },
@@ -228,12 +231,7 @@ export default function HistoricalPage() {
 
           {/* Tab 1: Game Results */}
           <TabsContent value="results" className="space-y-2 mt-3">
-            {!pastGames?.length ? (
-              <div className="cosmic-card rounded-xl p-8 text-center">
-                <History className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
-                <p className="text-sm font-medium text-foreground">No games found for this date</p>
-              </div>
-            ) : pastGames.map(g => (
+            {pastGames?.length ? pastGames.map(g => (
               <div key={g.id} className="cosmic-card rounded-xl p-3">
                 <div className="flex items-center justify-between mb-1">
                   <p className="text-xs font-semibold text-foreground">{g.away_team} @ {g.home_team}</p>
@@ -256,7 +254,25 @@ export default function HistoricalPage() {
                   <p className="text-xs text-muted-foreground mt-1">Score not yet available</p>
                 )}
               </div>
-            ))}
+            )) : closingLines.length > 0 ? closingLines.map(cl => (
+              <div key={cl.key} className="cosmic-card rounded-xl p-3">
+                <div className="flex items-center justify-between mb-1">
+                  <p className="text-xs font-semibold text-foreground">{cl.awayTeam} @ {cl.homeTeam}</p>
+                  <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-secondary text-muted-foreground">ODDS ONLY</span>
+                </div>
+                <div className="flex gap-3 text-[10px] text-muted-foreground mt-1">
+                  <span>ML: {formatPrice(cl.moneyline.home)} / {formatPrice(cl.moneyline.away)}</span>
+                  {cl.spread.line != null && <span>Spread: {cl.spread.line}</span>}
+                  {cl.total.line != null && <span>O/U: {cl.total.line}</span>}
+                </div>
+              </div>
+            )) : (
+              <div className="cosmic-card rounded-xl p-8 text-center">
+                <History className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
+                <p className="text-sm font-medium text-foreground">No games found for this date</p>
+                <p className="text-xs text-muted-foreground mt-1">Try clicking "Fetch" or navigate to a date with games</p>
+              </div>
+            )}
           </TabsContent>
 
           {/* Tab 2: Historical Odds & Line Movement */}
@@ -333,43 +349,65 @@ export default function HistoricalPage() {
 
           {/* Tab 3: Historical Astrology */}
           <TabsContent value="astro" className="space-y-2 mt-3">
-            {!pastGames?.length ? (
-              <div className="cosmic-card rounded-xl p-8 text-center">
-                <Star className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
-                <p className="text-sm font-medium">No games to analyze</p>
-              </div>
-            ) : pastGames.map(g => {
-              const ph = getPlanetaryHourAt(new Date(g.start_time), g.venue_lat ?? 40.7);
-              return (
-                <div key={g.id} className="cosmic-card rounded-xl p-3 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <p className="text-xs font-semibold">{g.away_abbr} @ {g.home_abbr}</p>
-                    <span className="text-[10px] text-muted-foreground">{format(new Date(g.start_time), "h:mm a")}</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    {ph && (
-                      <div className="flex items-center gap-1">
-                        <span className="text-sm">{ph.symbol}</span>
-                      <div>
-                          <p className="text-[10px] font-medium">{ph.planet} Hour</p>
-                          <p className="text-[9px] text-muted-foreground">{ph.isDay ? "Day" : "Night"} chart</p>
-                        </div>
-                      </div>
-                    )}
-                    <div className="text-[9px] text-muted-foreground">
-                      {g.venue_lat && g.venue_lng ? (
-                        <span>📍 {g.venue_lat.toFixed(2)}°N, {Math.abs(g.venue_lng).toFixed(2)}°W</span>
-                      ) : "No coordinates"}
-                    </div>
-                  </div>
-                  {g.home_score != null && g.away_score != null && (
-                    <p className="text-[10px] text-muted-foreground">
-                      Final: {g.away_score}-{g.home_score} · {(g.home_score || 0) + (g.away_score || 0)} total
-                    </p>
-                  )}
+            {(() => {
+              // Use pastGames if available, otherwise derive from closingLines
+              const astroGames = pastGames?.length ? pastGames.map(g => ({
+                key: g.id,
+                away: g.away_abbr,
+                home: g.home_abbr,
+                startTime: g.start_time,
+                lat: g.venue_lat ?? 40.7,
+                lng: g.venue_lng,
+                score: g.home_score != null ? `${g.away_score}-${g.home_score} · ${(g.home_score || 0) + (g.away_score || 0)} total` : null,
+              })) : closingLines.map(cl => ({
+                key: cl.key,
+                away: cl.awayTeam,
+                home: cl.homeTeam,
+                startTime: (historicalOdds?.find(o => o.home_team === cl.homeTeam)?.start_time) || selectedDate.toISOString(),
+                lat: 40.7,
+                lng: null as number | null,
+                score: null as string | null,
+              }));
+
+              if (astroGames.length === 0) return (
+                <div className="cosmic-card rounded-xl p-8 text-center">
+                  <Star className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
+                  <p className="text-sm font-medium">No games to analyze</p>
+                  <p className="text-xs text-muted-foreground mt-1">Try clicking "Fetch" to load historical odds data</p>
                 </div>
               );
-            })}
+
+              return astroGames.map(g => {
+                const ph = getPlanetaryHourAt(new Date(g.startTime), g.lat);
+                return (
+                  <div key={g.key} className="cosmic-card rounded-xl p-3 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-semibold">{g.away} @ {g.home}</p>
+                      <span className="text-[10px] text-muted-foreground">{format(new Date(g.startTime), "h:mm a")}</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      {ph && (
+                        <div className="flex items-center gap-1">
+                          <span className="text-sm">{ph.symbol}</span>
+                          <div>
+                            <p className="text-[10px] font-medium">{ph.planet} Hour</p>
+                            <p className="text-[9px] text-muted-foreground">{ph.isDay ? "Day" : "Night"} chart</p>
+                          </div>
+                        </div>
+                      )}
+                      <div className="text-[9px] text-muted-foreground">
+                        {g.lat && g.lng ? (
+                          <span>📍 {g.lat.toFixed(2)}°N, {Math.abs(g.lng).toFixed(2)}°W</span>
+                        ) : "No coordinates"}
+                      </div>
+                    </div>
+                    {g.score && (
+                      <p className="text-[10px] text-muted-foreground">Final: {g.score}</p>
+                    )}
+                  </div>
+                );
+              });
+            })()}
           </TabsContent>
 
           {/* Tab 4: Historical Player Stats */}

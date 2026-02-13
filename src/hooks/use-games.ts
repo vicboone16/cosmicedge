@@ -14,14 +14,16 @@ export interface GameWithOdds extends GameRow {
 }
 
 async function fetchGamesFromDB(date?: Date): Promise<GameWithOdds[]> {
-  // Get date range for the target day
+  // Use local date boundaries — games stored in UTC but user browses by local date
   const target = date || new Date();
-  const startOfDay = new Date(target);
-  startOfDay.setHours(0, 0, 0, 0);
-  const endOfDay = new Date(target);
-  endOfDay.setHours(23, 59, 59, 999);
+  const y = target.getFullYear();
+  const m = target.getMonth();
+  const d = target.getDate();
+  // Local midnight → local midnight+24h, converted to UTC via Date constructor
+  const startOfDay = new Date(y, m, d, 0, 0, 0, 0);
+  const endOfDay = new Date(y, m, d, 23, 59, 59, 999);
 
-  // Fetch today's games from database
+  // Fetch games from database for the local day
   const { data: games, error: gamesError } = await supabase
     .from("games")
     .select("*")
