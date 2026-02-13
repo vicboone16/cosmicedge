@@ -634,6 +634,22 @@ Deno.serve(async (req) => {
         }
       }
 
+      // Look up stadium coordinates from stadiums table
+      const { data: stadium } = await supabase
+        .from("stadiums")
+        .select("name, latitude, longitude")
+        .eq("team_abbr", game.home_abbr)
+        .eq("league", game.league)
+        .maybeSingle();
+
+      if (stadium) {
+        await supabase.from("games").update({
+          venue: game.venue || stadium.name,
+          venue_lat: stadium.latitude,
+          venue_lng: stadium.longitude,
+        }).eq("id", gameId);
+      }
+
       // Store odds snapshots
       if (game.snapshots.length > 0) {
         const snaps = game.snapshots.map(s => ({ game_id: gameId, ...s }));
