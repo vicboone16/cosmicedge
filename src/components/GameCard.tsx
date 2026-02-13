@@ -1,13 +1,14 @@
 import { format } from "date-fns";
 import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
-import type { Game } from "@/lib/mock-data";
+import type { GameWithOdds } from "@/hooks/use-games";
 
 function formatOdds(odds: number): string {
+  if (!odds) return "—";
   return odds > 0 ? `+${odds}` : `${odds}`;
 }
 
-export function GameCard({ game }: { game: Game }) {
+export function GameCard({ game }: { game: GameWithOdds }) {
   const navigate = useNavigate();
   const isLive = game.status === "live";
   const isFinal = game.status === "final";
@@ -31,27 +32,26 @@ export function GameCard({ game }: { game: Game }) {
           )}
           {!isLive && !isFinal && (
             <span className="text-xs text-muted-foreground">
-              {format(new Date(game.startTime), "h:mm a")}
+              {format(new Date(game.start_time), "h:mm a")}
             </span>
           )}
         </div>
-        <span className="text-[10px] text-muted-foreground tracking-wide">{game.venue}</span>
+        <span className="text-[10px] text-muted-foreground tracking-wide">{game.venue || game.league}</span>
       </div>
 
       {/* Teams */}
       <div className="space-y-2">
-        {/* Away */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <span className="text-xs font-bold text-muted-foreground w-8">{game.awayAbbr}</span>
-            <span className={cn("text-sm font-medium", isFinal && game.awayScore! > game.homeScore! && "text-foreground", isFinal && game.awayScore! <= game.homeScore! && "text-muted-foreground")}>
-              {game.awayTeam}
+            <span className="text-xs font-bold text-muted-foreground w-8">{game.away_abbr}</span>
+            <span className={cn("text-sm font-medium", isFinal && (game.away_score ?? 0) > (game.home_score ?? 0) && "text-foreground", isFinal && (game.away_score ?? 0) <= (game.home_score ?? 0) && "text-muted-foreground")}>
+              {game.away_team}
             </span>
           </div>
           <div className="flex items-center gap-4">
             {(isLive || isFinal) && (
-              <span className={cn("text-lg font-bold font-display tabular-nums", isFinal && game.awayScore! > game.homeScore! ? "text-foreground" : "text-muted-foreground")}>
-                {game.awayScore}
+              <span className={cn("text-lg font-bold font-display tabular-nums", isFinal && (game.away_score ?? 0) > (game.home_score ?? 0) ? "text-foreground" : "text-muted-foreground")}>
+                {game.away_score}
               </span>
             )}
             <span className="text-xs text-muted-foreground tabular-nums w-12 text-right">
@@ -60,18 +60,17 @@ export function GameCard({ game }: { game: Game }) {
           </div>
         </div>
 
-        {/* Home */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <span className="text-xs font-bold text-muted-foreground w-8">{game.homeAbbr}</span>
-            <span className={cn("text-sm font-medium", isFinal && game.homeScore! > game.awayScore! && "text-foreground", isFinal && game.homeScore! <= game.awayScore! && "text-muted-foreground")}>
-              {game.homeTeam}
+            <span className="text-xs font-bold text-muted-foreground w-8">{game.home_abbr}</span>
+            <span className={cn("text-sm font-medium", isFinal && (game.home_score ?? 0) > (game.away_score ?? 0) && "text-foreground", isFinal && (game.home_score ?? 0) <= (game.away_score ?? 0) && "text-muted-foreground")}>
+              {game.home_team}
             </span>
           </div>
           <div className="flex items-center gap-4">
             {(isLive || isFinal) && (
-              <span className={cn("text-lg font-bold font-display tabular-nums", isFinal && game.homeScore! > game.awayScore! ? "text-foreground" : "text-muted-foreground")}>
-                {game.homeScore}
+              <span className={cn("text-lg font-bold font-display tabular-nums", isFinal && (game.home_score ?? 0) > (game.away_score ?? 0) ? "text-foreground" : "text-muted-foreground")}>
+                {game.home_score}
               </span>
             )}
             <span className="text-xs text-muted-foreground tabular-nums w-12 text-right">
@@ -86,14 +85,14 @@ export function GameCard({ game }: { game: Game }) {
         <div className="flex-1 text-center">
           <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Spread</span>
           <p className="text-xs font-medium text-foreground tabular-nums">
-            {game.odds.spread.line > 0 ? "+" : ""}{game.odds.spread.line}
+            {game.odds.spread.line ? `${game.odds.spread.line > 0 ? "+" : ""}${game.odds.spread.line}` : "—"}
           </p>
         </div>
         <div className="w-px h-6 bg-border/50" />
         <div className="flex-1 text-center">
           <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Total</span>
           <p className="text-xs font-medium text-foreground tabular-nums">
-            O/U {game.odds.total.line}
+            {game.odds.total.line ? `O/U ${game.odds.total.line}` : "—"}
           </p>
         </div>
       </div>

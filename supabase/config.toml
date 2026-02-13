@@ -1,1 +1,4 @@
 project_id = "gwfgmlfggeyxexclwybk"
+
+[functions.fetch-odds]
+verify_jwt = false
