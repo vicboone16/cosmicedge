@@ -14,6 +14,48 @@ export type Database = {
   }
   public: {
     Tables: {
+      astro_calculations: {
+        Row: {
+          calc_date: string | null
+          calc_type: string
+          created_at: string
+          entity_id: string
+          entity_type: string
+          expires_at: string | null
+          id: string
+          location_lat: number | null
+          location_lng: number | null
+          provider: string
+          result: Json
+        }
+        Insert: {
+          calc_date?: string | null
+          calc_type: string
+          created_at?: string
+          entity_id: string
+          entity_type: string
+          expires_at?: string | null
+          id?: string
+          location_lat?: number | null
+          location_lng?: number | null
+          provider?: string
+          result?: Json
+        }
+        Update: {
+          calc_date?: string | null
+          calc_type?: string
+          created_at?: string
+          entity_id?: string
+          entity_type?: string
+          expires_at?: string | null
+          id?: string
+          location_lat?: number | null
+          location_lng?: number | null
+          provider?: string
+          result?: Json
+        }
+        Relationships: []
+      }
       bets: {
         Row: {
           confidence: number | null
@@ -97,6 +139,80 @@ export type Database = {
             columns: ["player_id"]
             isOneToOne: false
             referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      game_quarters: {
+        Row: {
+          away_score: number | null
+          created_at: string
+          game_id: string
+          home_score: number | null
+          id: string
+          quarter: number
+        }
+        Insert: {
+          away_score?: number | null
+          created_at?: string
+          game_id: string
+          home_score?: number | null
+          id?: string
+          quarter: number
+        }
+        Update: {
+          away_score?: number | null
+          created_at?: string
+          game_id?: string
+          home_score?: number | null
+          id?: string
+          quarter?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "game_quarters_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      game_referees: {
+        Row: {
+          created_at: string
+          game_id: string
+          id: string
+          referee_id: string
+          role: string | null
+        }
+        Insert: {
+          created_at?: string
+          game_id: string
+          id?: string
+          referee_id: string
+          role?: string | null
+        }
+        Update: {
+          created_at?: string
+          game_id?: string
+          id?: string
+          referee_id?: string
+          role?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "game_referees_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "game_referees_referee_id_fkey"
+            columns: ["referee_id"]
+            isOneToOne: false
+            referencedRelation: "referees"
             referencedColumns: ["id"]
           },
         ]
@@ -247,6 +363,258 @@ export type Database = {
           },
         ]
       }
+      play_by_play: {
+        Row: {
+          assist_player_id: string | null
+          away_score: number | null
+          clock: string | null
+          created_at: string
+          description: string | null
+          event_type: string
+          game_id: string
+          home_score: number | null
+          id: string
+          player_id: string | null
+          quarter: number
+          sequence: number
+          team_abbr: string | null
+        }
+        Insert: {
+          assist_player_id?: string | null
+          away_score?: number | null
+          clock?: string | null
+          created_at?: string
+          description?: string | null
+          event_type: string
+          game_id: string
+          home_score?: number | null
+          id?: string
+          player_id?: string | null
+          quarter: number
+          sequence: number
+          team_abbr?: string | null
+        }
+        Update: {
+          assist_player_id?: string | null
+          away_score?: number | null
+          clock?: string | null
+          created_at?: string
+          description?: string | null
+          event_type?: string
+          game_id?: string
+          home_score?: number | null
+          id?: string
+          player_id?: string | null
+          quarter?: number
+          sequence?: number
+          team_abbr?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "play_by_play_assist_player_id_fkey"
+            columns: ["assist_player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "play_by_play_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "play_by_play_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      player_game_stats: {
+        Row: {
+          assists: number | null
+          blocks: number | null
+          created_at: string
+          def_rebounds: number | null
+          fantasy_points: number | null
+          fg_attempted: number | null
+          fg_made: number | null
+          fouls: number | null
+          ft_attempted: number | null
+          ft_made: number | null
+          game_id: string
+          id: string
+          minutes: number | null
+          off_rebounds: number | null
+          player_id: string
+          plus_minus: number | null
+          points: number | null
+          rebounds: number | null
+          starter: boolean | null
+          steals: number | null
+          team_abbr: string
+          three_attempted: number | null
+          three_made: number | null
+          turnovers: number | null
+        }
+        Insert: {
+          assists?: number | null
+          blocks?: number | null
+          created_at?: string
+          def_rebounds?: number | null
+          fantasy_points?: number | null
+          fg_attempted?: number | null
+          fg_made?: number | null
+          fouls?: number | null
+          ft_attempted?: number | null
+          ft_made?: number | null
+          game_id: string
+          id?: string
+          minutes?: number | null
+          off_rebounds?: number | null
+          player_id: string
+          plus_minus?: number | null
+          points?: number | null
+          rebounds?: number | null
+          starter?: boolean | null
+          steals?: number | null
+          team_abbr: string
+          three_attempted?: number | null
+          three_made?: number | null
+          turnovers?: number | null
+        }
+        Update: {
+          assists?: number | null
+          blocks?: number | null
+          created_at?: string
+          def_rebounds?: number | null
+          fantasy_points?: number | null
+          fg_attempted?: number | null
+          fg_made?: number | null
+          fouls?: number | null
+          ft_attempted?: number | null
+          ft_made?: number | null
+          game_id?: string
+          id?: string
+          minutes?: number | null
+          off_rebounds?: number | null
+          player_id?: string
+          plus_minus?: number | null
+          points?: number | null
+          rebounds?: number | null
+          starter?: boolean | null
+          steals?: number | null
+          team_abbr?: string
+          three_attempted?: number | null
+          three_made?: number | null
+          turnovers?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "player_game_stats_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "player_game_stats_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      player_season_stats: {
+        Row: {
+          assists_per_game: number | null
+          blocks_per_game: number | null
+          bpm: number | null
+          effective_fg_pct: number | null
+          fg_pct: number | null
+          ft_pct: number | null
+          games_played: number | null
+          id: string
+          league: string
+          minutes_per_game: number | null
+          per: number | null
+          player_id: string
+          points_per_game: number | null
+          rebounds_per_game: number | null
+          season: number
+          steals_per_game: number | null
+          three_pct: number | null
+          true_shooting_pct: number | null
+          turnovers_per_game: number | null
+          updated_at: string
+          usage_rate: number | null
+          vorp: number | null
+          win_shares: number | null
+        }
+        Insert: {
+          assists_per_game?: number | null
+          blocks_per_game?: number | null
+          bpm?: number | null
+          effective_fg_pct?: number | null
+          fg_pct?: number | null
+          ft_pct?: number | null
+          games_played?: number | null
+          id?: string
+          league?: string
+          minutes_per_game?: number | null
+          per?: number | null
+          player_id: string
+          points_per_game?: number | null
+          rebounds_per_game?: number | null
+          season: number
+          steals_per_game?: number | null
+          three_pct?: number | null
+          true_shooting_pct?: number | null
+          turnovers_per_game?: number | null
+          updated_at?: string
+          usage_rate?: number | null
+          vorp?: number | null
+          win_shares?: number | null
+        }
+        Update: {
+          assists_per_game?: number | null
+          blocks_per_game?: number | null
+          bpm?: number | null
+          effective_fg_pct?: number | null
+          fg_pct?: number | null
+          ft_pct?: number | null
+          games_played?: number | null
+          id?: string
+          league?: string
+          minutes_per_game?: number | null
+          per?: number | null
+          player_id?: string
+          points_per_game?: number | null
+          rebounds_per_game?: number | null
+          season?: number
+          steals_per_game?: number | null
+          three_pct?: number | null
+          true_shooting_pct?: number | null
+          turnovers_per_game?: number | null
+          updated_at?: string
+          usage_rate?: number | null
+          vorp?: number | null
+          win_shares?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "player_season_stats_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       players: {
         Row: {
           birth_date: string | null
@@ -298,6 +666,51 @@ export type Database = {
         }
         Relationships: []
       }
+      referees: {
+        Row: {
+          birth_date: string | null
+          birth_lat: number | null
+          birth_lng: number | null
+          birth_place: string | null
+          birth_time: string | null
+          created_at: string
+          external_id: string | null
+          id: string
+          league: string | null
+          name: string
+          natal_data_quality: string | null
+          updated_at: string
+        }
+        Insert: {
+          birth_date?: string | null
+          birth_lat?: number | null
+          birth_lng?: number | null
+          birth_place?: string | null
+          birth_time?: string | null
+          created_at?: string
+          external_id?: string | null
+          id?: string
+          league?: string | null
+          name: string
+          natal_data_quality?: string | null
+          updated_at?: string
+        }
+        Update: {
+          birth_date?: string | null
+          birth_lat?: number | null
+          birth_lng?: number | null
+          birth_place?: string | null
+          birth_time?: string | null
+          created_at?: string
+          external_id?: string | null
+          id?: string
+          league?: string | null
+          name?: string
+          natal_data_quality?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       results: {
         Row: {
           actual_outcome: string | null
@@ -342,6 +755,84 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      sportsbooks: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean | null
+          key: string
+          name: string
+          region: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          key: string
+          name: string
+          region?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          key?: string
+          name?: string
+          region?: string | null
+        }
+        Relationships: []
+      }
+      stadiums: {
+        Row: {
+          capacity: number | null
+          city: string | null
+          country: string | null
+          created_at: string
+          external_id: string | null
+          id: string
+          latitude: number
+          league: string | null
+          longitude: number
+          name: string
+          state: string | null
+          team_abbr: string | null
+          timezone: string
+          updated_at: string
+        }
+        Insert: {
+          capacity?: number | null
+          city?: string | null
+          country?: string | null
+          created_at?: string
+          external_id?: string | null
+          id?: string
+          latitude: number
+          league?: string | null
+          longitude: number
+          name: string
+          state?: string | null
+          team_abbr?: string | null
+          timezone?: string
+          updated_at?: string
+        }
+        Update: {
+          capacity?: number | null
+          city?: string | null
+          country?: string | null
+          created_at?: string
+          external_id?: string | null
+          id?: string
+          latitude?: number
+          league?: string | null
+          longitude?: number
+          name?: string
+          state?: string | null
+          team_abbr?: string | null
+          timezone?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       standings: {
         Row: {
@@ -427,6 +918,170 @@ export type Database = {
           updated_at?: string
           win_pct?: number | null
           wins?: number
+        }
+        Relationships: []
+      }
+      team_game_stats: {
+        Row: {
+          assists: number | null
+          bench_points: number | null
+          blocks: number | null
+          created_at: string
+          def_rating: number | null
+          def_rebounds: number | null
+          fast_break_points: number | null
+          fg_attempted: number | null
+          fg_made: number | null
+          ft_attempted: number | null
+          ft_made: number | null
+          game_id: string
+          id: string
+          is_home: boolean
+          off_rating: number | null
+          off_rebounds: number | null
+          pace: number | null
+          points: number | null
+          points_in_paint: number | null
+          possessions: number | null
+          rebounds: number | null
+          second_chance_points: number | null
+          steals: number | null
+          team_abbr: string
+          three_attempted: number | null
+          three_made: number | null
+          turnovers: number | null
+        }
+        Insert: {
+          assists?: number | null
+          bench_points?: number | null
+          blocks?: number | null
+          created_at?: string
+          def_rating?: number | null
+          def_rebounds?: number | null
+          fast_break_points?: number | null
+          fg_attempted?: number | null
+          fg_made?: number | null
+          ft_attempted?: number | null
+          ft_made?: number | null
+          game_id: string
+          id?: string
+          is_home: boolean
+          off_rating?: number | null
+          off_rebounds?: number | null
+          pace?: number | null
+          points?: number | null
+          points_in_paint?: number | null
+          possessions?: number | null
+          rebounds?: number | null
+          second_chance_points?: number | null
+          steals?: number | null
+          team_abbr: string
+          three_attempted?: number | null
+          three_made?: number | null
+          turnovers?: number | null
+        }
+        Update: {
+          assists?: number | null
+          bench_points?: number | null
+          blocks?: number | null
+          created_at?: string
+          def_rating?: number | null
+          def_rebounds?: number | null
+          fast_break_points?: number | null
+          fg_attempted?: number | null
+          fg_made?: number | null
+          ft_attempted?: number | null
+          ft_made?: number | null
+          game_id?: string
+          id?: string
+          is_home?: boolean
+          off_rating?: number | null
+          off_rebounds?: number | null
+          pace?: number | null
+          points?: number | null
+          points_in_paint?: number | null
+          possessions?: number | null
+          rebounds?: number | null
+          second_chance_points?: number | null
+          steals?: number | null
+          team_abbr?: string
+          three_attempted?: number | null
+          three_made?: number | null
+          turnovers?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_game_stats_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      team_season_stats: {
+        Row: {
+          ast_pct: number | null
+          def_rating: number | null
+          fg_pct: number | null
+          ft_pct: number | null
+          id: string
+          league: string
+          net_rating: number | null
+          off_rating: number | null
+          opp_fg_pct: number | null
+          opp_points_per_game: number | null
+          opp_three_pct: number | null
+          pace: number | null
+          points_per_game: number | null
+          reb_pct: number | null
+          season: number
+          team_abbr: string
+          three_pct: number | null
+          tov_pct: number | null
+          updated_at: string
+        }
+        Insert: {
+          ast_pct?: number | null
+          def_rating?: number | null
+          fg_pct?: number | null
+          ft_pct?: number | null
+          id?: string
+          league?: string
+          net_rating?: number | null
+          off_rating?: number | null
+          opp_fg_pct?: number | null
+          opp_points_per_game?: number | null
+          opp_three_pct?: number | null
+          pace?: number | null
+          points_per_game?: number | null
+          reb_pct?: number | null
+          season: number
+          team_abbr: string
+          three_pct?: number | null
+          tov_pct?: number | null
+          updated_at?: string
+        }
+        Update: {
+          ast_pct?: number | null
+          def_rating?: number | null
+          fg_pct?: number | null
+          ft_pct?: number | null
+          id?: string
+          league?: string
+          net_rating?: number | null
+          off_rating?: number | null
+          opp_fg_pct?: number | null
+          opp_points_per_game?: number | null
+          opp_three_pct?: number | null
+          pace?: number | null
+          points_per_game?: number | null
+          reb_pct?: number | null
+          season?: number
+          team_abbr?: string
+          three_pct?: number | null
+          tov_pct?: number | null
+          updated_at?: string
         }
         Relationships: []
       }
