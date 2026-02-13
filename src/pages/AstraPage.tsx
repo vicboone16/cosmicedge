@@ -34,7 +34,9 @@ function GlossaryBrowser() {
     staleTime: 60 * 60 * 1000,
   });
 
-  const items = glossaryData?.result;
+  // API returns { success, provider, result: { data, metadata, ... } }
+  const raw = glossaryData?.result;
+  const items = raw?.data?.points || raw?.data?.dignities || raw?.data?.considerations || raw?.data?.categories || raw?.data || (Array.isArray(raw) ? raw : null);
 
   return (
     <div className="space-y-3">
@@ -67,15 +69,33 @@ function GlossaryBrowser() {
           {Array.isArray(items) ? (
             items.map((item: any, i: number) => (
               <div key={i} className="cosmic-card rounded-lg p-3">
-                <p className="text-xs font-semibold text-foreground">
-                  {item.name || item.title || item.key || item.label || `Item ${i + 1}`}
-                </p>
-                {item.description && (
+                <div className="flex items-center gap-2">
+                  {item.symbol && <span className="text-lg">{item.symbol}</span>}
+                  <p className="text-xs font-semibold text-foreground">
+                    {item.name || item.traditional_name || item.title || item.key || item.label || `Item ${i + 1}`}
+                  </p>
+                </div>
+                {item.meaning && (
+                  <p className="text-[10px] text-muted-foreground mt-1 leading-relaxed">{item.meaning}</p>
+                )}
+                {item.description && !item.meaning && (
                   <p className="text-[10px] text-muted-foreground mt-1 leading-relaxed">{item.description}</p>
                 )}
-                {item.symbol && <span className="text-sm">{item.symbol}</span>}
+                {item.element && (
+                  <p className="text-[9px] text-primary mt-0.5">Element: {item.element}</p>
+                )}
+                {item.category && (
+                  <p className="text-[9px] text-muted-foreground/80 mt-0.5">{item.category}</p>
+                )}
                 {item.ruling_planet && (
                   <p className="text-[9px] text-primary mt-0.5">Ruler: {item.ruling_planet}</p>
+                )}
+                {item.keywords && Array.isArray(item.keywords) && (
+                  <div className="flex flex-wrap gap-1 mt-1.5">
+                    {item.keywords.slice(0, 5).map((kw: string, ki: number) => (
+                      <span key={ki} className="text-[8px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary">{kw}</span>
+                    ))}
+                  </div>
                 )}
               </div>
             ))
@@ -191,7 +211,11 @@ function AstraChat() {
             )}
           >
             {m.content.split("\n").map((line, j) => (
-              <p key={j} className={j > 0 ? "mt-1" : ""}>{line}</p>
+              <p key={j} className={j > 0 ? "mt-1" : ""} dangerouslySetInnerHTML={{
+                __html: line
+                  .replace(/\*\*(.+?)\*\*/g, '<strong class="font-bold text-primary">$1</strong>')
+                  .replace(/\*(.+?)\*/g, '<em>$1</em>')
+              }} />
             ))}
           </div>
         ))}
