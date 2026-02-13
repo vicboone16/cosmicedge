@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Star, MapPin, Orbit, Moon, Zap, Users, ChevronDown, ChevronUp, TrendingUp, TrendingDown, BarChart3, Lightbulb, Swords, Flame } from "lucide-react";
+import { ArrowLeft, Star, MapPin, Orbit, Moon, Zap, Users, ChevronDown, ChevronUp, TrendingUp, TrendingDown, BarChart3, Lightbulb, Swords, Flame, AlertTriangle, Shield } from "lucide-react";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
@@ -133,10 +135,14 @@ function PlayerCard({
   player,
   gameId,
   navigate,
+  injuryStatus,
+  injuryNote,
 }: {
-  player: { id: string; name: string; position: string | null; team: string | null; birth_date: string | null; league: string | null };
+  player: { id: string; name: string; position: string | null; team: string | null; birth_date: string | null; league: string | null; headshot_url?: string | null };
   gameId: string;
   navigate: (path: string) => void;
+  injuryStatus?: string | null;
+  injuryNote?: string | null;
 }) {
   const [expanded, setExpanded] = useState(false);
   const pz = player.birth_date ? getZodiacFromDateStr(player.birth_date) : null;
@@ -179,16 +185,26 @@ function PlayerCard({
     <Collapsible open={expanded} onOpenChange={setExpanded}>
       <CollapsibleTrigger asChild>
         <button className="w-full cosmic-card rounded-lg p-2 flex items-start gap-2 text-left hover:border-primary/30 transition-colors">
-          {pz && <span className="text-sm mt-0.5">{pz.symbol}</span>}
+          <Avatar className="h-8 w-8 shrink-0">
+            {player.headshot_url && <AvatarImage src={player.headshot_url} alt={player.name} />}
+            <AvatarFallback className="text-[10px] bg-secondary">
+              {pz ? pz.symbol : player.name.slice(0, 2).toUpperCase()}
+            </AvatarFallback>
+          </Avatar>
           <div className="flex-1 min-w-0">
-            <p className="text-[10px] font-medium text-foreground truncate">{player.name}</p>
+            <div className="flex items-center gap-1">
+              <p className="text-[10px] font-medium text-foreground truncate">{player.name}</p>
+              {injuryStatus && (
+                <Badge variant="destructive" className="text-[7px] px-1 py-0 h-3.5">
+                  {injuryStatus}
+                </Badge>
+              )}
+            </div>
             <div className="flex items-center gap-1">
               <p className="text-[9px] text-muted-foreground">{pz?.sign} · {pz?.element}</p>
               {player.position && <span className="text-[9px] text-primary/70">· {player.position}</span>}
             </div>
-            {player.birth_date && (
-              <p className="text-[8px] text-muted-foreground/60">🎂 {player.birth_date}</p>
-            )}
+            {injuryNote && <p className="text-[8px] text-destructive/80 truncate">{injuryNote}</p>}
             <TransitModifiers player={player} />
           </div>
           <div className="flex items-center gap-1 text-muted-foreground">
@@ -322,17 +338,49 @@ const GameDetail = () => {
     enabled: !!id,
   });
 
-  // Fetch players for both teams - league-filtered
+  // Fetch players for both teams - league-filtered (include headshot_url)
   const { data: players } = useQuery({
     queryKey: ["game-players", game?.home_abbr, game?.away_abbr, game?.league],
     queryFn: async () => {
       if (!game) return [];
       const { data } = await supabase
         .from("players")
-        .select("id, name, position, team, birth_date, league")
+        .select("id, name, position, team, birth_date, league, headshot_url")
         .in("team", [game.home_abbr, game.away_abbr])
         .eq("league", game.league)
         .limit(50);
+      return data || [];
+    },
+    enabled: !!game,
+  });
+
+  // Fetch injuries for both teams
+  const { data: injuries } = useQuery({
+    queryKey: ["game-injuries", game?.home_abbr, game?.away_abbr, game?.league],
+    queryFn: async () => {
+      if (!game) return [];
+      const { data } = await supabase
+        .from("injuries")
+        .select("player_name, team_abbr, status, body_part, notes, player_id")
+        .eq("league", game.league)
+        .in("team_abbr", [game.home_abbr, game.away_abbr]);
+      return data || [];
+    },
+    enabled: !!game,
+  });
+
+  // Fetch depth charts for both teams
+  const { data: depthCharts } = useQuery({
+    queryKey: ["game-depth-charts", game?.home_abbr, game?.away_abbr, game?.league],
+    queryFn: async () => {
+      if (!game) return [];
+      const { data } = await supabase
+        .from("depth_charts")
+        .select("player_name, team_abbr, position, depth_order, player_id")
+        .eq("league", game.league)
+        .in("team_abbr", [game.home_abbr, game.away_abbr])
+        .order("position")
+        .order("depth_order");
       return data || [];
     },
     enabled: !!game,
@@ -365,6 +413,18 @@ const GameDetail = () => {
   // Group players by team
   const awayPlayers = players?.filter(p => p.team === game.away_abbr) || [];
   const homePlayers = players?.filter(p => p.team === game.home_abbr) || [];
+
+  // Build injury lookup by player name
+  const injuryMap = new Map<string, { status: string | null; notes: string | null }>();
+  for (const inj of injuries || []) {
+    injuryMap.set(inj.player_name.toLowerCase(), { status: inj.status, notes: inj.notes });
+  }
+
+  // Build depth chart lookup by team
+  const awayDepth = (depthCharts || []).filter(d => d.team_abbr === game.away_abbr);
+  const homeDepth = (depthCharts || []).filter(d => d.team_abbr === game.home_abbr);
+  const awayInjuries = (injuries || []).filter(i => i.team_abbr === game.away_abbr);
+  const homeInjuries = (injuries || []).filter(i => i.team_abbr === game.home_abbr);
 
   return (
     <div className="min-h-screen">
@@ -660,6 +720,91 @@ const GameDetail = () => {
               awayTeam={game.away_team}
             />
 
+            {/* Injury Report */}
+            {(awayInjuries.length > 0 || homeInjuries.length > 0) && (
+              <section>
+                <h3 className="text-xs font-semibold text-destructive uppercase tracking-widest mb-3 flex items-center gap-1.5">
+                  <AlertTriangle className="h-3.5 w-3.5" />
+                  Injury Report
+                </h3>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">{game.away_abbr}</p>
+                    <div className="space-y-1.5">
+                      {awayInjuries.length === 0 ? (
+                        <p className="text-[9px] text-muted-foreground">No injuries</p>
+                      ) : awayInjuries.map((inj, i) => (
+                        <div key={i} className="cosmic-card rounded-lg p-2">
+                          <div className="flex items-center gap-1">
+                            <p className="text-[10px] font-medium text-foreground truncate">{inj.player_name}</p>
+                            <Badge variant="destructive" className="text-[7px] px-1 py-0 h-3.5 shrink-0">
+                              {inj.status}
+                            </Badge>
+                          </div>
+                          {inj.body_part && <p className="text-[8px] text-muted-foreground">{inj.body_part}</p>}
+                          {inj.notes && <p className="text-[8px] text-destructive/70 truncate">{inj.notes}</p>}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">{game.home_abbr}</p>
+                    <div className="space-y-1.5">
+                      {homeInjuries.length === 0 ? (
+                        <p className="text-[9px] text-muted-foreground">No injuries</p>
+                      ) : homeInjuries.map((inj, i) => (
+                        <div key={i} className="cosmic-card rounded-lg p-2">
+                          <div className="flex items-center gap-1">
+                            <p className="text-[10px] font-medium text-foreground truncate">{inj.player_name}</p>
+                            <Badge variant="destructive" className="text-[7px] px-1 py-0 h-3.5 shrink-0">
+                              {inj.status}
+                            </Badge>
+                          </div>
+                          {inj.body_part && <p className="text-[8px] text-muted-foreground">{inj.body_part}</p>}
+                          {inj.notes && <p className="text-[8px] text-destructive/70 truncate">{inj.notes}</p>}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </section>
+            )}
+
+            {/* Depth Charts */}
+            {(awayDepth.length > 0 || homeDepth.length > 0) && (
+              <section>
+                <h3 className="text-xs font-semibold text-primary uppercase tracking-widest mb-3 flex items-center gap-1.5">
+                  <Shield className="h-3.5 w-3.5" />
+                  Depth Chart
+                </h3>
+                <div className="grid grid-cols-2 gap-3">
+                  {[{ abbr: game.away_abbr, depth: awayDepth }, { abbr: game.home_abbr, depth: homeDepth }].map(({ abbr, depth }) => {
+                    const byPos = depth.reduce((acc, d) => {
+                      (acc[d.position] = acc[d.position] || []).push(d);
+                      return acc;
+                    }, {} as Record<string, typeof depth>);
+                    return (
+                      <div key={abbr}>
+                        <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">{abbr}</p>
+                        <div className="space-y-2">
+                          {Object.entries(byPos).slice(0, 6).map(([pos, entries]) => (
+                            <div key={pos} className="cosmic-card rounded-lg p-2">
+                              <p className="text-[9px] font-bold text-primary uppercase mb-1">{pos}</p>
+                              {entries.map((e, i) => (
+                                <p key={i} className={cn("text-[9px]", i === 0 ? "font-semibold text-foreground" : "text-muted-foreground")}>
+                                  {e.depth_order}. {e.player_name}
+                                </p>
+                              ))}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+            )}
+
             {/* Player Cards */}
             {(awayPlayers.length > 0 || homePlayers.length > 0) && (
               <section>
@@ -671,17 +816,19 @@ const GameDetail = () => {
                   <div>
                     <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">{game.away_abbr}</p>
                     <div className="space-y-1.5">
-                      {awayPlayers.slice(0, 12).map((p) => (
-                        <PlayerCard key={p.id} player={p} gameId={game.id} navigate={navigate} />
-                      ))}
+                      {awayPlayers.slice(0, 12).map((p) => {
+                        const inj = injuryMap.get(p.name.toLowerCase());
+                        return <PlayerCard key={p.id} player={p} gameId={game.id} navigate={navigate} injuryStatus={inj?.status} injuryNote={inj?.notes} />;
+                      })}
                     </div>
                   </div>
                   <div>
                     <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">{game.home_abbr}</p>
                     <div className="space-y-1.5">
-                      {homePlayers.slice(0, 12).map((p) => (
-                        <PlayerCard key={p.id} player={p} gameId={game.id} navigate={navigate} />
-                      ))}
+                      {homePlayers.slice(0, 12).map((p) => {
+                        const inj = injuryMap.get(p.name.toLowerCase());
+                        return <PlayerCard key={p.id} player={p} gameId={game.id} navigate={navigate} injuryStatus={inj?.status} injuryNote={inj?.notes} />;
+                      })}
                     </div>
                   </div>
                 </div>
