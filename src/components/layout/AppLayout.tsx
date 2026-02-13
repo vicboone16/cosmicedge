@@ -9,11 +9,28 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
 export function AppLayout() {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
 
+  // Query pending friend requests for badge
+  const { data: pendingCount } = useQuery({
+    queryKey: ["pending-friend-requests", user?.id],
+    queryFn: async () => {
+      if (!user) return 0;
+      const { count } = await supabase
+        .from("friendships")
+        .select("*", { count: "exact", head: true })
+        .eq("addressee_id", user.id)
+        .eq("status", "pending");
+      return count || 0;
+    },
+    enabled: !!user,
+    refetchInterval: 30000,
+  });
   return (
     <div className="min-h-screen bg-background star-field">
       {/* Top header with profile dropdown */}
@@ -21,7 +38,7 @@ export function AppLayout() {
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
-              className="h-9 w-9 rounded-full bg-secondary border border-border flex items-center justify-center hover:border-primary/30 transition-colors shadow-sm"
+              className="relative h-9 w-9 rounded-full bg-secondary border border-border flex items-center justify-center hover:border-primary/30 transition-colors shadow-sm"
               aria-label="Menu"
             >
               {user ? (
@@ -30,6 +47,11 @@ export function AppLayout() {
                 </span>
               ) : (
                 <Moon className="h-4 w-4 text-muted-foreground" />
+              )}
+              {!!pendingCount && pendingCount > 0 && (
+                <span className="absolute -top-1 -right-1 h-4 min-w-[16px] px-1 rounded-full bg-destructive text-destructive-foreground text-[9px] font-bold flex items-center justify-center">
+                  {pendingCount > 9 ? "9+" : pendingCount}
+                </span>
               )}
             </button>
           </DropdownMenuTrigger>

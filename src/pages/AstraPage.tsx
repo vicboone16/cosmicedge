@@ -100,14 +100,41 @@ function GlossaryBrowser() {
               </div>
             ))
           ) : typeof items === "object" ? (
-            Object.entries(items).map(([key, val]: [string, any]) => (
-              <div key={key} className="cosmic-card rounded-lg p-3">
-                <p className="text-xs font-semibold text-foreground">{key}</p>
-                <p className="text-[10px] text-muted-foreground mt-1 leading-relaxed">
-                  {typeof val === "string" ? val : JSON.stringify(val, null, 2)}
-                </p>
-              </div>
-            ))
+            Object.entries(items).map(([key, val]: [string, any]) => {
+              const item = typeof val === "object" && val !== null ? val : { description: String(val) };
+              return (
+                <div key={key} className="cosmic-card rounded-lg p-3">
+                  <div className="flex items-center gap-2">
+                    {item.symbol && <span className="text-lg">{item.symbol}</span>}
+                    <p className="text-xs font-semibold text-foreground">
+                      {item.name || key.replace(/_/g, " ")}
+                    </p>
+                  </div>
+                  {item.meaning && (
+                    <p className="text-[10px] text-muted-foreground mt-1 leading-relaxed">{item.meaning}</p>
+                  )}
+                  {item.description && !item.meaning && (
+                    <p className="text-[10px] text-muted-foreground mt-1 leading-relaxed">{item.description}</p>
+                  )}
+                  {item.traditional_name && (
+                    <p className="text-[9px] text-primary/70 mt-0.5">Traditional: {item.traditional_name}</p>
+                  )}
+                  {item.element && (
+                    <p className="text-[9px] text-primary mt-0.5">Element: {item.element}</p>
+                  )}
+                  {item.category && (
+                    <p className="text-[9px] text-muted-foreground/80 mt-0.5">{item.category}</p>
+                  )}
+                  {item.keywords && Array.isArray(item.keywords) && (
+                    <div className="flex flex-wrap gap-1 mt-1.5">
+                      {item.keywords.slice(0, 5).map((kw: string, ki: number) => (
+                        <span key={ki} className="text-[8px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary">{kw}</span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })
           ) : (
             <p className="text-xs text-muted-foreground">{JSON.stringify(items)}</p>
           )}
