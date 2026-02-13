@@ -52,6 +52,8 @@ interface PropRow {
   under_price: number | null;
 }
 
+const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
 async function fetchPropsForEvent(
   apiKey: string,
   sportKey: string,
@@ -60,8 +62,10 @@ async function fetchPropsForEvent(
 ): Promise<PropRow[]> {
   const props: PropRow[] = [];
 
-  // Fetch in batches of 3 markets to stay within response size limits
+  // Fetch in batches of 3 markets with delay between batches
   for (let i = 0; i < markets.length; i += 3) {
+    if (i > 0) await delay(1200); // rate limit buffer
+
     const batch = markets.slice(i, i + 3);
     const marketsParam = batch.join(",");
     const url = `${THE_ODDS_API_BASE}/sports/${sportKey}/events/${eventId}/odds?apiKey=${apiKey}&regions=us&markets=${marketsParam}&oddsFormat=american`;
@@ -69,7 +73,8 @@ async function fetchPropsForEvent(
     try {
       const resp = await fetch(url);
       if (!resp.ok) {
-        console.warn(`Props API ${resp.status} for event ${eventId}, markets ${marketsParam}`);
+        const body = await resp.text();
+        console.warn(`Props API ${resp.status} for event ${eventId}, markets ${marketsParam}: ${body}`);
         continue;
       }
 
@@ -79,7 +84,6 @@ async function fetchPropsForEvent(
 
       for (const bk of data.bookmakers || []) {
         for (const market of bk.markets || []) {
-          // Group outcomes by player (description field)
           const playerOutcomes = new Map<string, { over?: any; under?: any }>();
 
           for (const outcome of market.outcomes || []) {
@@ -94,7 +98,7 @@ async function fetchPropsForEvent(
 
           for (const [playerName, outcomes] of playerOutcomes) {
             props.push({
-              game_id: "", // will be set later
+              game_id: "",
               external_event_id: eventId,
               player_name: playerName,
               market_key: market.key,
