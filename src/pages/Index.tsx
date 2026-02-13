@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Sparkles, RefreshCw, Loader2 } from "lucide-react";
 import { GameCard } from "@/components/GameCard";
 import { LeagueFilter } from "@/components/LeagueFilter";
+import { AstroHeader } from "@/components/AstroHeader";
 import { useGames } from "@/hooks/use-games";
 import type { League } from "@/lib/mock-data";
 import { format } from "date-fns";
@@ -17,8 +18,8 @@ const Index = () => {
   return (
     <div className="min-h-screen">
       {/* Header */}
-      <header className="sticky top-0 z-40 bg-background/70 backdrop-blur-xl border-b border-border/50">
-        <div className="px-4 pt-12 pb-3">
+      <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-xl border-b border-border/50">
+        <div className="px-4 pt-12 pb-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 mb-1">
               <Sparkles className="h-5 w-5 text-primary" />
@@ -40,6 +41,10 @@ const Index = () => {
             {format(new Date(), "EEEE, MMMM d")} · Today's Slate
           </p>
         </div>
+
+        {/* Astro Banner */}
+        <AstroHeader />
+
         <LeagueFilter selected={selectedLeague} onSelect={setSelectedLeague} />
       </header>
 

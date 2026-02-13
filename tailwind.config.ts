@@ -57,6 +57,8 @@ export default {
           gold: "hsl(var(--cosmic-gold))",
           green: "hsl(var(--cosmic-green))",
           red: "hsl(var(--cosmic-red))",
+          lavender: "hsl(var(--cosmic-lavender))",
+          indigo: "hsl(var(--cosmic-indigo))",
         },
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",

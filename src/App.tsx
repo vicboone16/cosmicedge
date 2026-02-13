@@ -6,6 +6,8 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import Index from "./pages/Index";
 import GameDetail from "./pages/GameDetail";
+import TeamPage from "./pages/TeamPage";
+import PlayerPage from "./pages/PlayerPage";
 import Results from "./pages/Results";
 import Analytics from "./pages/Analytics";
 import SettingsPage from "./pages/SettingsPage";
@@ -23,6 +25,8 @@ const App = () => (
           <Route element={<AppLayout />}>
             <Route path="/" element={<Index />} />
             <Route path="/game/:id" element={<GameDetail />} />
+            <Route path="/team/:abbr" element={<TeamPage />} />
+            <Route path="/player/:id" element={<PlayerPage />} />
             <Route path="/results" element={<Results />} />
             <Route path="/analytics" element={<Analytics />} />
             <Route path="/settings" element={<SettingsPage />} />
