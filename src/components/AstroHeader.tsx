@@ -1,4 +1,5 @@
-import { Moon, Orbit, Sun, Flame, Heart, Gem, Zap, Shield, Eye } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Orbit } from "lucide-react";
 
 // ── Moon Phase Calculator ──
 function getMoonPhase(): { name: string; emoji: string; dayInCycle: number; advice: string } {
@@ -37,26 +38,13 @@ function getRetrogradePlanets(): { planet: string; symbol: string; meaning: stri
   return retros.filter((r) => now >= r.start && now <= r.end).map(({ planet, symbol, meaning }) => ({ planet, symbol, meaning }));
 }
 
-// ── Approximate Planetary Positions (simplified ephemeris for Feb 2026) ──
-function getPlanetaryPositions(): { planet: string; symbol: string; sign: string; signSymbol: string; degree: number }[] {
-  // Approximate positions for mid-Feb 2026
-  return [
-    { planet: "Sun", symbol: "☉", sign: "Aquarius", signSymbol: "♒", degree: 24 },
-    { planet: "Moon", symbol: "☽", sign: getMoonSign(), signSymbol: getMoonSignSymbol(), degree: Math.floor(Math.random() * 30) },
-    { planet: "Mercury", symbol: "☿", sign: "Aquarius", signSymbol: "♒", degree: 8 },
-    { planet: "Venus", symbol: "♀", sign: "Pisces", signSymbol: "♓", degree: 15 },
-    { planet: "Mars", symbol: "♂", sign: "Cancer", signSymbol: "♋", degree: 22 },
-    { planet: "Jupiter", symbol: "♃", sign: "Cancer", signSymbol: "♋", degree: 14 },
-    { planet: "Saturn", symbol: "♄", sign: "Pisces", signSymbol: "♓", degree: 27 },
-  ];
-}
-
+// ── Moon sign changes roughly every 2.5 days ──
 function getMoonSign(): string {
   const signs = ["Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo", "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"];
   const now = new Date();
-  const daysSinceEpoch = Math.floor(now.getTime() / 86400000);
-  // Moon changes sign roughly every 2.5 days
-  const idx = Math.floor((daysSinceEpoch / 2.5) % 12);
+  // Use hours for sub-day granularity
+  const hoursSinceEpoch = now.getTime() / 3600000;
+  const idx = Math.floor((hoursSinceEpoch / 60) % 12); // ~2.5 day per sign
   return signs[idx];
 }
 
@@ -68,27 +56,76 @@ function getMoonSignSymbol(): string {
   return map[getMoonSign()] || "♈";
 }
 
+// ── Rising sign approximation (changes every ~2 hours) ──
+function getRisingSign(): { sign: string; symbol: string } {
+  const signs = ["Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo", "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"];
+  const symbols: Record<string, string> = {
+    Aries: "♈", Taurus: "♉", Gemini: "♊", Cancer: "♋", Leo: "♌", Virgo: "♍",
+    Libra: "♎", Scorpio: "♏", Sagittarius: "♐", Capricorn: "♑", Aquarius: "♒", Pisces: "♓",
+  };
+  const now = new Date();
+  // Rising sign rotates through all 12 signs in 24 hours
+  const hourOfDay = now.getHours() + now.getMinutes() / 60;
+  const idx = Math.floor((hourOfDay / 2) % 12);
+  const sign = signs[idx];
+  return { sign, symbol: symbols[sign] };
+}
+
+// ── Moon degree approximation (moves ~0.5° per hour) ──
+function getMoonDegree(): number {
+  const now = new Date();
+  const hoursSinceEpoch = now.getTime() / 3600000;
+  return Math.floor((hoursSinceEpoch * 0.5) % 30);
+}
+
+// ── Planetary Positions ──
+function getPlanetaryPositions() {
+  const rising = getRisingSign();
+  return [
+    { planet: "Sun", symbol: "☉", sign: "Aquarius", signSymbol: "♒", degree: 24 },
+    { planet: "Moon", symbol: "☽", sign: getMoonSign(), signSymbol: getMoonSignSymbol(), degree: getMoonDegree() },
+    { planet: "Rising", symbol: "⬆", sign: rising.sign, signSymbol: rising.symbol, degree: Math.floor((new Date().getMinutes() / 60) * 30) },
+    { planet: "Mercury", symbol: "☿", sign: "Aquarius", signSymbol: "♒", degree: 8 },
+    { planet: "Venus", symbol: "♀", sign: "Pisces", signSymbol: "♓", degree: 15 },
+    { planet: "Mars", symbol: "♂", sign: "Cancer", signSymbol: "♋", degree: 22 },
+    { planet: "Jupiter", symbol: "♃", sign: "Cancer", signSymbol: "♋", degree: 14 },
+    { planet: "Saturn", symbol: "♄", sign: "Pisces", signSymbol: "♓", degree: 27 },
+  ];
+}
+
 // ── Daily Cosmic Energy ──
 function getDailyEnergy(): { title: string; description: string; intensity: number } {
   const now = new Date();
   const dayOfYear = Math.floor((now.getTime() - new Date(now.getFullYear(), 0, 0).getTime()) / 86400000);
   const energies = [
-    { title: "Cardinal Fire", description: "Explosive starts, fast breaks, and momentum shifts dominate. First-half leads hold.", intensity: 85 },
-    { title: "Fixed Earth", description: "Grinding, physical contests. Totals skew under. Defensive anchors thrive.", intensity: 60 },
-    { title: "Mutable Air", description: "High-IQ basketball. Guards and playmakers feast. Expect creative plays and assists.", intensity: 72 },
-    { title: "Cardinal Water", description: "Emotional, home-court energy is amplified. Crowd noise impacts outcomes.", intensity: 78 },
-    { title: "Fixed Fire", description: "Star players dominate. Individual brilliance over team play. Big scoring nights.", intensity: 90 },
-    { title: "Mutable Earth", description: "Methodical execution wins. System teams outperform. Coaching matters most.", intensity: 55 },
-    { title: "Cardinal Air", description: "Pace & space. Three-point shooting is hot. Look for shooters in player props.", intensity: 80 },
+    { title: "Cardinal Fire", description: "Explosive starts, fast breaks, and momentum shifts dominate.", intensity: 85 },
+    { title: "Fixed Earth", description: "Grinding, physical contests. Totals skew under.", intensity: 60 },
+    { title: "Mutable Air", description: "High-IQ basketball. Guards and playmakers feast.", intensity: 72 },
+    { title: "Cardinal Water", description: "Emotional, home-court energy is amplified.", intensity: 78 },
+    { title: "Fixed Fire", description: "Star players dominate. Individual brilliance over team play.", intensity: 90 },
+    { title: "Mutable Earth", description: "Methodical execution wins. Coaching matters most.", intensity: 55 },
+    { title: "Cardinal Air", description: "Pace & space. Three-point shooting is hot.", intensity: 80 },
   ];
   return energies[dayOfYear % energies.length];
 }
 
 export function AstroHeader() {
+  const [tick, setTick] = useState(0);
+
+  // Refresh every 30 minutes for moon/rising movement
+  useEffect(() => {
+    const interval = setInterval(() => setTick((t) => t + 1), 30 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, []);
+
   const moon = getMoonPhase();
   const retrogrades = getRetrogradePlanets();
   const planets = getPlanetaryPositions();
   const energy = getDailyEnergy();
+  const rising = getRisingSign();
+
+  // Suppress unused warning
+  void tick;
 
   return (
     <div className="mx-4 mt-2 mb-1 space-y-2">
@@ -99,7 +136,7 @@ export function AstroHeader() {
             <span className="text-3xl">{moon.emoji}</span>
             <div>
               <p className="text-sm font-semibold font-display text-foreground">{moon.name}</p>
-              <p className="text-[10px] text-muted-foreground">Day {Math.floor(moon.dayInCycle)} of lunar cycle</p>
+              <p className="text-[10px] text-muted-foreground">Day {Math.floor(moon.dayInCycle)} · Moon in {getMoonSign()} · Rising {rising.symbol} {rising.sign}</p>
             </div>
           </div>
           <div className="text-right">
@@ -132,7 +169,8 @@ export function AstroHeader() {
               key={p.planet}
               className="flex-shrink-0 astro-badge rounded-lg px-2 py-1.5 text-center min-w-[52px]"
             >
-              <p className="text-sm leading-none">{p.symbol}</p>
+              <p className="text-[9px] text-muted-foreground leading-none">{p.planet}</p>
+              <p className="text-sm leading-none mt-0.5">{p.symbol}</p>
               <p className="text-[9px] text-cosmic-indigo font-semibold mt-0.5">{p.signSymbol} {p.degree}°</p>
             </div>
           ))}
