@@ -6,50 +6,52 @@
 
 @layer base {
   :root {
-    --background: 230 25% 7%;
-    --foreground: 220 20% 92%;
+    --background: 230 30% 96%;
+    --foreground: 230 25% 15%;
 
-    --card: 230 22% 10%;
-    --card-foreground: 220 20% 92%;
+    --card: 230 25% 99%;
+    --card-foreground: 230 25% 15%;
 
-    --popover: 230 22% 10%;
-    --popover-foreground: 220 20% 92%;
+    --popover: 230 25% 99%;
+    --popover-foreground: 230 25% 15%;
 
-    --primary: 265 80% 65%;
+    --primary: 260 60% 55%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 230 18% 16%;
-    --secondary-foreground: 220 20% 85%;
+    --secondary: 230 20% 92%;
+    --secondary-foreground: 230 25% 30%;
 
-    --muted: 230 15% 14%;
-    --muted-foreground: 220 10% 55%;
+    --muted: 230 15% 90%;
+    --muted-foreground: 230 15% 50%;
 
-    --accent: 195 90% 50%;
+    --accent: 195 70% 45%;
     --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 72% 55%;
+    --destructive: 0 65% 50%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 230 15% 18%;
-    --input: 230 15% 18%;
-    --ring: 265 80% 65%;
+    --border: 230 20% 88%;
+    --input: 230 20% 88%;
+    --ring: 260 60% 55%;
 
     --radius: 0.75rem;
 
-    --cosmic-glow: 265 80% 65%;
-    --cosmic-cyan: 195 90% 50%;
-    --cosmic-gold: 42 90% 60%;
-    --cosmic-green: 155 70% 45%;
-    --cosmic-red: 0 72% 55%;
+    --cosmic-glow: 260 60% 55%;
+    --cosmic-cyan: 195 70% 45%;
+    --cosmic-gold: 42 80% 55%;
+    --cosmic-green: 155 55% 40%;
+    --cosmic-red: 0 65% 50%;
+    --cosmic-lavender: 270 40% 75%;
+    --cosmic-indigo: 240 50% 60%;
 
-    --sidebar-background: 230 25% 7%;
-    --sidebar-foreground: 220 20% 92%;
-    --sidebar-primary: 265 80% 65%;
+    --sidebar-background: 230 30% 96%;
+    --sidebar-foreground: 230 25% 15%;
+    --sidebar-primary: 260 60% 55%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 230 18% 16%;
-    --sidebar-accent-foreground: 220 20% 92%;
-    --sidebar-border: 230 15% 18%;
-    --sidebar-ring: 265 80% 65%;
+    --sidebar-accent: 230 20% 92%;
+    --sidebar-accent-foreground: 230 25% 30%;
+    --sidebar-border: 230 20% 88%;
+    --sidebar-ring: 260 60% 55%;
   }
 }
 
@@ -70,28 +72,39 @@
 
 @layer utilities {
   .cosmic-glow {
-    box-shadow: 0 0 20px -5px hsl(var(--cosmic-glow) / 0.3),
-                0 0 60px -15px hsl(var(--cosmic-glow) / 0.15);
+    box-shadow: 0 0 20px -5px hsl(var(--cosmic-glow) / 0.2),
+                0 0 60px -15px hsl(var(--cosmic-glow) / 0.1);
   }
 
   .cosmic-card {
+    background: hsl(var(--card));
+    border: 1px solid hsl(var(--border));
+    box-shadow: 0 1px 3px hsl(var(--cosmic-glow) / 0.06),
+                0 4px 12px hsl(var(--cosmic-indigo) / 0.04);
+  }
+
+  .celestial-gradient {
     background: linear-gradient(
-      145deg,
-      hsl(var(--card)) 0%,
-      hsl(var(--card) / 0.8) 100%
+      135deg,
+      hsl(var(--cosmic-lavender) / 0.15) 0%,
+      hsl(var(--cosmic-cyan) / 0.08) 50%,
+      hsl(var(--cosmic-gold) / 0.06) 100%
     );
-    border: 1px solid hsl(var(--border) / 0.6);
-    backdrop-filter: blur(12px);
   }
 
   .star-field {
     background-image:
-      radial-gradient(1px 1px at 10% 20%, hsl(var(--foreground) / 0.15), transparent),
-      radial-gradient(1px 1px at 30% 60%, hsl(var(--foreground) / 0.1), transparent),
-      radial-gradient(1.5px 1.5px at 50% 10%, hsl(var(--cosmic-cyan) / 0.2), transparent),
-      radial-gradient(1px 1px at 70% 80%, hsl(var(--foreground) / 0.12), transparent),
-      radial-gradient(1px 1px at 90% 40%, hsl(var(--cosmic-glow) / 0.15), transparent),
-      radial-gradient(1px 1px at 15% 85%, hsl(var(--foreground) / 0.08), transparent),
-      radial-gradient(1.5px 1.5px at 85% 15%, hsl(var(--cosmic-gold) / 0.12), transparent);
+      radial-gradient(1px 1px at 10% 20%, hsl(var(--cosmic-lavender) / 0.2), transparent),
+      radial-gradient(1px 1px at 30% 60%, hsl(var(--cosmic-indigo) / 0.12), transparent),
+      radial-gradient(1.5px 1.5px at 50% 10%, hsl(var(--cosmic-cyan) / 0.15), transparent),
+      radial-gradient(1px 1px at 70% 80%, hsl(var(--cosmic-lavender) / 0.1), transparent),
+      radial-gradient(1px 1px at 90% 40%, hsl(var(--cosmic-glow) / 0.12), transparent),
+      radial-gradient(1px 1px at 15% 85%, hsl(var(--cosmic-gold) / 0.08), transparent),
+      radial-gradient(1.5px 1.5px at 85% 15%, hsl(var(--cosmic-gold) / 0.1), transparent);
+  }
+
+  .astro-badge {
+    background: linear-gradient(135deg, hsl(var(--cosmic-lavender) / 0.2), hsl(var(--cosmic-indigo) / 0.15));
+    border: 1px solid hsl(var(--cosmic-lavender) / 0.3);
   }
 }
