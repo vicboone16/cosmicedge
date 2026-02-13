@@ -23,28 +23,115 @@ const SDIO_SPORT_KEYS: Record<string, string> = {
   NHL: "nhl",
 };
 
-const PLAYER_PROP_MARKETS = [
-  "player_points",
-  "player_rebounds",
-  "player_assists",
-  "player_threes",
-  "player_blocks",
-  "player_steals",
-  "player_points_rebounds_assists",
-  "player_turnovers",
-  "player_double_double",
-];
+// ─── All player prop markets per league ─────────────────────────────────────
 
+const LEAGUE_MARKETS: Record<string, string[]> = {
+  NBA: [
+    "player_points", "player_points_q1", "player_rebounds", "player_rebounds_q1",
+    "player_assists", "player_assists_q1", "player_threes", "player_blocks",
+    "player_steals", "player_blocks_steals", "player_turnovers",
+    "player_points_rebounds_assists", "player_points_rebounds", "player_points_assists",
+    "player_rebounds_assists", "player_field_goals", "player_frees_made",
+    "player_frees_attempts", "player_first_basket", "player_first_team_basket",
+    "player_double_double", "player_triple_double",
+  ],
+  NHL: [
+    "player_points", "player_power_play_points", "player_assists",
+    "player_blocked_shots", "player_shots_on_goal", "player_goals",
+    "player_total_saves", "player_goal_scorer_first", "player_goal_scorer_last",
+    "player_goal_scorer_anytime",
+  ],
+  MLB: [
+    "batter_home_runs", "batter_first_home_run", "batter_hits", "batter_total_bases",
+    "batter_rbis", "batter_runs_scored", "batter_hits_runs_rbis", "batter_singles",
+    "batter_doubles", "batter_triples", "batter_walks", "batter_strikeouts",
+    "batter_stolen_bases", "pitcher_strikeouts", "pitcher_record_a_win",
+    "pitcher_hits_allowed", "pitcher_walks", "pitcher_earned_runs", "pitcher_outs",
+  ],
+  NFL: [
+    "player_pass_yds", "player_pass_tds", "player_pass_completions",
+    "player_pass_attempts", "player_pass_interceptions", "player_rush_yds",
+    "player_rush_attempts", "player_rush_tds", "player_receptions",
+    "player_reception_yds", "player_reception_tds", "player_anytime_td",
+    "player_1st_td", "player_last_td", "player_sacks", "player_solo_tackles",
+    "player_field_goals", "player_kicking_points",
+  ],
+};
+
+// Game-period markets to also fetch per league
+const PERIOD_MARKETS: Record<string, string[]> = {
+  NBA: [
+    "h2h_q1", "h2h_h1", "spreads_h1", "totals_q1", "totals_h1",
+    "team_totals_q1", "team_totals_h1",
+  ],
+  NHL: [
+    "h2h_p1", "h2h_p2", "h2h_p3", "totals_p1", "totals_p2", "totals_p3",
+    "spreads_p1", "team_totals_p1", "team_totals_p2", "team_totals_p3",
+  ],
+  MLB: [
+    "h2h_1st_1_innings", "h2h_1st_5_innings",
+    "totals_1st_1_innings", "totals_1st_5_innings",
+    "spreads_1st_5_innings",
+  ],
+  NFL: [
+    "h2h_q1", "h2h_h1", "spreads_h1", "totals_q1", "totals_h1",
+  ],
+};
+
+// Label lookup for all markets
 const MARKET_LABELS: Record<string, string> = {
-  player_points: "Points",
-  player_rebounds: "Rebounds",
-  player_assists: "Assists",
-  player_threes: "3-Pointers",
-  player_blocks: "Blocks",
-  player_steals: "Steals",
-  player_points_rebounds_assists: "Pts+Reb+Ast",
+  player_points: "Points", player_points_q1: "Points Q1",
+  player_rebounds: "Rebounds", player_rebounds_q1: "Rebounds Q1",
+  player_assists: "Assists", player_assists_q1: "Assists Q1",
+  player_threes: "3-Pointers", player_blocks: "Blocks",
+  player_steals: "Steals", player_blocks_steals: "Blk+Stl",
   player_turnovers: "Turnovers",
-  player_double_double: "Double-Double",
+  player_points_rebounds_assists: "Pts+Reb+Ast",
+  player_points_rebounds: "Pts+Reb", player_points_assists: "Pts+Ast",
+  player_rebounds_assists: "Reb+Ast", player_field_goals: "Field Goals",
+  player_frees_made: "Free Throws", player_frees_attempts: "FT Attempts",
+  player_first_basket: "First Basket", player_first_team_basket: "1st Team Basket",
+  player_double_double: "Double-Double", player_triple_double: "Triple-Double",
+  // NHL
+  player_power_play_points: "PP Points", player_blocked_shots: "Blocked Shots",
+  player_shots_on_goal: "Shots on Goal", player_goals: "Goals",
+  player_total_saves: "Saves",
+  player_goal_scorer_first: "First Goal", player_goal_scorer_last: "Last Goal",
+  player_goal_scorer_anytime: "Anytime Goal",
+  // MLB
+  batter_home_runs: "Home Runs", batter_first_home_run: "First HR",
+  batter_hits: "Hits", batter_total_bases: "Total Bases",
+  batter_rbis: "RBIs", batter_runs_scored: "Runs Scored",
+  batter_hits_runs_rbis: "H+R+RBI", batter_singles: "Singles",
+  batter_doubles: "Doubles", batter_triples: "Triples",
+  batter_walks: "Walks", batter_strikeouts: "Strikeouts (B)",
+  batter_stolen_bases: "Stolen Bases",
+  pitcher_strikeouts: "Strikeouts (P)", pitcher_record_a_win: "Pitcher Win",
+  pitcher_hits_allowed: "Hits Allowed", pitcher_walks: "Walks (P)",
+  pitcher_earned_runs: "Earned Runs", pitcher_outs: "Outs",
+  // NFL
+  player_pass_yds: "Pass Yards", player_pass_tds: "Pass TDs",
+  player_pass_completions: "Completions", player_pass_attempts: "Pass Att",
+  player_pass_interceptions: "Interceptions", player_rush_yds: "Rush Yards",
+  player_rush_attempts: "Rush Att", player_rush_tds: "Rush TDs",
+  player_receptions: "Receptions", player_reception_yds: "Rec Yards",
+  player_reception_tds: "Rec TDs", player_anytime_td: "Anytime TD",
+  player_1st_td: "First TD", player_last_td: "Last TD",
+  player_sacks: "Sacks", player_solo_tackles: "Solo Tackles",
+  player_kicking_points: "Kicking Pts",
+  // Period markets
+  h2h_q1: "ML Q1", h2h_q2: "ML Q2", h2h_q3: "ML Q3", h2h_q4: "ML Q4",
+  h2h_h1: "ML 1H", h2h_h2: "ML 2H",
+  h2h_p1: "ML P1", h2h_p2: "ML P2", h2h_p3: "ML P3",
+  h2h_1st_1_innings: "ML 1st Inn", h2h_1st_5_innings: "ML 1st 5 Inn",
+  spreads_h1: "Spread 1H", spreads_h2: "Spread 2H",
+  spreads_p1: "Spread P1", spreads_p2: "Spread P2", spreads_p3: "Spread P3",
+  spreads_1st_5_innings: "Spread 1st 5 Inn",
+  totals_q1: "O/U Q1", totals_h1: "O/U 1H",
+  totals_p1: "O/U P1", totals_p2: "O/U P2", totals_p3: "O/U P3",
+  totals_1st_1_innings: "O/U 1st Inn", totals_1st_5_innings: "O/U 1st 5 Inn",
+  team_totals_q1: "TT Q1", team_totals_h1: "TT 1H",
+  team_totals_p1: "TT P1", team_totals_p2: "TT P2", team_totals_p3: "TT P3",
 };
 
 // Map SportsDataIO market names to our market keys
@@ -58,10 +145,16 @@ const SDIO_MARKET_MAP: Record<string, string> = {
   "Pts+Rebs+Asts": "player_points_rebounds_assists",
   "Turnovers": "player_turnovers",
   "Double Double": "player_double_double",
-  // NHL-specific
-  "Goals": "player_points",
-  "Shots on Goal": "player_shots",
-  "Saves": "player_saves",
+  "Goals": "player_goals",
+  "Shots on Goal": "player_shots_on_goal",
+  "Saves": "player_total_saves",
+  "Home Runs": "batter_home_runs",
+  "Hits": "batter_hits",
+  "Total Bases": "batter_total_bases",
+  "RBIs": "batter_rbis",
+  "Runs Scored": "batter_runs_scored",
+  "Stolen Bases": "batter_stolen_bases",
+  "Strikeouts": "pitcher_strikeouts",
 };
 
 interface PropRow {
@@ -88,6 +181,7 @@ async function fetchPropsFromOddsAPI(
 ): Promise<PropRow[]> {
   const props: PropRow[] = [];
 
+  // Batch 3 markets per request with throttling
   for (let i = 0; i < markets.length; i += 3) {
     if (i > 0) await delay(1200);
 
@@ -99,13 +193,22 @@ async function fetchPropsFromOddsAPI(
       const resp = await fetch(url);
       if (!resp.ok) {
         const body = await resp.text();
-        console.warn(`[OddsAPI] ${resp.status} for event ${eventId}, markets ${marketsParam}: ${body}`);
+        if (resp.status === 401) {
+          console.warn(`[OddsAPI] 401 - API key may lack Additional Markets tier`);
+          return props; // Stop trying this source
+        }
+        if (resp.status === 429) {
+          console.warn(`[OddsAPI] Rate limited, backing off...`);
+          await delay(5000);
+          continue;
+        }
+        console.warn(`[OddsAPI] ${resp.status} for event ${eventId}: ${body.slice(0, 200)}`);
         continue;
       }
 
       const data = await resp.json();
       const remaining = resp.headers.get("x-requests-remaining");
-      console.log(`[OddsAPI] remaining: ${remaining}`);
+      if (remaining) console.log(`[OddsAPI] remaining: ${remaining}`);
 
       for (const bk of data.bookmakers || []) {
         for (const market of bk.markets || []) {
@@ -175,7 +278,6 @@ async function fetchPropsFromSportsDataIO(
         const isOver = outcome.BettingOutcomeType === "Over";
         const isUnder = outcome.BettingOutcomeType === "Under";
 
-        // Find matching player entry to pair over/under
         const existing = props.find(
           (p) => p.player_name === outcome.PlayerName && p.market_key === marketKey && p.bookmaker === (market.Sportsbook?.Name || "sportsdataio")
         );
@@ -236,7 +338,6 @@ async function getSdioGameId(
     const games = await resp.json();
     if (!Array.isArray(games)) return null;
 
-    // Try to match by team abbreviations
     const match = games.find((g: any) =>
       (g.HomeTeam === homeAbbr && g.AwayTeam === awayAbbr) ||
       (g.HomeTeam?.toUpperCase() === homeAbbr?.toUpperCase() && g.AwayTeam?.toUpperCase() === awayAbbr?.toUpperCase())
@@ -273,6 +374,8 @@ Deno.serve(async (req) => {
     const url = new URL(req.url);
     const league = url.searchParams.get("league") || "NBA";
     const gameId = url.searchParams.get("game_id");
+    const includeAlternates = url.searchParams.get("alternates") === "true";
+    const includePeriods = url.searchParams.get("periods") !== "false"; // default true
     const sportKey = SPORT_KEYS[league];
 
     if (!sportKey) {
@@ -281,6 +384,11 @@ Deno.serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
+    // Build market list
+    const playerMarkets = LEAGUE_MARKETS[league] || [];
+    const periodMarkets = includePeriods ? (PERIOD_MARKETS[league] || []) : [];
+    const allMarkets = [...playerMarkets, ...periodMarkets];
 
     let targetEvents: { eventId: string; gameId: string; homeAbbr: string; awayAbbr: string; startTime: string }[] = [];
 
@@ -299,7 +407,6 @@ Deno.serve(async (req) => {
       }
       targetEvents = [{ eventId: game.external_id, gameId: game.id, homeAbbr: game.home_abbr, awayAbbr: game.away_abbr, startTime: game.start_time }];
     } else {
-      // Fetch events from The Odds API to get event IDs
       if (oddsApiKey) {
         const eventsUrl = `${THE_ODDS_API_BASE}/sports/${sportKey}/events?apiKey=${oddsApiKey}`;
         const eventsResp = await fetch(eventsUrl);
@@ -322,7 +429,6 @@ Deno.serve(async (req) => {
         }
       }
 
-      // If no events found from Odds API, try to get games from DB directly for SDIO fallback
       if (targetEvents.length === 0) {
         const today = new Date();
         const startOfDay = new Date(today);
@@ -351,7 +457,7 @@ Deno.serve(async (req) => {
       targetEvents = targetEvents.slice(0, 5);
     }
 
-    console.log(`Fetching props for ${targetEvents.length} events in ${league}`);
+    console.log(`Fetching props for ${targetEvents.length} events in ${league} (${allMarkets.length} markets)`);
 
     let totalProps = 0;
     const sources: string[] = [];
@@ -361,7 +467,7 @@ Deno.serve(async (req) => {
 
       // Try The Odds API first
       if (oddsApiKey && event.eventId) {
-        props = await fetchPropsFromOddsAPI(oddsApiKey, sportKey, event.eventId, PLAYER_PROP_MARKETS);
+        props = await fetchPropsFromOddsAPI(oddsApiKey, sportKey, event.eventId, allMarkets);
         if (props.length > 0) {
           sources.push("odds-api");
           console.log(`[OddsAPI] Got ${props.length} props for game ${event.gameId}`);
@@ -390,7 +496,6 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      // Set game_id and store
       const propsWithGameId = props.map((p) => ({ ...p, game_id: event.gameId }));
 
       await supabase.from("player_props").delete().eq("game_id", event.gameId);
@@ -409,6 +514,7 @@ Deno.serve(async (req) => {
         success: true,
         events_processed: targetEvents.length,
         props_stored: totalProps,
+        markets_requested: allMarkets.length,
         sources: [...new Set(sources)],
         fetched_at: new Date().toISOString(),
       }),

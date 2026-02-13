@@ -10,6 +10,7 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import { getMarketShort } from "@/lib/market-catalog";
 
 interface PropRow {
   id: string;
@@ -32,28 +33,24 @@ interface GameInfo {
   league: string;
 }
 
-const MARKET_SHORT: Record<string, string> = {
-  player_points: "PTS",
-  player_rebounds: "REB",
-  player_assists: "AST",
-  player_threes: "3PM",
-  player_blocks: "BLK",
-  player_steals: "STL",
-  player_points_rebounds_assists: "PRA",
-  player_turnovers: "TO",
-  player_double_double: "DD",
-};
-
 type SortKey = "player" | "market" | "line" | "over" | "under";
+type MarketCategory = "all" | "standard" | "alternate" | "period";
 
 function formatPrice(price: number | null): string {
   if (price == null) return "—";
   return price > 0 ? `+${price}` : `${price}`;
 }
 
+function classifyMarket(key: string): MarketCategory {
+  if (key.includes("_alternate")) return "alternate";
+  if (/^(h2h_|spreads_|totals_|team_totals_|alternate_spreads_|alternate_totals_|alternate_team_totals_)/.test(key)) return "period";
+  return "standard";
+}
+
 export default function PlayerPropsPage() {
   const [search, setSearch] = useState("");
   const [marketFilter, setMarketFilter] = useState<string>("all");
+  const [categoryFilter, setCategoryFilter] = useState<MarketCategory>("all");
   const [leagueFilter, setLeagueFilter] = useState<string>("ALL");
   const [sortKey, setSortKey] = useState<SortKey>("player");
   const [sortAsc, setSortAsc] = useState(true);
@@ -64,7 +61,6 @@ export default function PlayerPropsPage() {
   const goForward = () => canGoForward && setSelectedDate((d) => addDays(d, 1));
   const goToday = () => setSelectedDate(new Date());
 
-  // Fetch games for selected date
   const { data: games } = useQuery({
     queryKey: ["games-for-props", selectedDate.toDateString()],
     queryFn: async () => {
@@ -76,7 +72,7 @@ export default function PlayerPropsPage() {
       const { data } = await supabase
         .from("games")
         .select("id, home_abbr, away_abbr, start_time, league")
-        .in("league", ["NBA", "NHL", "MLB"])
+        .in("league", ["NBA", "NHL", "MLB", "NFL"])
         .gte("start_time", start.toISOString())
         .lte("start_time", end.toISOString())
         .order("start_time", { ascending: true });
@@ -91,7 +87,6 @@ export default function PlayerPropsPage() {
     return m;
   }, [games]);
 
-  // Fetch all props for today's games
   const { data: props, isLoading, refetch, isFetching } = useQuery({
     queryKey: ["all-player-props", gameIds],
     queryFn: async () => {
@@ -145,7 +140,7 @@ export default function PlayerPropsPage() {
     return result;
   }, [props]);
 
-  // Get unique markets
+  // Get unique markets for dropdown
   const uniqueMarkets = useMemo(() => {
     const s = new Set<string>();
     for (const p of deduped) s.add(p.market_key);
@@ -165,39 +160,29 @@ export default function PlayerPropsPage() {
       const q = search.toLowerCase();
       rows = rows.filter((r) => r.player_name.toLowerCase().includes(q));
     }
+    if (categoryFilter !== "all") {
+      rows = rows.filter((r) => classifyMarket(r.market_key) === categoryFilter);
+    }
     if (marketFilter !== "all") {
       rows = rows.filter((r) => r.market_key === marketFilter);
     }
     rows.sort((a, b) => {
       let cmp = 0;
       switch (sortKey) {
-        case "player":
-          cmp = a.player_name.localeCompare(b.player_name);
-          break;
-        case "market":
-          cmp = a.market_key.localeCompare(b.market_key);
-          break;
-        case "line":
-          cmp = (a.line ?? 0) - (b.line ?? 0);
-          break;
-        case "over":
-          cmp = (a.over_price ?? 0) - (b.over_price ?? 0);
-          break;
-        case "under":
-          cmp = (a.under_price ?? 0) - (b.under_price ?? 0);
-          break;
+        case "player": cmp = a.player_name.localeCompare(b.player_name); break;
+        case "market": cmp = a.market_key.localeCompare(b.market_key); break;
+        case "line": cmp = (a.line ?? 0) - (b.line ?? 0); break;
+        case "over": cmp = (a.over_price ?? 0) - (b.over_price ?? 0); break;
+        case "under": cmp = (a.under_price ?? 0) - (b.under_price ?? 0); break;
       }
       return sortAsc ? cmp : -cmp;
     });
     return rows;
-  }, [deduped, search, marketFilter, leagueFilter, games, sortKey, sortAsc]);
+  }, [deduped, search, marketFilter, categoryFilter, leagueFilter, games, sortKey, sortAsc]);
 
   const toggleSort = (key: SortKey) => {
     if (sortKey === key) setSortAsc(!sortAsc);
-    else {
-      setSortKey(key);
-      setSortAsc(true);
-    }
+    else { setSortKey(key); setSortAsc(true); }
   };
 
   const SortHeader = ({ label, field }: { label: string; field: SortKey }) => (
@@ -227,6 +212,8 @@ export default function PlayerPropsPage() {
             {isFetching ? "Fetching..." : "Refresh All"}
           </button>
         </div>
+
+        {/* Date nav */}
         <div className="flex items-center gap-2 mb-3">
           <button onClick={goBack} className="p-1 rounded hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors">
             <ChevronLeft className="h-3.5 w-3.5" />
@@ -240,15 +227,13 @@ export default function PlayerPropsPage() {
             <ChevronRight className="h-3.5 w-3.5" />
           </button>
           {!isToday(selectedDate) && (
-            <button onClick={goToday} className="text-[10px] text-primary hover:underline ml-1">
-              Today
-            </button>
+            <button onClick={goToday} className="text-[10px] text-primary hover:underline ml-1">Today</button>
           )}
         </div>
 
         {/* League filter chips */}
         <div className="flex gap-1.5 mb-3">
-          {["ALL", "NBA", "NHL", "MLB"].map((lg) => (
+          {["ALL", "NBA", "NHL", "MLB", "NFL"].map((lg) => (
             <button
               key={lg}
               onClick={() => setLeagueFilter(lg)}
@@ -259,6 +244,28 @@ export default function PlayerPropsPage() {
               }`}
             >
               {lg}
+            </button>
+          ))}
+        </div>
+
+        {/* Category chips */}
+        <div className="flex gap-1.5 mb-3">
+          {([
+            { val: "all" as MarketCategory, label: "All Types" },
+            { val: "standard" as MarketCategory, label: "Standard" },
+            { val: "alternate" as MarketCategory, label: "Alternate" },
+            { val: "period" as MarketCategory, label: "Periods" },
+          ]).map((c) => (
+            <button
+              key={c.val}
+              onClick={() => setCategoryFilter(c.val)}
+              className={`px-2.5 py-0.5 rounded-full text-[10px] font-medium transition-colors ${
+                categoryFilter === c.val
+                  ? "bg-accent text-accent-foreground"
+                  : "bg-secondary/40 text-muted-foreground hover:bg-secondary hover:text-foreground"
+              }`}
+            >
+              {c.label}
             </button>
           ))}
         </div>
@@ -275,14 +282,14 @@ export default function PlayerPropsPage() {
             />
           </div>
           <Select value={marketFilter} onValueChange={setMarketFilter}>
-            <SelectTrigger className="w-[100px] h-8 text-xs">
+            <SelectTrigger className="w-[120px] h-8 text-xs">
               <SelectValue placeholder="Market" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All</SelectItem>
+              <SelectItem value="all">All Markets</SelectItem>
               {uniqueMarkets.map((m) => (
                 <SelectItem key={m} value={m}>
-                  {MARKET_SHORT[m] || m}
+                  {getMarketShort(m)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -300,7 +307,7 @@ export default function PlayerPropsPage() {
             <TrendingUp className="h-8 w-8 text-muted-foreground/30 mx-auto" />
             <p className="text-sm font-medium text-foreground">No player props available</p>
             <p className="text-xs text-muted-foreground max-w-xs mx-auto">
-              Props will appear here once fetched from The Odds API. Make sure your API key includes the "Additional Markets" tier.
+              Props will appear here once fetched. Make sure your API key includes the "Additional Markets" tier.
             </p>
             <button
               onClick={handleRefreshAll}
@@ -336,6 +343,7 @@ export default function PlayerPropsPage() {
               <TableBody>
                 {filtered.map((prop) => {
                   const game = prop.game_id ? gameMap.get(prop.game_id) : null;
+                  const cat = classifyMarket(prop.market_key);
                   return (
                     <TableRow key={prop.id} className="text-xs">
                       <TableCell className="px-3 py-2 font-medium">{prop.player_name}</TableCell>
@@ -343,8 +351,12 @@ export default function PlayerPropsPage() {
                         {game ? `${game.away_abbr}@${game.home_abbr}` : "—"}
                       </TableCell>
                       <TableCell className="px-2 py-2">
-                        <span className="astro-badge px-1.5 py-0.5 rounded text-[10px] font-semibold">
-                          {MARKET_SHORT[prop.market_key] || prop.market_key}
+                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${
+                          cat === "alternate" ? "bg-accent/20 text-accent-foreground" :
+                          cat === "period" ? "bg-primary/10 text-primary" :
+                          "astro-badge"
+                        }`}>
+                          {getMarketShort(prop.market_key)}
                         </span>
                       </TableCell>
                       <TableCell className="px-2 py-2 text-right font-bold tabular-nums">
