@@ -18,8 +18,20 @@ function formatPrice(p: number | null): string {
   return p > 0 ? `+${p}` : `${p}`;
 }
 
+// Season definitions
+const SEASONS = [
+  { label: "2024-25", start: new Date(2024, 9, 1), end: new Date(2025, 6, 30) },
+  { label: "2025-26", start: new Date(2025, 9, 1), end: new Date(2026, 6, 30) },
+];
+
+function getCurrentSeason(): typeof SEASONS[number] {
+  const now = new Date();
+  return SEASONS.find(s => now >= s.start && now <= s.end) || SEASONS[SEASONS.length - 1];
+}
+
 export default function HistoricalPage() {
   const [league, setLeague] = useState("NBA");
+  const [season, setSeason] = useState(getCurrentSeason().label);
   const [selectedDate, setSelectedDate] = useState(subDays(new Date(), 1));
   const [selectedGameId, setSelectedGameId] = useState<string | null>(null);
   const [marketType, setMarketType] = useState("moneyline");
@@ -197,12 +209,28 @@ export default function HistoricalPage() {
           </button>
         </div>
 
+        {/* Season selector */}
+        <div className="flex items-center gap-2 mb-2">
+          <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Season:</span>
+          {SEASONS.map(s => (
+            <button key={s.label} onClick={() => { setSeason(s.label); setSelectedDate(s.start); setSelectedGameId(null); }}
+              className={`px-2.5 py-1 rounded-full text-[10px] font-semibold transition-colors ${
+                season === s.label ? "bg-primary text-primary-foreground" : "bg-secondary/60 text-muted-foreground hover:bg-secondary"
+              }`}>{s.label}</button>
+          ))}
+        </div>
+
         {/* Date nav */}
         <div className="flex items-center gap-2 mb-3">
           <button onClick={() => setSelectedDate(d => subDays(d, 1))} className="p-1 rounded hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors">
             <ChevronLeft className="h-3.5 w-3.5" />
           </button>
-          <span className="text-xs text-muted-foreground">{format(selectedDate, "EEE, MMM d yyyy")}</span>
+          <input
+            type="date"
+            value={format(selectedDate, "yyyy-MM-dd")}
+            onChange={(e) => { if (e.target.value) setSelectedDate(new Date(e.target.value + "T12:00:00")); }}
+            className="bg-transparent text-xs text-muted-foreground border border-border/50 rounded px-2 py-0.5"
+          />
           <button onClick={() => setSelectedDate(d => addDays(d, 1))} className="p-1 rounded hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors">
             <ChevronRight className="h-3.5 w-3.5" />
           </button>
