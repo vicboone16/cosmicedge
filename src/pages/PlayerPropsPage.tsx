@@ -1,7 +1,8 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { TrendingUp, TrendingDown, RefreshCw, ArrowUpDown, Search, ChevronLeft, ChevronRight, ToggleLeft, ToggleRight } from "lucide-react";
+import { TrendingUp, TrendingDown, RefreshCw, ArrowUpDown, Search, ChevronLeft, ChevronRight, ToggleLeft, ToggleRight, Flame, Users, User, X } from "lucide-react";
 import { format, addDays, isToday } from "date-fns";
 import { Input } from "@/components/ui/input";
 import {
@@ -11,6 +12,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { getMarketShort } from "@/lib/market-catalog";
+import { cn } from "@/lib/utils";
 
 interface PropRow {
   id: string;
@@ -35,6 +37,7 @@ interface GameInfo {
 
 type SortKey = "player" | "market" | "line" | "over" | "under";
 type MarketCategory = "all" | "standard" | "alternate" | "period";
+type PropsView = "odds" | "trends";
 
 function formatPrice(price: number | null): string {
   if (price == null) return "—";
@@ -47,7 +50,128 @@ function classifyMarket(key: string): MarketCategory {
   return "standard";
 }
 
+// Search dropdown component for players & teams
+function EntitySearch({ navigate }: { navigate: (path: string) => void }) {
+  const [query, setQuery] = useState("");
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  const { data: players } = useQuery({
+    queryKey: ["search-players", query],
+    queryFn: async () => {
+      if (query.length < 2) return [];
+      const { data } = await supabase
+        .from("players")
+        .select("id, name, team, position, league")
+        .ilike("name", `%${query}%`)
+        .order("name")
+        .limit(10);
+      return data || [];
+    },
+    enabled: query.length >= 2,
+  });
+
+  const { data: teams } = useQuery({
+    queryKey: ["search-teams", query],
+    queryFn: async () => {
+      if (query.length < 2) return [];
+      const { data } = await supabase
+        .from("standings")
+        .select("team_abbr, team_name, league, wins, losses")
+        .ilike("team_name", `%${query}%`)
+        .order("season", { ascending: false })
+        .limit(8);
+      // dedupe by team_abbr
+      const seen = new Set<string>();
+      return (data || []).filter(t => {
+        if (seen.has(t.team_abbr)) return false;
+        seen.add(t.team_abbr);
+        return true;
+      });
+    },
+    enabled: query.length >= 2,
+  });
+
+  const hasResults = (players && players.length > 0) || (teams && teams.length > 0);
+
+  return (
+    <div ref={ref} className="relative">
+      <div className="relative">
+        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+        <Input
+          value={query}
+          onChange={(e) => { setQuery(e.target.value); setOpen(true); }}
+          onFocus={() => query.length >= 2 && setOpen(true)}
+          placeholder="Search players or teams..."
+          className="pl-8 pr-8 h-8 text-xs"
+        />
+        {query && (
+          <button onClick={() => { setQuery(""); setOpen(false); }} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+            <X className="h-3 w-3" />
+          </button>
+        )}
+      </div>
+      {open && query.length >= 2 && (
+        <div className="absolute top-full left-0 right-0 z-50 mt-1 bg-popover border border-border rounded-xl shadow-lg overflow-hidden max-h-80 overflow-y-auto">
+          {!hasResults && (
+            <p className="text-xs text-muted-foreground p-3 text-center">No results for "{query}"</p>
+          )}
+          {players && players.length > 0 && (
+            <div>
+              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-3 pt-2 pb-1 flex items-center gap-1">
+                <User className="h-3 w-3" /> Players
+              </p>
+              {players.map(p => (
+                <button
+                  key={p.id}
+                  onClick={() => { navigate(`/player/${p.id}`); setOpen(false); setQuery(""); }}
+                  className="w-full text-left px-3 py-2 hover:bg-secondary/60 transition-colors flex items-center justify-between"
+                >
+                  <div>
+                    <p className="text-xs font-semibold text-foreground">{p.name}</p>
+                    <p className="text-[10px] text-muted-foreground">{p.position || "—"} · {p.team || "—"}</p>
+                  </div>
+                  <span className="text-[10px] text-muted-foreground">{p.league || ""}</span>
+                </button>
+              ))}
+            </div>
+          )}
+          {teams && teams.length > 0 && (
+            <div className={players && players.length > 0 ? "border-t border-border" : ""}>
+              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-3 pt-2 pb-1 flex items-center gap-1">
+                <Users className="h-3 w-3" /> Teams
+              </p>
+              {teams.map(t => (
+                <button
+                  key={t.team_abbr}
+                  onClick={() => { navigate(`/team/${t.team_abbr}`); setOpen(false); setQuery(""); }}
+                  className="w-full text-left px-3 py-2 hover:bg-secondary/60 transition-colors flex items-center justify-between"
+                >
+                  <div>
+                    <p className="text-xs font-semibold text-foreground">{t.team_name}</p>
+                    <p className="text-[10px] text-muted-foreground">{t.team_abbr} · {t.wins}-{t.losses}</p>
+                  </div>
+                  <span className="text-[10px] text-muted-foreground">{t.league}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function PlayerPropsPage() {
+  const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [marketFilter, setMarketFilter] = useState<string>("all");
   const [categoryFilter, setCategoryFilter] = useState<MarketCategory>("all");
@@ -56,6 +180,7 @@ export default function PlayerPropsPage() {
   const [sortAsc, setSortAsc] = useState(true);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [includeAlternates, setIncludeAlternates] = useState(false);
+  const [view, setView] = useState<PropsView>("odds");
 
   const canGoForward = selectedDate < addDays(new Date(), 7);
   const goBack = () => setSelectedDate((d) => addDays(d, -1));
@@ -101,7 +226,7 @@ export default function PlayerPropsPage() {
       return (data || []) as PropRow[];
     },
     enabled: gameIds.length > 0,
-    refetchInterval: 60_000,
+    refetchInterval: 30_000,
   });
 
   const handleRefreshAll = async () => {
@@ -127,7 +252,6 @@ export default function PlayerPropsPage() {
     refetch();
   };
 
-  // Deduplicate: keep first per player+market
   const deduped = useMemo(() => {
     const seen = new Set<string>();
     const result: PropRow[] = [];
@@ -141,14 +265,12 @@ export default function PlayerPropsPage() {
     return result;
   }, [props]);
 
-  // Get unique markets for dropdown
   const uniqueMarkets = useMemo(() => {
     const s = new Set<string>();
     for (const p of deduped) s.add(p.market_key);
     return Array.from(s).sort();
   }, [deduped]);
 
-  // Filter & sort
   const filtered = useMemo(() => {
     let rows = deduped;
     if (leagueFilter !== "ALL") {
@@ -198,11 +320,11 @@ export default function PlayerPropsPage() {
 
   return (
     <div className="min-h-screen pb-24">
-      <header className="px-4 pt-12 pb-4 bg-background/80 backdrop-blur-xl border-b border-border/50">
-        <div className="flex items-center justify-between mb-1">
+      <header className="sticky top-0 z-40 px-4 pt-12 pb-4 bg-background/80 backdrop-blur-xl border-b border-border/50">
+        <div className="flex items-center justify-between mb-2">
           <h1 className="text-lg font-bold font-display flex items-center gap-2">
             <TrendingUp className="h-5 w-5 text-primary" />
-            Player Props
+            Props
           </h1>
           <button
             onClick={handleRefreshAll}
@@ -210,20 +332,38 @@ export default function PlayerPropsPage() {
             className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1 px-3 py-1.5 rounded-lg bg-secondary/50 hover:bg-secondary"
           >
             <RefreshCw className={`h-3 w-3 ${isFetching ? "animate-spin" : ""}`} />
-            {isFetching ? "Fetching..." : "Refresh All"}
+            {isFetching ? "Fetching..." : "Refresh"}
           </button>
         </div>
 
-        {/* Alternates toggle */}
-        <button
-          onClick={() => setIncludeAlternates(!includeAlternates)}
-          className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors mb-2"
-        >
-          {includeAlternates ? <ToggleRight className="h-4 w-4 text-primary" /> : <ToggleLeft className="h-4 w-4" />}
-          <span className={includeAlternates ? "text-primary font-medium" : ""}>
-            {includeAlternates ? "Alternates ON" : "Include Alternates"}
-          </span>
-        </button>
+        {/* View toggle: Odds / Trends */}
+        <div className="flex bg-secondary rounded-full p-0.5 mb-3">
+          <button
+            onClick={() => setView("odds")}
+            className={cn(
+              "flex-1 flex items-center justify-center gap-1.5 py-2 rounded-full text-xs font-semibold transition-colors",
+              view === "odds" ? "bg-foreground text-background" : "text-muted-foreground"
+            )}
+          >
+            <TrendingUp className="h-3.5 w-3.5" />
+            Odds
+          </button>
+          <button
+            onClick={() => setView("trends")}
+            className={cn(
+              "flex-1 flex items-center justify-center gap-1.5 py-2 rounded-full text-xs font-semibold transition-colors",
+              view === "trends" ? "bg-foreground text-background" : "text-muted-foreground"
+            )}
+          >
+            <Flame className="h-3.5 w-3.5" />
+            Trends
+          </button>
+        </div>
+
+        {/* Global player/team search */}
+        <div className="mb-3">
+          <EntitySearch navigate={navigate} />
+        </div>
 
         {/* Date nav */}
         <div className="flex items-center gap-2 mb-3">
@@ -244,166 +384,341 @@ export default function PlayerPropsPage() {
         </div>
 
         {/* League filter chips */}
-        <div className="flex gap-1.5 mb-3">
+        <div className="flex gap-1.5 mb-3 overflow-x-auto no-scrollbar">
           {["ALL", "NBA", "NHL", "MLB", "NFL"].map((lg) => (
             <button
               key={lg}
               onClick={() => setLeagueFilter(lg)}
-              className={`px-3 py-1 rounded-full text-[11px] font-semibold transition-colors ${
+              className={cn(
+                "px-3 py-1 rounded-full text-[11px] font-semibold transition-colors whitespace-nowrap",
                 leagueFilter === lg
                   ? "bg-primary text-primary-foreground"
                   : "bg-secondary/60 text-muted-foreground hover:bg-secondary hover:text-foreground"
-              }`}
+              )}
             >
               {lg}
             </button>
           ))}
         </div>
 
-        {/* Category chips */}
-        <div className="flex gap-1.5 mb-3">
-          {([
-            { val: "all" as MarketCategory, label: "All Types" },
-            { val: "standard" as MarketCategory, label: "Standard" },
-            { val: "alternate" as MarketCategory, label: "Alternate" },
-            { val: "period" as MarketCategory, label: "Periods" },
-          ]).map((c) => (
+        {view === "odds" && (
+          <>
+            {/* Alternates toggle */}
             <button
-              key={c.val}
-              onClick={() => setCategoryFilter(c.val)}
-              className={`px-2.5 py-0.5 rounded-full text-[10px] font-medium transition-colors ${
-                categoryFilter === c.val
-                  ? "bg-accent text-accent-foreground"
-                  : "bg-secondary/40 text-muted-foreground hover:bg-secondary hover:text-foreground"
-              }`}
+              onClick={() => setIncludeAlternates(!includeAlternates)}
+              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors mb-2"
             >
-              {c.label}
+              {includeAlternates ? <ToggleRight className="h-4 w-4 text-primary" /> : <ToggleLeft className="h-4 w-4" />}
+              <span className={includeAlternates ? "text-primary font-medium" : ""}>
+                {includeAlternates ? "Alternates ON" : "Include Alternates"}
+              </span>
             </button>
-          ))}
-        </div>
 
-        {/* Filters */}
-        <div className="flex gap-2">
-          <div className="relative flex-1">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-            <Input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search player..."
-              className="pl-8 h-8 text-xs"
-            />
-          </div>
-          <Select value={marketFilter} onValueChange={setMarketFilter}>
-            <SelectTrigger className="w-[120px] h-8 text-xs">
-              <SelectValue placeholder="Market" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Markets</SelectItem>
-              {uniqueMarkets.map((m) => (
-                <SelectItem key={m} value={m}>
-                  {getMarketShort(m)}
-                </SelectItem>
+            {/* Category chips */}
+            <div className="flex gap-1.5 mb-3">
+              {([
+                { val: "all" as MarketCategory, label: "All Types" },
+                { val: "standard" as MarketCategory, label: "Standard" },
+                { val: "alternate" as MarketCategory, label: "Alternate" },
+                { val: "period" as MarketCategory, label: "Periods" },
+              ]).map((c) => (
+                <button
+                  key={c.val}
+                  onClick={() => setCategoryFilter(c.val)}
+                  className={cn(
+                    "px-2.5 py-0.5 rounded-full text-[10px] font-medium transition-colors",
+                    categoryFilter === c.val
+                      ? "bg-accent text-accent-foreground"
+                      : "bg-secondary/40 text-muted-foreground hover:bg-secondary hover:text-foreground"
+                  )}
+                >
+                  {c.label}
+                </button>
               ))}
-            </SelectContent>
-          </Select>
-        </div>
+            </div>
+
+            {/* Prop-specific search + market filter */}
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                <Input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Filter by player name..."
+                  className="pl-8 h-8 text-xs"
+                />
+              </div>
+              <Select value={marketFilter} onValueChange={setMarketFilter}>
+                <SelectTrigger className="w-[120px] h-8 text-xs">
+                  <SelectValue placeholder="Market" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Markets</SelectItem>
+                  {uniqueMarkets.map((m) => (
+                    <SelectItem key={m} value={m}>
+                      {getMarketShort(m)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </>
+        )}
       </header>
 
       <div className="px-4 py-4">
-        {isLoading ? (
-          <div className="cosmic-card rounded-xl p-8 text-center">
-            <p className="text-xs text-muted-foreground">Loading props...</p>
-          </div>
-        ) : filtered.length === 0 ? (
-          <div className="cosmic-card rounded-xl p-8 text-center space-y-3">
-            <TrendingUp className="h-8 w-8 text-muted-foreground/30 mx-auto" />
-            <p className="text-sm font-medium text-foreground">
-              {gameIds.length === 0 ? "No games found for this date" : "Player props haven't populated yet"}
-            </p>
-            <p className="text-xs text-muted-foreground max-w-xs mx-auto">
-              {gameIds.length === 0
-                ? "Try selecting a different date or league — games may not be scheduled yet."
-                : "Props typically populate closer to game time. Tap \"Refresh All\" to check, or check back later."}
-            </p>
-            {gameIds.length > 0 && (
-              <button
-                onClick={handleRefreshAll}
-                disabled={isFetching}
-                className="text-xs text-primary hover:underline"
-              >
-                {isFetching ? "Fetching..." : "Fetch props now"}
-              </button>
+        {view === "odds" ? (
+          <>
+            {/* Games list */}
+            {games && games.length > 0 && (
+              <div className="mb-4 overflow-x-auto no-scrollbar">
+                <div className="flex gap-2">
+                  {games.map(g => (
+                    <button
+                      key={g.id}
+                      onClick={() => navigate(`/game/${g.id}`)}
+                      className="cosmic-card rounded-xl px-3 py-2 text-center min-w-[90px] hover:border-primary/30 transition-colors shrink-0"
+                    >
+                      <p className="text-[10px] font-semibold text-foreground">{g.away_abbr} @ {g.home_abbr}</p>
+                      <p className="text-[9px] text-muted-foreground mt-0.5">
+                        {format(new Date(g.start_time), "h:mm a")}
+                      </p>
+                    </button>
+                  ))}
+                </div>
+              </div>
             )}
-          </div>
-        ) : (
-          <div className="cosmic-card rounded-xl overflow-hidden">
-            <Table>
-              <TableHeader>
-                <TableRow className="hover:bg-transparent">
-                  <TableHead className="text-[10px] uppercase tracking-wider h-9 px-3">
-                    <SortHeader label="Player" field="player" />
-                  </TableHead>
-                  <TableHead className="text-[10px] uppercase tracking-wider h-9 px-2">Game</TableHead>
-                  <TableHead className="text-[10px] uppercase tracking-wider h-9 px-2">
-                    <SortHeader label="Market" field="market" />
-                  </TableHead>
-                  <TableHead className="text-[10px] uppercase tracking-wider h-9 px-2 text-right">
-                    <SortHeader label="Line" field="line" />
-                  </TableHead>
-                  <TableHead className="text-[10px] uppercase tracking-wider h-9 px-2 text-right">
-                    <SortHeader label="Over" field="over" />
-                  </TableHead>
-                  <TableHead className="text-[10px] uppercase tracking-wider h-9 px-2 text-right">
-                    <SortHeader label="Under" field="under" />
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filtered.map((prop) => {
-                  const game = prop.game_id ? gameMap.get(prop.game_id) : null;
-                  const cat = classifyMarket(prop.market_key);
-                  return (
-                    <TableRow key={prop.id} className="text-xs">
-                      <TableCell className="px-3 py-2 font-medium">{prop.player_name}</TableCell>
-                      <TableCell className="px-2 py-2 text-muted-foreground">
-                        {game ? `${game.away_abbr}@${game.home_abbr}` : "—"}
-                      </TableCell>
-                      <TableCell className="px-2 py-2">
-                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${
-                          cat === "alternate" ? "bg-accent/20 text-accent-foreground" :
-                          cat === "period" ? "bg-primary/10 text-primary" :
-                          "astro-badge"
-                        }`}>
-                          {getMarketShort(prop.market_key)}
-                        </span>
-                      </TableCell>
-                      <TableCell className="px-2 py-2 text-right font-bold tabular-nums">
-                        {prop.line != null ? prop.line : "—"}
-                      </TableCell>
-                      <TableCell className="px-2 py-2 text-right tabular-nums">
-                        {prop.over_price != null && (
-                          <span className="text-cosmic-green flex items-center justify-end gap-0.5">
-                            <TrendingUp className="h-2.5 w-2.5" />
-                            {formatPrice(prop.over_price)}
-                          </span>
-                        )}
-                      </TableCell>
-                      <TableCell className="px-2 py-2 text-right tabular-nums">
-                        {prop.under_price != null && (
-                          <span className="text-cosmic-red flex items-center justify-end gap-0.5">
-                            <TrendingDown className="h-2.5 w-2.5" />
-                            {formatPrice(prop.under_price)}
-                          </span>
-                        )}
-                      </TableCell>
+
+            {isLoading ? (
+              <div className="cosmic-card rounded-xl p-8 text-center">
+                <p className="text-xs text-muted-foreground">Loading props...</p>
+              </div>
+            ) : filtered.length === 0 ? (
+              <div className="cosmic-card rounded-xl p-8 text-center space-y-3">
+                <TrendingUp className="h-8 w-8 text-muted-foreground/30 mx-auto" />
+                <p className="text-sm font-medium text-foreground">
+                  {gameIds.length === 0 ? "No games found for this date" : "Player props haven't populated yet"}
+                </p>
+                <p className="text-xs text-muted-foreground max-w-xs mx-auto">
+                  {gameIds.length === 0
+                    ? "Try selecting a different date or league — games may not be scheduled yet."
+                    : "Props typically populate closer to game time. Tap \"Refresh\" to check, or check back later."}
+                </p>
+                {gameIds.length > 0 && (
+                  <button
+                    onClick={handleRefreshAll}
+                    disabled={isFetching}
+                    className="text-xs text-primary hover:underline"
+                  >
+                    {isFetching ? "Fetching..." : "Fetch props now"}
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div className="cosmic-card rounded-xl overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="hover:bg-transparent">
+                      <TableHead className="text-[10px] uppercase tracking-wider h-9 px-3">
+                        <SortHeader label="Player" field="player" />
+                      </TableHead>
+                      <TableHead className="text-[10px] uppercase tracking-wider h-9 px-2">Game</TableHead>
+                      <TableHead className="text-[10px] uppercase tracking-wider h-9 px-2">
+                        <SortHeader label="Market" field="market" />
+                      </TableHead>
+                      <TableHead className="text-[10px] uppercase tracking-wider h-9 px-2 text-right">
+                        <SortHeader label="Line" field="line" />
+                      </TableHead>
+                      <TableHead className="text-[10px] uppercase tracking-wider h-9 px-2 text-right">
+                        <SortHeader label="Over" field="over" />
+                      </TableHead>
+                      <TableHead className="text-[10px] uppercase tracking-wider h-9 px-2 text-right">
+                        <SortHeader label="Under" field="under" />
+                      </TableHead>
                     </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </div>
+                  </TableHeader>
+                  <TableBody>
+                    {filtered.map((prop) => {
+                      const game = prop.game_id ? gameMap.get(prop.game_id) : null;
+                      const cat = classifyMarket(prop.market_key);
+                      return (
+                        <TableRow key={prop.id} className="text-xs">
+                          <TableCell className="px-3 py-2 font-medium">{prop.player_name}</TableCell>
+                          <TableCell className="px-2 py-2 text-muted-foreground">
+                            {game ? (
+                              <button
+                                onClick={() => navigate(`/game/${game.id}`)}
+                                className="text-primary hover:underline"
+                              >
+                                {game.away_abbr}@{game.home_abbr}
+                              </button>
+                            ) : "—"}
+                          </TableCell>
+                          <TableCell className="px-2 py-2">
+                            <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${
+                              cat === "alternate" ? "bg-accent/20 text-accent-foreground" :
+                              cat === "period" ? "bg-primary/10 text-primary" :
+                              "astro-badge"
+                            }`}>
+                              {getMarketShort(prop.market_key)}
+                            </span>
+                          </TableCell>
+                          <TableCell className="px-2 py-2 text-right font-bold tabular-nums">
+                            {prop.line != null ? prop.line : "—"}
+                          </TableCell>
+                          <TableCell className="px-2 py-2 text-right tabular-nums">
+                            {prop.over_price != null && (
+                              <span className="text-cosmic-green flex items-center justify-end gap-0.5">
+                                <TrendingUp className="h-2.5 w-2.5" />
+                                {formatPrice(prop.over_price)}
+                              </span>
+                            )}
+                          </TableCell>
+                          <TableCell className="px-2 py-2 text-right tabular-nums">
+                            {prop.under_price != null && (
+                              <span className="text-cosmic-red flex items-center justify-end gap-0.5">
+                                <TrendingDown className="h-2.5 w-2.5" />
+                                {formatPrice(prop.under_price)}
+                              </span>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </>
+        ) : (
+          /* Trends view — embedded inline */
+          <TrendsEmbed leagueFilter={leagueFilter === "ALL" ? "NBA" : leagueFilter} />
         )}
       </div>
     </div>
+  );
+}
+
+// Inline Trends embed (reuses TrendsPage content as a component)
+function TrendsEmbed({ leagueFilter }: { leagueFilter: string }) {
+  const navigate = useNavigate();
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <p className="text-xs text-muted-foreground">Insight cards based on hit rates vs. current prop lines</p>
+        <button
+          onClick={() => navigate("/trends")}
+          className="text-[10px] text-primary hover:underline font-semibold"
+        >
+          Full Trends →
+        </button>
+      </div>
+
+      {/* Import & render TrendsPage content */}
+      <TrendsInlineContent league={leagueFilter} />
+    </div>
+  );
+}
+
+// Lightweight inline trends content
+import { TrendCard, type TrendInsight } from "@/components/trends/TrendCard";
+import { TrendsFilterModal, type TrendFilters } from "@/components/trends/TrendsFilterModal";
+import { SlidersHorizontal } from "lucide-react";
+
+function TrendsInlineContent({ league }: { league: string }) {
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [sortBy, setSortBy] = useState<"date" | "hitRate">("hitRate");
+  const [filters, setFilters] = useState<TrendFilters>({
+    scope: "all", leagues: [], direction: "all", hitRateMin: 0, sampleWindow: 5, oddsMin: null, oddsMax: null, propositions: [],
+  });
+
+  const { data: games } = useQuery({
+    queryKey: ["trends-inline-games", league],
+    queryFn: async () => {
+      const start = new Date(); start.setHours(0, 0, 0, 0);
+      const end = addDays(start, 2);
+      const { data } = await supabase
+        .from("games")
+        .select("id, home_abbr, away_abbr, home_team, away_team, start_time, league")
+        .eq("league", league)
+        .gte("start_time", start.toISOString())
+        .lte("start_time", end.toISOString())
+        .order("start_time", { ascending: true });
+      return data || [];
+    },
+  });
+
+  const gameIds = games?.map(g => g.id) || [];
+  const gameMap = useMemo(() => {
+    const m = new Map<string, NonNullable<typeof games>[number]>();
+    for (const g of games || []) m.set(g.id, g);
+    return m;
+  }, [games]);
+
+  const { data: propData, isLoading } = useQuery({
+    queryKey: ["trends-inline-props", gameIds],
+    queryFn: async () => {
+      if (gameIds.length === 0) return [];
+      const { data } = await supabase.from("player_props").select("*").in("game_id", gameIds).order("player_name");
+      return data || [];
+    },
+    enabled: gameIds.length > 0,
+    refetchInterval: 60_000,
+  });
+
+  const insights: TrendInsight[] = useMemo(() => {
+    if (!propData || propData.length === 0) return [];
+    const seen = new Set<string>();
+    const results: TrendInsight[] = [];
+    for (const prop of propData) {
+      const key = `${prop.player_name}::${prop.market_key}::${prop.game_id}`;
+      if (seen.has(key) || prop.line == null) continue;
+      seen.add(key);
+      const game = prop.game_id ? gameMap.get(prop.game_id) : null;
+      if (!game) continue;
+      const direction: "over" | "under" = (prop.over_price ?? 0) < (prop.under_price ?? 0) ? "over" : "under";
+      const propLabel = getMarketShort(prop.market_key);
+      const timeStr = isToday(new Date(game.start_time))
+        ? `Today ${format(new Date(game.start_time), "HH:mm")}`
+        : format(new Date(game.start_time), "EEE HH:mm");
+      results.push({
+        id: prop.id,
+        playerName: prop.player_name,
+        teamAbbr: game.away_abbr,
+        matchup: `${game.away_abbr} vs ${game.home_abbr}`,
+        startTime: timeStr,
+        insightText: `${prop.player_name} — ${propLabel} line at ${prop.line}.`,
+        direction, propLabel,
+        line: prop.line,
+        odds: direction === "over" ? prop.over_price : prop.under_price,
+        hitRate: 50, sampleSize: 0, hitGames: [],
+      });
+    }
+    if (filters.direction !== "all") return results.filter(r => r.direction === filters.direction);
+    return results;
+  }, [propData, gameMap, filters]);
+
+  if (isLoading) return <p className="text-xs text-muted-foreground text-center py-8">Loading trends...</p>;
+  if (insights.length === 0) return <p className="text-xs text-muted-foreground text-center py-8">No trends for {league} yet. Props populate closer to game time.</p>;
+
+  return (
+    <>
+      {insights.slice(0, 20).map(i => <TrendCard key={i.id} insight={i} />)}
+
+      {/* Bottom controls */}
+      <div className="flex items-center justify-center gap-2 pt-2">
+        <button onClick={() => setFiltersOpen(true)} className="p-2 rounded-xl bg-secondary/80 border border-border text-muted-foreground hover:text-foreground transition-colors">
+          <SlidersHorizontal className="h-4 w-4" />
+        </button>
+        {(["date", "hitRate"] as const).map(s => (
+          <button key={s} onClick={() => setSortBy(s)} className={cn(
+            "px-3 py-2 rounded-xl text-xs font-semibold border border-border transition-colors",
+            sortBy === s ? "bg-foreground text-background" : "bg-secondary/80 text-muted-foreground"
+          )}>{s === "hitRate" ? "Hit Rate" : "Date"}</button>
+        ))}
+      </div>
+
+      <TrendsFilterModal open={filtersOpen} onClose={() => setFiltersOpen(false)} filters={filters} onApply={setFilters} resultCount={insights.length} />
+    </>
   );
 }

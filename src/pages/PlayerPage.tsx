@@ -1,5 +1,5 @@
-import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Star, TrendingUp, Zap, Shield, Flame, ArrowUp, ArrowDown } from "lucide-react";
+import { useParams, useNavigate, Link } from "react-router-dom";
+import { ArrowLeft, Star, TrendingUp, Zap, Shield, Flame, ArrowUp, ArrowDown, BarChart3 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
@@ -166,6 +166,16 @@ const PlayerPage = () => {
             className="text-xs text-primary hover:underline"
           >
             {player.team}
+          </button>
+        </div>
+        {/* View Trends link */}
+        <div className="mt-3 flex gap-2">
+          <button
+            onClick={() => navigate("/props")}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-secondary/60 text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <BarChart3 className="h-3.5 w-3.5" />
+            View Trends
           </button>
         </div>
       </header>
