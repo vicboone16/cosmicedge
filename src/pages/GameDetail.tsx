@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import type { GameWithOdds } from "@/hooks/use-games";
 import { SynastrySection } from "@/components/game/SynastrySection";
 import { TransitModifiers } from "@/components/game/TransitModifiers";
+import { PlayerPropsSection } from "@/components/game/PlayerPropsSection";
 
 function formatOdds(odds: number): string {
   if (!odds) return "—";
@@ -386,6 +387,9 @@ const GameDetail = () => {
             homeAbbr={game.home_abbr}
           />
         )}
+
+        {/* Player Props */}
+        <PlayerPropsSection gameId={game.id} />
 
         {/* Markets */}
         <section>

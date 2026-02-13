@@ -14,3 +14,6 @@ verify_jwt = false
 
 [functions.astrovisor]
 verify_jwt = false
+
+[functions.fetch-player-props]
+verify_jwt = false
