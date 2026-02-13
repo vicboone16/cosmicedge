@@ -40,6 +40,40 @@ const SDIO_TEAMS: Record<number, { full: string; abbr: string }> = {
   30: { full: "Sacramento Kings",            abbr: "SAC" },
 };
 
+// NBA.com team IDs → team info (used for schedule imports)
+const NBA_TEAMS: Record<string, { full: string; abbr: string }> = {
+  "1610612737": { full: "Atlanta Hawks",             abbr: "ATL" },
+  "1610612738": { full: "Boston Celtics",            abbr: "BOS" },
+  "1610612739": { full: "Cleveland Cavaliers",       abbr: "CLE" },
+  "1610612740": { full: "New Orleans Pelicans",      abbr: "NOP" },
+  "1610612741": { full: "Chicago Bulls",             abbr: "CHI" },
+  "1610612742": { full: "Dallas Mavericks",          abbr: "DAL" },
+  "1610612743": { full: "Denver Nuggets",            abbr: "DEN" },
+  "1610612744": { full: "Golden State Warriors",     abbr: "GSW" },
+  "1610612745": { full: "Houston Rockets",           abbr: "HOU" },
+  "1610612746": { full: "Los Angeles Clippers",      abbr: "LAC" },
+  "1610612747": { full: "Los Angeles Lakers",        abbr: "LAL" },
+  "1610612748": { full: "Miami Heat",                abbr: "MIA" },
+  "1610612749": { full: "Milwaukee Bucks",           abbr: "MIL" },
+  "1610612750": { full: "Minnesota Timberwolves",    abbr: "MIN" },
+  "1610612751": { full: "Brooklyn Nets",             abbr: "BKN" },
+  "1610612752": { full: "New York Knicks",           abbr: "NYK" },
+  "1610612753": { full: "Orlando Magic",             abbr: "ORL" },
+  "1610612754": { full: "Indiana Pacers",            abbr: "IND" },
+  "1610612755": { full: "Philadelphia 76ers",        abbr: "PHI" },
+  "1610612756": { full: "Phoenix Suns",              abbr: "PHX" },
+  "1610612757": { full: "Portland Trail Blazers",    abbr: "POR" },
+  "1610612758": { full: "Sacramento Kings",          abbr: "SAC" },
+  "1610612759": { full: "San Antonio Spurs",         abbr: "SAS" },
+  "1610612760": { full: "Oklahoma City Thunder",     abbr: "OKC" },
+  "1610612761": { full: "Toronto Raptors",           abbr: "TOR" },
+  "1610612762": { full: "Utah Jazz",                 abbr: "UTA" },
+  "1610612763": { full: "Memphis Grizzlies",         abbr: "MEM" },
+  "1610612764": { full: "Washington Wizards",        abbr: "WAS" },
+  "1610612765": { full: "Detroit Pistons",           abbr: "DET" },
+  "1610612766": { full: "Charlotte Hornets",         abbr: "CHA" },
+};
+
 // Reverse lookup: full team name → abbr
 const NAME_TO_ABBR: Record<string, string> = {};
 for (const t of Object.values(SDIO_TEAMS)) {
@@ -64,10 +98,32 @@ Deno.serve(async (req) => {
     );
 
     const body = await req.json();
-    const { action, records, league = "NBA" } = body;
+    const { action, records, league = "NBA", csv_text } = body;
     let inserted = 0;
     let skipped = 0;
     const errors: string[] = [];
+
+    // Helper: parse CSV text into array of objects
+    function parseCsv(text: string): any[] {
+      const lines = text.trim().split("\n");
+      if (lines.length < 2) return [];
+      const headers = lines[0].split(",").map(h => h.trim().replace(/^"|"$/g, ""));
+      return lines.slice(1).map(line => {
+        // Handle quoted fields with commas
+        const values: string[] = [];
+        let current = "";
+        let inQuotes = false;
+        for (const char of line) {
+          if (char === '"') { inQuotes = !inQuotes; continue; }
+          if (char === ',' && !inQuotes) { values.push(current.trim()); current = ""; continue; }
+          current += char;
+        }
+        values.push(current.trim());
+        const obj: any = {};
+        headers.forEach((h, i) => { obj[h] = values[i] || ""; });
+        return obj;
+      });
+    }
 
     // ── ACTION: stadiums ──
     if (action === "stadiums") {
@@ -233,7 +289,6 @@ Deno.serve(async (req) => {
     // ── ACTION: game_scores ──
     // Updates games with final scores from TeamGame data
     else if (action === "game_scores") {
-      // Group TeamGame records by GameID, extract home/away scores
       const gameScores = new Map<string, { home_score: number; away_score: number }>();
       for (const r of records) {
         const gid = String(r.GameID);
@@ -245,7 +300,6 @@ Deno.serve(async (req) => {
         else entry.away_score = num(r.Points) || 0;
       }
 
-      // Fetch game IDs
       const { data: games } = await supabase
         .from("games")
         .select("id, external_id")
@@ -267,6 +321,138 @@ Deno.serve(async (req) => {
 
         if (error) errors.push(`Score update ${extId}: ${error.message}`);
         else inserted++;
+      }
+    }
+
+    // ── ACTION: schedule ──
+    // Imports NBA.com schedule CSV data (gameId, gameDateTimeEst, homeTeamId, awayTeamId, arenaName, etc.)
+    else if (action === "schedule") {
+      // Pre-fetch stadiums for venue lookup by name
+      const { data: stadiums } = await supabase
+        .from("stadiums")
+        .select("name, latitude, longitude")
+        .eq("league", league);
+      const stadiumMap = new Map(
+        (stadiums || []).map((s) => [s.name, s])
+      );
+
+      const scheduleRecords = csv_text ? parseCsv(csv_text) : records;
+      const gameRows = scheduleRecords
+        .filter((r: any) => {
+          // Skip preseason, play-in/finals placeholders (teamId=0), and international teams
+          const homeId = String(r.homeTeamId);
+          const awayId = String(r.awayTeamId);
+          return homeId !== "0" && awayId !== "0" &&
+                 NBA_TEAMS[homeId] && NBA_TEAMS[awayId] &&
+                 r.gameLabel !== "Preseason";
+        })
+        .map((r: any) => {
+          const home = NBA_TEAMS[String(r.homeTeamId)];
+          const away = NBA_TEAMS[String(r.awayTeamId)];
+
+          // Convert EST datetime to ISO
+          const estStr = r.gameDateTimeEst; // "2025-10-28 19:30:00"
+          const startTime = new Date(estStr.replace(" ", "T") + "-05:00").toISOString();
+
+          const stadium = stadiumMap.get(r.arenaName);
+
+          // Determine status based on game label
+          let status = "scheduled";
+          if (r.gameLabel === "NBA Finals" || r.gameLabel === "SoFi Play-In Tournament") {
+            status = "scheduled";
+          }
+
+          return {
+            external_id: String(r.gameId),
+            league,
+            home_team: home.full,
+            away_team: away.full,
+            home_abbr: home.abbr,
+            away_abbr: away.abbr,
+            start_time: startTime,
+            status,
+            venue: r.arenaName || null,
+            venue_lat: stadium?.latitude || null,
+            venue_lng: stadium?.longitude || null,
+            source: "nba_schedule",
+          };
+        });
+
+      // Check which games already exist
+      const extIds = gameRows.map((r: any) => r.external_id);
+      // Batch the lookup since there could be >1000 IDs
+      const existingSet = new Set<string>();
+      for (let i = 0; i < extIds.length; i += 500) {
+        const batch = extIds.slice(i, i + 500);
+        const { data: existing } = await supabase
+          .from("games")
+          .select("external_id")
+          .in("external_id", batch);
+        (existing || []).forEach((e) => existingSet.add(e.external_id!));
+      }
+
+      const newGames = gameRows.filter((r: any) => !existingSet.has(r.external_id));
+      skipped += gameRows.length - newGames.length;
+
+      for (let i = 0; i < newGames.length; i += 100) {
+        const batch = newGames.slice(i, i + 100);
+        const { data, error } = await supabase
+          .from("games")
+          .insert(batch)
+          .select("id");
+        if (error) errors.push(`Schedule batch ${i}: ${error.message}`);
+        else inserted += data?.length || batch.length;
+      }
+    }
+
+    // ── ACTION: team_season_stats ──
+    // Imports TeamSeason data with SDIO TeamIDs
+    else if (action === "team_season_stats") {
+      const statRows = records
+        .filter((r: any) => {
+          const team = SDIO_TEAMS[Number(r.TeamID)];
+          return team && num(r.Games) && Number(r.Games) >= 70; // full season only
+        })
+        .map((r: any) => {
+          const team = SDIO_TEAMS[Number(r.TeamID)];
+          const gp = Number(r.Games);
+          return {
+            team_abbr: team.abbr,
+            season: 2025,
+            league,
+            points_per_game: gp ? Math.round((num(r.Points) || 0) / gp * 10) / 10 : null,
+            opp_points_per_game: null,
+            fg_pct: num(r.FieldGoalsPercentage),
+            three_pct: num(r.ThreePointersPercentage),
+            ft_pct: num(r.FreeThrowsPercentage),
+            pace: null,
+            off_rating: null,
+            def_rating: null,
+            net_rating: null,
+          };
+        });
+
+      for (const row of statRows) {
+        // Upsert by team_abbr + season
+        const { data: existing } = await supabase
+          .from("team_season_stats")
+          .select("id")
+          .eq("team_abbr", row.team_abbr)
+          .eq("season", row.season)
+          .limit(1);
+
+        if (existing && existing.length > 0) {
+          const { error } = await supabase
+            .from("team_season_stats")
+            .update(row)
+            .eq("id", existing[0].id);
+          if (error) errors.push(`TSS ${row.team_abbr}: ${error.message}`);
+          else inserted++;
+        } else {
+          const { error } = await supabase.from("team_season_stats").insert(row);
+          if (error) errors.push(`TSS ${row.team_abbr}: ${error.message}`);
+          else inserted++;
+        }
       }
     }
 
