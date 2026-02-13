@@ -1,12 +1,12 @@
-import { CalendarDays, BarChart3, Settings, Trophy, Star, Moon } from "lucide-react";
+import { CalendarDays, Star, Moon, Crosshair, Zap, Settings } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { cn } from "@/lib/utils";
 
 const navItems = [
   { to: "/", icon: CalendarDays, label: "Slate" },
   { to: "/transits", icon: Star, label: "Transits" },
-  { to: "/calendar", icon: Moon, label: "Calendar" },
-  { to: "/results", icon: Trophy, label: "Results" },
+  { to: "/skyspread", icon: Crosshair, label: "SkySpread" },
+  { to: "/live-board", icon: Zap, label: "Live Board" },
   { to: "/settings", icon: Settings, label: "Settings" },
 ];
 
