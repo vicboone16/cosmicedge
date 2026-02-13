@@ -1,17 +1,24 @@
-import { Settings, Sliders, Star, MapPin, Shield, LogIn, LogOut, User, Globe } from "lucide-react";
+import { Settings, Sliders, Star, MapPin, Shield, LogIn, LogOut, User, Globe, Upload, FileSpreadsheet } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useTimezone } from "@/hooks/use-timezone";
 import { useNavigate } from "react-router-dom";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import { Progress } from "@/components/ui/progress";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "@/hooks/use-toast";
 
 const SettingsPage = () => {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const { userTimezone, updateTimezone } = useTimezone();
-
+  const [csvLeague, setCsvLeague] = useState("NBA");
+  const [csvDataType, setCsvDataType] = useState("games");
+  const [importing, setImporting] = useState(false);
+  const [importProgress, setImportProgress] = useState(0);
+  const fileRef = useRef<HTMLInputElement>(null);
   const timezones = useMemo(() => {
     try {
       return (Intl as any).supportedValuesOf("timeZone") as string[];
@@ -99,6 +106,87 @@ const SettingsPage = () => {
               ))}
             </SelectContent>
           </Select>
+        </div>
+
+        {/* CSV Import section */}
+        <div className="cosmic-card rounded-xl p-4">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="h-10 w-10 rounded-lg bg-secondary flex items-center justify-center shrink-0">
+              <FileSpreadsheet className="h-5 w-5 text-muted-foreground" />
+            </div>
+            <div>
+              <p className="text-sm font-medium">Import Historical Data</p>
+              <p className="text-xs text-muted-foreground">Upload CSV files to populate past seasons</p>
+            </div>
+          </div>
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-2">
+              <Select value={csvLeague} onValueChange={setCsvLeague}>
+                <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="League" /></SelectTrigger>
+                <SelectContent>
+                  {["NBA", "NFL", "MLB", "NHL"].map((l) => (
+                    <SelectItem key={l} value={l} className="text-xs">{l}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={csvDataType} onValueChange={setCsvDataType}>
+                <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Data type" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="games" className="text-xs">Games & Scores</SelectItem>
+                  <SelectItem value="odds" className="text-xs">Odds</SelectItem>
+                  <SelectItem value="player_stats" className="text-xs">Player Stats</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <input ref={fileRef} type="file" accept=".csv,.xlsx" className="hidden" onChange={async (e) => {
+              const file = e.target.files?.[0];
+              if (!file) return;
+              setImporting(true);
+              setImportProgress(10);
+              try {
+                const formData = new FormData();
+                formData.append("file", file);
+                formData.append("league", csvLeague);
+                formData.append("data_type", csvDataType);
+                setImportProgress(30);
+                const { data: { session } } = await supabase.auth.getSession();
+                const res = await fetch(
+                  `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/import-historical-csv`,
+                  {
+                    method: "POST",
+                    headers: {
+                      Authorization: `Bearer ${session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+                      apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+                    },
+                    body: formData,
+                  }
+                );
+                setImportProgress(80);
+                const result = await res.json();
+                setImportProgress(100);
+                if (result.success) {
+                  toast({ title: "Import complete", description: `${result.rows_inserted} rows inserted, ${result.rows_skipped} skipped` });
+                } else {
+                  toast({ title: "Import failed", description: result.error, variant: "destructive" });
+                }
+              } catch (err: any) {
+                toast({ title: "Import error", description: err.message, variant: "destructive" });
+              } finally {
+                setImporting(false);
+                setImportProgress(0);
+                if (fileRef.current) fileRef.current.value = "";
+              }
+            }} />
+            {importing && <Progress value={importProgress} className="h-2" />}
+            <button
+              disabled={importing}
+              onClick={() => fileRef.current?.click()}
+              className="w-full flex items-center justify-center gap-2 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary text-xs font-medium py-2.5 transition-colors disabled:opacity-50"
+            >
+              <Upload className="h-3.5 w-3.5" />
+              {importing ? "Importing…" : "Choose CSV File & Import"}
+            </button>
+          </div>
         </div>
 
         {sections.map(({ icon: Icon, title, desc }) => (
