@@ -29,6 +29,7 @@ interface GameInfo {
   home_abbr: string;
   away_abbr: string;
   start_time: string;
+  league: string;
 }
 
 const MARKET_SHORT: Record<string, string> = {
@@ -73,8 +74,8 @@ export default function PlayerPropsPage() {
 
       const { data } = await supabase
         .from("games")
-        .select("id, home_abbr, away_abbr, start_time")
-        .eq("league", "NBA")
+        .select("id, home_abbr, away_abbr, start_time, league")
+        .in("league", ["NBA", "NHL", "MLB"])
         .gte("start_time", start.toISOString())
         .lte("start_time", end.toISOString())
         .order("start_time", { ascending: true });
@@ -107,18 +108,22 @@ export default function PlayerPropsPage() {
   });
 
   const handleRefreshAll = async () => {
+    const leagues = ["NBA", "NHL", "MLB"];
     try {
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/fetch-player-props?league=NBA`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-          },
-        }
+      await Promise.allSettled(
+        leagues.map((league) =>
+          fetch(
+            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/fetch-player-props?league=${league}`,
+            {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+                apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+              },
+            }
+          )
+        )
       );
-      if (!response.ok) console.warn("Props refresh failed:", response.status);
     } catch (e) {
       console.warn("Props refresh error:", e);
     }
