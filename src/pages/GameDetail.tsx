@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Star, MapPin, Orbit, Moon, Zap, Users, ChevronDown, ChevronUp, TrendingUp, TrendingDown, BarChart3, Lightbulb, Swords } from "lucide-react";
+import { ArrowLeft, Star, MapPin, Orbit, Moon, Zap, Users, ChevronDown, ChevronUp, TrendingUp, TrendingDown, BarChart3, Lightbulb, Swords, Flame } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
@@ -429,6 +429,16 @@ const GameDetail = () => {
               {t.label}
             </button>
           ))}
+        </div>
+        {/* View Trends link */}
+        <div className="flex justify-center mt-2">
+          <button
+            onClick={() => navigate("/props")}
+            className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <Flame className="h-3 w-3" />
+            View Trends
+          </button>
         </div>
       </header>
 
