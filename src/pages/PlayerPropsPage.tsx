@@ -318,12 +318,12 @@ export default function PlayerPropsPage() {
           <div className="cosmic-card rounded-xl p-8 text-center space-y-3">
             <TrendingUp className="h-8 w-8 text-muted-foreground/30 mx-auto" />
             <p className="text-sm font-medium text-foreground">
-              {gameIds.length === 0 ? "No games found for this date" : "No player props available"}
+              {gameIds.length === 0 ? "No games found for this date" : "Player props haven't populated yet"}
             </p>
             <p className="text-xs text-muted-foreground max-w-xs mx-auto">
               {gameIds.length === 0
                 ? "Try selecting a different date or league — games may not be scheduled yet."
-                : "Props will appear here once fetched. Click \"Refresh All\" to pull the latest data."}
+                : "Props typically populate closer to game time. Tap \"Refresh All\" to check, or check back later."}
             </p>
             {gameIds.length > 0 && (
               <button
