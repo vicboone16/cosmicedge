@@ -47,14 +47,41 @@ function getElementBalance(planets: PlanetPosition[]) {
 
 function getElementSummary(counts: Record<string, number>): string {
   const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
-  const dominant = sorted[0];
+  const [first, second] = sorted;
+  const total = Object.values(counts).reduce((a, b) => a + b, 0);
+  const max = sorted[0][1];
+  const min = sorted[sorted.length - 1][1];
+
+  if (max - min <= 1 && total >= 4) {
+    return "Balanced elements — unpredictable, evenly matched contests. No single style dominates.";
+  }
+
+  if (first[1] === second[1] && first[1] > 0) {
+    const combos: Record<string, string> = {
+      "Fire+Air": "Fire–Air synergy — explosive pace with high-IQ plays, overs and three-point shooting favored",
+      "Air+Fire": "Fire–Air synergy — explosive pace with high-IQ plays, overs and three-point shooting favored",
+      "Fire+Earth": "Fire–Earth tension — volatile swings between runs and defensive stops",
+      "Earth+Fire": "Fire–Earth tension — volatile swings between runs and defensive stops",
+      "Fire+Water": "Fire–Water steam — passion meets emotion, home teams energized, fouls elevated",
+      "Water+Fire": "Fire–Water steam — passion meets emotion, home teams energized, fouls elevated",
+      "Earth+Air": "Earth–Air strategy — methodical execution meets smart passing, coaches shine",
+      "Air+Earth": "Earth–Air strategy — methodical execution meets smart passing, coaches shine",
+      "Earth+Water": "Earth–Water foundation — defense and emotion rule, unders favored, home-court amplified",
+      "Water+Earth": "Earth–Water foundation — defense and emotion rule, unders favored, home-court amplified",
+      "Air+Water": "Air–Water flow — cerebral and intuitive play, lead changes and tempo swings",
+      "Water+Air": "Air–Water flow — cerebral and intuitive play, lead changes and tempo swings",
+    };
+    const key = `${first[0]}+${second[0]}`;
+    if (combos[key]) return combos[key];
+  }
+
   const summaries: Record<string, string> = {
     Fire: "Fire dominance — explosive scoring, individual brilliance, aggressive play",
     Earth: "Earth dominance — grinding defense, low totals, methodical execution",
     Air: "Air dominance — high-pace, three-point shooting, creative passing",
     Water: "Water dominance — emotional games, home court matters, intuition over analytics",
   };
-  return summaries[dominant[0]] || "Balanced elemental energy";
+  return summaries[first[0]] || "Balanced elemental energy";
 }
 
 const TransitsPage = () => {
