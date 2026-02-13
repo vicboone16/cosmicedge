@@ -1,134 +1,68 @@
 
+# Historical Data CSV Import Plan
 
-# Comprehensive Feature Plan: Game Detail Enhancements, Historical Hub, Player Props Fix, and Bet Engine Upgrades
+## What You'll Do
 
-This plan addresses all outstanding issues and feature requests in a single coordinated effort.
+Upload your CSV/Excel files (one per sport) containing historical game results, scores, odds, and player stats. A new backend function will parse each file and insert the data into the same tables the app already reads from — so the Historical page, astrology overlays, and analytics all work exactly the same, just powered by your local data instead of API calls.
 
----
+## How It Works
 
-## Part 1: Fix NHL Player Roster Data (Critical)
+1. **You upload your spreadsheets** via a new "Import Historical Data" section on the Settings page
+2. A backend function reads each file, maps the columns to the existing database schema, and batch-inserts the rows
+3. Duplicate detection prevents re-importing the same games
+4. Once imported, the Historical page, odds charts, player stats, and astrology analysis all pull from the stored data — no API calls needed
 
-**Problem**: Only 518 NBA players exist in the database. Zero NHL/MLB/NFL players, so NHL/MLB/NFL game detail pages show empty rosters.
+## What Gets Built
 
-**Solution**: Trigger the `fetch-participants` edge function for NHL, MLB, and NFL to populate rosters, then verify the league filter already in `GameDetail.tsx` works correctly.
+### 1. CSV Import Edge Function (`import-historical-csv`)
+- Accepts a CSV file upload plus a `league` parameter (NBA, NFL, MLB, NHL) and a `data_type` parameter (games, odds, player_stats)
+- Parses the CSV rows and maps columns to the existing table schemas:
+  - **Games** go into the `games` table (home_team, away_team, start_time, home_score, away_score, status="final")
+  - **Odds** go into the `historical_odds` table (market_type, bookmaker, home_price, away_price, line, snapshot_date)
+  - **Player stats** go into the `player_game_stats` table (points, rebounds, assists, etc.)
+- Uses team name normalization (the same `TEAM_ABBR` map already in the codebase) to generate abbreviations
+- Deduplicates by matching on league + home_team + away_team + start_time (within 2-hour window, per existing convention)
+- Links odds rows to their matching `game_id` in the games table
+- Processes in batches of 200 rows to avoid timeouts
 
-- Call `fetch-participants` for each missing league (NHL, MLB, NFL)
-- Verify the `.eq("league", game.league)` filter in `GameDetail.tsx` (already added) returns correct players
+### 2. File Upload UI (Settings Page)
+- New "Import Historical Data" card on the Settings page
+- File picker that accepts `.csv` and `.xlsx` files
+- Dropdown selectors for League (NBA/NFL/MLB/NHL) and Data Type (Games & Scores, Odds, Player Stats)
+- Progress indicator showing rows processed
+- Success/error toast notifications
 
----
+### 3. Column Auto-Mapping
+- The function will detect common column headers from SportsDataIO exports (e.g., `HomeTeam`, `AwayTeam`, `HomeScore`, `AwayScore`, `DateTime`, `OverUnder`, `PointSpread`)
+- Falls back to positional mapping if headers don't match
+- Logs any unmapped or skipped rows for troubleshooting
 
-## Part 2: Fix Game Start Times
+### 4. Storage Bucket for Uploads
+- Create a `csv-imports` storage bucket for temporarily holding uploaded files
+- Files are processed and then can be cleaned up
 
-**Problem**: Old games have incorrect start times from the previous ingestion bug.
+## What Stays the Same
+- The Historical page continues reading from `games`, `historical_odds`, and `player_game_stats` — no UI changes needed there
+- Astrology overlays keep working since they reference game start times and venue coordinates from the same `games` table
+- The "Fetch" button on the Historical page still works for pulling new data from APIs when needed — CSV import just pre-fills the database so you don't burn quota on past seasons
 
-**Solution**:
-- Trigger a fresh `fetch-odds` call for each active league to re-ingest with correct times
-- The start_time fix (skip null times) is already deployed
-- Existing games with bad times will be overwritten by the upsert logic when the same external_id is matched
+## Technical Details
 
----
+### Database Changes
+- No new tables needed — data goes into existing `games`, `historical_odds`, and `player_game_stats` tables
+- Add a `source` column (text, default 'api') to `games` and `historical_odds` so you can distinguish API-fetched vs CSV-imported data
 
-## Part 3: Fix Player Props Search
+### Edge Function: `import-historical-csv`
+- Endpoint: POST with multipart/form-data (file + league + data_type)
+- Uses service role key for inserts (same pattern as other data-fetching functions)
+- CSV parsing via a lightweight Deno CSV parser
+- Returns: `{ success, rows_parsed, rows_inserted, rows_skipped, errors[] }`
 
-**Problem**: The Player Props page shows "No player props available" because the query depends on `gameIds` being populated first, but if no games exist for the selected date, no props load. The search input filters by player name but there may be no data to filter.
+### Settings Page Addition
+- New card below the Timezone selector
+- Upload flow: Select league → Select data type → Pick file → Click Import → See progress → Done toast
 
-**Solution**:
-- The search itself works correctly in code (line 160-163 of `PlayerPropsPage.tsx`)
-- The issue is likely no props data in the database. Triggering a refresh via the Refresh All button should populate data
-- Add a fallback: if no games found for the date, show a message suggesting the user try a different date or refresh
+### Expected CSV Column Formats
+The function will handle SportsDataIO's standard export format. For example, a Games CSV might have: `Date, HomeTeam, AwayTeam, HomeScore, AwayScore, Stadium, Season` — each gets mapped to the corresponding database column.
 
----
-
-## Part 4: Enhanced Game Detail Page - Player Cards with Stats & History
-
-**File**: `src/pages/GameDetail.tsx`
-
-Enhance the Player Zodiac Map section to include a PrizePicks-style expandable player card:
-
-- Each player card shows: name, zodiac sign, birthday, position
-- Tapping a player expands to reveal:
-  - **Last 5/10 game stats** (from `player_game_stats` table): PTS, REB, AST, etc.
-  - **Over/Under lines** from `player_props` for that game
-  - **Astro info**: natal sign, element, current transit modifiers
-- Add a "High/Low" indicator comparing the prop line to recent average
-- Players remain clickable to navigate to full `/player/:id` page
-
----
-
-## Part 5: Historical Hub Page (Replace Historical Odds)
-
-**File**: `src/pages/HistoricalOddsPage.tsx` (rename to `HistoricalPage.tsx`)
-
-Transform the current "Historical Odds" into a comprehensive "Historical" hub with tabbed sub-sections:
-
-### Tab 1: Game Results
-- Browse past games by date and league
-- Show final scores (home_score, away_score from `games` table)
-- Show the closing odds alongside results
-- Win/loss outcome badges
-
-### Tab 2: Historical Odds & Line Movement
-- Current functionality (closing lines, line movement charts, CLV analysis)
-- No changes needed, just nested under the tab
-
-### Tab 3: Historical Astrology
-- For each past game, show the horary chart data that applied at game time
-- Show transit positions, planetary hour, aspects active at tip-off
-- Pull from `astro_calculations` table where available
-
-### Tab 4: Historical Player Stats
-- Browse `player_game_stats` by date/league
-- Show individual box scores for completed games
-- Filter by team or player name
-
-### Tab 5: Team Market Outcomes
-- Final scores, ATS results, over/under results
-- Aggregate team performance trends (record against the spread, over/under record)
-- Pull from `games` + `historical_odds` tables
-
-**Route change**: Update `/historical` route to use the new component. Update bottom nav label from "History" to keep consistent.
-
----
-
-## Part 6: Bet Engine Enhancements
-
-**File**: `src/components/skyspread/CreateBetForm.tsx`
-
-### Same-Game Parlay (SGP) support
-- Add a toggle/chip: "Standard Parlay" vs "Same Game Parlay"
-- SGP mode locks all legs to the same game
-- Auto-populate available markets (ML, spread, total, player props) from that game
-
-### Projected Win calculation
-- Add a "Projected Win" display that computes payout based on stake amount and odds
-- Formula: stake * decimal_odds for single bets, stake * combined_decimal_odds for parlays
-
-### Past date selection
-- Extend the date picker to allow past dates (for logging historical bets)
-- Currently only shows next 7 days; add past 7 days as well
-
-### Dollar amount prominently displayed
-- Show stake and projected win at the bottom of the form in a summary bar
-
----
-
-## Part 7: Player Birthday Data
-
-**Current state**: All 518 NBA players have birth dates. NHL/MLB/NFL players don't exist yet.
-
-**Solution**: The `fetch-participants` edge function already handles `birth_date` from the data providers. Once rosters are fetched for other leagues (Part 1), birthdays will be populated for players where the provider has that data. For any gaps, the user can manually provide data or we can add a data enrichment step.
-
----
-
-## Technical Summary
-
-| Change | Files |
-|--------|-------|
-| Trigger roster fetch for NHL/MLB/NFL | Edge function calls |
-| Trigger fresh odds fetch for correct times | Edge function calls |
-| Expandable player cards with stats + history | `src/pages/GameDetail.tsx` |
-| Historical hub with 5 tabs | `src/pages/HistoricalOddsPage.tsx` (rewrite) |
-| SGP support + projected win + past dates | `src/components/skyspread/CreateBetForm.tsx` |
-| Route/nav updates | `src/App.tsx` |
-| Player props page - add empty state improvement | `src/pages/PlayerPropsPage.tsx` |
-
+Before your first upload, I'll ask you to share one of the CSV files so I can see the exact column headers and map them precisely.
