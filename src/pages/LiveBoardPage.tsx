@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Zap, Pin, PinOff, Trash2, Star, TrendingUp, AlertTriangle, CheckCircle } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import type { Tables } from "@/integrations/supabase/types";
+import { useAuth } from "@/hooks/use-auth";
 
 type BetRow = Tables<"bets">;
 type LiveBoardItem = Tables<"live_board_items">;
@@ -63,15 +64,8 @@ function getTrackingStatus(bet: BetRow, snapshot?: SnapshotRow | null): { label:
 const LiveBoardPage = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [userId, setUserId] = useState<string | null>(null);
-
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => setUserId(data.session?.user?.id ?? null));
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
-      setUserId(session?.user?.id ?? null);
-    });
-    return () => subscription.unsubscribe();
-  }, []);
+  const { user } = useAuth();
+  const userId = user?.id ?? null;
 
   // Trigger edge function to refresh snapshots
   const triggerScoreRefresh = async () => {
@@ -157,7 +151,10 @@ const LiveBoardPage = () => {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center px-4">
         <Zap className="h-8 w-8 text-primary mb-3" />
-        <p className="text-sm text-muted-foreground text-center">Please log in to access Live Board.</p>
+        <p className="text-sm text-muted-foreground text-center mb-3">Log in to access Live Board.</p>
+        <button onClick={() => navigate("/auth")} className="text-xs text-primary hover:underline">
+          Go to Login →
+        </button>
       </div>
     );
   }
