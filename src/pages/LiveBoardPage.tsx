@@ -9,20 +9,53 @@ import type { Tables } from "@/integrations/supabase/types";
 
 type BetRow = Tables<"bets">;
 type LiveBoardItem = Tables<"live_board_items">;
+type SnapshotRow = Tables<"game_state_snapshots">;
 
 interface LiveBetItem extends LiveBoardItem {
   bet: BetRow;
+  snapshot?: SnapshotRow | null;
 }
 
-function getTrackingStatus(bet: BetRow): { label: string; color: string; icon: typeof TrendingUp } {
-  const status = bet.status || "open";
-  if (status === "won") return { label: "Won ✓", color: "text-cosmic-green", icon: CheckCircle };
-  if (status === "lost") return { label: "Lost", color: "text-cosmic-red", icon: AlertTriangle };
-  if (status === "live") {
-    const edge = bet.edge_score ?? 50;
-    if (edge >= 70) return { label: "On Track", color: "text-cosmic-green", icon: TrendingUp };
-    if (edge >= 40) return { label: "Sweating", color: "text-cosmic-gold", icon: TrendingUp };
-    return { label: "Danger", color: "text-cosmic-red", icon: AlertTriangle };
+function getTrackingStatus(bet: BetRow, snapshot?: SnapshotRow | null): { label: string; color: string; icon: typeof TrendingUp } {
+  const status = snapshot?.status || bet.status || "open";
+  if (status === "final" || bet.status === "won") return { label: "Won ✓", color: "text-cosmic-green", icon: CheckCircle };
+  if (bet.status === "lost") return { label: "Lost", color: "text-cosmic-red", icon: AlertTriangle };
+  if (status === "live" || bet.status === "live") {
+    if (!snapshot) {
+      const edge = bet.edge_score ?? 50;
+      if (edge >= 70) return { label: "On Track", color: "text-cosmic-green", icon: TrendingUp };
+      if (edge >= 40) return { label: "Sweating", color: "text-cosmic-gold", icon: TrendingUp };
+      return { label: "Danger", color: "text-cosmic-red", icon: AlertTriangle };
+    }
+    // Derive from live score vs bet
+    const totalScore = (snapshot.home_score ?? 0) + (snapshot.away_score ?? 0);
+    const qNum = parseInt(snapshot.quarter ?? "1");
+    const elapsed = Math.min(qNum / 4, 1);
+    if (bet.market_type === "total" && bet.line) {
+      const pace = elapsed > 0 ? totalScore / elapsed : 0;
+      const side = bet.side?.toLowerCase();
+      if (side === "over") {
+        return pace >= bet.line
+          ? { label: "On Track", color: "text-cosmic-green", icon: TrendingUp }
+          : pace >= bet.line * 0.85
+            ? { label: "Sweating", color: "text-cosmic-gold", icon: TrendingUp }
+            : { label: "Danger", color: "text-cosmic-red", icon: AlertTriangle };
+      }
+      if (side === "under") {
+        return pace <= bet.line
+          ? { label: "On Track", color: "text-cosmic-green", icon: TrendingUp }
+          : pace <= bet.line * 1.15
+            ? { label: "Sweating", color: "text-cosmic-gold", icon: TrendingUp }
+            : { label: "Danger", color: "text-cosmic-red", icon: AlertTriangle };
+      }
+    }
+    // Spread / moneyline: check if picked team is leading
+    const homeLeading = (snapshot.home_score ?? 0) > (snapshot.away_score ?? 0);
+    const betOnHome = bet.side?.toLowerCase() === "home" || bet.home_team?.toLowerCase().includes(bet.selection?.toLowerCase().split(" ")[0] ?? "");
+    const teamLeading = betOnHome ? homeLeading : !homeLeading;
+    return teamLeading
+      ? { label: "On Track", color: "text-cosmic-green", icon: TrendingUp }
+      : { label: "Sweating", color: "text-cosmic-gold", icon: TrendingUp };
   }
   return { label: "Pregame", color: "text-cosmic-cyan", icon: Star };
 }
@@ -40,11 +73,23 @@ const LiveBoardPage = () => {
     return () => subscription.unsubscribe();
   }, []);
 
+  // Trigger edge function to refresh snapshots
+  const triggerScoreRefresh = async () => {
+    try {
+      await supabase.functions.invoke("fetch-live-scores");
+    } catch (e) {
+      console.warn("Score refresh failed:", e);
+    }
+  };
+
   const { data: liveItems, isLoading } = useQuery({
     queryKey: ["live-board", userId],
     queryFn: async () => {
       if (!userId) return [];
-      // Fetch live board items with their bets
+
+      // Trigger score refresh in background
+      triggerScoreRefresh();
+
       const { data: items, error } = await supabase
         .from("live_board_items")
         .select("*")
@@ -60,20 +105,41 @@ const LiveBoardPage = () => {
         .select("*")
         .in("id", betIds);
 
-      return items.map(item => ({
-        ...item,
-        bet: bets?.find(b => b.id === item.bet_id) as BetRow,
-      })).filter(i => i.bet) as LiveBetItem[];
+      // Get unique game_ids to fetch latest snapshots
+      const gameIds = [...new Set(bets?.map(b => b.game_id).filter(Boolean) || [])];
+      let snapshots: SnapshotRow[] = [];
+      if (gameIds.length > 0) {
+        // Get the latest snapshot per game_id
+        const { data: snapshotData } = await supabase
+          .from("game_state_snapshots")
+          .select("*")
+          .in("game_id", gameIds)
+          .order("captured_at", { ascending: false });
+        if (snapshotData) {
+          // Dedupe: keep only the latest per game_id
+          const seen = new Set<string>();
+          snapshots = snapshotData.filter(s => {
+            if (seen.has(s.game_id)) return false;
+            seen.add(s.game_id);
+            return true;
+          });
+        }
+      }
+
+      return items.map(item => {
+        const bet = bets?.find(b => b.id === item.bet_id) as BetRow;
+        const snapshot = bet ? snapshots.find(s => s.game_id === bet.game_id) ?? null : null;
+        return { ...item, bet, snapshot };
+      }).filter(i => i.bet) as LiveBetItem[];
     },
     enabled: !!userId,
     refetchInterval: (query) => {
-      // Refresh faster when there are live bets
       const items = query.state.data as LiveBetItem[] | undefined;
-      const hasLive = items?.some(i => i.bet.status === "live");
-      if (hasLive) return 15_000; // 15s for live
+      const hasLive = items?.some(i => i.bet.status === "live" || i.snapshot?.status === "live");
+      if (hasLive) return 15_000;
       const hasPregame = items?.some(i => i.bet.status === "open");
-      if (hasPregame) return 5 * 60_000; // 5min for pregame
-      return false; // no refresh if all settled
+      if (hasPregame) return 5 * 60_000;
+      return false;
     },
   });
 
@@ -110,13 +176,13 @@ const LiveBoardPage = () => {
         {liveItems && liveItems.length > 0 && (
           <div className="flex items-center gap-3 mt-2">
             <span className="text-[10px] text-cosmic-green font-semibold">
-              {liveItems.filter(i => i.bet.status === "live").length} LIVE
+              {liveItems.filter(i => i.bet.status === "live" || i.snapshot?.status === "live").length} LIVE
             </span>
             <span className="text-[10px] text-cosmic-cyan font-medium">
-              {liveItems.filter(i => i.bet.status === "open").length} Pregame
+              {liveItems.filter(i => i.bet.status === "open" && i.snapshot?.status !== "live").length} Pregame
             </span>
             <span className="text-[10px] text-muted-foreground">
-              {liveItems.filter(i => ["won", "lost", "push"].includes(i.bet.status || "")).length} Settled
+              {liveItems.filter(i => ["won", "lost", "push"].includes(i.bet.status || "") || i.snapshot?.status === "final").length} Settled
             </span>
           </div>
         )}
@@ -135,7 +201,6 @@ const LiveBoardPage = () => {
           </div>
         )}
 
-        {/* Pinned */}
         {pinnedItems.length > 0 && (
           <section>
             <h3 className="text-[10px] font-semibold text-cosmic-gold uppercase tracking-widest mb-2 flex items-center gap-1">
@@ -149,7 +214,6 @@ const LiveBoardPage = () => {
           </section>
         )}
 
-        {/* Unpinned */}
         {unpinnedItems.length > 0 && (
           <section>
             {pinnedItems.length > 0 && (
@@ -173,14 +237,16 @@ function LiveCard({ item, onRemove, onTogglePin }: {
   onTogglePin: (item: LiveBoardItem) => void;
 }) {
   const bet = item.bet;
-  const tracking = getTrackingStatus(bet);
+  const snapshot = item.snapshot;
+  const tracking = getTrackingStatus(bet, snapshot);
   const TrackIcon = tracking.icon;
+  const isLive = snapshot?.status === "live" || bet.status === "live";
 
   return (
     <div className={cn(
       "cosmic-card rounded-xl p-3",
       item.is_pinned && "border-cosmic-gold/30",
-      bet.status === "live" && "border-l-2 border-l-cosmic-green"
+      isLive && "border-l-2 border-l-cosmic-green"
     )}>
       {/* Header: game + tracking status */}
       <div className="flex items-center justify-between mb-2">
@@ -193,13 +259,35 @@ function LiveCard({ item, onRemove, onTogglePin }: {
         </div>
       </div>
 
-      {/* Live score / status */}
-      {bet.status === "live" && (
-        <div className="flex items-center gap-2 mb-2">
-          <span className="flex items-center gap-1">
-            <span className="h-1.5 w-1.5 rounded-full bg-cosmic-green animate-pulse-glow" />
+      {/* Live score display from snapshot */}
+      {isLive && snapshot && (
+        <div className="bg-secondary/50 rounded-lg p-2 mb-2 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="h-1.5 w-1.5 rounded-full bg-cosmic-green animate-pulse" />
             <span className="text-[10px] text-cosmic-green font-semibold uppercase">Live</span>
-          </span>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="text-center">
+              <p className="text-[9px] text-muted-foreground">{bet.away_team || "Away"}</p>
+              <p className="text-sm font-bold text-foreground tabular-nums">{snapshot.away_score ?? "–"}</p>
+            </div>
+            <div className="text-center">
+              <p className="text-[9px] text-muted-foreground">Q{snapshot.quarter || "?"}</p>
+              <p className="text-[10px] text-muted-foreground tabular-nums">{snapshot.clock || ""}</p>
+            </div>
+            <div className="text-center">
+              <p className="text-[9px] text-muted-foreground">{bet.home_team || "Home"}</p>
+              <p className="text-sm font-bold text-foreground tabular-nums">{snapshot.home_score ?? "–"}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Pregame / non-snapshot live */}
+      {!snapshot && isLive && (
+        <div className="flex items-center gap-2 mb-2">
+          <span className="h-1.5 w-1.5 rounded-full bg-cosmic-green animate-pulse" />
+          <span className="text-[10px] text-cosmic-green font-semibold uppercase">Live</span>
           {bet.start_time && (
             <span className="text-[10px] text-muted-foreground">
               Started {format(new Date(bet.start_time), "h:mm a")}
