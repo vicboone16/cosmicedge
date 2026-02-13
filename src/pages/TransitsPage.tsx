@@ -1,60 +1,101 @@
-import { Star, Orbit, Moon, ArrowLeft } from "lucide-react";
+import { useState } from "react";
+import { Star, Orbit, Moon, ChevronLeft, ChevronRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
-import { format } from "date-fns";
+import { format, addDays, isToday } from "date-fns";
+import { useCurrentEphemeris, type PlanetPosition } from "@/hooks/use-astro";
 
-// ── Planetary Data ──
-const PLANETS = [
-  { planet: "Sun", symbol: "☉", sign: "Aquarius", signSymbol: "♒", degree: 24, element: "Air", house: "11th", meaning: "Innovation, team dynamics, unconventional strategies" },
-  { planet: "Moon", symbol: "☽", sign: "Sagittarius", signSymbol: "♐", degree: 18, element: "Fire", house: "9th", meaning: "Long-range shots favored, travel teams energized" },
-  { planet: "Mercury", symbol: "☿", sign: "Aquarius", signSymbol: "♒", degree: 8, element: "Air", house: "11th", meaning: "Creative passing, unorthodox plays — BUT retrograde disrupts execution", retrograde: true },
-  { planet: "Venus", symbol: "♀", sign: "Pisces", signSymbol: "♓", degree: 15, element: "Water", house: "12th", meaning: "Graceful movement, finesse players shine, artistic plays" },
-  { planet: "Mars", symbol: "♂", sign: "Cancer", signSymbol: "♋", degree: 22, element: "Water", house: "4th", meaning: "Home court advantage amplified — BUT retrograde saps aggression", retrograde: true },
-  { planet: "Jupiter", symbol: "♃", sign: "Cancer", signSymbol: "♋", degree: 14, element: "Water", house: "4th", meaning: "Expansion at home, big scoring nights, generous stat lines" },
-  { planet: "Saturn", symbol: "♄", sign: "Pisces", signSymbol: "♓", degree: 27, element: "Water", house: "12th", meaning: "Structural defense, disciplined play, low-scoring affairs" },
-  { planet: "Uranus", symbol: "♅", sign: "Gemini", signSymbol: "♊", degree: 3, element: "Air", house: "3rd", meaning: "Unexpected lead changes, wild fourth quarters" },
-  { planet: "Neptune", symbol: "♆", sign: "Aries", signSymbol: "♈", degree: 2, element: "Fire", house: "1st", meaning: "Deceptive ball-handling, misdirection plays, fadeaways" },
-  { planet: "Pluto", symbol: "♇", sign: "Aquarius", signSymbol: "♒", degree: 5, element: "Air", house: "11th", meaning: "Power shifts in team dynamics, roster shake-ups impact outcomes" },
-];
+const SIGN_SYMBOLS: Record<string, string> = {
+  Aries: "♈", Taurus: "♉", Gemini: "♊", Cancer: "♋", Leo: "♌", Virgo: "♍",
+  Libra: "♎", Scorpio: "♏", Sagittarius: "♐", Capricorn: "♑", Aquarius: "♒", Pisces: "♓",
+};
 
-// ── Aspects ──
-const ASPECTS = [
-  { planet1: "☉", planet2: "♃", type: "Trine", symbol: "△", effect: "Flowing energy between individual will and expansion — high-scoring games with star performances", impact: "positive" as const },
-  { planet1: "☿℞", planet2: "♄", type: "Sextile", symbol: "⚹", effect: "Disciplined communication despite Mercury retrograde — set plays execute better than improvisation", impact: "neutral" as const },
-  { planet1: "♂℞", planet2: "♆", type: "Square", symbol: "□", effect: "Frustration meets confusion — expect sloppy turnovers, fouls from frustration, and ejection risk", impact: "negative" as const },
-  { planet1: "♀", planet2: "♃", type: "Conjunction", symbol: "☌", effect: "Grace meets abundance — beautiful basketball, career highlight plays, and generous stat lines", impact: "positive" as const },
-  { planet1: "☽", planet2: "♅", type: "Opposition", symbol: "☍", effect: "Emotional volatility — momentum swings, buzzer beaters, and crowd energy shifts", impact: "negative" as const },
-  { planet1: "♄", planet2: "♇", type: "Sextile", symbol: "⚹", effect: "Structural transformation — defensive schemes evolve mid-game, adjustments win", impact: "neutral" as const },
-];
+const PLANET_SYMBOLS: Record<string, string> = {
+  Sun: "☉", Moon: "☽", Mercury: "☿", Venus: "♀", Mars: "♂",
+  Jupiter: "♃", Saturn: "♄", Uranus: "♅", Neptune: "♆", Pluto: "♇",
+};
 
-// ── Element counts for the day ──
-function getElementBalance() {
+const ELEMENT_MAP: Record<string, string> = {
+  Aries: "Fire", Taurus: "Earth", Gemini: "Air", Cancer: "Water",
+  Leo: "Fire", Virgo: "Earth", Libra: "Air", Scorpio: "Water",
+  Sagittarius: "Fire", Capricorn: "Earth", Aquarius: "Air", Pisces: "Water",
+};
+
+const PLANET_MEANINGS: Record<string, (sign: string) => string> = {
+  Sun: (s) => `Core energy in ${s} — ${ELEMENT_MAP[s] === "Fire" ? "explosive starts, individual brilliance" : ELEMENT_MAP[s] === "Earth" ? "grinding methodical play" : ELEMENT_MAP[s] === "Air" ? "high-IQ plays, passing" : "emotional, home-court energy"}`,
+  Moon: (s) => `Emotional tone in ${s} — ${ELEMENT_MAP[s] === "Fire" ? "aggressive crowd energy" : ELEMENT_MAP[s] === "Earth" ? "steady, predictable games" : ELEMENT_MAP[s] === "Air" ? "tempo swings, lead changes" : "intuition-driven, runs in waves"}`,
+  Mercury: (s) => `Communication in ${s} — affects playmaking, coaching adjustments, and ball movement`,
+  Venus: (s) => `Harmony in ${s} — influences shooting touch, team chemistry, and finesse plays`,
+  Mars: (s) => `Drive in ${s} — drives physicality, aggression, fast breaks, and foul rates`,
+  Jupiter: (s) => `Expansion in ${s} — amplifies scoring, generous stat lines, and big performances`,
+  Saturn: (s) => `Structure in ${s} — favors discipline, defense, and veteran execution`,
+  Uranus: (s) => `Disruption in ${s} — unexpected lead changes, wild momentum shifts`,
+  Neptune: (s) => `Illusion in ${s} — deceptive plays, fadeaways, misdirection`,
+  Pluto: (s) => `Transformation in ${s} — power shifts, roster impacts, intensity`,
+};
+
+function getElementBalance(planets: PlanetPosition[]) {
   const counts: Record<string, number> = { Fire: 0, Earth: 0, Air: 0, Water: 0 };
-  PLANETS.forEach(p => { counts[p.element]++; });
+  planets.forEach((p) => {
+    const el = ELEMENT_MAP[p.sign];
+    if (el) counts[el]++;
+  });
   return counts;
 }
 
-// ── Void of Course Moon ──
-function getVoidOfCourseMoon(): { active: boolean; start: string; end: string } {
-  // Approximate window for today
-  return { active: false, start: "3:42 AM", end: "5:18 AM" };
+function getElementSummary(counts: Record<string, number>): string {
+  const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+  const dominant = sorted[0];
+  const summaries: Record<string, string> = {
+    Fire: "Fire dominance — explosive scoring, individual brilliance, aggressive play",
+    Earth: "Earth dominance — grinding defense, low totals, methodical execution",
+    Air: "Air dominance — high-pace, three-point shooting, creative passing",
+    Water: "Water dominance — emotional games, home court matters, intuition over analytics",
+  };
+  return summaries[dominant[0]] || "Balanced elemental energy";
 }
 
 const TransitsPage = () => {
   const navigate = useNavigate();
-  const elementBalance = getElementBalance();
-  const voc = getVoidOfCourseMoon();
-  const today = format(new Date(), "EEEE, MMMM d, yyyy");
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const { data: ephemeris, isLoading: ephemerisLoading } = useCurrentEphemeris(selectedDate);
 
-  // Fetch today's games to map transits
-  const { data: games } = useQuery({
-    queryKey: ["transit-games"],
+  const canGoForward = selectedDate < addDays(new Date(), 7);
+  const goBack = () => setSelectedDate((d) => addDays(d, -1));
+  const goForward = () => canGoForward && setSelectedDate((d) => addDays(d, 1));
+  const goToday = () => setSelectedDate(new Date());
+
+  // Fetch lunar metrics for void-of-course
+  const dateStr = selectedDate.toISOString().slice(0, 10);
+  const { data: lunarData } = useQuery({
+    queryKey: ["transit-lunar", dateStr],
     queryFn: async () => {
-      const now = new Date();
-      const start = new Date(now); start.setHours(0, 0, 0, 0);
-      const end = new Date(now); end.setHours(23, 59, 59, 999);
+      const resp = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/astrologyapi?mode=lunar_metrics&transit_date=${dateStr}&entity_id=transit_${dateStr}`,
+        {
+          headers: {
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          },
+        }
+      );
+      if (!resp.ok) return null;
+      return resp.json();
+    },
+    staleTime: 30 * 60 * 1000,
+    retry: 1,
+  });
+
+  // Fetch games for the selected date
+  const { data: games } = useQuery({
+    queryKey: ["transit-games", dateStr],
+    queryFn: async () => {
+      const start = new Date(selectedDate);
+      start.setHours(0, 0, 0, 0);
+      const end = new Date(selectedDate);
+      end.setHours(23, 59, 59, 999);
       const { data } = await supabase
         .from("games")
         .select("*")
@@ -65,18 +106,41 @@ const TransitsPage = () => {
     },
   });
 
+  const planets = ephemeris || [];
+  const elementBalance = getElementBalance(planets);
+  const lunarResult = lunarData?.result;
+  const voc = lunarResult?.void_of_course || lunarResult?.voc;
+  const moonPhase = lunarResult?.moon_phase || lunarResult?.phase;
+
   return (
     <div className="min-h-screen">
       <header className="px-4 pt-12 pb-4 bg-background/80 backdrop-blur-xl border-b border-border/50">
-        <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-muted-foreground hover:text-foreground mb-4 transition-colors">
-          <ArrowLeft className="h-4 w-4" />
-          <span className="text-sm">Back</span>
-        </button>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 mb-2">
           <Star className="h-5 w-5 text-primary" />
           <h1 className="text-xl font-bold font-display">Daily Transits</h1>
         </div>
-        <p className="text-xs text-muted-foreground mt-1">{today}</p>
+        {/* Date Navigator */}
+        <div className="flex items-center gap-2">
+          <button onClick={goBack} className="p-1 rounded hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors">
+            <ChevronLeft className="h-3.5 w-3.5" />
+          </button>
+          <button
+            onClick={goToday}
+            className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+          >
+            {isToday(selectedDate)
+              ? `${format(selectedDate, "EEEE, MMMM d, yyyy")} · Today`
+              : format(selectedDate, "EEEE, MMMM d, yyyy")}
+          </button>
+          <button onClick={goForward} disabled={!canGoForward} className="p-1 rounded hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors disabled:opacity-30">
+            <ChevronRight className="h-3.5 w-3.5" />
+          </button>
+          {!isToday(selectedDate) && (
+            <button onClick={goToday} className="text-[10px] text-primary hover:underline ml-1">
+              Today
+            </button>
+          )}
+        </div>
       </header>
 
       <div className="px-4 py-4 space-y-5">
@@ -102,25 +166,30 @@ const TransitsPage = () => {
             })}
           </div>
           <p className="text-xs text-muted-foreground mt-2 italic">
-            ✦ Water dominance today — emotional games, home court matters, intuition over analytics
+            ✦ {planets.length > 0 ? getElementSummary(elementBalance) : "Loading planetary data..."}
           </p>
         </section>
 
         {/* Void of Course Moon */}
         <div className={cn(
           "cosmic-card rounded-xl p-3 flex items-center gap-3",
-          voc.active ? "border-l-2 border-l-cosmic-gold" : ""
+          (voc === true || voc?.is_voc) ? "border-l-2 border-l-cosmic-gold" : ""
         )}>
           <Moon className="h-4 w-4 text-cosmic-gold" />
           <div>
             <p className="text-xs font-semibold text-foreground">
-              Void-of-Course Moon: {voc.active ? "ACTIVE" : "Clear"}
+              Void-of-Course Moon: {(voc === true || voc?.is_voc) ? "ACTIVE ⚠" : "Clear ✓"}
             </p>
             <p className="text-[10px] text-muted-foreground">
-              {voc.active
+              {(voc === true || voc?.is_voc)
                 ? "Avoid new bets during VoC — outcomes are unpredictable"
-                : `Next VoC window: ${voc.start} – ${voc.end} (passed)`}
+                : "Moon is making aspects — normal betting conditions"}
             </p>
+            {moonPhase && (
+              <p className="text-[10px] text-muted-foreground mt-0.5">
+                🌙 {typeof moonPhase === "string" ? moonPhase : moonPhase.name || moonPhase.phase || ""}
+              </p>
+            )}
           </div>
         </div>
 
@@ -129,56 +198,42 @@ const TransitsPage = () => {
           <h3 className="text-xs font-semibold text-primary uppercase tracking-widest mb-3 flex items-center gap-1.5">
             <Orbit className="h-3.5 w-3.5" />
             Planetary Positions
+            {ephemerisLoading && <span className="text-[9px] text-muted-foreground ml-1">(loading...)</span>}
           </h3>
-          <div className="space-y-2">
-            {PLANETS.map((p) => (
-              <div key={p.planet} className={cn(
-                "cosmic-card rounded-xl p-3",
-                p.retrograde ? "border-l-2 border-l-cosmic-red" : ""
-              )}>
-                <div className="flex items-center justify-between mb-1">
-                  <div className="flex items-center gap-2">
-                    <span className="text-lg w-6 text-center">{p.symbol}</span>
-                    <div>
-                      <span className="text-xs font-semibold text-foreground">{p.planet}</span>
-                      {p.retrograde && <span className="text-[10px] text-cosmic-red ml-1 font-bold">℞</span>}
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-sm font-display">{p.signSymbol}</span>
-                    <span className="text-xs text-muted-foreground ml-1">{p.sign} {p.degree}°</span>
-                  </div>
-                </div>
-                <p className="text-[10px] text-muted-foreground leading-relaxed pl-8">{p.meaning}</p>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* Major Aspects */}
-        <section>
-          <h3 className="text-xs font-semibold text-primary uppercase tracking-widest mb-3">Major Aspects</h3>
-          <div className="space-y-2">
-            {ASPECTS.map((a, i) => (
-              <div key={i} className={cn(
-                "cosmic-card rounded-xl p-3 border-l-2",
-                a.impact === "positive" ? "border-l-cosmic-green" : a.impact === "negative" ? "border-l-cosmic-red" : "border-l-cosmic-gold"
-              )}>
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-sm font-display">{a.planet1}</span>
-                  <span className="text-xs text-muted-foreground">{a.symbol} {a.type}</span>
-                  <span className="text-sm font-display">{a.planet2}</span>
-                  <span className={cn(
-                    "ml-auto text-[10px] font-semibold uppercase",
-                    a.impact === "positive" ? "text-cosmic-green" : a.impact === "negative" ? "text-cosmic-red" : "text-cosmic-gold"
+          {planets.length > 0 ? (
+            <div className="space-y-2">
+              {planets.map((p) => {
+                const meaning = PLANET_MEANINGS[p.planet]?.(p.sign) || `${p.planet} in ${p.sign}`;
+                return (
+                  <div key={p.planet} className={cn(
+                    "cosmic-card rounded-xl p-3",
+                    p.retrograde ? "border-l-2 border-l-cosmic-red" : ""
                   )}>
-                    {a.impact === "positive" ? "Favorable" : a.impact === "negative" ? "Challenging" : "Neutral"}
-                  </span>
-                </div>
-                <p className="text-[10px] text-muted-foreground leading-relaxed">{a.effect}</p>
-              </div>
-            ))}
-          </div>
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg w-6 text-center">{PLANET_SYMBOLS[p.planet] || "★"}</span>
+                        <div>
+                          <span className="text-xs font-semibold text-foreground">{p.planet}</span>
+                          {p.retrograde && <span className="text-[10px] text-cosmic-red ml-1 font-bold">℞</span>}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-sm font-display">{SIGN_SYMBOLS[p.sign] || "?"}</span>
+                        <span className="text-xs text-muted-foreground ml-1">{p.sign} {p.degree}°</span>
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground leading-relaxed pl-8">{meaning}</p>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="cosmic-card rounded-xl p-4 text-center">
+              <p className="text-xs text-muted-foreground">
+                {ephemerisLoading ? "Fetching planetary positions..." : "Planetary data unavailable — API quota may be exceeded"}
+              </p>
+            </div>
+          )}
         </section>
 
         {/* Game Slate Mapping */}
@@ -194,7 +249,7 @@ const TransitsPage = () => {
                   : hour < 18
                   ? "Venus hour favors shooting touch and ball movement"
                   : hour < 21
-                  ? "Mars hour (retrograde) — aggression muted, fouls spike"
+                  ? "Mars hour — aggression and physicality shape the outcome"
                   : "Saturn hour — grinding, methodical play wins";
 
                 return (
