@@ -1,6 +1,8 @@
-import { BarChart3 } from "lucide-react";
+import { useState } from "react";
+import { BarChart3, Target } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { BarChart, Bar, ReferenceLine, XAxis, YAxis, ResponsiveContainer, Cell } from "recharts";
+import { TrackPropButton } from "@/components/tracking/TrackedProps";
 
 export interface TrendInsight {
   id: string;
@@ -16,8 +18,9 @@ export interface TrendInsight {
   hitRate: number;
   sampleSize: number;
   hitGames: number[];
-  /** Raw stat values for bar chart (most recent last) */
   statValues?: number[];
+  gameId?: string;
+  marketKey?: string;
 }
 
 function formatOdds(odds: number | null): string {
@@ -84,15 +87,27 @@ export function TrendCard({ insight }: { insight: TrendInsight }) {
         </div>
       )}
 
-      {/* Prop selection row */}
+      {/* Prop selection row + Track button */}
       <div className="flex items-center justify-between cosmic-card rounded-lg p-2.5">
         <div className="flex items-center gap-2">
           <BarChart3 className="h-4 w-4 text-muted-foreground" />
           <span className="text-sm font-medium text-foreground">{dirLabel} {insight.line} {insight.propLabel}</span>
         </div>
-        {insight.odds != null && (
-          <span className="text-sm font-bold tabular-nums text-foreground">{formatOdds(insight.odds)}</span>
-        )}
+        <div className="flex items-center gap-2">
+          {insight.odds != null && (
+            <span className="text-sm font-bold tabular-nums text-foreground">{formatOdds(insight.odds)}</span>
+          )}
+          {insight.gameId && (
+            <TrackPropButton
+              gameId={insight.gameId}
+              playerName={insight.playerName}
+              marketType={insight.marketKey || insight.propLabel}
+              line={insight.line}
+              overPrice={insight.direction === "over" ? insight.odds : null}
+              underPrice={insight.direction === "under" ? insight.odds : null}
+            />
+          )}
+        </div>
       </div>
 
       {/* Hit rate bar */}

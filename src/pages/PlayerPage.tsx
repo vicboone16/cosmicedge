@@ -258,8 +258,17 @@ const PlayerPage = () => {
               </div>
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="astro-badge rounded-full px-2 py-0.5 text-[10px] font-medium text-cosmic-indigo">
-                  {player.natal_data_quality === "exact" ? "Exact Birth Time" : "Noon Projection"}
+                  ☉ Sun Sign · Exact
                 </span>
+                {player.natal_data_quality === "exact" ? (
+                  <span className="astro-badge rounded-full px-2 py-0.5 text-[10px] font-medium text-cosmic-indigo">
+                    Exact Birth Time
+                  </span>
+                ) : (
+                  <span className="astro-badge rounded-full px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                    Houses/Rising: Noon est.
+                  </span>
+                )}
                 <span className="astro-badge rounded-full px-2 py-0.5 text-[10px] font-medium text-cosmic-indigo">
                   {zodiac.element} Element
                 </span>

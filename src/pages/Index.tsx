@@ -70,7 +70,7 @@ const Index = () => {
       </header>
 
       {/* Rich Astro Dashboard - scrollable, not in sticky header */}
-      <AstroHeader />
+      <AstroHeader date={selectedDate} />
 
       {/* Content */}
       <div className="px-4 py-4 space-y-6">
