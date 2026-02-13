@@ -1,15 +1,21 @@
 import { useState } from "react";
-import { Sparkles, RefreshCw, Loader2, Star } from "lucide-react";
+import { RefreshCw, Loader2, Star, ChevronLeft, ChevronRight } from "lucide-react";
 import { GameCard } from "@/components/GameCard";
 import { LeagueFilter } from "@/components/LeagueFilter";
 import { AstroHeader } from "@/components/AstroHeader";
 import { useGames } from "@/hooks/use-games";
 import type { League } from "@/lib/mock-data";
-import { format } from "date-fns";
+import { format, addDays, isToday } from "date-fns";
 
 const Index = () => {
   const [selectedLeague, setSelectedLeague] = useState<League | "ALL">("ALL");
-  const { data: games, isLoading, isError, refetch, isFetching } = useGames(selectedLeague);
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const { data: games, isLoading, isError, refetch, isFetching } = useGames(selectedLeague, selectedDate);
+
+  const canGoForward = selectedDate < addDays(new Date(), 7);
+  const goBack = () => setSelectedDate((d) => addDays(d, -1));
+  const goForward = () => canGoForward && setSelectedDate((d) => addDays(d, 1));
+  const goToday = () => setSelectedDate(new Date());
 
   const liveGames = games?.filter((g) => g.status === "live") || [];
   const upcoming = games?.filter((g) => g.status === "scheduled") || [];
@@ -37,9 +43,27 @@ const Index = () => {
               )}
             </button>
           </div>
-          <p className="text-xs text-muted-foreground">
-            {format(new Date(), "EEEE, MMMM d")} · Celestial Slate
-          </p>
+          <div className="flex items-center gap-2 mt-0.5">
+            <button onClick={goBack} className="p-1 rounded hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors">
+              <ChevronLeft className="h-3.5 w-3.5" />
+            </button>
+            <button
+              onClick={goToday}
+              className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
+              {isToday(selectedDate)
+                ? `${format(selectedDate, "EEE, MMM d")} · Today`
+                : format(selectedDate, "EEE, MMM d")}
+            </button>
+            <button onClick={goForward} disabled={!canGoForward} className="p-1 rounded hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors disabled:opacity-30">
+              <ChevronRight className="h-3.5 w-3.5" />
+            </button>
+            {!isToday(selectedDate) && (
+              <button onClick={goToday} className="text-[10px] text-primary hover:underline ml-1">
+                Today
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Rich Astro Dashboard */}

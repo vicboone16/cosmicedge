@@ -13,12 +13,12 @@ export interface GameWithOdds extends GameRow {
   };
 }
 
-async function fetchGamesFromDB(): Promise<GameWithOdds[]> {
-  // Get today's date range
-  const today = new Date();
-  const startOfDay = new Date(today);
+async function fetchGamesFromDB(date?: Date): Promise<GameWithOdds[]> {
+  // Get date range for the target day
+  const target = date || new Date();
+  const startOfDay = new Date(target);
   startOfDay.setHours(0, 0, 0, 0);
-  const endOfDay = new Date(today);
+  const endOfDay = new Date(target);
   endOfDay.setHours(23, 59, 59, 999);
 
   // Fetch today's games from database
@@ -67,25 +67,27 @@ async function fetchGamesFromDB(): Promise<GameWithOdds[]> {
   });
 }
 
-async function refreshOddsAndFetch(): Promise<GameWithOdds[]> {
-  // Try to refresh odds via edge function (fire & forget style, don't block on failure)
-  try {
-    const { error: fnError } = await supabase.functions.invoke("fetch-odds", {
-      body: null,
-    });
-    if (fnError) console.warn("Odds refresh error (non-blocking):", fnError);
-  } catch (e) {
-    console.warn("Odds refresh failed (non-blocking):", e);
+async function refreshOddsAndFetch(date?: Date): Promise<GameWithOdds[]> {
+  // Only refresh odds for today
+  const isToday = !date || date.toDateString() === new Date().toDateString();
+  if (isToday) {
+    try {
+      const { error: fnError } = await supabase.functions.invoke("fetch-odds", {
+        body: null,
+      });
+      if (fnError) console.warn("Odds refresh error (non-blocking):", fnError);
+    } catch (e) {
+      console.warn("Odds refresh failed (non-blocking):", e);
+    }
   }
 
-  // Always read from DB
-  return fetchGamesFromDB();
+  return fetchGamesFromDB(date);
 }
 
-export function useGames(league?: string) {
+export function useGames(league?: string, date?: Date) {
   return useQuery({
-    queryKey: ["games", league],
-    queryFn: refreshOddsAndFetch,
+    queryKey: ["games", league, date?.toDateString()],
+    queryFn: () => refreshOddsAndFetch(date),
     staleTime: 5 * 60 * 1000,
     select: (games) =>
       league && league !== "ALL"
