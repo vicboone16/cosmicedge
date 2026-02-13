@@ -659,6 +659,59 @@ export type Database = {
           },
         ]
       }
+      player_props: {
+        Row: {
+          bookmaker: string
+          captured_at: string
+          created_at: string
+          external_event_id: string | null
+          game_id: string | null
+          id: string
+          line: number | null
+          market_key: string
+          market_label: string | null
+          over_price: number | null
+          player_name: string
+          under_price: number | null
+        }
+        Insert: {
+          bookmaker: string
+          captured_at?: string
+          created_at?: string
+          external_event_id?: string | null
+          game_id?: string | null
+          id?: string
+          line?: number | null
+          market_key: string
+          market_label?: string | null
+          over_price?: number | null
+          player_name: string
+          under_price?: number | null
+        }
+        Update: {
+          bookmaker?: string
+          captured_at?: string
+          created_at?: string
+          external_event_id?: string | null
+          game_id?: string | null
+          id?: string
+          line?: number | null
+          market_key?: string
+          market_label?: string | null
+          over_price?: number | null
+          player_name?: string
+          under_price?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "player_props_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       player_season_stats: {
         Row: {
           assists_per_game: number | null
