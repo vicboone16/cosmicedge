@@ -343,6 +343,93 @@ export type Database = {
           },
         ]
       }
+      standings: {
+        Row: {
+          away_record: string | null
+          clinched: string | null
+          conference: string | null
+          created_at: string
+          division: string | null
+          external_team_id: string | null
+          games_back: number | null
+          home_record: string | null
+          id: string
+          last_10: string | null
+          league: string
+          losses: number
+          net_points: number | null
+          overtime_losses: number | null
+          playoff_seed: number | null
+          points_against: number | null
+          points_for: number | null
+          provider: string
+          season: number
+          streak: string | null
+          team_abbr: string
+          team_name: string
+          ties: number | null
+          updated_at: string
+          win_pct: number | null
+          wins: number
+        }
+        Insert: {
+          away_record?: string | null
+          clinched?: string | null
+          conference?: string | null
+          created_at?: string
+          division?: string | null
+          external_team_id?: string | null
+          games_back?: number | null
+          home_record?: string | null
+          id?: string
+          last_10?: string | null
+          league: string
+          losses?: number
+          net_points?: number | null
+          overtime_losses?: number | null
+          playoff_seed?: number | null
+          points_against?: number | null
+          points_for?: number | null
+          provider?: string
+          season: number
+          streak?: string | null
+          team_abbr: string
+          team_name: string
+          ties?: number | null
+          updated_at?: string
+          win_pct?: number | null
+          wins?: number
+        }
+        Update: {
+          away_record?: string | null
+          clinched?: string | null
+          conference?: string | null
+          created_at?: string
+          division?: string | null
+          external_team_id?: string | null
+          games_back?: number | null
+          home_record?: string | null
+          id?: string
+          last_10?: string | null
+          league?: string
+          losses?: number
+          net_points?: number | null
+          overtime_losses?: number | null
+          playoff_seed?: number | null
+          points_against?: number | null
+          points_for?: number | null
+          provider?: string
+          season?: number
+          streak?: string | null
+          team_abbr?: string
+          team_name?: string
+          ties?: number | null
+          updated_at?: string
+          win_pct?: number | null
+          wins?: number
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

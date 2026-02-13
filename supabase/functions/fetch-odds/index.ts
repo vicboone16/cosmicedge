@@ -304,6 +304,151 @@ async function fetchFromSportsGameOdds(apiKey: string, leagues: string[]): Promi
 }
 
 // ═══════════════════════════════════════════════
+// PROVIDER 3: SportsDataIO
+// ═══════════════════════════════════════════════
+const SDIO_API_BASE = "https://api.sportsdata.io/v3";
+const SDIO_SPORT_SLUGS: Record<string, string> = {
+  NBA: "nba", NFL: "nfl", MLB: "mlb", NHL: "nhl",
+};
+
+async function fetchOddsFromSportsDataIO(apiKey: string, leagues: string[]): Promise<{ games: NormalizedGame[] }> {
+  const allGames: NormalizedGame[] = [];
+  const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+
+  for (const league of leagues) {
+    const slug = SDIO_SPORT_SLUGS[league];
+    if (!slug) continue;
+
+    try {
+      const url = `${SDIO_API_BASE}/${slug}/odds/json/GameOddsByDate/${today}?key=${apiKey}`;
+      const resp = await fetch(url);
+      if (!resp.ok) {
+        console.error(`SportsDataIO odds error for ${league}: ${resp.status}`);
+        continue;
+      }
+      const games = await resp.json();
+
+      for (const game of games) {
+        let mlHome = 0, mlAway = 0;
+        let spreadLine = 0, spreadHome = -110, spreadAway = -110;
+        let totalLine = 0, totalOver = -110, totalUnder = -110;
+        const snapshots: NormalizedGame["snapshots"] = [];
+
+        // Parse pregame odds from the first available consensus line
+        for (const odds of game.PregameOdds || []) {
+          const bk = odds.Sportsbook?.Name || "consensus";
+
+          if (odds.HomeMoneyLine != null && !mlHome) {
+            mlHome = odds.HomeMoneyLine;
+            mlAway = odds.AwayMoneyLine || 0;
+          }
+          snapshots.push({ bookmaker: `sdio_${bk}`, market_type: "moneyline", home_price: odds.HomeMoneyLine, away_price: odds.AwayMoneyLine, line: null });
+
+          if (odds.HomePointSpread != null && !spreadLine) {
+            spreadLine = odds.HomePointSpread;
+            spreadHome = odds.HomePointSpreadPayout || -110;
+            spreadAway = odds.AwayPointSpreadPayout || -110;
+          }
+          snapshots.push({ bookmaker: `sdio_${bk}`, market_type: "spread", home_price: odds.HomePointSpreadPayout, away_price: odds.AwayPointSpreadPayout, line: odds.HomePointSpread });
+
+          if (odds.OverUnder != null && !totalLine) {
+            totalLine = odds.OverUnder;
+            totalOver = odds.OverPayout || -110;
+            totalUnder = odds.UnderPayout || -110;
+          }
+          snapshots.push({ bookmaker: `sdio_${bk}`, market_type: "total", home_price: odds.OverPayout, away_price: odds.UnderPayout, line: odds.OverUnder });
+        }
+
+        const homeTeam = game.HomeTeamName || game.HomeTeam || "";
+        const awayTeam = game.AwayTeamName || game.AwayTeam || "";
+        const status = game.Status === "InProgress" ? "live" : game.Status === "Final" ? "final" : "scheduled";
+
+        allGames.push({
+          external_id: `sdio_${game.GameId || game.GameID}`,
+          league,
+          home_team: homeTeam,
+          away_team: awayTeam,
+          home_abbr: makeAbbr(homeTeam),
+          away_abbr: makeAbbr(awayTeam),
+          start_time: game.DateTime || game.Day || new Date().toISOString(),
+          status,
+          venue: game.StadiumDetails?.Name || game.Stadium || undefined,
+          odds: {
+            moneyline: { home: mlHome, away: mlAway },
+            spread: { home: spreadHome, away: spreadAway, line: spreadLine },
+            total: { over: totalOver, under: totalUnder, line: totalLine },
+          },
+          snapshots,
+        });
+      }
+    } catch (err) {
+      console.error(`SportsDataIO odds fetch error for ${league}:`, err);
+    }
+  }
+
+  return { games: allGames };
+}
+
+async function fetchStandingsFromSportsDataIO(apiKey: string, leagues: string[], supabase: any): Promise<{ count: number }> {
+  let totalCount = 0;
+  const currentYear = new Date().getFullYear();
+
+  for (const league of leagues) {
+    const slug = SDIO_SPORT_SLUGS[league];
+    if (!slug) continue;
+
+    try {
+      const url = `${SDIO_API_BASE}/${slug}/scores/json/Standings/${currentYear}?key=${apiKey}`;
+      const resp = await fetch(url);
+      if (!resp.ok) {
+        console.error(`SportsDataIO standings error for ${league}: ${resp.status}`);
+        continue;
+      }
+      const standings = await resp.json();
+
+      for (const team of standings) {
+        const teamName = team.Name || team.City + " " + team.Name || "";
+        const fullName = team.City ? `${team.City} ${team.Name}` : teamName;
+        const record: Record<string, any> = {
+          league,
+          season: currentYear,
+          team_name: fullName,
+          team_abbr: team.Key || makeAbbr(fullName),
+          conference: team.Conference || null,
+          division: team.Division || null,
+          wins: team.Wins || 0,
+          losses: team.Losses || 0,
+          ties: team.Ties || 0,
+          overtime_losses: team.OvertimeLosses || 0,
+          win_pct: team.Percentage || 0,
+          games_back: team.GamesBack || 0,
+          streak: team.StreakDescription || null,
+          last_10: team.LastTenWins != null ? `${team.LastTenWins}-${team.LastTenLosses}` : null,
+          home_record: team.HomeWins != null ? `${team.HomeWins}-${team.HomeLosses}` : null,
+          away_record: team.AwayWins != null ? `${team.AwayWins}-${team.AwayLosses}` : null,
+          points_for: team.PointsFor || team.RunsScored || 0,
+          points_against: team.PointsAgainst || team.RunsAgainst || 0,
+          net_points: (team.PointsFor || 0) - (team.PointsAgainst || 0),
+          playoff_seed: team.PlayoffRank || null,
+          clinched: team.ClinchIndicator || null,
+          external_team_id: team.TeamID ? String(team.TeamID) : null,
+          provider: "sportsdataio",
+        };
+
+        await supabase
+          .from("standings")
+          .upsert(record, { onConflict: "league,season,team_name,provider" });
+        totalCount++;
+      }
+    } catch (err) {
+      console.error(`SportsDataIO standings error for ${league}:`, err);
+    }
+  }
+
+  return { count: totalCount };
+}
+
+// ═══════════════════════════════════════════════
 // MAIN HANDLER — merges all providers
 // ═══════════════════════════════════════════════
 Deno.serve(async (req) => {
@@ -314,7 +459,7 @@ Deno.serve(async (req) => {
   try {
     const url = new URL(req.url);
     const sports = url.searchParams.get("sports") || "NBA,NFL,MLB,NHL";
-    const provider = url.searchParams.get("provider") || "all"; // "theodds", "sgo", "all"
+    const provider = url.searchParams.get("provider") || "all"; // "theodds", "sgo", "sdio", "all"
     const leaguesList = sports.split(",").map(s => s.trim().toUpperCase());
 
     const supabase = createClient(
@@ -347,6 +492,22 @@ Deno.serve(async (req) => {
         meta.sgo_count = result.games.length;
       } else {
         meta.sgo_error = "API key not configured";
+      }
+    }
+
+    // Fetch from SportsDataIO
+    if (provider === "all" || provider === "sdio") {
+      const apiKey = Deno.env.get("SPORTSDATAIO_API_KEY");
+      if (apiKey) {
+        const result = await fetchOddsFromSportsDataIO(apiKey, leaguesList);
+        allGames = allGames.concat(result.games);
+        meta.sdio_count = result.games.length;
+
+        // Also fetch standings
+        const standingsResult = await fetchStandingsFromSportsDataIO(apiKey, leaguesList, supabase);
+        meta.sdio_standings_count = standingsResult.count;
+      } else {
+        meta.sdio_error = "API key not configured";
       }
     }
 
