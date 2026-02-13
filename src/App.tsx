@@ -24,6 +24,7 @@ import AstraPage from "./pages/AstraPage";
 import ProfilePage from "./pages/ProfilePage";
 import FriendsPage from "./pages/FriendsPage";
 import AuthPage from "./pages/AuthPage";
+import AdminImportPage from "./pages/AdminImportPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -57,6 +58,7 @@ const App = () => (
               <Route path="/friends" element={<FriendsPage />} />
             </Route>
             <Route path="/auth" element={<AuthPage />} />
+            <Route path="/admin/import" element={<AdminImportPage />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
