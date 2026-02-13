@@ -317,17 +317,23 @@ export default function PlayerPropsPage() {
         ) : filtered.length === 0 ? (
           <div className="cosmic-card rounded-xl p-8 text-center space-y-3">
             <TrendingUp className="h-8 w-8 text-muted-foreground/30 mx-auto" />
-            <p className="text-sm font-medium text-foreground">No player props available</p>
-            <p className="text-xs text-muted-foreground max-w-xs mx-auto">
-              Props will appear here once fetched. Make sure your API key includes the "Additional Markets" tier.
+            <p className="text-sm font-medium text-foreground">
+              {gameIds.length === 0 ? "No games found for this date" : "No player props available"}
             </p>
-            <button
-              onClick={handleRefreshAll}
-              disabled={isFetching}
-              className="text-xs text-primary hover:underline"
-            >
-              {isFetching ? "Fetching..." : "Fetch props now"}
-            </button>
+            <p className="text-xs text-muted-foreground max-w-xs mx-auto">
+              {gameIds.length === 0
+                ? "Try selecting a different date or league — games may not be scheduled yet."
+                : "Props will appear here once fetched. Click \"Refresh All\" to pull the latest data."}
+            </p>
+            {gameIds.length > 0 && (
+              <button
+                onClick={handleRefreshAll}
+                disabled={isFetching}
+                className="text-xs text-primary hover:underline"
+              >
+                {isFetching ? "Fetching..." : "Fetch props now"}
+              </button>
+            )}
           </div>
         ) : (
           <div className="cosmic-card rounded-xl overflow-hidden">
