@@ -23,3 +23,15 @@ verify_jwt = false
 
 [functions.fetch-historical-odds]
 verify_jwt = false
+
+[functions.astrologyapi]
+verify_jwt = false
+
+[functions.astro-elections]
+verify_jwt = false
+
+[functions.astro-interpret]
+verify_jwt = false
+
+[functions.astro-batch]
+verify_jwt = false

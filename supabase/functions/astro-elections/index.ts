@@ -49,8 +49,8 @@ Deno.serve(async (req) => {
     const lng = parseFloat(url.searchParams.get("lng") || "-74.006");
     const gameId = url.searchParams.get("game_id");
 
-    const apiKey = Deno.env.get("ASTROVISOR_API_KEY");
-    if (!apiKey) throw new Error("ASTROVISOR_API_KEY not configured");
+    const apiKey = Deno.env.get("ASTROLOGY_API_KEY");
+    if (!apiKey) throw new Error("ASTROLOGY_API_KEY not configured");
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
