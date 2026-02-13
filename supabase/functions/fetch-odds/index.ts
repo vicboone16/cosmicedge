@@ -6,19 +6,7 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const ODDS_API_BASE = "https://api.the-odds-api.com/v4";
-
-// Sport keys for The Odds API
-const SPORT_KEYS: Record<string, string> = {
-  NBA: "basketball_nba",
-  NFL: "americanfootball_nfl",
-  MLB: "baseball_mlb",
-  NHL: "icehockey_nhl",
-  NCAAB: "basketball_ncaab",
-  NCAAF: "americanfootball_ncaaf",
-};
-
-// Team abbreviation mapping (common ones)
+// ─── Team abbreviation helper ───
 function makeAbbr(name: string): string {
   const map: Record<string, string> = {
     "Atlanta Hawks": "ATL", "Boston Celtics": "BOS", "Brooklyn Nets": "BKN",
@@ -31,7 +19,6 @@ function makeAbbr(name: string): string {
     "Orlando Magic": "ORL", "Philadelphia 76ers": "PHI", "Phoenix Suns": "PHX",
     "Portland Trail Blazers": "POR", "Sacramento Kings": "SAC", "San Antonio Spurs": "SAS",
     "Toronto Raptors": "TOR", "Utah Jazz": "UTA", "Washington Wizards": "WAS",
-    // NFL
     "Kansas City Chiefs": "KC", "Buffalo Bills": "BUF", "Miami Dolphins": "MIA",
     "New England Patriots": "NE", "Baltimore Ravens": "BAL", "Cincinnati Bengals": "CIN",
     "Cleveland Browns": "CLE", "Pittsburgh Steelers": "PIT", "Houston Texans": "HOU",
@@ -43,7 +30,6 @@ function makeAbbr(name: string): string {
     "Carolina Panthers": "CAR", "New Orleans Saints": "NO", "Tampa Bay Buccaneers": "TB",
     "Arizona Cardinals": "ARI", "Los Angeles Rams": "LAR", "San Francisco 49ers": "SF",
     "Seattle Seahawks": "SEA", "New York Jets": "NYJ",
-    // MLB
     "New York Yankees": "NYY", "New York Mets": "NYM", "Boston Red Sox": "BOS",
     "Houston Astros": "HOU", "Los Angeles Dodgers": "LAD", "Los Angeles Angels": "LAA",
     "Chicago Cubs": "CHC", "Chicago White Sox": "CWS", "San Francisco Giants": "SF",
@@ -54,7 +40,6 @@ function makeAbbr(name: string): string {
     "St. Louis Cardinals": "STL", "Cincinnati Reds": "CIN", "Pittsburgh Pirates": "PIT",
     "Kansas City Royals": "KC", "Arizona Diamondbacks": "ARI", "Colorado Rockies": "COL",
     "Miami Marlins": "MIA", "Washington Nationals": "WSH", "Oakland Athletics": "OAK",
-    // NHL
     "Edmonton Oilers": "EDM", "Toronto Maple Leafs": "TOR", "Montreal Canadiens": "MTL",
     "Ottawa Senators": "OTT", "Winnipeg Jets": "WPG", "Calgary Flames": "CGY",
     "Vancouver Canucks": "VAN", "Vegas Golden Knights": "VGK", "Colorado Avalanche": "COL",
@@ -70,116 +55,382 @@ function makeAbbr(name: string): string {
   return map[name] || name.split(" ").map(w => w[0]).join("").toUpperCase().slice(0, 3);
 }
 
-function leagueFromSportKey(sportKey: string): string {
-  for (const [league, key] of Object.entries(SPORT_KEYS)) {
-    if (key === sportKey) return league;
-  }
-  return sportKey.toUpperCase();
+// ─── Normalized game type ───
+interface NormalizedGame {
+  external_id: string;
+  league: string;
+  home_team: string;
+  away_team: string;
+  home_abbr: string;
+  away_abbr: string;
+  start_time: string;
+  status: string;
+  venue?: string;
+  odds: {
+    moneyline: { home: number; away: number };
+    spread: { home: number; away: number; line: number };
+    total: { over: number; under: number; line: number };
+  };
+  snapshots: {
+    bookmaker: string;
+    market_type: string;
+    home_price: number | null;
+    away_price: number | null;
+    line: number | null;
+  }[];
 }
 
+// ═══════════════════════════════════════════════
+// PROVIDER 1: The Odds API
+// ═══════════════════════════════════════════════
+const THE_ODDS_API_BASE = "https://api.the-odds-api.com/v4";
+const THE_ODDS_SPORT_KEYS: Record<string, string> = {
+  NBA: "basketball_nba", NFL: "americanfootball_nfl",
+  MLB: "baseball_mlb", NHL: "icehockey_nhl",
+  NCAAB: "basketball_ncaab", NCAAF: "americanfootball_ncaaf",
+};
+
+async function fetchFromTheOddsAPI(apiKey: string, leagues: string[]): Promise<{ games: NormalizedGame[]; remaining: string | null }> {
+  const allGames: NormalizedGame[] = [];
+  let remaining: string | null = null;
+
+  for (const league of leagues) {
+    const sportKey = THE_ODDS_SPORT_KEYS[league];
+    if (!sportKey) continue;
+
+    const url = `${THE_ODDS_API_BASE}/sports/${sportKey}/odds/?apiKey=${apiKey}&regions=us&markets=h2h,spreads,totals&oddsFormat=american`;
+    const resp = await fetch(url);
+    remaining = resp.headers.get("x-requests-remaining");
+
+    if (!resp.ok) {
+      console.error(`TheOddsAPI error for ${league}: ${resp.status}`);
+      continue;
+    }
+
+    const events = await resp.json();
+
+    for (const event of events) {
+      let mlHome = 0, mlAway = 0;
+      let spreadLine = 0, spreadHome = -110, spreadAway = -110;
+      let totalLine = 0, totalOver = -110, totalUnder = -110;
+      const snapshots: NormalizedGame["snapshots"] = [];
+
+      for (const bk of event.bookmakers || []) {
+        for (const market of bk.markets || []) {
+          const homeOut = market.outcomes.find((o: any) => o.name === event.home_team);
+          const awayOut = market.outcomes.find((o: any) => o.name === event.away_team);
+          const overOut = market.outcomes.find((o: any) => o.name === "Over");
+          const underOut = market.outcomes.find((o: any) => o.name === "Under");
+
+          if (market.key === "h2h") {
+            if (homeOut && !mlHome) mlHome = homeOut.price;
+            if (awayOut && !mlAway) mlAway = awayOut.price;
+            snapshots.push({ bookmaker: bk.key, market_type: "moneyline", home_price: homeOut?.price, away_price: awayOut?.price, line: null });
+          }
+          if (market.key === "spreads") {
+            if (homeOut && !spreadLine) { spreadLine = homeOut.point; spreadHome = homeOut.price; }
+            if (awayOut) spreadAway = awayOut.price;
+            snapshots.push({ bookmaker: bk.key, market_type: "spread", home_price: homeOut?.price, away_price: awayOut?.price, line: homeOut?.point || null });
+          }
+          if (market.key === "totals") {
+            if (overOut && !totalLine) { totalLine = overOut.point; totalOver = overOut.price; }
+            if (underOut) totalUnder = underOut.price;
+            snapshots.push({ bookmaker: bk.key, market_type: "total", home_price: overOut?.price, away_price: underOut?.price, line: overOut?.point || null });
+          }
+        }
+      }
+
+      allGames.push({
+        external_id: event.id,
+        league,
+        home_team: event.home_team,
+        away_team: event.away_team,
+        home_abbr: makeAbbr(event.home_team),
+        away_abbr: makeAbbr(event.away_team),
+        start_time: event.commence_time,
+        status: "scheduled",
+        odds: {
+          moneyline: { home: mlHome, away: mlAway },
+          spread: { home: spreadHome, away: spreadAway, line: spreadLine },
+          total: { over: totalOver, under: totalUnder, line: totalLine },
+        },
+        snapshots,
+      });
+    }
+  }
+
+  return { games: allGames, remaining };
+}
+
+// ═══════════════════════════════════════════════
+// PROVIDER 2: SportsGameOdds API
+// ═══════════════════════════════════════════════
+const SGO_API_BASE = "https://api.sportsgameodds.com/v2";
+
+// Convert SGO teamID like "OKLAHOMA_CITY_THUNDER_NBA" to display name
+function sgoTeamName(teamID: string): string {
+  if (!teamID) return "Unknown";
+  // Remove league suffix
+  const parts = teamID.replace(/_NBA$|_NFL$|_MLB$|_NHL$|_NCAAB$|_NCAAF$/i, "").split("_");
+  return parts.map(p => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase()).join(" ");
+}
+
+function sgoTeamAbbr(teamID: string): string {
+  const name = sgoTeamName(teamID);
+  return makeAbbr(name);
+}
+
+async function fetchFromSportsGameOdds(apiKey: string, leagues: string[]): Promise<{ games: NormalizedGame[] }> {
+  const allGames: NormalizedGame[] = [];
+  const leagueParam = leagues.join(",");
+
+  try {
+    const url = `${SGO_API_BASE}/events?leagueID=${leagueParam}&oddsAvailable=true&finalized=false&limit=50`;
+
+    const resp = await fetch(url, {
+      headers: { "X-Api-Key": apiKey },
+    });
+
+    if (!resp.ok) {
+      console.error(`SGO API error: ${resp.status} ${await resp.text()}`);
+      return { games: [] };
+    }
+
+    const json = await resp.json();
+    const events = json.data || [];
+
+    for (const event of events) {
+      const league = event.leagueID || "";
+      const homeTeamID = event.teams?.home?.teamID || "";
+      const awayTeamID = event.teams?.away?.teamID || "";
+      const homeTeam = event.teams?.home?.names?.full || event.teams?.home?.names?.medium || sgoTeamName(homeTeamID);
+      const awayTeam = event.teams?.away?.names?.full || event.teams?.away?.names?.medium || sgoTeamName(awayTeamID);
+      const homeAbbr = event.teams?.home?.names?.short || event.teams?.home?.names?.abbreviation || sgoTeamAbbr(homeTeamID);
+      const awayAbbr = event.teams?.away?.names?.short || event.teams?.away?.names?.abbreviation || sgoTeamAbbr(awayTeamID);
+
+      // Parse odds from the event.odds object
+      let mlHome = 0, mlAway = 0;
+      let spreadLine = 0, spreadHome = -110, spreadAway = -110;
+      let totalLine = 0, totalOver = -110, totalUnder = -110;
+      const snapshots: NormalizedGame["snapshots"] = [];
+
+      const odds = event.odds || {};
+      for (const [oddID, oddData] of Object.entries(odds) as [string, any][]) {
+        // Moneyline
+        if (oddID.includes("-ml-home")) {
+          mlHome = oddData.odds || 0;
+          if (oddData.byBookmaker) {
+            for (const [bk, bkData] of Object.entries(oddData.byBookmaker) as [string, any][]) {
+              snapshots.push({ bookmaker: `sgo_${bk}`, market_type: "moneyline", home_price: bkData.odds || null, away_price: null, line: null });
+            }
+          }
+        }
+        if (oddID.includes("-ml-away")) {
+          mlAway = oddData.odds || 0;
+          if (oddData.byBookmaker) {
+            for (const [bk, bkData] of Object.entries(oddData.byBookmaker) as [string, any][]) {
+              const existing = snapshots.find(s => s.bookmaker === `sgo_${bk}` && s.market_type === "moneyline");
+              if (existing) existing.away_price = bkData.odds || null;
+              else snapshots.push({ bookmaker: `sgo_${bk}`, market_type: "moneyline", home_price: null, away_price: bkData.odds || null, line: null });
+            }
+          }
+        }
+        // Spread
+        if (oddID.includes("-sp-home")) {
+          spreadHome = oddData.odds || -110;
+          spreadLine = oddData.spread || oddData.overUnder || 0;
+          if (oddData.byBookmaker) {
+            for (const [bk, bkData] of Object.entries(oddData.byBookmaker) as [string, any][]) {
+              snapshots.push({ bookmaker: `sgo_${bk}`, market_type: "spread", home_price: bkData.odds || null, away_price: null, line: bkData.spread || null });
+            }
+          }
+        }
+        if (oddID.includes("-sp-away")) {
+          spreadAway = oddData.odds || -110;
+          if (oddData.byBookmaker) {
+            for (const [bk, bkData] of Object.entries(oddData.byBookmaker) as [string, any][]) {
+              const existing = snapshots.find(s => s.bookmaker === `sgo_${bk}` && s.market_type === "spread");
+              if (existing) existing.away_price = bkData.odds || null;
+              else snapshots.push({ bookmaker: `sgo_${bk}`, market_type: "spread", home_price: null, away_price: bkData.odds || null, line: bkData.spread || null });
+            }
+          }
+        }
+        // Total
+        if (oddID.includes("-ou-over")) {
+          totalOver = oddData.odds || -110;
+          totalLine = oddData.overUnder || oddData.spread || 0;
+          if (oddData.byBookmaker) {
+            for (const [bk, bkData] of Object.entries(oddData.byBookmaker) as [string, any][]) {
+              snapshots.push({ bookmaker: `sgo_${bk}`, market_type: "total", home_price: bkData.odds || null, away_price: null, line: bkData.overUnder || null });
+            }
+          }
+        }
+        if (oddID.includes("-ou-under")) {
+          totalUnder = oddData.odds || -110;
+          if (oddData.byBookmaker) {
+            for (const [bk, bkData] of Object.entries(oddData.byBookmaker) as [string, any][]) {
+              const existing = snapshots.find(s => s.bookmaker === `sgo_${bk}` && s.market_type === "total");
+              if (existing) existing.away_price = bkData.odds || null;
+              else snapshots.push({ bookmaker: `sgo_${bk}`, market_type: "total", home_price: null, away_price: bkData.odds || null, line: bkData.overUnder || null });
+            }
+          }
+        }
+      }
+
+      const status = event.live ? "live" : event.finalized ? "final" : "scheduled";
+
+      allGames.push({
+        external_id: event.eventID || event.id,
+        league,
+        home_team: homeTeam,
+        away_team: awayTeam,
+        home_abbr: homeAbbr,
+        away_abbr: awayAbbr,
+        start_time: event.start || event.startTime || new Date().toISOString(),
+        status,
+        odds: {
+          moneyline: { home: mlHome, away: mlAway },
+          spread: { home: spreadHome, away: spreadAway, line: spreadLine },
+          total: { over: totalOver, under: totalUnder, line: totalLine },
+        },
+        snapshots,
+      });
+    }
+  } catch (err) {
+    console.error("SGO fetch error:", err);
+  }
+
+  return { games: allGames };
+}
+
+// ═══════════════════════════════════════════════
+// MAIN HANDLER — merges all providers
+// ═══════════════════════════════════════════════
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const API_KEY = Deno.env.get("THE_ODDS_API_KEY");
-    if (!API_KEY) {
-      return new Response(JSON.stringify({ error: "THE_ODDS_API_KEY not configured" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
     const url = new URL(req.url);
     const sports = url.searchParams.get("sports") || "NBA,NFL,MLB,NHL";
-    const sportsList = sports.split(",").map(s => s.trim().toUpperCase());
+    const provider = url.searchParams.get("provider") || "all"; // "theodds", "sgo", "all"
+    const leaguesList = sports.split(",").map(s => s.trim().toUpperCase());
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    const allGames: any[] = [];
-    let requestsRemaining: string | null = null;
+    let allGames: NormalizedGame[] = [];
+    const meta: Record<string, any> = {};
 
-    for (const league of sportsList) {
-      const sportKey = SPORT_KEYS[league];
-      if (!sportKey) continue;
-
-      const oddsUrl = `${ODDS_API_BASE}/sports/${sportKey}/odds/?apiKey=${API_KEY}&regions=us&markets=h2h,spreads,totals&oddsFormat=american`;
-      
-      const resp = await fetch(oddsUrl);
-      requestsRemaining = resp.headers.get("x-requests-remaining");
-
-      if (!resp.ok) {
-        console.error(`Odds API error for ${league}: ${resp.status}`);
-        continue;
+    // Fetch from The Odds API
+    if (provider === "all" || provider === "theodds") {
+      const apiKey = Deno.env.get("THE_ODDS_API_KEY");
+      if (apiKey) {
+        const result = await fetchFromTheOddsAPI(apiKey, leaguesList);
+        allGames = allGames.concat(result.games);
+        meta.theodds_remaining = result.remaining;
+        meta.theodds_count = result.games.length;
+      } else {
+        meta.theodds_error = "API key not configured";
       }
+    }
 
-      const events = await resp.json();
+    // Fetch from SportsGameOdds
+    if (provider === "all" || provider === "sgo") {
+      const apiKey = Deno.env.get("SPORTSGAMEODDS_API_KEY");
+      if (apiKey) {
+        const result = await fetchFromSportsGameOdds(apiKey, leaguesList);
+        allGames = allGames.concat(result.games);
+        meta.sgo_count = result.games.length;
+      } else {
+        meta.sgo_error = "API key not configured";
+      }
+    }
 
-      for (const event of events) {
-        // Find best bookmaker odds (use first available)
-        let mlHome = 0, mlAway = 0;
-        let spreadLine = 0, spreadHome = -110, spreadAway = -110;
-        let totalLine = 0, totalOver = -110, totalUnder = -110;
+    // Deduplicate by normalizing team names and matching within 2hr windows
+    function normalizeForDedup(name: string): string {
+      return name.toUpperCase().replace(/[_\s]+/g, " ").replace(/_NBA|_NFL|_MLB|_NHL|_NCAAB|_NCAAF/gi, "").trim();
+    }
 
-        for (const bookmaker of event.bookmakers || []) {
-          for (const market of bookmaker.markets || []) {
-            if (market.key === "h2h") {
-              const homeOutcome = market.outcomes.find((o: any) => o.name === event.home_team);
-              const awayOutcome = market.outcomes.find((o: any) => o.name === event.away_team);
-              if (homeOutcome && !mlHome) mlHome = homeOutcome.price;
-              if (awayOutcome && !mlAway) mlAway = awayOutcome.price;
-            }
-            if (market.key === "spreads") {
-              const homeOutcome = market.outcomes.find((o: any) => o.name === event.home_team);
-              const awayOutcome = market.outcomes.find((o: any) => o.name === event.away_team);
-              if (homeOutcome && !spreadLine) {
-                spreadLine = homeOutcome.point;
-                spreadHome = homeOutcome.price;
-              }
-              if (awayOutcome) spreadAway = awayOutcome.price;
-            }
-            if (market.key === "totals") {
-              const over = market.outcomes.find((o: any) => o.name === "Over");
-              const under = market.outcomes.find((o: any) => o.name === "Under");
-              if (over && !totalLine) {
-                totalLine = over.point;
-                totalOver = over.price;
-              }
-              if (under) totalUnder = under.price;
-            }
-          }
+    const deduped = new Map<string, NormalizedGame>();
+    for (const game of allGames) {
+      const startMs = new Date(game.start_time).getTime();
+      const homeNorm = normalizeForDedup(game.home_team);
+      const awayNorm = normalizeForDedup(game.away_team);
+      const key = `${homeNorm}|${awayNorm}|${Math.floor(startMs / 7200000)}`; // 2hr window
+
+      if (deduped.has(key)) {
+        const existing = deduped.get(key)!;
+        // Merge snapshots from both providers
+        existing.snapshots = [...existing.snapshots, ...game.snapshots];
+        // Prefer the version with better data (proper team names, non-zero odds)
+        if (game.odds.moneyline.home && !existing.odds.moneyline.home) {
+          existing.odds.moneyline = game.odds.moneyline;
         }
+        if (game.odds.spread.line && !existing.odds.spread.line) {
+          existing.odds.spread = game.odds.spread;
+        }
+        if (game.odds.total.line && !existing.odds.total.line) {
+          existing.odds.total = game.odds.total;
+        }
+        // Prefer proper display names over ID-style names
+        if (!existing.home_team.includes(" ") && game.home_team.includes(" ")) {
+          existing.home_team = game.home_team;
+          existing.away_team = game.away_team;
+          existing.home_abbr = game.home_abbr;
+          existing.away_abbr = game.away_abbr;
+        }
+      } else {
+        deduped.set(key, { ...game });
+      }
+    }
 
-        // Upsert game
-        const gameData = {
-          external_id: event.id,
-          league,
-          home_team: event.home_team,
-          away_team: event.away_team,
-          home_abbr: makeAbbr(event.home_team),
-          away_abbr: makeAbbr(event.away_team),
-          start_time: event.commence_time,
-          status: "scheduled",
-        };
+    // Save to database
+    const savedGames: any[] = [];
+    for (const game of deduped.values()) {
+      const gameData = {
+        external_id: game.external_id,
+        league: game.league,
+        home_team: game.home_team,
+        away_team: game.away_team,
+        home_abbr: game.home_abbr,
+        away_abbr: game.away_abbr,
+        start_time: game.start_time,
+        status: game.status,
+        venue: game.venue || null,
+      };
 
-        const { data: existingGame } = await supabase
+      const { data: existing } = await supabase
+        .from("games")
+        .select("id")
+        .eq("external_id", game.external_id)
+        .maybeSingle();
+
+      let gameId: string;
+      if (existing) {
+        gameId = existing.id;
+        await supabase.from("games").update(gameData).eq("id", gameId);
+      } else {
+        // Also check by team + time match for cross-provider dedup
+        const startTime = new Date(game.start_time);
+        const timeBefore = new Date(startTime.getTime() - 3600000).toISOString();
+        const timeAfter = new Date(startTime.getTime() + 3600000).toISOString();
+
+        const { data: matchByTeam } = await supabase
           .from("games")
           .select("id")
-          .eq("external_id", event.id)
+          .eq("home_team", game.home_team)
+          .eq("away_team", game.away_team)
+          .gte("start_time", timeBefore)
+          .lte("start_time", timeAfter)
           .maybeSingle();
 
-        let gameId: string;
-
-        if (existingGame) {
-          gameId = existingGame.id;
-          await supabase
-            .from("games")
-            .update(gameData)
-            .eq("id", gameId);
+        if (matchByTeam) {
+          gameId = matchByTeam.id;
+          await supabase.from("games").update(gameData).eq("id", gameId);
         } else {
           const { data: newGame } = await supabase
             .from("games")
@@ -188,51 +439,19 @@ Deno.serve(async (req) => {
             .single();
           gameId = newGame!.id;
         }
-
-        // Store odds snapshots for each bookmaker
-        const snapshots: any[] = [];
-        for (const bookmaker of event.bookmakers || []) {
-          for (const market of bookmaker.markets || []) {
-            const homeOutcome = market.outcomes.find(
-              (o: any) => o.name === event.home_team || o.name === "Over"
-            );
-            const awayOutcome = market.outcomes.find(
-              (o: any) => o.name === event.away_team || o.name === "Under"
-            );
-
-            snapshots.push({
-              game_id: gameId,
-              bookmaker: bookmaker.key,
-              market_type: market.key === "h2h" ? "moneyline" : market.key === "spreads" ? "spread" : "total",
-              home_price: homeOutcome?.price || null,
-              away_price: awayOutcome?.price || null,
-              line: homeOutcome?.point || awayOutcome?.point || null,
-            });
-          }
-        }
-
-        if (snapshots.length > 0) {
-          await supabase.from("odds_snapshots").insert(snapshots);
-        }
-
-        allGames.push({
-          id: gameId,
-          ...gameData,
-          odds: {
-            moneyline: { home: mlHome, away: mlAway },
-            spread: { home: spreadHome, away: spreadAway, line: spreadLine },
-            total: { over: totalOver, under: totalUnder, line: totalLine },
-          },
-        });
       }
+
+      // Store odds snapshots
+      if (game.snapshots.length > 0) {
+        const snaps = game.snapshots.map(s => ({ game_id: gameId, ...s }));
+        await supabase.from("odds_snapshots").insert(snaps);
+      }
+
+      savedGames.push({ id: gameId, ...gameData, odds: game.odds });
     }
 
     return new Response(
-      JSON.stringify({
-        games: allGames,
-        requests_remaining: requestsRemaining,
-        fetched_at: new Date().toISOString(),
-      }),
+      JSON.stringify({ games: savedGames, meta, fetched_at: new Date().toISOString() }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
