@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Orbit } from "lucide-react";
+import { useCurrentEphemeris } from "@/hooks/use-astro";
 
 // ── Moon Phase Calculator ──
 function getMoonPhase(): { name: string; emoji: string; dayInCycle: number; advice: string } {
@@ -111,6 +112,7 @@ function getDailyEnergy(): { title: string; description: string; intensity: numb
 
 export function AstroHeader() {
   const [tick, setTick] = useState(0);
+  const { data: liveEphemeris } = useCurrentEphemeris();
 
   // Refresh every 30 minutes for moon/rising movement
   useEffect(() => {
@@ -120,9 +122,30 @@ export function AstroHeader() {
 
   const moon = getMoonPhase();
   const retrogrades = getRetrogradePlanets();
-  const planets = getPlanetaryPositions();
   const energy = getDailyEnergy();
   const rising = getRisingSign();
+
+  // Use live ephemeris if available, otherwise fall back to hardcoded
+  const planets = liveEphemeris
+    ? liveEphemeris.map((p) => {
+        const signSymbols: Record<string, string> = {
+          Aries: "♈", Taurus: "♉", Gemini: "♊", Cancer: "♋", Leo: "♌", Virgo: "♍",
+          Libra: "♎", Scorpio: "♏", Sagittarius: "♐", Capricorn: "♑", Aquarius: "♒", Pisces: "♓",
+        };
+        const planetSymbols: Record<string, string> = {
+          Sun: "☉", Moon: "☽", Mercury: "☿", Venus: "♀", Mars: "♂",
+          Jupiter: "♃", Saturn: "♄", Uranus: "♅", Neptune: "♆", Pluto: "♇",
+        };
+        return {
+          planet: p.planet,
+          symbol: planetSymbols[p.planet] || "★",
+          sign: p.sign,
+          signSymbol: signSymbols[p.sign] || "♈",
+          degree: p.degree,
+          retrograde: p.retrograde,
+        };
+      })
+    : getPlanetaryPositions();
 
   // Suppress unused warning
   void tick;
@@ -169,7 +192,10 @@ export function AstroHeader() {
               key={p.planet}
               className="flex-shrink-0 astro-badge rounded-lg px-2 py-1.5 text-center min-w-[52px]"
             >
-              <p className="text-[9px] text-muted-foreground leading-none">{p.planet}</p>
+              <p className="text-[9px] text-muted-foreground leading-none">
+                {p.planet}
+                {"retrograde" in p && (p as any).retrograde ? " ℞" : ""}
+              </p>
               <p className="text-sm leading-none mt-0.5">{p.symbol}</p>
               <p className="text-[9px] text-cosmic-indigo font-semibold mt-0.5">{p.signSymbol} {p.degree}°</p>
             </div>
