@@ -58,6 +58,38 @@ const LEAGUE_MARKETS: Record<string, string[]> = {
   ],
 };
 
+// Alternate markets per league (fetched when alternates=true)
+const ALTERNATE_MARKETS: Record<string, string[]> = {
+  NBA: [
+    "player_points_alternate", "player_rebounds_alternate", "player_assists_alternate",
+    "player_blocks_alternate", "player_steals_alternate", "player_turnovers_alternate",
+    "player_threes_alternate", "player_points_assists_alternate",
+    "player_points_rebounds_alternate", "player_rebounds_assists_alternate",
+    "player_points_rebounds_assists_alternate",
+  ],
+  NHL: [
+    "player_points_alternate", "player_assists_alternate",
+    "player_power_play_points_alternate", "player_goals_alternate",
+    "player_shots_on_goal_alternate", "player_blocked_shots_alternate",
+    "player_total_saves_alternate",
+  ],
+  MLB: [
+    "batter_total_bases_alternate", "batter_home_runs_alternate",
+    "batter_hits_alternate", "batter_rbis_alternate", "batter_walks_alternate",
+    "batter_strikeouts_alternate", "batter_runs_scored_alternate",
+    "batter_singles_alternate", "batter_doubles_alternate", "batter_triples_alternate",
+    "pitcher_hits_allowed_alternate", "pitcher_walks_alternate",
+    "pitcher_strikeouts_alternate",
+  ],
+  NFL: [
+    "player_pass_yds_alternate", "player_pass_tds_alternate",
+    "player_pass_completions_alternate", "player_rush_yds_alternate",
+    "player_rush_attempts_alternate", "player_receptions_alternate",
+    "player_reception_yds_alternate", "player_sacks_alternate",
+    "player_solo_tackles_alternate",
+  ],
+};
+
 // Game-period markets to also fetch per league
 const PERIOD_MARKETS: Record<string, string[]> = {
   NBA: [
@@ -132,6 +164,28 @@ const MARKET_LABELS: Record<string, string> = {
   totals_1st_1_innings: "O/U 1st Inn", totals_1st_5_innings: "O/U 1st 5 Inn",
   team_totals_q1: "TT Q1", team_totals_h1: "TT 1H",
   team_totals_p1: "TT P1", team_totals_p2: "TT P2", team_totals_p3: "TT P3",
+  // Alternates
+  player_points_alternate: "Alt Points", player_rebounds_alternate: "Alt Rebounds",
+  player_assists_alternate: "Alt Assists", player_blocks_alternate: "Alt Blocks",
+  player_steals_alternate: "Alt Steals", player_turnovers_alternate: "Alt Turnovers",
+  player_threes_alternate: "Alt 3PM", player_points_assists_alternate: "Alt Pts+Ast",
+  player_points_rebounds_alternate: "Alt Pts+Reb", player_rebounds_assists_alternate: "Alt Reb+Ast",
+  player_points_rebounds_assists_alternate: "Alt PRA",
+  player_power_play_points_alternate: "Alt PP Pts", player_goals_alternate: "Alt Goals",
+  player_shots_on_goal_alternate: "Alt SOG", player_blocked_shots_alternate: "Alt Blocked",
+  player_total_saves_alternate: "Alt Saves",
+  batter_total_bases_alternate: "Alt TB", batter_home_runs_alternate: "Alt HR",
+  batter_hits_alternate: "Alt Hits", batter_rbis_alternate: "Alt RBI",
+  batter_walks_alternate: "Alt BB", batter_strikeouts_alternate: "Alt K(B)",
+  batter_runs_scored_alternate: "Alt Runs", batter_singles_alternate: "Alt 1B",
+  batter_doubles_alternate: "Alt 2B", batter_triples_alternate: "Alt 3B",
+  pitcher_hits_allowed_alternate: "Alt HA", pitcher_walks_alternate: "Alt BB(P)",
+  pitcher_strikeouts_alternate: "Alt K(P)",
+  player_pass_yds_alternate: "Alt Pass Yds", player_pass_tds_alternate: "Alt Pass TDs",
+  player_pass_completions_alternate: "Alt Comp", player_rush_yds_alternate: "Alt Rush Yds",
+  player_rush_attempts_alternate: "Alt Rush Att", player_receptions_alternate: "Alt Rec",
+  player_reception_yds_alternate: "Alt Rec Yds", player_sacks_alternate: "Alt Sacks",
+  player_solo_tackles_alternate: "Alt Tackles",
 };
 
 // Map SportsDataIO market names to our market keys
@@ -387,8 +441,9 @@ Deno.serve(async (req) => {
 
     // Build market list
     const playerMarkets = LEAGUE_MARKETS[league] || [];
+    const alternateMarkets = includeAlternates ? (ALTERNATE_MARKETS[league] || []) : [];
     const periodMarkets = includePeriods ? (PERIOD_MARKETS[league] || []) : [];
-    const allMarkets = [...playerMarkets, ...periodMarkets];
+    const allMarkets = [...playerMarkets, ...alternateMarkets, ...periodMarkets];
 
     let targetEvents: { eventId: string; gameId: string; homeAbbr: string; awayAbbr: string; startTime: string }[] = [];
 

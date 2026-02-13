@@ -8,6 +8,7 @@ import type { GameWithOdds } from "@/hooks/use-games";
 import { SynastrySection } from "@/components/game/SynastrySection";
 import { TransitModifiers } from "@/components/game/TransitModifiers";
 import { PlayerPropsSection } from "@/components/game/PlayerPropsSection";
+import { PeriodOddsSection } from "@/components/game/PeriodOddsSection";
 
 function formatOdds(odds: number): string {
   if (!odds) return "—";
@@ -390,6 +391,9 @@ const GameDetail = () => {
 
         {/* Player Props */}
         <PlayerPropsSection gameId={game.id} />
+
+        {/* Period Markets */}
+        <PeriodOddsSection gameId={game.id} league={game.league} />
 
         {/* Markets */}
         <section>
