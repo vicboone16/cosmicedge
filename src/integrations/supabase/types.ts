@@ -398,6 +398,7 @@ export type Database = {
           home_team: string
           id: string
           league: string
+          source: string
           start_time: string
           status: string
           updated_at: string
@@ -416,6 +417,7 @@ export type Database = {
           home_team: string
           id?: string
           league: string
+          source?: string
           start_time: string
           status?: string
           updated_at?: string
@@ -434,6 +436,7 @@ export type Database = {
           home_team?: string
           id?: string
           league?: string
+          source?: string
           start_time?: string
           status?: string
           updated_at?: string
@@ -458,6 +461,7 @@ export type Database = {
           line: number | null
           market_type: string
           snapshot_date: string
+          source: string
           start_time: string
         }
         Insert: {
@@ -474,6 +478,7 @@ export type Database = {
           line?: number | null
           market_type: string
           snapshot_date: string
+          source?: string
           start_time: string
         }
         Update: {
@@ -490,6 +495,7 @@ export type Database = {
           line?: number | null
           market_type?: string
           snapshot_date?: string
+          source?: string
           start_time?: string
         }
         Relationships: [

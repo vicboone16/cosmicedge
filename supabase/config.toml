@@ -50,3 +50,6 @@ verify_jwt = false
 
 [functions.fetch-projections]
 verify_jwt = false
+
+[functions.import-historical-csv]
+verify_jwt = false
