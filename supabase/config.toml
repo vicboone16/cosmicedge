@@ -11,3 +11,6 @@ verify_jwt = false
 
 [functions.fetch-live]
 verify_jwt = false
+
+[functions.astrovisor]
+verify_jwt = false

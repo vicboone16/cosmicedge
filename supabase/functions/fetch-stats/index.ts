@@ -220,9 +220,17 @@ Deno.serve(async (req) => {
       if (!resp.ok) throw new Error(`Schedules error: ${resp.status}`);
       const games = await resp.json();
 
-      let count = 0;
-      for (const g of games) {
-        const gameRecord = {
+      // Pre-fetch all stadiums for this league to avoid N+1
+      const { data: stadiums } = await supabase
+        .from("stadiums")
+        .select("team_abbr, name")
+        .eq("league", league);
+      const stadiumMap = new Map((stadiums || []).map(s => [s.team_abbr, s.name]));
+
+      // Build all records, then batch upsert in chunks
+      const records = games
+        .filter((g: any) => g.DateTime || g.Day)
+        .map((g: any) => ({
           external_id: `sdio_${g.GameID}`,
           league,
           home_team: g.HomeTeam ? `${g.HomeTeam}` : "",
@@ -231,32 +239,22 @@ Deno.serve(async (req) => {
           away_abbr: g.AwayTeam || "",
           start_time: g.DateTime || g.Day,
           status: g.Status === "Final" ? "final" : g.Status === "InProgress" ? "live" : "scheduled",
-          venue: g.StadiumID ? null : null,
+          venue: stadiumMap.get(g.HomeTeam) || null,
           home_score: g.HomeTeamScore || null,
           away_score: g.AwayTeamScore || null,
-        };
+        }));
 
-        // Match stadium
-        if (g.StadiumID) {
-          const { data: stadium } = await supabase
-            .from("stadiums")
-            .select("name, latitude, longitude")
-            .eq("team_abbr", g.HomeTeam)
-            .eq("league", league)
-            .maybeSingle();
-
-          if (stadium) {
-            gameRecord.venue = stadium.name;
-          }
-        }
-
-        await supabase
+      // Upsert in batches of 100
+      const BATCH = 100;
+      for (let i = 0; i < records.length; i += BATCH) {
+        const batch = records.slice(i, i + BATCH);
+        const { error } = await supabase
           .from("games")
-          .upsert(gameRecord, { onConflict: "external_id" });
-        count++;
+          .upsert(batch, { onConflict: "external_id", ignoreDuplicates: false });
+        if (error) console.error(`Batch ${i} error:`, error);
       }
 
-      meta.schedules_upserted = count;
+      meta.schedules_upserted = records.length;
     }
 
     return new Response(
