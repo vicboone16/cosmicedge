@@ -64,8 +64,7 @@ export function HoraryChartSection({ gameId, startTime, venueLat, venueLng, home
         lat: String(venueLat || 40.7),
         lng: String(venueLng || -74.0),
         question: `Will ${homeAbbr} (home) beat ${awayAbbr} (away)?`,
-        category: "competition",
-        subcategory: "outcome",
+        category: "general",
       });
       const resp = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/astrologyapi?${params}`,
