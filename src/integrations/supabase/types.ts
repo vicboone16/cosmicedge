@@ -197,6 +197,53 @@ export type Database = {
           },
         ]
       }
+      depth_charts: {
+        Row: {
+          created_at: string
+          depth_order: number
+          external_player_id: string | null
+          id: string
+          league: string
+          player_id: string | null
+          player_name: string
+          position: string
+          team_abbr: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          depth_order?: number
+          external_player_id?: string | null
+          id?: string
+          league?: string
+          player_id?: string | null
+          player_name: string
+          position: string
+          team_abbr: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          depth_order?: number
+          external_player_id?: string | null
+          id?: string
+          league?: string
+          player_id?: string | null
+          player_name?: string
+          position?: string
+          team_abbr?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "depth_charts_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       friendships: {
         Row: {
           addressee_id: string
@@ -451,6 +498,59 @@ export type Database = {
             columns: ["game_id"]
             isOneToOne: false
             referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      injuries: {
+        Row: {
+          body_part: string | null
+          created_at: string
+          external_player_id: string | null
+          id: string
+          league: string
+          notes: string | null
+          player_id: string | null
+          player_name: string
+          start_date: string | null
+          status: string | null
+          team_abbr: string
+          updated_at: string
+        }
+        Insert: {
+          body_part?: string | null
+          created_at?: string
+          external_player_id?: string | null
+          id?: string
+          league?: string
+          notes?: string | null
+          player_id?: string | null
+          player_name: string
+          start_date?: string | null
+          status?: string | null
+          team_abbr: string
+          updated_at?: string
+        }
+        Update: {
+          body_part?: string | null
+          created_at?: string
+          external_player_id?: string | null
+          id?: string
+          league?: string
+          notes?: string | null
+          player_id?: string | null
+          player_name?: string
+          start_date?: string | null
+          status?: string | null
+          team_abbr?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "injuries_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
             referencedColumns: ["id"]
           },
         ]
@@ -745,6 +845,167 @@ export type Database = {
           },
         ]
       }
+      player_news: {
+        Row: {
+          categories: string | null
+          content: string | null
+          created_at: string
+          external_news_id: number | null
+          id: string
+          is_breaking: boolean
+          league: string
+          player_id: string | null
+          player_name: string | null
+          published_at: string | null
+          source: string | null
+          source_url: string | null
+          team_abbr: string | null
+          title: string | null
+          updated_at: string
+        }
+        Insert: {
+          categories?: string | null
+          content?: string | null
+          created_at?: string
+          external_news_id?: number | null
+          id?: string
+          is_breaking?: boolean
+          league?: string
+          player_id?: string | null
+          player_name?: string | null
+          published_at?: string | null
+          source?: string | null
+          source_url?: string | null
+          team_abbr?: string | null
+          title?: string | null
+          updated_at?: string
+        }
+        Update: {
+          categories?: string | null
+          content?: string | null
+          created_at?: string
+          external_news_id?: number | null
+          id?: string
+          is_breaking?: boolean
+          league?: string
+          player_id?: string | null
+          player_name?: string | null
+          published_at?: string | null
+          source?: string | null
+          source_url?: string | null
+          team_abbr?: string | null
+          title?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "player_news_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      player_projections: {
+        Row: {
+          created_at: string
+          external_player_id: string | null
+          game_date: string
+          game_id: string | null
+          id: string
+          league: string
+          player_id: string | null
+          player_name: string
+          projected_assists: number | null
+          projected_blocks: number | null
+          projected_fantasy_points: number | null
+          projected_fg_attempted: number | null
+          projected_fg_made: number | null
+          projected_ft_attempted: number | null
+          projected_ft_made: number | null
+          projected_minutes: number | null
+          projected_points: number | null
+          projected_rebounds: number | null
+          projected_steals: number | null
+          projected_three_made: number | null
+          projected_turnovers: number | null
+          salary: number | null
+          slate_id: string | null
+          team_abbr: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          external_player_id?: string | null
+          game_date: string
+          game_id?: string | null
+          id?: string
+          league?: string
+          player_id?: string | null
+          player_name: string
+          projected_assists?: number | null
+          projected_blocks?: number | null
+          projected_fantasy_points?: number | null
+          projected_fg_attempted?: number | null
+          projected_fg_made?: number | null
+          projected_ft_attempted?: number | null
+          projected_ft_made?: number | null
+          projected_minutes?: number | null
+          projected_points?: number | null
+          projected_rebounds?: number | null
+          projected_steals?: number | null
+          projected_three_made?: number | null
+          projected_turnovers?: number | null
+          salary?: number | null
+          slate_id?: string | null
+          team_abbr: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          external_player_id?: string | null
+          game_date?: string
+          game_id?: string | null
+          id?: string
+          league?: string
+          player_id?: string | null
+          player_name?: string
+          projected_assists?: number | null
+          projected_blocks?: number | null
+          projected_fantasy_points?: number | null
+          projected_fg_attempted?: number | null
+          projected_fg_made?: number | null
+          projected_ft_attempted?: number | null
+          projected_ft_made?: number | null
+          projected_minutes?: number | null
+          projected_points?: number | null
+          projected_rebounds?: number | null
+          projected_steals?: number | null
+          projected_three_made?: number | null
+          projected_turnovers?: number | null
+          salary?: number | null
+          slate_id?: string | null
+          team_abbr?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "player_projections_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "player_projections_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       player_props: {
         Row: {
           bookmaker: string
@@ -893,6 +1154,7 @@ export type Database = {
           birth_time: string | null
           created_at: string
           external_id: string | null
+          headshot_url: string | null
           id: string
           league: string | null
           name: string
@@ -909,6 +1171,7 @@ export type Database = {
           birth_time?: string | null
           created_at?: string
           external_id?: string | null
+          headshot_url?: string | null
           id?: string
           league?: string | null
           name: string
@@ -925,6 +1188,7 @@ export type Database = {
           birth_time?: string | null
           created_at?: string
           external_id?: string | null
+          headshot_url?: string | null
           id?: string
           league?: string | null
           name?: string
@@ -1081,6 +1345,68 @@ export type Database = {
           },
           {
             foreignKeyName: "results_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sdio_game_lines: {
+        Row: {
+          away_line: number | null
+          away_price: number | null
+          captured_at: string
+          created_at: string
+          external_game_id: string | null
+          game_id: string | null
+          home_line: number | null
+          home_price: number | null
+          id: string
+          is_live: boolean
+          league: string
+          market_type: string
+          over_price: number | null
+          sportsbook: string
+          under_price: number | null
+        }
+        Insert: {
+          away_line?: number | null
+          away_price?: number | null
+          captured_at?: string
+          created_at?: string
+          external_game_id?: string | null
+          game_id?: string | null
+          home_line?: number | null
+          home_price?: number | null
+          id?: string
+          is_live?: boolean
+          league?: string
+          market_type: string
+          over_price?: number | null
+          sportsbook: string
+          under_price?: number | null
+        }
+        Update: {
+          away_line?: number | null
+          away_price?: number | null
+          captured_at?: string
+          created_at?: string
+          external_game_id?: string | null
+          game_id?: string | null
+          home_line?: number | null
+          home_price?: number | null
+          id?: string
+          is_live?: boolean
+          league?: string
+          market_type?: string
+          over_price?: number | null
+          sportsbook?: string
+          under_price?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sdio_game_lines_game_id_fkey"
             columns: ["game_id"]
             isOneToOne: false
             referencedRelation: "games"
