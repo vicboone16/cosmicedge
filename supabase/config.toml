@@ -2,3 +2,12 @@ project_id = "gwfgmlfggeyxexclwybk"
 
 [functions.fetch-odds]
 verify_jwt = false
+
+[functions.fetch-players]
+verify_jwt = false
+
+[functions.fetch-stats]
+verify_jwt = false
+
+[functions.fetch-live]
+verify_jwt = false
