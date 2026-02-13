@@ -550,6 +550,11 @@ Deno.serve(async (req) => {
 
     const deduped = new Map<string, NormalizedGame>();
     for (const game of allGames) {
+      // Skip games without a valid start time early (before dedup)
+      if (!game.start_time || isNaN(new Date(game.start_time).getTime())) {
+        console.warn(`Skipping game ${game.external_id} (${game.away_team} @ ${game.home_team}) — invalid start_time: ${game.start_time}`);
+        continue;
+      }
       const startMs = new Date(game.start_time).getTime();
       const homeNorm = normalizeForDedup(game.home_team);
       const awayNorm = normalizeForDedup(game.away_team);
