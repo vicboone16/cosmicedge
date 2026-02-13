@@ -158,6 +158,8 @@ export default function TrendsPage() {
           hitRate: 50,
           sampleSize: 0,
           hitGames: [],
+          gameId: game.id,
+          marketKey: prop.market_key,
         });
         continue;
       }
@@ -210,6 +212,8 @@ export default function TrendsPage() {
         sampleSize,
         hitGames,
         statValues: values,
+        gameId: game.id,
+        marketKey: prop.market_key,
       });
     }
 

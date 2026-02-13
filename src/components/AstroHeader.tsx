@@ -3,8 +3,8 @@ import { Orbit } from "lucide-react";
 import { useCurrentEphemeris } from "@/hooks/use-astro";
 
 // ── Moon Phase Calculator ──
-function getMoonPhase(): { name: string; emoji: string; dayInCycle: number; advice: string } {
-  const now = new Date();
+function getMoonPhase(forDate?: Date): { name: string; emoji: string; dayInCycle: number; advice: string } {
+  const now = forDate || new Date();
   const lp = 2551443;
   const newMoon = new Date(1970, 0, 7, 20, 35, 0).getTime() / 1000;
   const phase = ((now.getTime() / 1000 - newMoon) % lp) / lp;
@@ -26,8 +26,8 @@ function getMoonPhase(): { name: string; emoji: string; dayInCycle: number; advi
 }
 
 // ── Retrograde Tracker ──
-function getRetrogradePlanets(): { planet: string; symbol: string; meaning: string }[] {
-  const now = new Date();
+function getRetrogradePlanets(forDate?: Date): { planet: string; symbol: string; meaning: string }[] {
+  const now = forDate || new Date();
   const retros: { planet: string; symbol: string; meaning: string; start: Date; end: Date }[] = [
     { planet: "Mercury", symbol: "☿", meaning: "Miscommunication, travel delays, review contracts", start: new Date("2026-01-25"), end: new Date("2026-02-15") },
     { planet: "Mercury", symbol: "☿", meaning: "Miscommunication, travel delays, review contracts", start: new Date("2026-05-20"), end: new Date("2026-06-12") },
@@ -40,32 +40,30 @@ function getRetrogradePlanets(): { planet: string; symbol: string; meaning: stri
 }
 
 // ── Moon sign changes roughly every 2.5 days ──
-function getMoonSign(): string {
+function getMoonSign(forDate?: Date): string {
   const signs = ["Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo", "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"];
-  const now = new Date();
-  // Use hours for sub-day granularity
+  const now = forDate || new Date();
   const hoursSinceEpoch = now.getTime() / 3600000;
-  const idx = Math.floor((hoursSinceEpoch / 60) % 12); // ~2.5 day per sign
+  const idx = Math.floor((hoursSinceEpoch / 60) % 12);
   return signs[idx];
 }
 
-function getMoonSignSymbol(): string {
+function getMoonSignSymbol(forDate?: Date): string {
   const map: Record<string, string> = {
     Aries: "♈", Taurus: "♉", Gemini: "♊", Cancer: "♋", Leo: "♌", Virgo: "♍",
     Libra: "♎", Scorpio: "♏", Sagittarius: "♐", Capricorn: "♑", Aquarius: "♒", Pisces: "♓",
   };
-  return map[getMoonSign()] || "♈";
+  return map[getMoonSign(forDate)] || "♈";
 }
 
 // ── Rising sign approximation (changes every ~2 hours) ──
-function getRisingSign(): { sign: string; symbol: string } {
+function getRisingSign(forDate?: Date): { sign: string; symbol: string } {
   const signs = ["Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo", "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"];
   const symbols: Record<string, string> = {
     Aries: "♈", Taurus: "♉", Gemini: "♊", Cancer: "♋", Leo: "♌", Virgo: "♍",
     Libra: "♎", Scorpio: "♏", Sagittarius: "♐", Capricorn: "♑", Aquarius: "♒", Pisces: "♓",
   };
-  const now = new Date();
-  // Rising sign rotates through all 12 signs in 24 hours
+  const now = forDate || new Date();
   const hourOfDay = now.getHours() + now.getMinutes() / 60;
   const idx = Math.floor((hourOfDay / 2) % 12);
   const sign = signs[idx];
@@ -73,19 +71,40 @@ function getRisingSign(): { sign: string; symbol: string } {
 }
 
 // ── Moon degree approximation (moves ~0.5° per hour) ──
-function getMoonDegree(): number {
-  const now = new Date();
+function getMoonDegree(forDate?: Date): number {
+  const now = forDate || new Date();
   const hoursSinceEpoch = now.getTime() / 3600000;
   return Math.floor((hoursSinceEpoch * 0.5) % 30);
 }
 
 // ── Planetary Positions ──
-function getPlanetaryPositions() {
-  const rising = getRisingSign();
+function getPlanetaryPositions(forDate?: Date) {
+  const rising = getRisingSign(forDate);
+  // Sun sign approximation based on date
+  const d = forDate || new Date();
+  const month = d.getMonth() + 1;
+  const day = d.getDate();
+  const sunSigns: { sign: string; sym: string; m1: number; d1: number; m2: number; d2: number }[] = [
+    { sign: "Capricorn", sym: "♑", m1: 1, d1: 1, m2: 1, d2: 19 },
+    { sign: "Aquarius", sym: "♒", m1: 1, d1: 20, m2: 2, d2: 18 },
+    { sign: "Pisces", sym: "♓", m1: 2, d1: 19, m2: 3, d2: 20 },
+    { sign: "Aries", sym: "♈", m1: 3, d1: 21, m2: 4, d2: 19 },
+    { sign: "Taurus", sym: "♉", m1: 4, d1: 20, m2: 5, d2: 20 },
+    { sign: "Gemini", sym: "♊", m1: 5, d1: 21, m2: 6, d2: 20 },
+    { sign: "Cancer", sym: "♋", m1: 6, d1: 21, m2: 7, d2: 22 },
+    { sign: "Leo", sym: "♌", m1: 7, d1: 23, m2: 8, d2: 22 },
+    { sign: "Virgo", sym: "♍", m1: 8, d1: 23, m2: 9, d2: 22 },
+    { sign: "Libra", sym: "♎", m1: 9, d1: 23, m2: 10, d2: 22 },
+    { sign: "Scorpio", sym: "♏", m1: 10, d1: 23, m2: 11, d2: 21 },
+    { sign: "Sagittarius", sym: "♐", m1: 11, d1: 22, m2: 12, d2: 21 },
+    { sign: "Capricorn", sym: "♑", m1: 12, d1: 22, m2: 12, d2: 31 },
+  ];
+  const sunInfo = sunSigns.find(s => (month === s.m1 && day >= s.d1) || (month === s.m2 && day <= s.d2)) || { sign: "Capricorn", sym: "♑" };
+
   return [
-    { planet: "Sun", symbol: "☉", sign: "Aquarius", signSymbol: "♒", degree: 24 },
-    { planet: "Moon", symbol: "☽", sign: getMoonSign(), signSymbol: getMoonSignSymbol(), degree: getMoonDegree() },
-    { planet: "Rising", symbol: "⬆", sign: rising.sign, signSymbol: rising.symbol, degree: Math.floor((new Date().getMinutes() / 60) * 30) },
+    { planet: "Sun", symbol: "☉", sign: sunInfo.sign, signSymbol: sunInfo.sym, degree: day },
+    { planet: "Moon", symbol: "☽", sign: getMoonSign(forDate), signSymbol: getMoonSignSymbol(forDate), degree: getMoonDegree(forDate) },
+    { planet: "Rising", symbol: "⬆", sign: rising.sign, signSymbol: rising.symbol, degree: Math.floor(((forDate || new Date()).getMinutes() / 60) * 30) },
     { planet: "Mercury", symbol: "☿", sign: "Aquarius", signSymbol: "♒", degree: 8 },
     { planet: "Venus", symbol: "♀", sign: "Pisces", signSymbol: "♓", degree: 15 },
     { planet: "Mars", symbol: "♂", sign: "Cancer", signSymbol: "♋", degree: 22 },
@@ -95,8 +114,8 @@ function getPlanetaryPositions() {
 }
 
 // ── Daily Cosmic Energy ──
-function getDailyEnergy(): { title: string; description: string; intensity: number } {
-  const now = new Date();
+function getDailyEnergy(forDate?: Date): { title: string; description: string; intensity: number } {
+  const now = forDate || new Date();
   const dayOfYear = Math.floor((now.getTime() - new Date(now.getFullYear(), 0, 0).getTime()) / 86400000);
   const energies = [
     { title: "Cardinal Fire", description: "Explosive starts, fast breaks, and momentum shifts dominate.", intensity: 85 },
@@ -110,20 +129,20 @@ function getDailyEnergy(): { title: string; description: string; intensity: numb
   return energies[dayOfYear % energies.length];
 }
 
-export function AstroHeader() {
+export function AstroHeader({ date }: { date?: Date } = {}) {
   const [tick, setTick] = useState(0);
   const { data: liveEphemeris } = useCurrentEphemeris();
 
-  // Refresh every 30 minutes for moon/rising movement
   useEffect(() => {
     const interval = setInterval(() => setTick((t) => t + 1), 30 * 60 * 1000);
     return () => clearInterval(interval);
   }, []);
 
-  const moon = getMoonPhase();
-  const retrogrades = getRetrogradePlanets();
-  const energy = getDailyEnergy();
-  const rising = getRisingSign();
+  const forDate = date || new Date();
+  const moon = getMoonPhase(forDate);
+  const retrogrades = getRetrogradePlanets(forDate);
+  const energy = getDailyEnergy(forDate);
+  const rising = getRisingSign(forDate);
 
   // Use live ephemeris if available, otherwise fall back to hardcoded
   const planets = liveEphemeris
@@ -145,7 +164,7 @@ export function AstroHeader() {
           retrograde: p.retrograde,
         };
       })
-    : getPlanetaryPositions();
+    : getPlanetaryPositions(forDate);
 
   // Suppress unused warning
   void tick;
@@ -159,7 +178,7 @@ export function AstroHeader() {
             <span className="text-3xl">{moon.emoji}</span>
             <div>
               <p className="text-sm font-semibold font-display text-foreground">{moon.name}</p>
-              <p className="text-[10px] text-muted-foreground">Day {Math.floor(moon.dayInCycle)} · Moon in {getMoonSign()} · Rising {rising.symbol} {rising.sign}</p>
+              <p className="text-[10px] text-muted-foreground">Day {Math.floor(moon.dayInCycle)} · Moon in {getMoonSign(forDate)} · Rising {rising.symbol} {rising.sign}</p>
             </div>
           </div>
           <div className="text-right">
