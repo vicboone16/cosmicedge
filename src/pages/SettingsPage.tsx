@@ -1,10 +1,24 @@
-import { Settings, Sliders, Star, MapPin, Shield, LogIn, LogOut, User } from "lucide-react";
+import { Settings, Sliders, Star, MapPin, Shield, LogIn, LogOut, User, Globe } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
+import { useTimezone } from "@/hooks/use-timezone";
 import { useNavigate } from "react-router-dom";
+import { useState, useMemo } from "react";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 
 const SettingsPage = () => {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
+  const { userTimezone, updateTimezone } = useTimezone();
+
+  const timezones = useMemo(() => {
+    try {
+      return (Intl as any).supportedValuesOf("timeZone") as string[];
+    } catch {
+      return ["America/New_York", "America/Chicago", "America/Denver", "America/Los_Angeles", "America/Phoenix", "US/Eastern", "US/Central", "US/Mountain", "US/Pacific", "UTC"];
+    }
+  }, []);
 
   const sections = [
     { icon: Sliders, title: "Scoring Weights", desc: "Adjust stat vs market vs astro blend" },
@@ -58,6 +72,34 @@ const SettingsPage = () => {
             </div>
           </button>
         )}
+
+        {/* Timezone selector */}
+        <div className="cosmic-card rounded-xl p-4">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="h-10 w-10 rounded-lg bg-secondary flex items-center justify-center shrink-0">
+              <Globe className="h-5 w-5 text-muted-foreground" />
+            </div>
+            <div>
+              <p className="text-sm font-medium">Timezone</p>
+              <p className="text-xs text-muted-foreground">Game times & planetary hours adjust to your zone</p>
+            </div>
+          </div>
+          <Select
+            value={userTimezone}
+            onValueChange={(tz) => updateTimezone.mutate(tz)}
+          >
+            <SelectTrigger className="w-full h-9 text-xs">
+              <SelectValue placeholder="Select timezone" />
+            </SelectTrigger>
+            <SelectContent className="max-h-60">
+              {timezones.map((tz) => (
+                <SelectItem key={tz} value={tz} className="text-xs">
+                  {tz.replace(/_/g, " ")}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
 
         {sections.map(({ icon: Icon, title, desc }) => (
           <button
