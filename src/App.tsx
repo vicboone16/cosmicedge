@@ -12,6 +12,7 @@ import TransitsPage from "./pages/TransitsPage";
 import Results from "./pages/Results";
 import Analytics from "./pages/Analytics";
 import SettingsPage from "./pages/SettingsPage";
+import CosmicCalendar from "./pages/CosmicCalendar";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -32,6 +33,7 @@ const App = () => (
             <Route path="/results" element={<Results />} />
             <Route path="/analytics" element={<Analytics />} />
             <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/calendar" element={<CosmicCalendar />} />
           </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>

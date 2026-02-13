@@ -1,12 +1,12 @@
-import { CalendarDays, BarChart3, Settings, Trophy, Star } from "lucide-react";
+import { CalendarDays, BarChart3, Settings, Trophy, Star, Moon } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { cn } from "@/lib/utils";
 
 const navItems = [
   { to: "/", icon: CalendarDays, label: "Slate" },
   { to: "/transits", icon: Star, label: "Transits" },
+  { to: "/calendar", icon: Moon, label: "Calendar" },
   { to: "/results", icon: Trophy, label: "Results" },
-  { to: "/analytics", icon: BarChart3, label: "Analytics" },
   { to: "/settings", icon: Settings, label: "Settings" },
 ];
 
