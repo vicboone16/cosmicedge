@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-import { Star, Crown } from "lucide-react";
+import { Star, Crown, Loader2 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import {
   getTraditionalRuler,
   getEssentialDignity,
@@ -25,7 +25,8 @@ const ZODIAC_SYMBOLS: Record<string, string> = {
 };
 
 export function HoraryChartSection({ gameId, startTime, venueLat, venueLng, homeAbbr, awayAbbr }: Props) {
-  const { data: horaryData, isLoading } = useQuery({
+  // 1. AstroVisor base horary chart
+  const { data: horaryData, isLoading: horaryLoading } = useQuery({
     queryKey: ["horary", gameId],
     queryFn: async () => {
       const params = new URLSearchParams({
@@ -52,25 +53,66 @@ export function HoraryChartSection({ gameId, startTime, venueLat, venueLng, home
     staleTime: 30 * 60 * 1000,
   });
 
-  // Fallback: compute from game start time using simplified method
+  // 2. Astrology API enhanced horary analysis
+  const { data: enhancedHorary } = useQuery({
+    queryKey: ["horary-enhanced", gameId],
+    queryFn: async () => {
+      const params = new URLSearchParams({
+        mode: "horary_analyze",
+        entity_id: gameId,
+        transit_date: startTime.slice(0, 10),
+        lat: String(venueLat || 40.7),
+        lng: String(venueLng || -74.0),
+        question: `Will ${homeAbbr} (home) beat ${awayAbbr} (away)?`,
+        category: "competition",
+        subcategory: "outcome",
+      });
+      const resp = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/astrologyapi?${params}`,
+        {
+          headers: {
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          },
+        }
+      );
+      if (!resp.ok) return null;
+      return resp.json();
+    },
+    enabled: !!gameId,
+    staleTime: 30 * 60 * 1000,
+    retry: 1,
+  });
+
+  // 3. Astrology API dignities for game time
+  const { data: lunarData } = useQuery({
+    queryKey: ["horary-lunar", gameId],
+    queryFn: async () => {
+      const params = new URLSearchParams({
+        mode: "lunar_metrics",
+        transit_date: startTime.slice(0, 10),
+        entity_id: gameId,
+        lat: String(venueLat || 40.7),
+        lng: String(venueLng || -74.0),
+      });
+      const resp = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/astrologyapi?${params}`,
+        {
+          headers: {
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          },
+        }
+      );
+      if (!resp.ok) return null;
+      return resp.json();
+    },
+    enabled: !!gameId,
+    staleTime: 30 * 60 * 1000,
+    retry: 1,
+  });
+
   const gameDate = new Date(startTime);
-  const month = gameDate.getMonth() + 1;
-  const day = gameDate.getDate();
-  const signs = [
-    { sign: "Capricorn", m1: 1, d1: 1, m2: 1, d2: 19 },
-    { sign: "Aquarius", m1: 1, d1: 20, m2: 2, d2: 18 },
-    { sign: "Pisces", m1: 2, d1: 19, m2: 3, d2: 20 },
-    { sign: "Aries", m1: 3, d1: 21, m2: 4, d2: 19 },
-    { sign: "Taurus", m1: 4, d1: 20, m2: 5, d2: 20 },
-    { sign: "Gemini", m1: 5, d1: 21, m2: 6, d2: 20 },
-    { sign: "Cancer", m1: 6, d1: 21, m2: 7, d2: 22 },
-    { sign: "Leo", m1: 7, d1: 23, m2: 8, d2: 22 },
-    { sign: "Virgo", m1: 8, d1: 23, m2: 9, d2: 22 },
-    { sign: "Libra", m1: 9, d1: 23, m2: 10, d2: 22 },
-    { sign: "Scorpio", m1: 10, d1: 23, m2: 11, d2: 21 },
-    { sign: "Sagittarius", m1: 11, d1: 22, m2: 12, d2: 21 },
-    { sign: "Capricorn", m1: 12, d1: 22, m2: 12, d2: 31 },
-  ];
 
   // Use API data if available, otherwise approximate
   let ascSign = "Aries";
@@ -85,11 +127,9 @@ export function HoraryChartSection({ gameId, startTime, venueLat, venueLng, home
   }
 
   if (!chartFromAPI) {
-    // Simple approximation based on time of day (not accurate, but visual placeholder)
     const hour = gameDate.getHours();
-    const signIndex = Math.floor((hour / 24) * 12);
     const signNames = ["Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo", "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"];
-    ascSign = signNames[signIndex % 12];
+    ascSign = signNames[Math.floor((hour / 24) * 12) % 12];
   }
 
   const descSign = getOppositeSign(ascSign);
@@ -109,17 +149,49 @@ export function HoraryChartSection({ gameId, startTime, venueLat, venueLng, home
   const awayDignity = getEssentialDignity(awayLord, descSign);
   const verdict = getHoraryVerdict(homeDignity, awayDignity);
 
+  // Enhanced analysis data
+  const enhancedResult = enhancedHorary?.result;
+  const lunarResult = lunarData?.result;
+  const voc = lunarResult?.void_of_course || lunarResult?.voc;
+  const moonPhase = lunarResult?.moon_phase || lunarResult?.phase;
+
   return (
     <section>
       <h3 className="text-xs font-semibold text-primary uppercase tracking-widest mb-3 flex items-center gap-1.5">
         <Crown className="h-3.5 w-3.5" />
         Horary Chart Analysis
+        {horaryLoading && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
       </h3>
       <div className="cosmic-card rounded-xl p-4 space-y-3">
-        {!chartFromAPI && (
-          <p className="text-[9px] text-muted-foreground italic">
-            ⚠ Approximate chart — connect AstroVisor for precise house cusps
-          </p>
+        <div className="flex items-center gap-2">
+          {chartFromAPI && (
+            <span className="text-[8px] px-1.5 py-0.5 rounded bg-cosmic-green/20 text-cosmic-green font-medium">AstroVisor</span>
+          )}
+          {enhancedResult && (
+            <span className="text-[8px] px-1.5 py-0.5 rounded bg-primary/15 text-primary font-medium">Enhanced</span>
+          )}
+          {!chartFromAPI && (
+            <p className="text-[9px] text-muted-foreground italic">
+              ⚠ Approximate chart — connect AstroVisor for precise house cusps
+            </p>
+          )}
+        </div>
+
+        {/* Lunar status */}
+        {(voc || moonPhase) && (
+          <div className="flex items-center gap-3 text-[9px]">
+            {moonPhase && (
+              <span className="text-muted-foreground">🌙 {typeof moonPhase === "string" ? moonPhase : moonPhase.name || moonPhase.phase}</span>
+            )}
+            {voc && (
+              <span className={cn(
+                "px-1.5 py-0.5 rounded font-medium",
+                (voc === true || voc?.is_voc) ? "bg-cosmic-red/15 text-cosmic-red" : "bg-cosmic-green/15 text-cosmic-green"
+              )}>
+                {(voc === true || voc?.is_voc) ? "⚠ Void of Course" : "✓ Moon Active"}
+              </span>
+            )}
+          </div>
         )}
 
         {/* House Rulers Grid */}
@@ -151,6 +223,33 @@ export function HoraryChartSection({ gameId, startTime, venueLat, venueLng, home
             );
           })}
         </div>
+
+        {/* Enhanced analysis from Astrology API */}
+        {enhancedResult && (
+          <div className="border-t border-border/50 pt-3 space-y-2">
+            <p className="text-[9px] font-semibold text-primary uppercase tracking-wider">Enhanced Analysis</p>
+            {enhancedResult.answer && (
+              <p className="text-[10px] text-foreground leading-relaxed">{enhancedResult.answer}</p>
+            )}
+            {enhancedResult.judgment && (
+              <p className="text-[10px] text-foreground leading-relaxed">{enhancedResult.judgment}</p>
+            )}
+            {enhancedResult.considerations && Array.isArray(enhancedResult.considerations) && (
+              <div className="space-y-1">
+                {enhancedResult.considerations.slice(0, 3).map((c: any, i: number) => (
+                  <p key={i} className="text-[9px] text-muted-foreground">
+                    • {typeof c === "string" ? c : c.description || c.name || JSON.stringify(c)}
+                  </p>
+                ))}
+              </div>
+            )}
+            {enhancedResult.timing && (
+              <p className="text-[9px] text-cosmic-gold">
+                ⏱ Timing: {typeof enhancedResult.timing === "string" ? enhancedResult.timing : JSON.stringify(enhancedResult.timing)}
+              </p>
+            )}
+          </div>
+        )}
 
         {/* Verdict */}
         <div className="border-t border-border/50 pt-3">

@@ -12,6 +12,7 @@ import { TransitModifiers } from "@/components/game/TransitModifiers";
 import { PlayerPropsSection } from "@/components/game/PlayerPropsSection";
 import { PeriodOddsSection } from "@/components/game/PeriodOddsSection";
 import { HoraryChartSection } from "@/components/game/HoraryChartSection";
+import { AstrocartographySection } from "@/components/game/AstrocartographySection";
 import { TransitScrubber } from "@/components/game/TransitScrubber";
 import { GameChartRulers } from "@/components/game/GameChartRulers";
 import { GameMatchupTab } from "@/components/game/GameMatchupTab";
@@ -624,6 +625,18 @@ const GameDetail = () => {
               awayAbbr={game.away_abbr}
               homeAbbr={game.home_abbr}
             />
+
+            {/* Astrocartography at Venue */}
+            {players && players.length > 0 && (
+              <AstrocartographySection
+                gameId={game.id}
+                players={players}
+                venueLat={game.venue_lat ?? null}
+                venueLng={game.venue_lng ?? null}
+                homeAbbr={game.home_abbr}
+                awayAbbr={game.away_abbr}
+              />
+            )}
 
             {/* Synastry */}
             {awayPlayers.length > 0 && homePlayers.length > 0 && (

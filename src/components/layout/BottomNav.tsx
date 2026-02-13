@@ -1,4 +1,4 @@
-import { CalendarDays, Star, Crosshair, Zap, TrendingUp, History } from "lucide-react";
+import { CalendarDays, Star, Crosshair, Zap, TrendingUp, History, Sparkles } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { cn } from "@/lib/utils";
 
@@ -9,6 +9,7 @@ const navItems = [
   { to: "/skyspread", icon: Crosshair, label: "SkySpread" },
   { to: "/historical", icon: History, label: "History" },
   { to: "/live-board", icon: Zap, label: "Live" },
+  { to: "/astra", icon: Sparkles, label: "Astra" },
 ];
 
 export function BottomNav() {

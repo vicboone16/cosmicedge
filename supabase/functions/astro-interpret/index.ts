@@ -24,7 +24,7 @@ Deno.serve(async (req) => {
 
     const body = await req.json();
     const {
-      mode = "chart",        // chart | matchup | prop | election | transit
+      mode = "chart",        // chart | matchup | prop | election | transit | astrocarto | freeform
       chart_data,            // raw astro calculation result
       player_name,
       player2_name,
@@ -32,6 +32,7 @@ Deno.serve(async (req) => {
       prop_context,          // { player, market, line, direction }
       election_data,         // election windows data
       transit_data,          // transit data
+      astrocarto_data,       // astrocartography data for venue context
       custom_prompt,         // optional override
     } = body;
 
@@ -100,6 +101,24 @@ Focus on:
 - Performance-limiting transits (Saturn, Neptune squares)
 - Timing of peak energy during the game
 - Overall transit grade (A-F)`;
+
+    } else if (mode === "astrocarto" && astrocarto_data) {
+      userPrompt = `Analyze this astrocartography data for ${player_name || "the player"} at the game venue.
+${game_context ? `Game: ${game_context.home_team} vs ${game_context.away_team} at ${game_context.venue}` : ""}
+
+Astrocartography data:
+${JSON.stringify(astrocarto_data, null, 2)}
+
+Focus on:
+- Which planetary lines are closest to the venue
+- How those lines affect performance (MC = public success, IC = emotional grounding, ASC = vitality, DSC = competition)
+- Whether this venue is favorable or challenging for the player
+- Specific stat categories that may be boosted or suppressed`;
+
+    } else if (mode === "freeform" && custom_prompt) {
+      userPrompt = custom_prompt;
+      if (chart_data) userPrompt += `\n\nChart data:\n${JSON.stringify(chart_data, null, 2)}`;
+      if (astrocarto_data) userPrompt += `\n\nAstrocartography data:\n${JSON.stringify(astrocarto_data, null, 2)}`;
 
     } else if (custom_prompt) {
       userPrompt = custom_prompt;
