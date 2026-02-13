@@ -1,34 +1,24 @@
-import { format } from "date-fns";
 import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import type { GameWithOdds } from "@/hooks/use-games";
+import { useTimezone } from "@/hooks/use-timezone";
+import { getPlanetaryHourAt } from "@/lib/planetary-hours";
 
 function formatOdds(odds: number): string {
   if (!odds) return "—";
   return odds > 0 ? `+${odds}` : `${odds}`;
 }
 
-function getElementalTag(startTime: string): { label: string; color: string } {
-  const hour = new Date(startTime).getHours();
-  if (hour < 14) return { label: "☉ Solar", color: "text-cosmic-gold" };
-  if (hour < 18) return { label: "♀ Venusian", color: "text-cosmic-lavender" };
-  if (hour < 21) return { label: "♂ Martial", color: "text-cosmic-red" };
-  return { label: "♄ Saturnian", color: "text-cosmic-indigo" };
-}
-
-function getQuickHorary(game: GameWithOdds): string {
-  const hour = new Date(game.start_time).getHours();
-  if (hour < 14) return "Day chart — Sun favors home team energy";
-  if (hour < 18) return "Venus hours — finesse & shooting prevail";
-  if (hour < 21) return "Mars hours — physicality decides it";
-  return "Saturn late — discipline & veterans edge";
-}
-
 export function GameCard({ game }: { game: GameWithOdds }) {
   const navigate = useNavigate();
+  const { formatInUserTZ, getTZAbbrev, getHoursInUserTZ } = useTimezone();
   const isLive = game.status === "live";
   const isFinal = game.status === "final";
-  const elemental = getElementalTag(game.start_time);
+
+  // Planetary hour at game start time
+  const gameStartDate = new Date(game.start_time);
+  const planetaryHour = getPlanetaryHourAt(gameStartDate);
+  const elemental = { label: `${planetaryHour?.symbol || "☉"} ${planetaryHour?.planet || "Solar"}`, color: "text-cosmic-gold" };
 
   const handleTeamClick = (e: React.MouseEvent, abbr: string) => {
     e.stopPropagation();
@@ -54,7 +44,7 @@ export function GameCard({ game }: { game: GameWithOdds }) {
           )}
           {!isLive && !isFinal && (
             <span className="text-xs text-muted-foreground">
-              {format(new Date(game.start_time), "h:mm a")}
+              {formatInUserTZ(game.start_time)} <span className="text-[9px]">{getTZAbbrev()}</span>
             </span>
           )}
         </div>
@@ -117,7 +107,7 @@ export function GameCard({ game }: { game: GameWithOdds }) {
       {/* Astro + Spread & Total */}
       <div className="mt-3 pt-3 border-t border-border/50 space-y-2">
         <p className="text-[10px] text-cosmic-indigo italic leading-relaxed">
-          ✦ {getQuickHorary(game)}
+          ✦ {planetaryHour ? `${planetaryHour.symbol} ${planetaryHour.planet} hour at tip-off` : "Planetary hour unavailable"}
         </p>
         <div className="flex items-center gap-3">
           <div className="flex-1 text-center">

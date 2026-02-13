@@ -6,6 +6,7 @@ const navItems = [
   { to: "/", icon: CalendarDays, label: "Slate" },
   { to: "/transits", icon: Star, label: "Transits" },
   { to: "/props", icon: TrendingUp, label: "Props" },
+  { to: "/skyspread", icon: Crosshair, label: "SkySpread" },
   { to: "/historical", icon: History, label: "History" },
   { to: "/live-board", icon: Zap, label: "Live" },
 ];
@@ -20,7 +21,7 @@ export function BottomNav() {
             to={to}
             className={({ isActive }) =>
               cn(
-                "flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-all duration-200",
+                "flex flex-col items-center gap-1 px-2 py-2 rounded-lg transition-all duration-200",
                 isActive
                   ? "text-primary"
                   : "text-muted-foreground hover:text-foreground"

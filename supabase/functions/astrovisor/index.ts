@@ -24,7 +24,7 @@ Deno.serve(async (req) => {
 
   try {
     const url = new URL(req.url);
-    const mode = url.searchParams.get("mode") || "natal"; // natal | transits | synastry | batch_players
+    const mode = url.searchParams.get("mode") || "natal"; // natal | transits | synastry | batch_players | horary | progressions
     const entityId = url.searchParams.get("entity_id"); // player or referee UUID
     const entityType = url.searchParams.get("entity_type") || "player";
     const transitDate = url.searchParams.get("transit_date") || new Date().toISOString().slice(0, 10);
@@ -165,6 +165,54 @@ Deno.serve(async (req) => {
 
     if (!entityId) throw new Error("entity_id is required");
 
+    // Horary mode doesn't need birth data — it uses game time/location
+    if (mode === "horary") {
+      const chartTime = url.searchParams.get("transit_time") || "12:00";
+      const resp = await fetch(`${ASTROVISOR_BASE}/api/v1/natal/chart`, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          date: transitDate,
+          time: chartTime,
+          latitude: locationLat || 40.7,
+          longitude: locationLng || -74.0,
+        }),
+      });
+
+      if (!resp.ok) {
+        console.error(`AstroVisor horary error: ${resp.status}`);
+        // Return a fallback empty result so the UI can use its approximation
+        const result = { houses: [], planets: [], aspects: [] };
+        return new Response(
+          JSON.stringify({ success: true, cached: false, result, approximate: true }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const result = await resp.json();
+      
+      // Cache the horary chart
+      await supabase.from("astro_calculations").upsert({
+        entity_id: entityId,
+        entity_type: "game",
+        calc_type: "horary",
+        calc_date: transitDate,
+        provider: "astrovisor",
+        result,
+        location_lat: locationLat,
+        location_lng: locationLng,
+        expires_at: new Date(Date.now() + 6 * 60 * 60 * 1000).toISOString(),
+      }, { onConflict: "entity_id,entity_type,calc_type,calc_date" });
+
+      return new Response(
+        JSON.stringify({ success: true, cached: false, result }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const birthData = await getBirthData(entityId, entityType);
     if (!birthData) {
       return new Response(
@@ -276,6 +324,7 @@ Deno.serve(async (req) => {
       if (!resp.ok) throw new Error(`AstroVisor progressions error: ${resp.status} ${await resp.text()}`);
       result = await resp.json();
       expiresIn = 24 * 60 * 60 * 1000;
+
     }
 
     if (!result) throw new Error(`Unknown mode: ${mode}`);

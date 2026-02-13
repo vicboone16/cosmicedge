@@ -1,14 +1,18 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Star, MapPin, Orbit, Moon, Zap, Users } from "lucide-react";
-import { format } from "date-fns";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import type { GameWithOdds } from "@/hooks/use-games";
+import { useTimezone } from "@/hooks/use-timezone";
+import { getPlanetaryHourAt } from "@/lib/planetary-hours";
 import { SynastrySection } from "@/components/game/SynastrySection";
 import { TransitModifiers } from "@/components/game/TransitModifiers";
 import { PlayerPropsSection } from "@/components/game/PlayerPropsSection";
 import { PeriodOddsSection } from "@/components/game/PeriodOddsSection";
+import { HoraryChartSection } from "@/components/game/HoraryChartSection";
+import { TransitScrubber } from "@/components/game/TransitScrubber";
+import { GameChartRulers } from "@/components/game/GameChartRulers";
 
 function formatOdds(odds: number): string {
   if (!odds) return "—";
@@ -123,6 +127,7 @@ const TEAM_ZODIAC: Record<string, string> = {
 const GameDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { formatInUserTZ, getTZAbbrev } = useTimezone();
 
   const { data: game, isLoading } = useQuery({
     queryKey: ["game", id],
@@ -183,6 +188,7 @@ const GameDetail = () => {
   const awayZodiac = ZODIAC_DATA[awayZodiacSign];
   const homeZodiac = ZODIAC_DATA[homeZodiacSign];
   const elementCompat = awayZodiac && homeZodiac ? getElementCompatibility(awayZodiac.element, homeZodiac.element) : null;
+  const gameStartPH = getPlanetaryHourAt(new Date(game.start_time), game.venue_lat ?? 40.7);
 
   // Group players by team
   const awayPlayers = players?.filter(p => p.team === game.away_abbr) || [];
@@ -199,7 +205,8 @@ const GameDetail = () => {
         <div className="flex items-center justify-between mb-2">
           <span className="text-xs font-semibold text-primary uppercase tracking-wider">{game.league}</span>
           <span className="text-xs text-muted-foreground">
-            {format(new Date(game.start_time), "h:mm a")}
+            {formatInUserTZ(game.start_time)} {getTZAbbrev()}
+            {gameStartPH && <span className="ml-1 text-cosmic-indigo">{gameStartPH.symbol} {gameStartPH.planet}</span>}
           </span>
         </div>
 
@@ -391,6 +398,32 @@ const GameDetail = () => {
 
         {/* Player Props */}
         <PlayerPropsSection gameId={game.id} />
+
+        {/* Horary Chart Analysis */}
+        <HoraryChartSection
+          gameId={game.id}
+          startTime={game.start_time}
+          venueLat={game.venue_lat ?? null}
+          venueLng={game.venue_lng ?? null}
+          homeAbbr={game.home_abbr}
+          awayAbbr={game.away_abbr}
+        />
+
+        {/* Game Chart Rulers */}
+        <GameChartRulers
+          startTime={game.start_time}
+          homeAbbr={game.home_abbr}
+          awayAbbr={game.away_abbr}
+          homeML={game.odds.moneyline.home}
+          awayML={game.odds.moneyline.away}
+          venueLat={game.venue_lat ?? null}
+        />
+
+        {/* Transit Scrubber */}
+        <TransitScrubber
+          startTime={game.start_time}
+          venueLat={game.venue_lat ?? null}
+        />
 
         {/* Period Markets */}
         <PeriodOddsSection gameId={game.id} league={game.league} />

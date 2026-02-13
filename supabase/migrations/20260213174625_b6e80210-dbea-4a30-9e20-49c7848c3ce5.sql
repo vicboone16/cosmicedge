@@ -1,0 +1,1 @@
+ALTER TABLE profiles ALTER COLUMN timezone SET DEFAULT 'America/New_York';
