@@ -131,20 +131,20 @@ function getDailyEnergy(forDate?: Date): { title: string; description: string; i
 
 export function AstroHeader({ date }: { date?: Date } = {}) {
   const [tick, setTick] = useState(0);
-  const { data: liveEphemeris } = useCurrentEphemeris();
+  const forDate = date || new Date();
+  const { data: liveEphemeris } = useCurrentEphemeris(forDate);
 
   useEffect(() => {
     const interval = setInterval(() => setTick((t) => t + 1), 30 * 60 * 1000);
     return () => clearInterval(interval);
   }, []);
 
-  const forDate = date || new Date();
   const moon = getMoonPhase(forDate);
   const retrogrades = getRetrogradePlanets(forDate);
   const energy = getDailyEnergy(forDate);
   const rising = getRisingSign(forDate);
 
-  // Use live ephemeris if available, otherwise fall back to hardcoded
+  // Use live ephemeris if available, otherwise fall back to approximation
   const planets = liveEphemeris
     ? liveEphemeris.map((p) => {
         const signSymbols: Record<string, string> = {

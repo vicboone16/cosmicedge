@@ -129,37 +129,106 @@ export function useTransits(entityId: string | undefined, transitDate?: string) 
   });
 }
 
-// ── Fetch planetary ephemeris for current day (for AstroHeader) ──
-export function useCurrentEphemeris() {
-  const today = new Date().toISOString().slice(0, 10);
+// ── Fetch planetary ephemeris for a given date (for AstroHeader + TransitsPage) ──
+export function useCurrentEphemeris(forDate?: Date) {
+  const dateStr = (forDate || new Date()).toISOString().slice(0, 10);
   return useQuery({
-    queryKey: ["ephemeris", today],
+    queryKey: ["ephemeris", dateStr],
     queryFn: async () => {
-      // Check for any cached transit calc for today
+      // 1. Check cache for astrology-api global_positions
       const { data: cached } = await supabase
         .from("astro_calculations")
         .select("result")
-        .eq("calc_type", "transits")
-        .eq("calc_date", today)
+        .eq("calc_type", "aapi_global_positions")
+        .eq("calc_date", dateStr)
         .gt("expires_at", new Date().toISOString())
         .limit(1)
         .maybeSingle();
 
       if (cached?.result) {
-        return extractPlanetaryPositions(cached.result as TransitResult);
+        return extractFromGlobalPositions(cached.result);
       }
-      return null; // Fall back to hardcoded in component
+
+      // 2. Try fetching from astrology-api global_positions
+      try {
+        const resp = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/astrologyapi?mode=global_positions&transit_date=${dateStr}`,
+          {
+            headers: {
+              Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+              apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+            },
+          }
+        );
+        if (resp.ok) {
+          const json = await resp.json();
+          if (json?.result) {
+            return extractFromGlobalPositions(json.result);
+          }
+        }
+      } catch (e) {
+        console.warn("global_positions fetch failed:", e);
+      }
+
+      // 3. Fallback: try cached astrovisor transits for this date
+      const { data: cachedTransit } = await supabase
+        .from("astro_calculations")
+        .select("result")
+        .eq("calc_type", "transits")
+        .eq("calc_date", dateStr)
+        .gt("expires_at", new Date().toISOString())
+        .limit(1)
+        .maybeSingle();
+
+      if (cachedTransit?.result) {
+        return extractPlanetaryPositions(cachedTransit.result as TransitResult);
+      }
+
+      return null; // Fall back to approximation in component
     },
-    staleTime: 30 * 60 * 1000, // 30 min
-    retry: false,
+    staleTime: 30 * 60 * 1000,
+    retry: 1,
   });
 }
 
-// ── Extract planetary positions from transit data ──
+// ── Extract from astrology-api global-positions response ──
+function extractFromGlobalPositions(result: any): PlanetPosition[] | null {
+  if (!result) return null;
+
+  // The API returns positions keyed by planet name or as an array
+  if (Array.isArray(result)) {
+    return result.map((p: any) => ({
+      planet: p.name || p.planet || p.point,
+      sign: p.sign || p.zodiac_sign || "",
+      degree: Math.floor(p.degree ?? p.sign_degree ?? (p.longitude != null ? p.longitude % 30 : 0)),
+      retrograde: p.retrograde ?? p.is_retrograde ?? false,
+    })).filter((p: PlanetPosition) => p.sign);
+  }
+
+  // Object keyed by planet name
+  if (typeof result === "object" && !Array.isArray(result)) {
+    // Check for nested positions key
+    const positions = result.positions || result.planets || result.data || result;
+    if (Array.isArray(positions)) {
+      return extractFromGlobalPositions(positions);
+    }
+    // Object like { Sun: { sign: "Aquarius", degree: 24 }, ... }
+    const entries = Object.entries(positions);
+    if (entries.length > 0 && typeof entries[0][1] === "object") {
+      return entries.map(([name, data]: [string, any]) => ({
+        planet: name,
+        sign: data.sign || data.zodiac_sign || "",
+        degree: Math.floor(data.degree ?? data.sign_degree ?? (data.longitude != null ? data.longitude % 30 : 0)),
+        retrograde: data.retrograde ?? data.is_retrograde ?? false,
+      })).filter((p: PlanetPosition) => p.sign);
+    }
+  }
+
+  return null;
+}
+// ── Extract planetary positions from astrovisor transit data ──
 function extractPlanetaryPositions(transit: TransitResult): PlanetPosition[] | null {
   if (!transit) return null;
-
-  // AstroVisor returns transit planets — try to map them
   const result = transit as any;
   if (result?.transit_planets || result?.planets) {
     const planets = result.transit_planets || result.planets;
