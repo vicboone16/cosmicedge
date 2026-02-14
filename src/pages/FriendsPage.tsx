@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, UserPlus, Check, X, ArrowLeft, Users, Clock, Sparkles, Phone } from "lucide-react";
+import { Search, UserPlus, Check, X, ArrowLeft, Users, Clock, Sparkles, Phone, MessageCircle, Rss } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
@@ -163,21 +163,26 @@ const FriendsPage = () => {
     loadFriends();
   };
 
-  const UserCard = ({ profile: p, actions }: { profile: FriendProfile; actions: React.ReactNode }) => (
+  const UserCard = ({ profile: p, actions, clickable = false }: { profile: FriendProfile; actions: React.ReactNode; clickable?: boolean }) => (
     <div className="cosmic-card rounded-xl p-4 flex items-center gap-3">
-      <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0 text-primary font-bold text-sm">
-        {p.avatar_url ? <img src={p.avatar_url} className="h-10 w-10 rounded-full object-cover" /> : (p.display_name || p.username || "?")[0].toUpperCase()}
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium truncate">{p.display_name || p.username || "User"}</p>
-        {p.username && <p className="text-[10px] text-muted-foreground">@{p.username}</p>}
-        {p.share_astro && (p.sun_sign || p.moon_sign || p.rising_sign) && (
-          <div className="flex items-center gap-1.5 mt-1">
-            {p.sun_sign && <span className="text-[10px] text-cosmic-gold">☉ {SIGN_SYMBOLS[p.sun_sign]}</span>}
-            {p.moon_sign && <span className="text-[10px] text-muted-foreground">☽ {SIGN_SYMBOLS[p.moon_sign]}</span>}
-            {p.rising_sign && <span className="text-[10px] text-muted-foreground">⬆ {SIGN_SYMBOLS[p.rising_sign]}</span>}
-          </div>
-        )}
+      <div
+        className={`flex items-center gap-3 flex-1 min-w-0 ${clickable ? "cursor-pointer" : ""}`}
+        onClick={clickable ? () => navigate(`/user/${p.user_id}`) : undefined}
+      >
+        <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0 text-primary font-bold text-sm">
+          {p.avatar_url ? <img src={p.avatar_url} className="h-10 w-10 rounded-full object-cover" /> : (p.display_name || p.username || "?")[0].toUpperCase()}
+        </div>
+        <div className="min-w-0">
+          <p className="text-sm font-medium truncate">{p.display_name || p.username || "User"}</p>
+          {p.username && <p className="text-[10px] text-muted-foreground">@{p.username}</p>}
+          {p.share_astro && (p.sun_sign || p.moon_sign || p.rising_sign) && (
+            <div className="flex items-center gap-1.5 mt-1">
+              {p.sun_sign && <span className="text-[10px] text-cosmic-gold">☉ {SIGN_SYMBOLS[p.sun_sign]}</span>}
+              {p.moon_sign && <span className="text-[10px] text-muted-foreground">☽ {SIGN_SYMBOLS[p.moon_sign]}</span>}
+              {p.rising_sign && <span className="text-[10px] text-muted-foreground">⬆ {SIGN_SYMBOLS[p.rising_sign]}</span>}
+            </div>
+          )}
+        </div>
       </div>
       {actions}
     </div>
@@ -192,10 +197,18 @@ const FriendsPage = () => {
 
   return (
     <div className="min-h-screen pb-24">
-      <header className="px-4 pt-12 pb-4">
+       <header className="px-4 pt-12 pb-4">
         <div className="flex items-center gap-3 mb-1">
           <button onClick={() => navigate(-1)} className="p-1"><ArrowLeft className="h-5 w-5 text-muted-foreground" /></button>
           <h1 className="text-xl font-bold font-display tracking-tight">Friends</h1>
+          <div className="ml-auto flex items-center gap-2">
+            <button onClick={() => navigate("/feed")} className="p-2 rounded-lg bg-secondary hover:bg-accent transition-colors">
+              <Rss className="h-4 w-4 text-muted-foreground" />
+            </button>
+            <button onClick={() => navigate("/messages")} className="p-2 rounded-lg bg-secondary hover:bg-accent transition-colors">
+              <MessageCircle className="h-4 w-4 text-muted-foreground" />
+            </button>
+          </div>
         </div>
       </header>
 
@@ -325,10 +338,15 @@ const FriendsPage = () => {
               <button onClick={() => setTab("suggested")} className="text-sm text-primary hover:underline">See suggested connections</button>
             </div>
           ) : friends.map(f => (
-            <UserCard key={f.id} profile={f.profile} actions={
-              <button onClick={() => removeFriend(f.id)} className="shrink-0 text-xs text-muted-foreground hover:text-destructive transition-colors">
-                Remove
-              </button>
+            <UserCard key={f.id} profile={f.profile} clickable actions={
+              <div className="flex items-center gap-1.5 shrink-0">
+                <button onClick={(e) => { e.stopPropagation(); navigate(`/user/${f.profile.user_id}`); }} className="p-2 rounded-lg bg-secondary hover:bg-accent transition-colors">
+                  <MessageCircle className="h-3.5 w-3.5 text-muted-foreground" />
+                </button>
+                <button onClick={(e) => { e.stopPropagation(); removeFriend(f.id); }} className="text-xs text-muted-foreground hover:text-destructive transition-colors px-2">
+                  Remove
+                </button>
+              </div>
             } />
           ))
         )}

@@ -24,6 +24,10 @@ import CLVCalculatorPage from "./pages/CLVCalculatorPage";
 import AstraPage from "./pages/AstraPage";
 import ProfilePage from "./pages/ProfilePage";
 import FriendsPage from "./pages/FriendsPage";
+import UserProfilePage from "./pages/UserProfilePage";
+import MessagesPage from "./pages/MessagesPage";
+import ChatPage from "./pages/ChatPage";
+import FeedPage from "./pages/FeedPage";
 import AuthPage from "./pages/AuthPage";
 import AdminImportPage from "./pages/AdminImportPage";
 import NotFound from "./pages/NotFound";
@@ -59,6 +63,10 @@ const App = () => (
               <Route path="/astra" element={<RequireAuth><AstraPage /></RequireAuth>} />
               <Route path="/profile" element={<RequireAuth><ProfilePage /></RequireAuth>} />
               <Route path="/friends" element={<RequireAuth><FriendsPage /></RequireAuth>} />
+              <Route path="/user/:userId" element={<RequireAuth><UserProfilePage /></RequireAuth>} />
+              <Route path="/messages" element={<RequireAuth><MessagesPage /></RequireAuth>} />
+              <Route path="/messages/:conversationId" element={<RequireAuth><ChatPage /></RequireAuth>} />
+              <Route path="/feed" element={<RequireAuth><FeedPage /></RequireAuth>} />
             </Route>
             <Route path="/auth" element={<AuthPage />} />
             <Route path="/admin/import" element={<RequireAuth><AdminImportPage /></RequireAuth>} />
