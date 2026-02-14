@@ -160,16 +160,51 @@ Deno.serve(async (req) => {
         );
       }
 
-      // Pre-fetch all existing NBA games in the date range to match against
+      // Detect timezone from column names or explicit timezone column
+      const iTimezone = findCol(headers, "Timezone", "TimeZone", "TZ", "timezone", "tz");
+      const timeColCandidates = ["StartTimeEt", "start_time_et", "StartTimePt", "start_time_pt",
+        "StartTimeCt", "start_time_ct", "StartTimeMt", "start_time_mt",
+        "StartTimeUtc", "start_time_utc", "StartTime", "start_time", "Time", "time"];
+      const iTime = findCol(headers, ...timeColCandidates);
+
+      // Auto-detect timezone from column name suffix
+      function detectTimezoneFromHeader(): string {
+        if (iTime < 0) return "ET";
+        const colName = normalizeHeader(headers[iTime]);
+        if (colName.endsWith("utc")) return "UTC";
+        if (colName.endsWith("pt")) return "PT";
+        if (colName.endsWith("ct")) return "CT";
+        if (colName.endsWith("mt")) return "MT";
+        if (colName.endsWith("et")) return "ET";
+        return "ET"; // default to Eastern for US sports
+      }
+      const defaultTZ = detectTimezoneFromHeader();
+
+      // UTC offsets: standard / daylight for each US timezone
+      function getUtcOffset(tz: string, month: number): number {
+        const isDST = month >= 2 && month <= 10; // rough Mar-Nov = DST
+        switch (tz.toUpperCase()) {
+          case "ET": case "EST": case "EDT": return isDST ? 4 : 5;
+          case "CT": case "CST": case "CDT": return isDST ? 5 : 6;
+          case "MT": case "MST": case "MDT": return isDST ? 6 : 7;
+          case "PT": case "PST": case "PDT": return isDST ? 7 : 8;
+          case "UTC": case "GMT": return 0;
+          default: return isDST ? 4 : 5; // fallback to ET
+        }
+      }
+
+      // Pre-fetch all existing games in the date range to match against
       const allParsed = dataRows.map((r) => {
         const homeTeam = val(r, iHome) || "";
         const awayTeam = val(r, iAway) || "";
         const homeAbbrVal = val(r, iHomeAbbr) || abbr(homeTeam);
         const awayAbbrVal = val(r, iAwayAbbr) || abbr(awayTeam);
 
+        // Per-row timezone override (from explicit TZ column) or use detected default
+        const rowTZ = (iTimezone >= 0 ? val(r, iTimezone) : null) || defaultTZ;
+
         // Build start_time: combine date + time columns if separate
         let dateStr = val(r, iDate) || new Date().toISOString();
-        const iTime = findCol(headers, "StartTimeEt", "start_time_et", "StartTime");
         let timeStr = "";
         if (iTime >= 0 && iTime !== iDate) {
           timeStr = val(r, iTime) || "";
@@ -178,29 +213,33 @@ Deno.serve(async (req) => {
         let parsedDate: Date;
         if (timeStr) {
           // Parse time like "19:30", "7:30p", "10:00p"
-          let hours = 0, minutes = 0;
           const isPM = /p$/i.test(timeStr);
           const isAM = /a$/i.test(timeStr);
           const cleanTime = timeStr.replace(/[ap]$/i, "");
           const parts = cleanTime.split(":");
-          hours = parseInt(parts[0], 10);
-          minutes = parseInt(parts[1] || "0", 10);
+          let hours = parseInt(parts[0], 10);
+          const minutes = parseInt(parts[1] || "0", 10);
           if (isPM && hours < 12) hours += 12;
           if (isAM && hours === 12) hours = 0;
 
-          // Build UTC date: ET is UTC-5 (EST) or UTC-4 (EDT)
-          // October is EDT (UTC-4) until first Sunday in November
           const dateParts = dateStr.split("-");
           const year = parseInt(dateParts[0]);
           const month = parseInt(dateParts[1]) - 1;
           const day = parseInt(dateParts[2]);
-          // Determine if EDT or EST based on month (rough: Mar-Nov = EDT)
-          const etOffset = (month >= 2 && month <= 10) ? 4 : 5; // EDT=4, EST=5
-          parsedDate = new Date(Date.UTC(year, month, day, hours + etOffset, minutes));
-        } else {
-          // Bare date or already includes time
+          const offset = getUtcOffset(rowTZ, month);
+          parsedDate = new Date(Date.UTC(year, month, day, hours + offset, minutes));
+        } else if (dateStr.includes("T") || dateStr.includes("Z") || dateStr.includes("+")) {
+          // Already ISO or has timezone info
           parsedDate = new Date(dateStr);
           if (isNaN(parsedDate.getTime())) parsedDate = new Date();
+        } else {
+          // Bare date only — treat as midnight in the detected timezone
+          const dateParts = dateStr.split("-");
+          const year = parseInt(dateParts[0]);
+          const month = parseInt(dateParts[1]) - 1;
+          const day = parseInt(dateParts[2]);
+          const offset = getUtcOffset(rowTZ, month);
+          parsedDate = new Date(Date.UTC(year, month, day, 0 + offset, 0));
         }
 
         const statusVal = val(r, iStatus) || "Final";
