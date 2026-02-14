@@ -77,8 +77,211 @@ const COSMIC_EDGE_TOOL = {
   },
 };
 
-// Build system prompt with quant context
-function buildSystemPrompt(quantData: any | null) {
+/* ══════════════════════════════════════════════════════════
+   ENTITY RESOLUTION — resolve player/team names from the DB
+   ══════════════════════════════════════════════════════════ */
+
+async function resolveEntities(sb: any, prompt: string) {
+  const result: { players: any[]; teams: any[]; games: any[] } = { players: [], teams: [], games: [] };
+
+  // Search players by name (fuzzy via ilike)
+  const words = prompt.split(/\s+/).filter(w => w.length > 2);
+  // Build name search patterns from consecutive word pairs + individual words
+  const namePatterns: string[] = [];
+  for (let i = 0; i < words.length - 1; i++) {
+    namePatterns.push(`%${words[i]} ${words[i + 1]}%`);
+  }
+  // Also try individual words that look like proper nouns (capitalized, >3 chars)
+  for (const w of words) {
+    if (w.length > 3 && w[0] === w[0].toUpperCase() && w[0] !== w[0].toLowerCase()) {
+      namePatterns.push(`%${w}%`);
+    }
+  }
+
+  if (namePatterns.length) {
+    // Search players
+    for (const pattern of namePatterns.slice(0, 5)) {
+      const { data: players } = await sb
+        .from("players")
+        .select("id, name, team, league, position, birth_date")
+        .ilike("name", pattern)
+        .limit(3);
+      if (players?.length) {
+        for (const p of players) {
+          if (!result.players.find((ep: any) => ep.id === p.id)) {
+            result.players.push(p);
+          }
+        }
+      }
+    }
+
+    // Search teams (by abbreviation or name)
+    const teamKeywords = prompt.toUpperCase().match(/\b[A-Z]{2,4}\b/g) || [];
+    if (teamKeywords.length) {
+      const { data: teams } = await sb
+        .from("team_astro")
+        .select("team_abbr, team_name, league, ruling_planet, mascot_sign, element")
+        .in("team_abbr", teamKeywords)
+        .limit(4);
+      if (teams?.length) result.teams = teams;
+    }
+
+    // Also search team names
+    for (const pattern of namePatterns.slice(0, 3)) {
+      const { data: teams } = await sb
+        .from("team_astro")
+        .select("team_abbr, team_name, league, ruling_planet, mascot_sign, element")
+        .ilike("team_name", pattern)
+        .limit(3);
+      if (teams?.length) {
+        for (const t of teams) {
+          if (!result.teams.find((et: any) => et.team_abbr === t.team_abbr)) {
+            result.teams.push(t);
+          }
+        }
+      }
+    }
+  }
+
+  // Find relevant games for matched entities
+  const teamAbbrs = [
+    ...result.teams.map((t: any) => t.team_abbr),
+    ...result.players.map((p: any) => p.team).filter(Boolean),
+  ];
+  const uniqueAbbrs = [...new Set(teamAbbrs)];
+
+  if (uniqueAbbrs.length) {
+    // Look for games: upcoming (next 7 days) or recent (last 7 days)
+    const now = new Date();
+    const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
+    const weekAhead = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString();
+
+    const { data: games } = await sb
+      .from("games")
+      .select("id, home_abbr, away_abbr, home_team, away_team, start_time, status, league, venue")
+      .or(uniqueAbbrs.map((a: string) => `home_abbr.eq.${a},away_abbr.eq.${a}`).join(","))
+      .gte("start_time", weekAgo)
+      .lte("start_time", weekAhead)
+      .order("start_time", { ascending: true })
+      .limit(5);
+
+    if (games?.length) result.games = games;
+  }
+
+  return result;
+}
+
+/* ══════════════════════════════════════════════════════════
+   QUANT DATA FETCHER — calls quant-engine internally
+   ══════════════════════════════════════════════════════════ */
+
+async function fetchQuantForChat(sb: any, supabaseUrl: string, anonKey: string, entities: any) {
+  const quantResults: any[] = [];
+
+  // Pick the best game to analyze
+  const game = entities.games.find((g: any) => g.status === "scheduled" || g.status === "live")
+    || entities.games[0];
+
+  if (!game) return null;
+
+  // Fetch game-level quant
+  try {
+    const resp = await fetch(`${supabaseUrl}/functions/v1/quant-engine`, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${anonKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ game_id: game.id, market_type: "moneyline" }),
+    });
+    if (resp.ok) {
+      const data = await resp.json();
+      if (data.success) quantResults.push({ type: "game", game, data });
+    }
+  } catch (e) {
+    console.warn("Quant game fetch failed:", e);
+  }
+
+  // Fetch player-level quant for matched players
+  for (const player of entities.players.slice(0, 2)) {
+    // Find a game for this player's team
+    const playerGame = entities.games.find(
+      (g: any) => g.home_abbr === player.team || g.away_abbr === player.team
+    );
+    if (!playerGame) continue;
+
+    try {
+      const resp = await fetch(`${supabaseUrl}/functions/v1/quant-engine`, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${anonKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          game_id: playerGame.id,
+          player_id: player.id,
+          market_type: "player_prop",
+        }),
+      });
+      if (resp.ok) {
+        const data = await resp.json();
+        if (data.success) quantResults.push({ type: "player", player, game: playerGame, data });
+      }
+    } catch (e) {
+      console.warn(`Quant player fetch failed for ${player.name}:`, e);
+    }
+  }
+
+  // Also fetch season stats for matched teams
+  const teamStats: any[] = [];
+  for (const team of entities.teams.slice(0, 2)) {
+    const { data: seasonStats } = await sb
+      .from("team_season_stats")
+      .select("*")
+      .eq("team_abbr", team.team_abbr)
+      .order("season", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (seasonStats) teamStats.push({ team: team.team_abbr, stats: seasonStats });
+  }
+
+  // Fetch player season stats
+  const playerSeasonStats: any[] = [];
+  for (const player of entities.players.slice(0, 3)) {
+    const { data: pStats } = await sb
+      .from("player_season_stats")
+      .select("*")
+      .eq("player_id", player.id)
+      .order("season", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (pStats) playerSeasonStats.push({ player: player.name, team: player.team, stats: pStats });
+  }
+
+  // Fetch standings for teams
+  const standingsInfo: any[] = [];
+  const teamAbbrs = [...new Set([
+    ...entities.teams.map((t: any) => t.team_abbr),
+    ...entities.players.map((p: any) => p.team).filter(Boolean),
+  ])];
+  if (teamAbbrs.length) {
+    const { data: standings } = await sb
+      .from("standings")
+      .select("team_abbr, team_name, wins, losses, win_pct, streak, last_10, conference, division, playoff_seed")
+      .in("team_abbr", teamAbbrs)
+      .order("season", { ascending: false })
+      .limit(teamAbbrs.length);
+    if (standings?.length) standingsInfo.push(...standings);
+  }
+
+  return { quantResults, teamStats, playerSeasonStats, standings: standingsInfo };
+}
+
+/* ══════════════════════════════════════════════════════════
+   SYSTEM PROMPT BUILDER
+   ══════════════════════════════════════════════════════════ */
+
+function buildSystemPrompt(quantData: any | null, chatQuantContext: string | null) {
   let quantContext = "";
   if (quantData?.quant?.models?.length) {
     const models = quantData.quant.models;
@@ -99,6 +302,11 @@ Do NOT just list stats. Integrate them with the astrological read.
 If quant and astro signals conflict, acknowledge the tension and explain which you weigh more heavily.`;
   }
 
+  // Additional quant context from on-demand chat resolution
+  if (chatQuantContext) {
+    quantContext += `\n\n${chatQuantContext}`;
+  }
+
   return `You are Astra, a conversational astro-sports analyst who also reads statistical models.
 
 You synthesize astrological signals AND quantitative models into ONE cohesive answer.
@@ -110,6 +318,14 @@ STYLE:
 - If signals conflict, reconcile with conditional language.
 - Use probabilistic language, never absolutes.
 - When stats are available, reference them naturally in the narrative.
+- NEVER reveal formulas, z-scores, normalization methods, tanh squashing, or any calculation internals.
+- Present stats as conversational insights: "His efficiency has been elite lately" not "His z-score normalized eFG% is..."
+- If someone asks HOW you calculate something, say you blend multiple proprietary models but keep the focus on what the numbers MEAN, not how they're derived.
+
+HANDLING MISSING DATA:
+- If asked about a player, team, or matchup you don't have data for, say so honestly and naturally.
+- Example: "I don't have stats loaded for that player right now — they may not be in our current database."
+- Never fabricate statistics or player data.
 
 LOGIC ORDER (highest weight first):
 1) "Today" factors: transits, aspects to key natal points, combust/afflictions
@@ -132,6 +348,89 @@ Include an astro_signal with lean (support/fade/neutral) and strength (weak/medi
 Always include at least one disclaimer about responsible gambling.`;
 }
 
+/* ══════════════════════════════════════════════════════════
+   FORMAT QUANT CONTEXT FOR AI PROMPT
+   ══════════════════════════════════════════════════════════ */
+
+function formatQuantContextForPrompt(quantBundle: any, entities: any): string {
+  if (!quantBundle) return "";
+
+  const parts: string[] = [];
+
+  // Entity context
+  if (entities.players.length) {
+    parts.push("RESOLVED PLAYERS: " + entities.players.map(
+      (p: any) => `${p.name} (${p.team}, ${p.position || "?"}, ${p.league || "?"})`
+    ).join(", "));
+  }
+  if (entities.teams.length) {
+    parts.push("RESOLVED TEAMS: " + entities.teams.map(
+      (t: any) => `${t.team_name} (${t.team_abbr}, ${t.league})`
+    ).join(", "));
+  }
+
+  // Game context
+  if (entities.games.length) {
+    parts.push("RELEVANT GAMES:\n" + entities.games.map(
+      (g: any) => `  ${g.away_abbr} @ ${g.home_abbr} — ${g.start_time.slice(0, 16)} (${g.status}) [${g.league}]`
+    ).join("\n"));
+  }
+
+  // Standings
+  if (quantBundle.standings?.length) {
+    parts.push("STANDINGS:\n" + quantBundle.standings.map(
+      (s: any) => `  ${s.team_abbr}: ${s.wins}-${s.losses} (${(s.win_pct * 100).toFixed(1)}%) | Streak: ${s.streak || "?"} | Last 10: ${s.last_10 || "?"} | Seed: ${s.playoff_seed || "?"}`
+    ).join("\n"));
+  }
+
+  // Player season stats
+  if (quantBundle.playerSeasonStats?.length) {
+    parts.push("PLAYER SEASON STATS:\n" + quantBundle.playerSeasonStats.map((ps: any) => {
+      const s = ps.stats;
+      return `  ${ps.player} (${ps.team}): ${s.points_per_game?.toFixed(1) || "?"} PPG, ${s.rebounds_per_game?.toFixed(1) || "?"} RPG, ${s.assists_per_game?.toFixed(1) || "?"} APG, ${s.fg_pct ? (s.fg_pct * 100).toFixed(1) : "?"}% FG, ${s.three_pct ? (s.three_pct * 100).toFixed(1) : "?"}% 3P, USG ${s.usage_rate?.toFixed(1) || "?"}%, PER ${s.per?.toFixed(1) || "?"}`;
+    }).join("\n"));
+  }
+
+  // Team season stats
+  if (quantBundle.teamStats?.length) {
+    parts.push("TEAM SEASON STATS:\n" + quantBundle.teamStats.map((ts: any) => {
+      const s = ts.stats;
+      return `  ${ts.team}: ${s.points_per_game?.toFixed(1) || "?"} PPG, ORtg ${s.off_rating?.toFixed(1) || "?"}, DRtg ${s.def_rating?.toFixed(1) || "?"}, Net ${s.net_rating?.toFixed(1) || "?"}, Pace ${s.pace?.toFixed(1) || "?"}`;
+    }).join("\n"));
+  }
+
+  // Quant engine results
+  for (const qr of quantBundle.quantResults || []) {
+    if (qr.type === "game" && qr.data?.quant) {
+      const q = qr.data.quant;
+      parts.push(`QUANT ENGINE (${qr.game.away_abbr} @ ${qr.game.home_abbr}):`);
+      for (const m of q.models || []) {
+        parts.push(`  ${m.model_id} (${m.scope}): ${m.summary} → ${m.signal?.direction} (${m.signal?.strength})`);
+      }
+      if (q.verdict) {
+        parts.push(`  VERDICT: score=${q.verdict.quant_score}, edge=${q.verdict.edge_assessment}`);
+      }
+    }
+    if (qr.type === "player" && qr.data?.quant) {
+      const q = qr.data.quant;
+      parts.push(`QUANT ENGINE (${qr.player.name}):`);
+      for (const m of q.models || []) {
+        parts.push(`  ${m.model_id}: ${m.summary} → ${m.signal?.direction} (${m.signal?.strength})`);
+      }
+      if (q.verdict) {
+        parts.push(`  VERDICT: score=${q.verdict.quant_score}, edge=${q.verdict.edge_assessment}`);
+      }
+    }
+  }
+
+  if (!parts.length) return "";
+  return "ON-DEMAND DATA (fetched for this question — use naturally in your response, never reveal formulas or internal model names like 'four_factors' or 'log5'):\n" + parts.join("\n\n");
+}
+
+/* ══════════════════════════════════════════════════════════
+   MAIN HANDLER
+   ══════════════════════════════════════════════════════════ */
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -140,6 +439,11 @@ Deno.serve(async (req) => {
   try {
     const lovableKey = Deno.env.get("LOVABLE_API_KEY");
     if (!lovableKey) throw new Error("LOVABLE_API_KEY not configured");
+
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const sb = createClient(supabaseUrl, serviceKey);
 
     const body = await req.json();
     const {
@@ -157,6 +461,29 @@ Deno.serve(async (req) => {
       quant_data,
       astro_weight = 0.5,
     } = body;
+
+    // ══════════════════════════════════════════════════════════
+    // ON-DEMAND QUANT RESOLUTION FOR FREEFORM CHAT
+    // ══════════════════════════════════════════════════════════
+    let chatQuantContext: string | null = null;
+
+    if (mode === "freeform" && delivery_mode === "chat" && custom_prompt && !quant_data) {
+      try {
+        console.log("[astro-interpret] Resolving entities for freeform chat...");
+        const entities = await resolveEntities(sb, custom_prompt);
+        console.log(`[astro-interpret] Found: ${entities.players.length} players, ${entities.teams.length} teams, ${entities.games.length} games`);
+
+        if (entities.players.length || entities.teams.length) {
+          const quantBundle = await fetchQuantForChat(sb, supabaseUrl, anonKey, entities);
+          chatQuantContext = formatQuantContextForPrompt(quantBundle, entities);
+          if (chatQuantContext) {
+            console.log("[astro-interpret] Quant context injected into prompt");
+          }
+        }
+      } catch (e) {
+        console.warn("[astro-interpret] Entity resolution failed (non-fatal):", e);
+      }
+    }
 
     // Build user prompt based on mode
     let userPrompt = "";
@@ -188,7 +515,7 @@ Deno.serve(async (req) => {
       userPrompt += "\n\nIMPORTANT: This is for a compact card display. Keep the summary very concise (1-2 sentences max). Focus on the bottom line.";
     }
 
-    const systemPrompt = buildSystemPrompt(quant_data);
+    const systemPrompt = buildSystemPrompt(quant_data, chatQuantContext);
 
     const aiResp = await fetch(AI_GATEWAY, {
       method: "POST",
