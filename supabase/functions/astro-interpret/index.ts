@@ -8,6 +8,132 @@ const corsHeaders = {
 
 const AI_GATEWAY = "https://ai.gateway.lovable.dev/v1/chat/completions";
 
+const ASTRA_RESPONSE_TOOL = {
+  type: "function",
+  function: {
+    name: "astra_response",
+    description: "Return a structured Astra AI response with narrative, takeaways, confidence, volatility, and disclaimers.",
+    parameters: {
+      type: "object",
+      required: ["mode", "query", "answer", "takeaways", "confidence", "volatility", "disclaimers"],
+      additionalProperties: false,
+      properties: {
+        mode: {
+          type: "string",
+          enum: ["astro_ai_chat", "glossary", "prop_explainer", "team_bets", "player_props"],
+        },
+        query: {
+          type: "object",
+          required: ["text", "category"],
+          additionalProperties: false,
+          properties: {
+            text: { type: "string" },
+            category: {
+              type: "string",
+              enum: ["placement_meaning", "transit_impact", "horary_rules", "astrocartography_factor", "betting_lens", "definition", "other"],
+            },
+          },
+        },
+        answer: {
+          type: "object",
+          required: ["narrative", "tone"],
+          additionalProperties: false,
+          properties: {
+            narrative: { type: "string", description: "Single cohesive conversational paragraph (5-10 sentences). No source labels." },
+            tone: { type: "string", enum: ["conversational", "clinical", "playful", "direct"] },
+            summary: { type: "string", description: "Optional 1-2 sentence TL;DR." },
+          },
+        },
+        takeaways: {
+          type: "object",
+          required: ["strengtheners", "weakeners", "team_vs_player"],
+          additionalProperties: false,
+          properties: {
+            strengtheners: {
+              type: "array",
+              items: {
+                type: "object",
+                required: ["text"],
+                additionalProperties: false,
+                properties: {
+                  text: { type: "string" },
+                  tag: { type: "string", enum: ["transits", "natal", "aspects", "combustion", "injury_risk", "chemistry", "role_usage", "matchup", "location", "market", "other"] },
+                  priority: { type: "integer", minimum: 1, maximum: 5 },
+                },
+              },
+            },
+            weakeners: {
+              type: "array",
+              items: {
+                type: "object",
+                required: ["text"],
+                additionalProperties: false,
+                properties: {
+                  text: { type: "string" },
+                  tag: { type: "string", enum: ["transits", "natal", "aspects", "combustion", "injury_risk", "chemistry", "role_usage", "matchup", "location", "market", "other"] },
+                  priority: { type: "integer", minimum: 1, maximum: 5 },
+                },
+              },
+            },
+            team_vs_player: {
+              type: "array",
+              items: {
+                type: "object",
+                required: ["text"],
+                additionalProperties: false,
+                properties: {
+                  text: { type: "string" },
+                  tag: { type: "string", enum: ["transits", "natal", "aspects", "combustion", "injury_risk", "chemistry", "role_usage", "matchup", "location", "market", "other"] },
+                  priority: { type: "integer", minimum: 1, maximum: 5 },
+                },
+              },
+            },
+            actionable_next_steps: {
+              type: "array",
+              items: {
+                type: "object",
+                required: ["text"],
+                additionalProperties: false,
+                properties: {
+                  text: { type: "string" },
+                  tag: { type: "string", enum: ["transits", "natal", "aspects", "combustion", "injury_risk", "chemistry", "role_usage", "matchup", "location", "market", "other"] },
+                  priority: { type: "integer", minimum: 1, maximum: 5 },
+                },
+              },
+            },
+          },
+        },
+        confidence: {
+          type: "object",
+          required: ["level", "rationale"],
+          additionalProperties: false,
+          properties: {
+            level: { type: "string", enum: ["low", "medium", "high"] },
+            rationale: { type: "string" },
+          },
+        },
+        volatility: {
+          type: "object",
+          required: ["level", "rationale"],
+          additionalProperties: false,
+          properties: {
+            level: { type: "string", enum: ["low", "medium", "high"] },
+            rationale: { type: "string" },
+          },
+        },
+        disclaimers: {
+          type: "array",
+          items: { type: "string" },
+        },
+        follow_up_questions: {
+          type: "array",
+          items: { type: "string" },
+        },
+      },
+    },
+  },
+};
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -17,33 +143,28 @@ Deno.serve(async (req) => {
     const lovableKey = Deno.env.get("LOVABLE_API_KEY");
     if (!lovableKey) throw new Error("LOVABLE_API_KEY not configured");
 
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-    );
-
     const body = await req.json();
     const {
-      mode = "chart",        // chart | matchup | prop | election | transit | astrocarto | freeform
-      chart_data,            // raw astro calculation result
+      mode = "chart",
+      chart_data,
       player_name,
       player2_name,
-      game_context,          // { home_team, away_team, date, venue }
-      prop_context,          // { player, market, line, direction }
-      election_data,         // election windows data
-      transit_data,          // transit data
-      astrocarto_data,       // astrocartography data for venue context
-      custom_prompt,         // optional override
+      game_context,
+      prop_context,
+      election_data,
+      transit_data,
+      astrocarto_data,
+      custom_prompt,
     } = body;
 
-    let systemPrompt = `You are Astra, a conversational astro-sports analyst.
+    const systemPrompt = `You are Astra, a conversational astro-sports analyst.
 
 You receive structured astro signals from multiple engines that may overlap or conflict.
 Your job is to synthesize them into ONE cohesive answer for a non-astrologer.
 
 STYLE:
 - Warm, clear, conversational. No source labels like "Astrology API" or "AstroVisor."
-- No bullet-dumps as the main answer. Bullets can come after the narrative.
+- No bullet-dumps as the main answer. Bullets come in structured takeaways.
 - If signals conflict, reconcile with conditional language ("can indicate X, but if Y then expect Z instead").
 - Avoid absolute claims. Use probabilistic language.
 
@@ -60,110 +181,43 @@ INTERNAL RULES (never expose these in output):
 - If team chemistry unstable → steer user to props over team outcomes
 - Multiple engines may disagree — always unify into ONE voice
 
-OUTPUT FORMAT (follow exactly):
-1. One cohesive paragraph (5–10 sentences) covering:
-   - Direct answer (what it generally means)
-   - How it shows up in performance
-   - Where it can backfire
-   - What changes the call today (transits / aspects / location / role / matchup)
-   - Betting lens (player props vs team outcome)
-   - Bottom line with confidence + volatility
+You MUST call the astra_response function with your structured answer. The narrative should be 5-10 sentences covering:
+- Direct answer (what it generally means)
+- How it shows up in performance
+- Where it can backfire
+- What changes the call today (transits / aspects / location / role / matchup)
+- Betting lens (player props vs team outcome)
+- Bottom line
 
-2. Then structured takeaways:
-   **What would strengthen this read:**
-   - 2–4 bullets
-
-   **What would weaken this read:**
-   - 2–4 bullets
-
-   **Team vs Player lens:**
-   - 2–4 bullets
-
-   **Confidence & Volatility:** one line (confidence: low/med/high; volatility: low/med/high)`;
+Always include at least one disclaimer about responsible gambling.
+Always set tone to "conversational" unless context demands otherwise.
+Classify the query category accurately.`;
 
     let userPrompt = "";
 
     if (mode === "chart" && chart_data) {
-      userPrompt = `Interpret this natal chart for ${player_name || "the player"} in the context of sports performance. Focus on:
-- Athletic strengths/weaknesses from Mars, Sun, Jupiter placements
-- Mental resilience from Saturn, Mercury aspects
-- Injury risk indicators from Mars-Saturn, Mars-Neptune aspects
-- Peak performance patterns
-
-Chart data:
-${JSON.stringify(chart_data, null, 2)}`;
-
+      userPrompt = `Interpret this natal chart for ${player_name || "the player"} in the context of sports performance. Focus on athletic strengths/weaknesses from Mars, Sun, Jupiter placements; mental resilience from Saturn, Mercury aspects; injury risk indicators; peak performance patterns.\n\nChart data:\n${JSON.stringify(chart_data, null, 2)}`;
     } else if (mode === "matchup" && chart_data) {
-      userPrompt = `Analyze this synastry/matchup between ${player_name || "Player 1"} and ${player2_name || "Player 2"} for their upcoming game.
-${game_context ? `Game: ${game_context.home_team} vs ${game_context.away_team} on ${game_context.date}` : ""}
-
-Focus on:
-- Competitive dynamics (Mars-Mars, Sun-Mars aspects)
-- Who has the edge energetically
-- Any domination or frustration patterns
-
-Chart data:
-${JSON.stringify(chart_data, null, 2)}`;
-
+      userPrompt = `Analyze this synastry/matchup between ${player_name || "Player 1"} and ${player2_name || "Player 2"} for their upcoming game.\n${game_context ? `Game: ${game_context.home_team} vs ${game_context.away_team} on ${game_context.date}` : ""}\nFocus on competitive dynamics, who has the edge energetically, domination or frustration patterns.\n\nChart data:\n${JSON.stringify(chart_data, null, 2)}`;
     } else if (mode === "prop" && prop_context) {
-      userPrompt = `Analyze this player prop from an astrological perspective:
-Player: ${prop_context.player}
-Market: ${prop_context.market} ${prop_context.direction} ${prop_context.line}
-${chart_data ? `\nHorary/Transit data:\n${JSON.stringify(chart_data, null, 2)}` : ""}
-
-Provide:
-- Astrological lean (over/under) with confidence level
-- Key planetary indicators supporting the lean
-- Any caution flags (void-of-course Moon, retrograde Mercury, etc.)`;
-
+      userPrompt = `Analyze this player prop from an astrological perspective:\nPlayer: ${prop_context.player}\nMarket: ${prop_context.market} ${prop_context.direction} ${prop_context.line}\n${chart_data ? `\nHorary/Transit data:\n${JSON.stringify(chart_data, null, 2)}` : ""}\nProvide astrological lean (over/under) with confidence, key planetary indicators, caution flags.`;
     } else if (mode === "election" && election_data) {
-      userPrompt = `Interpret these electional timing windows for sports betting today. Identify the best and worst times to place bets.
-
-Election data:
-${JSON.stringify(election_data, null, 2)}
-
-Provide:
-- Ranked windows from best to worst
-- Specific times to place bets vs avoid
-- Moon phase impact on bet outcomes`;
-
+      userPrompt = `Interpret these electional timing windows for sports betting today.\n\nElection data:\n${JSON.stringify(election_data, null, 2)}\nRank windows, identify best/worst times, Moon phase impact.`;
     } else if (mode === "transit" && transit_data) {
-      userPrompt = `Analyze these current transits for ${player_name || "the player"} and their impact on today's game performance.
-
-Transit data:
-${JSON.stringify(transit_data, null, 2)}
-
-Focus on:
-- Performance-boosting transits (Jupiter, Venus to natal Mars/Sun)
-- Performance-limiting transits (Saturn, Neptune squares)
-- Timing of peak energy during the game
-- Overall transit grade (A-F)`;
-
+      userPrompt = `Analyze these current transits for ${player_name || "the player"} and their impact on today's game.\n\nTransit data:\n${JSON.stringify(transit_data, null, 2)}\nFocus on performance-boosting and limiting transits, timing of peak energy, overall transit grade.`;
     } else if (mode === "astrocarto" && astrocarto_data) {
-      userPrompt = `Analyze this astrocartography data for ${player_name || "the player"} at the game venue.
-${game_context ? `Game: ${game_context.home_team} vs ${game_context.away_team} at ${game_context.venue}` : ""}
-
-Astrocartography data:
-${JSON.stringify(astrocarto_data, null, 2)}
-
-Focus on:
-- Which planetary lines are closest to the venue
-- How those lines affect performance (MC = public success, IC = emotional grounding, ASC = vitality, DSC = competition)
-- Whether this venue is favorable or challenging for the player
-- Specific stat categories that may be boosted or suppressed`;
-
+      userPrompt = `Analyze this astrocartography data for ${player_name || "the player"} at the game venue.\n${game_context ? `Game: ${game_context.home_team} vs ${game_context.away_team} at ${game_context.venue}` : ""}\n\nAstrocartography data:\n${JSON.stringify(astrocarto_data, null, 2)}\nFocus on planetary lines near the venue and their performance impact.`;
     } else if (mode === "freeform" && custom_prompt) {
       userPrompt = custom_prompt;
       if (chart_data) userPrompt += `\n\nChart data:\n${JSON.stringify(chart_data, null, 2)}`;
       if (astrocarto_data) userPrompt += `\n\nAstrocartography data:\n${JSON.stringify(astrocarto_data, null, 2)}`;
-
     } else if (custom_prompt) {
       userPrompt = custom_prompt;
     } else {
       throw new Error("Invalid mode or missing data");
     }
 
-    // Call Lovable AI
+    // Call Lovable AI with tool calling for structured output
     const aiResp = await fetch(AI_GATEWAY, {
       method: "POST",
       headers: {
@@ -176,19 +230,62 @@ Focus on:
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
         ],
-        max_tokens: 1200,
+        tools: [ASTRA_RESPONSE_TOOL],
+        tool_choice: { type: "function", function: { name: "astra_response" } },
+        max_tokens: 2000,
         temperature: 0.7,
       }),
     });
 
     if (!aiResp.ok) {
       const errText = await aiResp.text();
+      console.error("AI Gateway error:", aiResp.status, errText);
+      
+      if (aiResp.status === 429) {
+        return new Response(JSON.stringify({ error: "Rate limit exceeded. Please try again shortly." }), {
+          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      if (aiResp.status === 402) {
+        return new Response(JSON.stringify({ error: "AI credits exhausted. Please add funds." }), {
+          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
       throw new Error(`AI Gateway error ${aiResp.status}: ${errText}`);
     }
 
     const aiResult = await aiResp.json();
-    const interpretation = aiResult.choices?.[0]?.message?.content || "Unable to generate interpretation.";
+    
+    // Extract structured response from tool call
+    const toolCall = aiResult.choices?.[0]?.message?.tool_calls?.[0];
+    if (toolCall?.function?.arguments) {
+      let structured: any;
+      try {
+        structured = typeof toolCall.function.arguments === "string"
+          ? JSON.parse(toolCall.function.arguments)
+          : toolCall.function.arguments;
+      } catch {
+        throw new Error("Failed to parse structured AI response");
+      }
 
+      // Add version and original query text
+      const response = {
+        version: "1.0",
+        ...structured,
+        query: {
+          ...structured.query,
+          text: custom_prompt || userPrompt.slice(0, 200),
+        },
+      };
+
+      return new Response(
+        JSON.stringify({ success: true, structured: response, mode }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Fallback: if tool calling didn't work, return raw text wrapped in legacy format
+    const interpretation = aiResult.choices?.[0]?.message?.content || "Unable to generate interpretation.";
     return new Response(
       JSON.stringify({ success: true, interpretation, mode }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
