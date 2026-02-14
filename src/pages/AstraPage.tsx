@@ -253,13 +253,22 @@ function AstraChat() {
               <AstraStructuredResponse data={m.structured} onFollowUpClick={(q) => send(q)} />
             ) : (
               <div className="cosmic-card rounded-xl px-3 py-2 text-xs leading-relaxed max-w-[85%] text-foreground">
-                {m.content.split("\n").map((line, j) => (
-                  <p key={j} className={j > 0 ? "mt-1" : ""} dangerouslySetInnerHTML={{
-                    __html: line
-                      .replace(/\*\*(.+?)\*\*/g, '<strong class="font-bold text-primary">$1</strong>')
-                      .replace(/\*(.+?)\*/g, '<em>$1</em>')
-                  }} />
-                ))}
+                {m.content.split("\n").map((line, j) => {
+                  // Escape HTML entities first to prevent XSS, then apply markdown formatting
+                  const escaped = line
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;')
+                    .replace(/'/g, '&#039;');
+                  return (
+                    <p key={j} className={j > 0 ? "mt-1" : ""} dangerouslySetInnerHTML={{
+                      __html: escaped
+                        .replace(/\*\*(.+?)\*\*/g, '<strong class="font-bold text-primary">$1</strong>')
+                        .replace(/\*(.+?)\*/g, '<em>$1</em>')
+                    }} />
+                  );
+                })}
               </div>
             )}
           </div>
