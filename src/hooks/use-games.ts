@@ -13,30 +13,52 @@ export interface GameWithOdds extends GameRow {
   };
 }
 
-async function fetchGamesFromDB(date?: Date): Promise<GameWithOdds[]> {
-  // Use ET (Eastern Time) date boundaries — US sports schedules are ET-based.
-  // Games stored in UTC; a 10 PM ET game = 2-3 AM UTC next day.
-  // We query from 4 AM UTC (midnight ET during EDT) to 28 hours later
-  // to capture all games for the ET calendar date.
+/**
+ * Get UTC offset in hours for an IANA timezone on a given date.
+ * Uses Intl to handle DST automatically.
+ */
+function getTimezoneOffsetHours(tz: string, refDate: Date): number {
+  // Build a formatter that outputs the UTC offset for this tz
+  try {
+    const formatter = new Intl.DateTimeFormat("en-US", {
+      timeZone: tz,
+      timeZoneName: "shortOffset", // e.g. "GMT-7", "GMT+5:30"
+    });
+    const parts = formatter.formatToParts(refDate);
+    const tzPart = parts.find((p) => p.type === "timeZoneName")?.value || "";
+    // Parse "GMT-7", "GMT+5:30", "GMT" etc.
+    const match = tzPart.match(/GMT([+-]?)(\d+)?(?::(\d+))?/);
+    if (!match) return 0;
+    const sign = match[1] === "-" ? -1 : 1;
+    const hrs = parseInt(match[2] || "0", 10);
+    const mins = parseInt(match[3] || "0", 10);
+    return sign * (hrs + mins / 60);
+  } catch {
+    return 0; // fallback to UTC
+  }
+}
+
+async function fetchGamesFromDB(date?: Date, userTimezone?: string): Promise<GameWithOdds[]> {
   const target = date || new Date();
   const y = target.getFullYear();
   const m = target.getMonth();
   const d = target.getDate();
 
-  // ET offset: EDT (Mar-Nov) = UTC-4, EST (Nov-Mar) = UTC-5
-  const etOffset = (m >= 2 && m <= 10) ? 4 : 5;
+  // Use the user's timezone to determine day boundaries in UTC.
+  // E.g. Pacific (UTC-7 in summer): midnight PT = 07:00 UTC
+  const tz = userTimezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const offsetHours = getTimezoneOffsetHours(tz, target);
+  // Midnight in user's TZ = UTC midnight minus offset
+  // offset is +X for east, -X for west. Midnight local = 00:00 - offset = -offset UTC
+  const startOfDay = new Date(Date.UTC(y, m, d, -offsetHours, 0, 0, 0));
+  const endOfDay = new Date(startOfDay.getTime() + 24 * 60 * 60 * 1000);
 
-  // Midnight ET in UTC = date + etOffset hours
-  const startOfDay = new Date(Date.UTC(y, m, d, etOffset, 0, 0, 0));
-  // End of ET day = next midnight ET
-  const endOfDay = new Date(Date.UTC(y, m, d, etOffset + 24, 0, 0, 0));
-
-  // Fetch games from database for the local day
+  // Fetch games from database for the user's local day
   const { data: games, error: gamesError } = await supabase
     .from("games")
     .select("*")
     .gte("start_time", startOfDay.toISOString())
-    .lte("start_time", endOfDay.toISOString())
+    .lt("start_time", endOfDay.toISOString())
     .order("start_time", { ascending: true });
 
   if (gamesError) throw gamesError;
@@ -77,7 +99,7 @@ async function fetchGamesFromDB(date?: Date): Promise<GameWithOdds[]> {
   });
 }
 
-async function refreshOddsAndFetch(date?: Date): Promise<GameWithOdds[]> {
+async function refreshOddsAndFetch(date?: Date, userTimezone?: string): Promise<GameWithOdds[]> {
   // Only refresh odds for today
   const isToday = !date || date.toDateString() === new Date().toDateString();
   if (isToday) {
@@ -91,13 +113,13 @@ async function refreshOddsAndFetch(date?: Date): Promise<GameWithOdds[]> {
     }
   }
 
-  return fetchGamesFromDB(date);
+  return fetchGamesFromDB(date, userTimezone);
 }
 
-export function useGames(league?: string, date?: Date) {
+export function useGames(league?: string, date?: Date, userTimezone?: string) {
   return useQuery({
-    queryKey: ["games", league, date?.toDateString()],
-    queryFn: () => refreshOddsAndFetch(date),
+    queryKey: ["games", league, date?.toDateString(), userTimezone],
+    queryFn: () => refreshOddsAndFetch(date, userTimezone),
     staleTime: 5 * 60 * 1000,
     select: (games) =>
       league && league !== "ALL"
