@@ -74,23 +74,27 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Accept the file as base64 in request body, or fetch from a URL
     const body = await req.json();
     let fileData: Uint8Array;
 
-    if (body.base64) {
-      // Decode base64 file content
-      const binaryString = atob(body.base64);
-      fileData = new Uint8Array(binaryString.length);
-      for (let i = 0; i < binaryString.length; i++) {
-        fileData[i] = binaryString.charCodeAt(i);
+    if (body.storage_path) {
+      // Download from Supabase storage
+      const { data, error } = await supabase.storage
+        .from(body.bucket || "csv-imports")
+        .download(body.storage_path);
+      if (error || !data) {
+        return new Response(
+          JSON.stringify({ error: `Storage download failed: ${error?.message}` }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
       }
+      fileData = new Uint8Array(await data.arrayBuffer());
     } else if (body.url) {
       const res = await fetch(body.url);
       fileData = new Uint8Array(await res.arrayBuffer());
     } else {
       return new Response(
-        JSON.stringify({ error: "Provide base64 or url" }),
+        JSON.stringify({ error: "Provide storage_path or url" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
