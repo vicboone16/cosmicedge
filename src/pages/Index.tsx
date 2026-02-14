@@ -4,13 +4,15 @@ import { GameCard } from "@/components/GameCard";
 import { LeagueFilter } from "@/components/LeagueFilter";
 import { AstroHeader } from "@/components/AstroHeader";
 import { useGames } from "@/hooks/use-games";
+import { useTimezone } from "@/hooks/use-timezone";
 import type { League } from "@/lib/mock-data";
 import { format, addDays, isToday } from "date-fns";
 
 const Index = () => {
   const [selectedLeague, setSelectedLeague] = useState<League | "ALL">("ALL");
   const [selectedDate, setSelectedDate] = useState(new Date());
-  const { data: games, isLoading, isError, refetch, isFetching } = useGames(selectedLeague, selectedDate);
+  const { userTimezone } = useTimezone();
+  const { data: games, isLoading, isError, refetch, isFetching } = useGames(selectedLeague, selectedDate, userTimezone);
 
   const canGoForward = selectedDate < addDays(new Date(), 7);
   const goBack = () => setSelectedDate((d) => addDays(d, -1));
