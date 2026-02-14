@@ -428,6 +428,116 @@ function aggregateQuant(
 }
 
 /* ══════════════════════════════════════════════════════════
+   ASTRO VERDICT ENGINE (5-layer)
+   ══════════════════════════════════════════════════════════ */
+const ZS = ["Aries","Taurus","Gemini","Cancer","Leo","Virgo","Libra","Scorpio","Sagittarius","Capricorn","Aquarius","Pisces"];
+const TR: Record<string,string> = {Aries:"Mars",Taurus:"Venus",Gemini:"Mercury",Cancer:"Moon",Leo:"Sun",Virgo:"Mercury",Libra:"Venus",Scorpio:"Mars",Sagittarius:"Jupiter",Capricorn:"Saturn",Aquarius:"Saturn",Pisces:"Jupiter"};
+const EX: Record<string,string> = {Aries:"Sun",Taurus:"Moon",Cancer:"Jupiter",Virgo:"Mercury",Libra:"Saturn",Capricorn:"Mars",Pisces:"Venus"};
+const DT: Record<string,string> = {Aries:"Venus",Taurus:"Mars",Gemini:"Jupiter",Cancer:"Saturn",Leo:"Saturn",Virgo:"Jupiter",Libra:"Mars",Scorpio:"Venus",Sagittarius:"Mercury",Capricorn:"Moon",Aquarius:"Sun",Pisces:"Mercury"};
+const FL: Record<string,string> = {Aries:"Saturn",Cancer:"Mars",Virgo:"Venus",Libra:"Sun",Scorpio:"Moon",Capricorn:"Jupiter",Pisces:"Mercury"};
+function edig(p:string,s:string){if(TR[s]===p)return"Domicile";if(EX[s]===p)return"Exaltation";if(DT[s]===p)return"Detriment";if(FL[s]===p)return"Fall";return"Peregrine";}
+function dsc(d:string){return d==="Domicile"?5:d==="Exaltation"?4:d==="Detriment"?-4:d==="Fall"?-5:0;}
+function jd(y:number,m:number,d:number,h:number){if(m<=2){y--;m+=12;}const A=Math.floor(y/100);return Math.floor(365.25*(y+4716))+Math.floor(30.6001*(m+1))+d+h/24+2-A+Math.floor(A/4)-1524.5;}
+function gm(j:number){const T=(j-2451545)/36525;return((280.46061837+360.98564736629*(j-2451545)+.000387933*T*T)%360+360)%360;}
+function pp(j:number){const T=(j-2451545)/36525;return[{n:"Sun",L:280.4664567,r:360.0076983},{n:"Moon",L:218.3164591,r:4812.6788232},{n:"Mercury",L:252.250906,r:1494.5786224},{n:"Venus",L:181.979801,r:585.1782884},{n:"Mars",L:355.433275,r:191.4025028},{n:"Jupiter",L:34.351519,r:30.3490553},{n:"Saturn",L:50.077444,r:12.2116686}].map(p=>{let l=((p.L+p.r*T)%360+360)%360;return{planet:p.n,longitude:Math.round(l*100)/100,sign:ZS[Math.floor(l/30)],degree:Math.round((l%30)*10)/10};});}
+const AD=[{n:"Conjunction",a:0,o:8},{n:"Sextile",a:60,o:6},{n:"Square",a:90,o:7},{n:"Trine",a:120,o:7},{n:"Opposition",a:180,o:8}];
+function fa(pos:any[]){const r:any[]=[];for(let i=0;i<pos.length;i++)for(let j=i+1;j<pos.length;j++){let d=Math.abs(pos[i].longitude-pos[j].longitude);if(d>180)d=360-d;for(const a of AD){const o=Math.abs(d-a.a);if(o<=a.o)r.push({planet1:pos[i].planet,planet2:pos[j].planet,type:a.n,orb:Math.round(o*10)/10,applying:pos[i].longitude<pos[j].longitude});}}return r;}
+function ascS(l:number,lat:number){const o=23.4393*Math.PI/180;const r=Math.atan2(-Math.cos(l*Math.PI/180),Math.sin(l*Math.PI/180)*Math.cos(o)+Math.tan(lat*Math.PI/180)*Math.sin(o));const d=((r*180/Math.PI)+360)%360;return{sign:ZS[Math.floor(d/30)],degree:Math.round((d%30)*10)/10};}
+const CH=["Saturn","Jupiter","Mars","Sun","Venus","Mercury","Moon"];
+const DR=["Sun","Moon","Mars","Mercury","Jupiter","Venus","Saturn"];
+
+async function handleAstroVerdict(sb:any,gameId:string,forceRefresh:boolean){
+  if(!forceRefresh){const{data:c}=await sb.from("astro_calculations").select("result").eq("entity_id",gameId).eq("calc_type","astro_verdict").gt("expires_at",new Date().toISOString()).maybeSingle();if(c)return new Response(JSON.stringify({success:true,cached:true,verdict:c.result}),{headers:{...corsHeaders,"Content-Type":"application/json"}});}
+  const{data:game}=await sb.from("games").select("*").eq("id",gameId).single();
+  if(!game)throw new Error("Game not found");
+  const gd=new Date(game.start_time);
+  const J=jd(gd.getFullYear(),gd.getMonth()+1,gd.getDate(),gd.getUTCHours()+gd.getUTCMinutes()/60);
+  const vLat=game.venue_lat||40.7,vLng=game.venue_lng||-74;
+  const pos=pp(J),asp=fa(pos);
+  const l=((gm(J)+vLng)%360+360)%360;
+  const asc=ascS(l,vLat);
+  const desc=ZS[(ZS.indexOf(asc.sign)+6)%12];
+  // Planetary hour
+  const dayR=DR[gd.getUTCDay()],si=CH.indexOf(dayR);
+  const hd=((gd.getUTCHours()+gd.getUTCMinutes()/60+vLng/15)%24+24)%24;
+  const hn=hd>=6&&hd<18?Math.floor(hd-6):(hd>=18?Math.floor(hd-18)+12:Math.floor(hd+6)+12);
+  const pHour={planet:CH[(si+(hn%24))%7],hourNumber:(hn%24)+1};
+  // Moon
+  const moonG=pos.find(p=>p.planet==="Moon")!;
+  const prePos=pp(J-2/24),postPos=pp(J+3/24);
+  const preA=fa(prePos).filter((a:any)=>a.planet1==="Moon"||a.planet2==="Moon");
+  const gameA=fa(pos).filter((a:any)=>a.planet1==="Moon"||a.planet2==="Moon");
+  const postA=fa(postPos).filter((a:any)=>a.planet1==="Moon"||a.planet2==="Moon");
+  const lastAsp=preA.length?preA.reduce((a:any,b:any)=>a.orb<b.orb?a:b):null;
+  const appl=[...gameA,...postA].filter((a:any)=>a.applying);
+  const nextAsp=appl.length?appl.reduce((a:any,b:any)=>a.orb<b.orb?a:b):null;
+  const voc=appl.length===0&&((ZS.indexOf(moonG.sign)+1)*30-moonG.longitude)<13;
+  const moon={lastAspect:lastAsp,nextAspect:nextAsp,moonSign:moonG.sign,moonDegree:moonG.degree,voidOfCourse:voc};
+  // Fetch teams + players
+  const[taR,plR]=await Promise.all([sb.from("team_astro").select("*").in("team_abbr",[game.home_abbr,game.away_abbr]),sb.from("players").select("id,name,team,birth_date").in("team",[game.home_abbr,game.away_abbr]).not("birth_date","is",null).limit(40)]);
+  const hTA=taR.data?.find((t:any)=>t.team_abbr===game.home_abbr);
+  const aTA=taR.data?.find((t:any)=>t.team_abbr===game.away_abbr);
+  const players=plR.data||[];
+  // L1: HORARY
+  const hL=TR[asc.sign]||"Mercury",aL=TR[desc]||"Jupiter";
+  const hLP=pos.find(p=>p.planet===hL),aLP=pos.find(p=>p.planet===aL);
+  const hD=hLP?edig(hL,hLP.sign):"Peregrine",aD=aLP?edig(aL,aLP.sign):"Peregrine";
+  let hSc=dsc(hD),aSc=dsc(aD);
+  if(nextAsp){const t=nextAsp.planet1==="Moon"?nextAsp.planet2:nextAsp.planet1;if(t===hL)hSc+=2;else if(t===aL)aSc+=2;}
+  const hDiff=hSc-aSc;
+  const horary={layer:"horary",homeLean:Math.max(-1,Math.min(1,hDiff/10)),confidence:Math.min(1,Math.abs(hDiff)/6),
+    narrative:`ASC ${asc.sign} (${hL} in ${hD}) vs DSC ${desc} (${aL} in ${aD}).${voc?" ⚠️ Moon VOC.":""}`,
+    details:{ascSign:asc.sign,descSign:desc,homeLord:hL,awayLord:aL,homeDignity:hD,awayDignity:aD}};
+  // L2: ASTROCARTOGRAPHY
+  const gmV=gm(J);const carto:any[]=[];
+  for(const p of pos){const mc=p.longitude-gmV;for(const[t,d]of[["MC",Math.abs(((vLng-mc+180)%360)-180)],["IC",Math.abs(((vLng-(mc+180))%360+180)%360-180)],["ASC",Math.abs(((vLng-(mc-90))%360+180)%360-180)],["DSC",Math.abs(((vLng-(mc+90))%360+180)%360-180)]]as any){const inf=d<3?"strong":d<8?"moderate":d<15?"weak":"none";if(inf!=="none")carto.push({planet:p.planet,lineType:t,dist:Math.round(d*10)/10,influence:inf,nature:["Jupiter","Venus","Sun"].includes(p.planet)?"benefic":["Saturn","Mars"].includes(p.planet)?"malefic":"neutral"});}}
+  carto.sort((a:any,b:any)=>a.dist-b.dist);
+  const bL=carto.filter((c:any)=>c.nature==="benefic"&&(c.influence==="strong"||c.influence==="moderate"));
+  const mL=carto.filter((c:any)=>c.nature==="malefic"&&(c.influence==="strong"||c.influence==="moderate"));
+  const astrocarto={layer:"astrocartography",homeLean:Math.max(-1,Math.min(1,bL.length*.3-mL.length*.3)),confidence:Math.min(1,(bL.length+mL.length)*.2),
+    narrative:`Benefic: ${bL.map((l:any)=>`${l.planet} ${l.lineType} ${l.dist}°`).join(", ")||"none"}. Malefic: ${mL.map((l:any)=>`${l.planet} ${l.lineType} ${l.dist}°`).join(", ")||"none"}.`};
+  // L3: TEAM ZODIAC
+  let tLean=0,tNarr="No team astro data.";
+  if(hTA&&aTA){const hr=pos.find(p=>p.planet===hTA.ruling_planet),ar=pos.find(p=>p.planet===aTA.ruling_planet);
+    tLean=(hr?dsc(edig(hr.planet,hr.sign)):0)/5-(ar?dsc(edig(ar.planet,ar.sign)):0)/5;
+    tNarr=`${game.home_abbr}(${hTA.mascot_sign}/${hTA.element}) vs ${game.away_abbr}(${aTA.mascot_sign}/${aTA.element}). Home ruler ${hTA.ruling_planet}, Away ruler ${aTA.ruling_planet}.`;}
+  const teamZ={layer:"team_zodiac",homeLean:Math.max(-1,Math.min(1,tLean)),confidence:hTA&&aTA?.6:.1,narrative:tNarr};
+  // L4: PLAYER TRANSITS
+  function ptScore(tpl:any[]){let tot=0;const k:string[]=[];const tp=tpl.slice(0,8);
+    for(const pl of tp){const bd=new Date(pl.birth_date);const nJ=jd(bd.getFullYear(),bd.getMonth()+1,bd.getDate(),12);const nP=pp(nJ);const nS=nP.find(p=>p.planet==="Sun");if(!nS)continue;
+      for(const tr of pos){let d=Math.abs(tr.longitude-nS.longitude);if(d>180)d=360-d;for(const a of AD){if(Math.abs(d-a.a)<=3){const hard=a.n==="Square"||a.n==="Opposition";const ben=["Jupiter","Venus","Sun"].includes(tr.planet);
+        if(!hard&&ben){tot+=2;k.push(`${pl.name}: ${tr.planet} ${a.n} ☉↑`);}else if(hard&&!ben){tot-=2;k.push(`${pl.name}: ${tr.planet} ${a.n} ☉↓`);}else if(!hard)tot+=1;else tot-=1;break;}}}}
+    return{score:tp.length?tot/tp.length:0,analyzed:tp.length,key:k.slice(0,4)};}
+  const hPl=players.filter((p:any)=>p.team===game.home_abbr),aPl=players.filter((p:any)=>p.team===game.away_abbr);
+  const hT=ptScore(hPl),aT=ptScore(aPl);
+  const playerTr={layer:"player_transits",homeLean:Math.max(-1,Math.min(1,(hT.score-aT.score)/4)),confidence:Math.min(1,(hT.analyzed+aT.analyzed)/10),
+    narrative:`${game.home_abbr}: ${hT.analyzed}p avg ${hT.score.toFixed(2)}. ${game.away_abbr}: ${aT.analyzed}p avg ${aT.score.toFixed(2)}.${hT.key.length?` ${hT.key.join("; ")}`:""}`};
+  // L5: VENUE ANGULAR
+  const ascD=ZS.indexOf(asc.sign)*30+asc.degree;const oR=23.4393*Math.PI/180;
+  const mcR=Math.atan2(Math.sin(l*Math.PI/180),Math.cos(l*Math.PI/180)*Math.cos(oR));const mcD=((mcR*180/Math.PI)+360)%360;
+  const angs=[{n:"ASC",d:ascD},{n:"MC",d:mcD},{n:"DSC",d:(ascD+180)%360},{n:"IC",d:(mcD+180)%360}];
+  const angular:any[]=[];for(const p of pos)for(const a of angs){let df=Math.abs(p.longitude-a.d);if(df>180)df=360-df;if(df<=10)angular.push({planet:p.planet,angle:a.n,orb:Math.round(df*10)/10,dignity:edig(p.planet,p.sign),nature:["Jupiter","Venus","Sun"].includes(p.planet)?"benefic":["Saturn","Mars"].includes(p.planet)?"malefic":"neutral"});}
+  angular.sort((a:any,b:any)=>a.orb-b.orb);
+  const bA=angular.filter((a:any)=>a.nature==="benefic"),mA=angular.filter((a:any)=>a.nature==="malefic");
+  const venueA={layer:"venue_angular",homeLean:Math.max(-1,Math.min(1,bA.length*.25-mA.length*.25)),confidence:Math.min(1,angular.length*.15),
+    narrative:`Angular: ${angular.map((a:any)=>`${a.planet}@${a.angle}(${a.orb}°,${a.dignity})`).join(", ")||"none"}.`};
+  // BLEND
+  const LW:{[k:string]:number}={horary:.25,astrocartography:.25,team_zodiac:.15,player_transits:.20,venue_angular:.15};
+  const layers={horary,astrocartography:astrocarto,team_zodiac:teamZ,player_transits:playerTr,venue_angular:venueA};
+  let ws=0,wt=0;for(const[k,ly]of Object.entries(layers)){const w=LW[k]||.1;ws+=(ly as any).homeLean*(ly as any).confidence*w;wt+=w;}
+  const blend=wt>0?Math.round(ws/wt*1000)/1000:0;
+  const fav=Math.abs(blend)<.05?"neutral":blend>0?"home":"away";
+  const str=Math.abs(blend)>.5?"strong":Math.abs(blend)>.2?"moderate":"slight";
+  const fN=fav==="home"?game.home_abbr:fav==="away"?game.away_abbr:"Neither";
+  const verdict={game_id:gameId,date:game.start_time.slice(0,10),home_team:game.home_abbr,away_team:game.away_abbr,venue:game.venue,
+    layers,moon,planetary_hour:pHour,positions:pos,aspects:asp.slice(0,15),angular_planets:angular.slice(0,10),carto_lines:carto.slice(0,12),
+    blended_score:blend,favored_team:fav,strength:str,
+    narrative:`${str.toUpperCase()} ${fav==="neutral"?"neutral":`${fN} lean`} (${blend}). Moon ${moon.moonSign} ${moon.moonDegree}°${voc?" VOC":""}${lastAsp?`, last ${lastAsp.type} ${lastAsp.planet1==="Moon"?lastAsp.planet2:lastAsp.planet1}`:""}${nextAsp?`, next ${nextAsp.type} ${nextAsp.planet1==="Moon"?nextAsp.planet2:nextAsp.planet1}`:""}.`};
+  await sb.from("astro_calculations").upsert({entity_id:gameId,entity_type:"game",calc_type:"astro_verdict",calc_date:game.start_time.slice(0,10),provider:"internal",result:verdict as any,location_lat:vLat,location_lng:vLng,expires_at:new Date(Date.now()+6*3600000).toISOString()},{onConflict:"entity_id,entity_type,calc_type,calc_date"});
+  return new Response(JSON.stringify({success:true,verdict}),{headers:{...corsHeaders,"Content-Type":"application/json"}});
+}
+
+/* ══════════════════════════════════════════════════════════
    MAIN HANDLER
    ══════════════════════════════════════════════════════════ */
 
@@ -447,10 +557,18 @@ Deno.serve(async (req) => {
       player_id,
       market_type = "moneyline",
       force_refresh = false,
-      window_size = 5, // last N games
+      window_size = 5,
+      mode = "quant", // "quant" | "astro_verdict"
     } = body;
 
     if (!game_id) throw new Error("game_id is required");
+
+    // ══════════════════════════════════════════════════════════
+    // ASTRO VERDICT MODE
+    // ══════════════════════════════════════════════════════════
+    if (mode === "astro_verdict") {
+      return await handleAstroVerdict(sb, game_id, force_refresh);
+    }
 
     // ── Cache check ──
     if (!force_refresh) {

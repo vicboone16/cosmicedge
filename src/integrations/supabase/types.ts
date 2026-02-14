@@ -1635,6 +1635,75 @@ export type Database = {
         }
         Relationships: []
       }
+      team_astro: {
+        Row: {
+          city_ruler: string | null
+          created_at: string
+          element: string | null
+          founded_city: string | null
+          founded_date: string | null
+          founded_lat: number | null
+          founded_lng: number | null
+          id: string
+          league: string
+          mascot_sign: string | null
+          modality: string | null
+          notes: string | null
+          relocated_city: string | null
+          relocated_date: string | null
+          relocated_lat: number | null
+          relocated_lng: number | null
+          ruling_planet: string | null
+          team_abbr: string
+          team_name: string
+          updated_at: string
+        }
+        Insert: {
+          city_ruler?: string | null
+          created_at?: string
+          element?: string | null
+          founded_city?: string | null
+          founded_date?: string | null
+          founded_lat?: number | null
+          founded_lng?: number | null
+          id?: string
+          league?: string
+          mascot_sign?: string | null
+          modality?: string | null
+          notes?: string | null
+          relocated_city?: string | null
+          relocated_date?: string | null
+          relocated_lat?: number | null
+          relocated_lng?: number | null
+          ruling_planet?: string | null
+          team_abbr: string
+          team_name: string
+          updated_at?: string
+        }
+        Update: {
+          city_ruler?: string | null
+          created_at?: string
+          element?: string | null
+          founded_city?: string | null
+          founded_date?: string | null
+          founded_lat?: number | null
+          founded_lng?: number | null
+          id?: string
+          league?: string
+          mascot_sign?: string | null
+          modality?: string | null
+          notes?: string | null
+          relocated_city?: string | null
+          relocated_date?: string | null
+          relocated_lat?: number | null
+          relocated_lng?: number | null
+          ruling_planet?: string | null
+          team_abbr?: string
+          team_name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       team_game_stats: {
         Row: {
           assists: number | null
