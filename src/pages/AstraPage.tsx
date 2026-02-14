@@ -163,10 +163,10 @@ function AstraChat() {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages]);
 
-  const send = async () => {
-    const text = input.trim();
+  const send = async (overrideText?: string) => {
+    const text = (overrideText || input).trim();
     if (!text || isLoading) return;
-    setInput("");
+    if (!overrideText) setInput("");
     const userMsg: Msg = { role: "user", content: text };
     setMessages((prev) => [...prev, userMsg]);
     setIsLoading(true);
@@ -250,7 +250,7 @@ function AstraChat() {
                 {m.content}
               </div>
             ) : m.structured ? (
-              <AstraStructuredResponse data={m.structured} />
+              <AstraStructuredResponse data={m.structured} onFollowUpClick={(q) => send(q)} />
             ) : (
               <div className="cosmic-card rounded-xl px-3 py-2 text-xs leading-relaxed max-w-[85%] text-foreground">
                 {m.content.split("\n").map((line, j) => (
@@ -282,7 +282,7 @@ function AstraChat() {
           className="flex-1 bg-secondary rounded-lg px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground outline-none focus:ring-1 focus:ring-primary/50"
         />
         <button
-          onClick={send}
+          onClick={() => send()}
           disabled={isLoading || !input.trim()}
           className="p-2 rounded-lg bg-primary text-primary-foreground disabled:opacity-50 transition-opacity"
         >
