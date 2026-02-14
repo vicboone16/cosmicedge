@@ -3,8 +3,9 @@ import { Sparkles, BookOpen, Send, Loader2, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
+import AstraStructuredResponse, { type AstraResponse } from "@/components/astra/AstraStructuredResponse";
 
-type Msg = { role: "user" | "assistant"; content: string };
+type Msg = { role: "user" | "assistant"; content: string; structured?: AstraResponse };
 
 const GLOSSARY_TYPES = [
   { key: "traditional-points", label: "Traditional Points", icon: "☉" },
@@ -173,15 +174,23 @@ function AstraChat() {
     try {
       const { data, error } = await supabase.functions.invoke("astro-interpret", {
         body: {
-          mode: "chart",
+          mode: "freeform",
           custom_prompt: text,
-          player_name: "Query",
         },
       });
 
       if (error) throw error;
-      const reply = data?.interpretation || "I couldn't generate a response. Please try again.";
-      setMessages((prev) => [...prev, { role: "assistant", content: reply }]);
+
+      if (data?.structured) {
+        setMessages((prev) => [...prev, {
+          role: "assistant",
+          content: data.structured.answer?.narrative || "",
+          structured: data.structured as AstraResponse,
+        }]);
+      } else {
+        const reply = data?.interpretation || "I couldn't generate a response. Please try again.";
+        setMessages((prev) => [...prev, { role: "assistant", content: reply }]);
+      }
     } catch (e) {
       console.error("Chat error:", e);
       setMessages((prev) => [
@@ -228,22 +237,24 @@ function AstraChat() {
         )}
 
         {messages.map((m, i) => (
-          <div
-            key={i}
-            className={cn(
-              "rounded-xl px-3 py-2 text-xs leading-relaxed max-w-[85%]",
-              m.role === "user"
-                ? "ml-auto bg-primary text-primary-foreground"
-                : "cosmic-card text-foreground"
+          <div key={i}>
+            {m.role === "user" ? (
+              <div className="rounded-xl px-3 py-2 text-xs leading-relaxed max-w-[85%] ml-auto bg-primary text-primary-foreground">
+                {m.content}
+              </div>
+            ) : m.structured ? (
+              <AstraStructuredResponse data={m.structured} />
+            ) : (
+              <div className="cosmic-card rounded-xl px-3 py-2 text-xs leading-relaxed max-w-[85%] text-foreground">
+                {m.content.split("\n").map((line, j) => (
+                  <p key={j} className={j > 0 ? "mt-1" : ""} dangerouslySetInnerHTML={{
+                    __html: line
+                      .replace(/\*\*(.+?)\*\*/g, '<strong class="font-bold text-primary">$1</strong>')
+                      .replace(/\*(.+?)\*/g, '<em>$1</em>')
+                  }} />
+                ))}
+              </div>
             )}
-          >
-            {m.content.split("\n").map((line, j) => (
-              <p key={j} className={j > 0 ? "mt-1" : ""} dangerouslySetInnerHTML={{
-                __html: line
-                  .replace(/\*\*(.+?)\*\*/g, '<strong class="font-bold text-primary">$1</strong>')
-                  .replace(/\*(.+?)\*/g, '<em>$1</em>')
-              }} />
-            ))}
           </div>
         ))}
 
