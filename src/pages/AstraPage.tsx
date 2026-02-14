@@ -3,9 +3,9 @@ import { Sparkles, BookOpen, Send, Loader2, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
-import AstraStructuredResponse, { type AstraResponse } from "@/components/astra/AstraStructuredResponse";
+import AstraStructuredResponse, { type AstraResponse, type CosmicEdgeResponse } from "@/components/astra/AstraStructuredResponse";
 
-type Msg = { role: "user" | "assistant"; content: string; structured?: AstraResponse };
+type Msg = { role: "user" | "assistant"; content: string; structured?: AstraResponse | CosmicEdgeResponse };
 
 const GLOSSARY_TYPES = [
   { key: "traditional-points", label: "Traditional Points", icon: "☉" },
@@ -175,13 +175,20 @@ function AstraChat() {
       const { data, error } = await supabase.functions.invoke("astro-interpret", {
         body: {
           mode: "freeform",
+          delivery_mode: "chat",
           custom_prompt: text,
         },
       });
 
       if (error) throw error;
 
-      if (data?.structured) {
+      if (data?.cosmic_edge) {
+        setMessages((prev) => [...prev, {
+          role: "assistant",
+          content: data.cosmic_edge.astro?.answer?.narrative || "",
+          structured: data.cosmic_edge as CosmicEdgeResponse,
+        }]);
+      } else if (data?.structured) {
         setMessages((prev) => [...prev, {
           role: "assistant",
           content: data.structured.answer?.narrative || "",

@@ -1268,6 +1268,56 @@ export type Database = {
         }
         Relationships: []
       }
+      quant_cache: {
+        Row: {
+          computed_at: string
+          created_at: string
+          entity_id: string
+          entity_type: string
+          expires_at: string | null
+          game_id: string
+          id: string
+          market_snapshot: Json
+          models: Json
+          signals: Json
+          verdict: Json
+        }
+        Insert: {
+          computed_at?: string
+          created_at?: string
+          entity_id?: string
+          entity_type?: string
+          expires_at?: string | null
+          game_id: string
+          id?: string
+          market_snapshot?: Json
+          models?: Json
+          signals?: Json
+          verdict?: Json
+        }
+        Update: {
+          computed_at?: string
+          created_at?: string
+          entity_id?: string
+          entity_type?: string
+          expires_at?: string | null
+          game_id?: string
+          id?: string
+          market_snapshot?: Json
+          models?: Json
+          signals?: Json
+          verdict?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quant_cache_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       referees: {
         Row: {
           birth_date: string | null
