@@ -210,10 +210,10 @@ function AstraChat() {
   };
 
   const suggestions = [
+    "How efficient have the Celtics been lately?",
+    "Compare LeBron's PER and usage vs the Knicks",
     "What does Mars in Leo mean for athletic performance?",
-    "Explain void-of-course Moon for betting",
-    "How do Saturn transits affect player consistency?",
-    "What is a horary chart and how is it used?",
+    "Break down the Lakers vs Warriors matchup — stats and astro",
   ];
 
   return (
@@ -287,7 +287,7 @@ function AstraChat() {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && send()}
-          placeholder="Ask about astrology, transits, dignities..."
+          placeholder="Ask about stats, matchups, astrology..."
           className="flex-1 bg-secondary rounded-lg px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground outline-none focus:ring-1 focus:ring-primary/50"
         />
         <button
