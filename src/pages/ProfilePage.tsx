@@ -5,6 +5,8 @@ import { useAuth } from "@/hooks/use-auth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { ProfileInputField } from "@/components/profile/ProfileInputField";
+import { AvatarUpload } from "@/components/profile/AvatarUpload";
+import { PublicProfilePreview } from "@/components/profile/PublicProfilePreview";
 
 const SIGNS = ["Aries","Taurus","Gemini","Cancer","Leo","Virgo","Libra","Scorpio","Sagittarius","Capricorn","Aquarius","Pisces"];
 
@@ -50,6 +52,7 @@ const ProfilePage = () => {
   const [showPasswordChange, setShowPasswordChange] = useState(false);
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [previewMode, setPreviewMode] = useState(false);
 
   useEffect(() => {
     if (!user) { navigate("/auth"); return; }
@@ -133,17 +136,37 @@ const ProfilePage = () => {
 
   if (loading) return <div className="min-h-screen flex items-center justify-center"><div className="animate-spin h-6 w-6 border-2 border-primary border-t-transparent rounded-full" /></div>;
 
+  if (previewMode) {
+    return <PublicProfilePreview profile={profile} userId={user!.id} onClose={() => setPreviewMode(false)} />;
+  }
+
   return (
     <div className="min-h-screen pb-24">
       <header className="px-4 pt-12 pb-4">
         <div className="flex items-center gap-3 mb-1">
           <button onClick={() => navigate(-1)} className="p-1"><ArrowLeft className="h-5 w-5 text-muted-foreground" /></button>
           <h1 className="text-xl font-bold font-display tracking-tight">Profile</h1>
+          <button
+            onClick={() => setPreviewMode(true)}
+            className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/10 text-primary text-xs font-medium hover:bg-primary/20 transition-colors"
+          >
+            <Eye className="h-3.5 w-3.5" />
+            View as others
+          </button>
         </div>
         <p className="text-xs text-muted-foreground ml-9">Manage your account & astro identity</p>
       </header>
 
       <div className="px-4 space-y-4">
+        {/* Avatar Upload */}
+        <div className="flex justify-center py-2">
+          <AvatarUpload
+            userId={user!.id}
+            avatarUrl={profile.avatar_url}
+            displayName={profile.display_name || profile.first_name || ""}
+            onUploaded={(url) => setProfile(p => ({ ...p, avatar_url: url }))}
+          />
+        </div>
         {/* Account Info */}
         <div className="cosmic-card rounded-xl p-4 space-y-3">
           <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">Account</p>
