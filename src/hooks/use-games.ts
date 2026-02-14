@@ -14,14 +14,22 @@ export interface GameWithOdds extends GameRow {
 }
 
 async function fetchGamesFromDB(date?: Date): Promise<GameWithOdds[]> {
-  // Use local date boundaries — games stored in UTC but user browses by local date
+  // Use ET (Eastern Time) date boundaries — US sports schedules are ET-based.
+  // Games stored in UTC; a 10 PM ET game = 2-3 AM UTC next day.
+  // We query from 4 AM UTC (midnight ET during EDT) to 28 hours later
+  // to capture all games for the ET calendar date.
   const target = date || new Date();
   const y = target.getFullYear();
   const m = target.getMonth();
   const d = target.getDate();
-  // Local midnight → local midnight+24h, converted to UTC via Date constructor
-  const startOfDay = new Date(y, m, d, 0, 0, 0, 0);
-  const endOfDay = new Date(y, m, d, 23, 59, 59, 999);
+
+  // ET offset: EDT (Mar-Nov) = UTC-4, EST (Nov-Mar) = UTC-5
+  const etOffset = (m >= 2 && m <= 10) ? 4 : 5;
+
+  // Midnight ET in UTC = date + etOffset hours
+  const startOfDay = new Date(Date.UTC(y, m, d, etOffset, 0, 0, 0));
+  // End of ET day = next midnight ET
+  const endOfDay = new Date(Date.UTC(y, m, d, etOffset + 24, 0, 0, 0));
 
   // Fetch games from database for the local day
   const { data: games, error: gamesError } = await supabase
