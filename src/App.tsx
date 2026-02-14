@@ -61,7 +61,7 @@ const App = () => (
               <Route path="/friends" element={<RequireAuth><FriendsPage /></RequireAuth>} />
             </Route>
             <Route path="/auth" element={<AuthPage />} />
-            <Route path="/admin/import" element={<AdminImportPage />} />
+            <Route path="/admin/import" element={<RequireAuth><AdminImportPage /></RequireAuth>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
