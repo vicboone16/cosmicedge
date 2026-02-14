@@ -74,11 +74,66 @@ const NBA_TEAMS: Record<string, { full: string; abbr: string }> = {
   "1610612766": { full: "Charlotte Hornets",         abbr: "CHA" },
 };
 
-// Reverse lookup: full team name → abbr
+// Reverse lookup: full team name → abbr (NBA from SDIO)
 const NAME_TO_ABBR: Record<string, string> = {};
 for (const t of Object.values(SDIO_TEAMS)) {
   NAME_TO_ABBR[t.full] = t.abbr;
 }
+
+// NFL team name → abbreviation
+const NFL_TEAMS: Record<string, string> = {
+  "Arizona Cardinals": "ARI", "Atlanta Falcons": "ATL", "Baltimore Ravens": "BAL",
+  "Buffalo Bills": "BUF", "Carolina Panthers": "CAR", "Chicago Bears": "CHI",
+  "Cincinnati Bengals": "CIN", "Cleveland Browns": "CLE", "Dallas Cowboys": "DAL",
+  "Denver Broncos": "DEN", "Detroit Lions": "DET", "Green Bay Packers": "GB",
+  "Houston Texans": "HOU", "Indianapolis Colts": "IND", "Jacksonville Jaguars": "JAX",
+  "Kansas City Chiefs": "KC", "Las Vegas Raiders": "LV", "Los Angeles Chargers": "LAC",
+  "Los Angeles Rams": "LAR", "Miami Dolphins": "MIA", "Minnesota Vikings": "MIN",
+  "New England Patriots": "NE", "New Orleans Saints": "NO", "New York Giants": "NYG",
+  "New York Jets": "NYJ", "Philadelphia Eagles": "PHI", "Pittsburgh Steelers": "PIT",
+  "San Francisco 49ers": "SF", "Seattle Seahawks": "SEA", "Tampa Bay Buccaneers": "TB",
+  "Tennessee Titans": "TEN", "Washington Commanders": "WAS",
+};
+
+// NHL team name → abbreviation
+const NHL_TEAMS: Record<string, string> = {
+  "Anaheim Ducks": "ANA", "Boston Bruins": "BOS", "Buffalo Sabres": "BUF",
+  "Calgary Flames": "CGY", "Carolina Hurricanes": "CAR", "Chicago Blackhawks": "CHI",
+  "Colorado Avalanche": "COL", "Columbus Blue Jackets": "CBJ", "Dallas Stars": "DAL",
+  "Detroit Red Wings": "DET", "Edmonton Oilers": "EDM", "Florida Panthers": "FLA",
+  "Los Angeles Kings": "LAK", "Minnesota Wild": "MIN", "Montréal Canadiens": "MTL",
+  "Nashville Predators": "NSH", "New Jersey Devils": "NJD", "New York Islanders": "NYI",
+  "New York Rangers": "NYR", "Ottawa Senators": "OTT", "Philadelphia Flyers": "PHI",
+  "Pittsburgh Penguins": "PIT", "San Jose Sharks": "SJS", "Seattle Kraken": "SEA",
+  "St. Louis Blues": "STL", "Tampa Bay Lightning": "TBL", "Toronto Maple Leafs": "TOR",
+  "Utah Hockey Club": "UTA", "Vancouver Canucks": "VAN", "Vegas Golden Knights": "VGK",
+  "Washington Capitals": "WSH", "Winnipeg Jets": "WPG",
+  // Handle Montreal without accent
+  "Montreal Canadiens": "MTL",
+};
+
+// MLB team name → abbreviation
+const MLB_TEAMS: Record<string, string> = {
+  "Arizona Diamondbacks": "ARI", "Atlanta Braves": "ATL", "Baltimore Orioles": "BAL",
+  "Boston Red Sox": "BOS", "Chicago Cubs": "CHC", "Chicago White Sox": "CWS",
+  "Cincinnati Reds": "CIN", "Cleveland Guardians": "CLE", "Colorado Rockies": "COL",
+  "Detroit Tigers": "DET", "Houston Astros": "HOU", "Kansas City Royals": "KC",
+  "Los Angeles Angels": "LAA", "Los Angeles Dodgers": "LAD", "Miami Marlins": "MIA",
+  "Milwaukee Brewers": "MIL", "Minnesota Twins": "MIN", "New York Mets": "NYM",
+  "New York Yankees": "NYY", "Athletics": "OAK", "Oakland Athletics": "OAK",
+  "Philadelphia Phillies": "PHI", "Pittsburgh Pirates": "PIT", "San Diego Padres": "SD",
+  "San Francisco Giants": "SF", "Seattle Mariners": "SEA", "St. Louis Cardinals": "STL",
+  "Tampa Bay Rays": "TB", "Texas Rangers": "TEX", "Toronto Blue Jays": "TOR",
+  "Washington Nationals": "WSH",
+};
+
+// Unified league team lookup
+const LEAGUE_TEAM_ABBR: Record<string, Record<string, string>> = {
+  NBA: NAME_TO_ABBR,
+  NFL: NFL_TEAMS,
+  NHL: NHL_TEAMS,
+  MLB: MLB_TEAMS,
+};
 
 function num(v: unknown): number | null {
   if (v === null || v === undefined || v === "") return null;
@@ -325,56 +380,78 @@ Deno.serve(async (req) => {
     }
 
     // ── ACTION: schedule ──
-    // Imports NBA.com schedule CSV data (gameId, gameDateTimeEst, homeTeamId, awayTeamId, arenaName, etc.)
+    // Imports schedule data for any league. Supports NBA (teamId lookup) and NFL/NHL/MLB (team name lookup).
     else if (action === "schedule") {
-      // Pre-fetch stadiums for venue lookup by name
+      // Pre-fetch stadiums for venue lookup by name (search all leagues since names may not match league field)
       const { data: stadiums } = await supabase
         .from("stadiums")
-        .select("name, latitude, longitude")
-        .eq("league", league);
+        .select("name, latitude, longitude");
       const stadiumMap = new Map(
         (stadiums || []).map((s) => [s.name, s])
       );
 
+      const teamAbbrMap = LEAGUE_TEAM_ABBR[league] || {};
       const scheduleRecords = csv_text ? parseCsv(csv_text) : records;
+
       const gameRows = scheduleRecords
         .filter((r: any) => {
-          // Skip preseason, play-in/finals placeholders (teamId=0), and international teams
-          const homeId = String(r.homeTeamId);
-          const awayId = String(r.awayTeamId);
-          return homeId !== "0" && awayId !== "0" &&
-                 NBA_TEAMS[homeId] && NBA_TEAMS[awayId] &&
+          if (league === "NBA") {
+            const homeId = String(r.homeTeamId || r.hometeamId);
+            const awayId = String(r.awayTeamId || r.awayteamId);
+            return homeId !== "0" && awayId !== "0" &&
+                   NBA_TEAMS[homeId] && NBA_TEAMS[awayId] &&
+                   r.gameLabel !== "Preseason";
+          }
+          // NFL/NHL/MLB: use team names directly
+          const homeName = r.homeTeamName;
+          const awayName = r.awayTeamName;
+          return homeName && awayName &&
+                 teamAbbrMap[homeName] && teamAbbrMap[awayName] &&
                  r.gameLabel !== "Preseason";
         })
         .map((r: any) => {
-          const home = NBA_TEAMS[String(r.homeTeamId)];
-          const away = NBA_TEAMS[String(r.awayTeamId)];
+          let homeFull: string, awayFull: string, homeAbbr: string, awayAbbr: string;
 
-          // Convert EST datetime to ISO
-          const estStr = r.gameDateTimeEst; // "2025-10-28 19:30:00"
-          const startTime = new Date(estStr.replace(" ", "T") + "-05:00").toISOString();
-
-          const stadium = stadiumMap.get(r.arenaName);
-
-          // Determine status based on game label
-          let status = "scheduled";
-          if (r.gameLabel === "NBA Finals" || r.gameLabel === "SoFi Play-In Tournament") {
-            status = "scheduled";
+          if (league === "NBA") {
+            const home = NBA_TEAMS[String(r.homeTeamId || r.hometeamId)];
+            const away = NBA_TEAMS[String(r.awayTeamId || r.awayteamId)];
+            homeFull = home.full; awayFull = away.full;
+            homeAbbr = home.abbr; awayAbbr = away.abbr;
+          } else {
+            homeFull = r.homeTeamName;
+            awayFull = r.awayTeamName;
+            homeAbbr = teamAbbrMap[homeFull];
+            awayAbbr = teamAbbrMap[awayFull];
           }
+
+          // Parse datetime — NBA uses EST string, others may have UTC offset
+          const dtStr = r.gameDateTimeEst || r.gameDateTimeUTC || r.gameDateTimeEst;
+          let startTime: string;
+          if (dtStr.includes("+") || dtStr.includes("Z")) {
+            // Already has timezone info (UTC)
+            startTime = new Date(dtStr).toISOString();
+          } else {
+            // Assume EST
+            startTime = new Date(dtStr.replace(" ", "T") + "-05:00").toISOString();
+          }
+
+          const stadium = stadiumMap.get(r.arenaName || r.venueName);
+          const venueLat = Number(r.venueLatitude) || stadium?.latitude || null;
+          const venueLng = Number(r.venueLongitude) || stadium?.longitude || null;
 
           return {
             external_id: String(r.gameId),
             league,
-            home_team: home.full,
-            away_team: away.full,
-            home_abbr: home.abbr,
-            away_abbr: away.abbr,
+            home_team: homeFull,
+            away_team: awayFull,
+            home_abbr: homeAbbr,
+            away_abbr: awayAbbr,
             start_time: startTime,
-            status,
-            venue: r.arenaName || null,
-            venue_lat: stadium?.latitude || null,
-            venue_lng: stadium?.longitude || null,
-            source: "nba_schedule",
+            status: "scheduled",
+            venue: r.arenaName || r.venueName || null,
+            venue_lat: venueLat,
+            venue_lng: venueLng,
+            source: `${league.toLowerCase()}_schedule`,
           };
         });
 
