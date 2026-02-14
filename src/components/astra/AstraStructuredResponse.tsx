@@ -250,7 +250,7 @@ function getLevel(val: any): string {
   return "medium";
 }
 
-export default function AstraStructuredResponse({ data, compact }: { data: AstraResponse | CosmicEdgeResponse; compact?: boolean }) {
+export default function AstraStructuredResponse({ data, compact, onFollowUpClick }: { data: AstraResponse | CosmicEdgeResponse; compact?: boolean; onFollowUpClick?: (question: string) => void }) {
   const [activeTag, setActiveTag] = useState<string | null>(null);
 
   const handleTagClick = (tag: string) => {
@@ -400,9 +400,16 @@ export default function AstraStructuredResponse({ data, compact }: { data: Astra
       {followUps && followUps.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
           {followUps.map((q, i) => (
-            <span key={i} className="text-[9px] px-2 py-1 rounded-full bg-primary/10 text-primary border border-primary/20">
+            <button
+              key={i}
+              onClick={() => onFollowUpClick?.(q)}
+              className={cn(
+                "text-[9px] px-2 py-1 rounded-full bg-primary/10 text-primary border border-primary/20 text-left",
+                onFollowUpClick && "hover:bg-primary/20 hover:border-primary/40 cursor-pointer transition-colors"
+              )}
+            >
               {q}
-            </span>
+            </button>
           ))}
         </div>
       )}
