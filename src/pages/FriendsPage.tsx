@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, UserPlus, Check, X, ArrowLeft, Users, Clock, Star } from "lucide-react";
+import { Search, UserPlus, Check, X, ArrowLeft, Users, Clock, Sparkles, Phone } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
@@ -20,6 +20,7 @@ interface FriendProfile {
   rising_sign: string | null;
   share_astro: boolean;
   bio: string | null;
+  phone: string | null;
 }
 
 interface Friendship {
@@ -33,21 +34,23 @@ interface Friendship {
 const FriendsPage = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [tab, setTab] = useState<"friends" | "requests" | "search">("friends");
+  const [tab, setTab] = useState<"friends" | "requests" | "search" | "suggested">("friends");
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<FriendProfile[]>([]);
   const [friends, setFriends] = useState<Friendship[]>([]);
   const [pendingRequests, setPendingRequests] = useState<Friendship[]>([]);
+  const [suggested, setSuggested] = useState<FriendProfile[]>([]);
   const [loading, setLoading] = useState(false);
+  const [existingFriendIds, setExistingFriendIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (!user) { navigate("/auth"); return; }
     loadFriends();
+    loadSuggested();
   }, [user]);
 
   const loadFriends = async () => {
     if (!user) return;
-    // Fetch all friendships
     const { data: fships } = await supabase
       .from("friendships")
       .select("*")
@@ -56,11 +59,13 @@ const FriendsPage = () => {
     if (!fships || fships.length === 0) {
       setFriends([]);
       setPendingRequests([]);
+      setExistingFriendIds(new Set());
       return;
     }
 
-    // Get all friend user IDs
     const friendIds = fships.map((f: any) => f.requester_id === user.id ? f.addressee_id : f.requester_id);
+    setExistingFriendIds(new Set(friendIds));
+
     const { data: profiles } = await supabase
       .from("profiles")
       .select("user_id, username, display_name, avatar_url, sun_sign, moon_sign, rising_sign, share_astro, bio" as any)
@@ -70,11 +75,40 @@ const FriendsPage = () => {
 
     const enriched = fships.map((f: any) => {
       const friendId = f.requester_id === user.id ? f.addressee_id : f.requester_id;
-      return { ...f, profile: profileMap.get(friendId) || { user_id: friendId, username: null, display_name: "Unknown", avatar_url: null, sun_sign: null, moon_sign: null, rising_sign: null, share_astro: false, bio: null } };
+      return { ...f, profile: profileMap.get(friendId) || { user_id: friendId, username: null, display_name: "Unknown", avatar_url: null, sun_sign: null, moon_sign: null, rising_sign: null, share_astro: false, bio: null, phone: null } };
     });
 
     setFriends(enriched.filter((f: any) => f.status === "accepted"));
     setPendingRequests(enriched.filter((f: any) => f.status === "pending" && f.addressee_id === user.id));
+  };
+
+  const loadSuggested = async () => {
+    if (!user) return;
+    // Fetch profiles that share their picks or astro data (public-ish profiles)
+    // Exclude self and existing friends
+    const { data: fships } = await supabase
+      .from("friendships")
+      .select("requester_id, addressee_id")
+      .or(`requester_id.eq.${user.id},addressee_id.eq.${user.id}`) as any;
+
+    const connectedIds = new Set<string>([user.id]);
+    (fships || []).forEach((f: any) => {
+      connectedIds.add(f.requester_id);
+      connectedIds.add(f.addressee_id);
+    });
+
+    // Get users who share picks or astro (public profiles)
+    const { data: publicProfiles } = await supabase
+      .from("profiles")
+      .select("user_id, username, display_name, avatar_url, sun_sign, moon_sign, rising_sign, share_astro, share_picks, bio" as any)
+      .or("share_picks.eq.true,share_astro.eq.true")
+      .limit(50);
+
+    const filtered = ((publicProfiles as any[]) || [])
+      .filter((p: any) => !connectedIds.has(p.user_id))
+      .slice(0, 20) as unknown as FriendProfile[];
+
+    setSuggested(filtered);
   };
 
   const handleSearch = async () => {
@@ -103,8 +137,9 @@ const FriendsPage = () => {
       else toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {
       toast({ title: "Request sent!" });
-      // Remove from search results
       setSearchResults(prev => prev.filter(p => p.user_id !== targetUserId));
+      setSuggested(prev => prev.filter(p => p.user_id !== targetUserId));
+      setExistingFriendIds(prev => new Set([...prev, targetUserId]));
     }
   };
 
@@ -149,6 +184,7 @@ const FriendsPage = () => {
   const tabs = [
     { key: "friends" as const, label: "Friends", icon: Users, count: friends.length },
     { key: "requests" as const, label: "Requests", icon: Clock, count: pendingRequests.length },
+    { key: "suggested" as const, label: "Suggested", icon: Sparkles, count: suggested.length },
     { key: "search" as const, label: "Find", icon: Search },
   ];
 
@@ -168,12 +204,12 @@ const FriendsPage = () => {
             <button
               key={t.key}
               onClick={() => setTab(t.key)}
-              className={`flex-1 text-sm font-medium py-2 rounded-lg transition-all flex items-center justify-center gap-1.5 ${tab === t.key ? "bg-card text-foreground shadow-sm" : "text-muted-foreground"}`}
+              className={`flex-1 text-xs font-medium py-2 rounded-lg transition-all flex items-center justify-center gap-1 ${tab === t.key ? "bg-card text-foreground shadow-sm" : "text-muted-foreground"}`}
             >
-              <t.icon className="h-3.5 w-3.5" />
+              <t.icon className="h-3 w-3" />
               {t.label}
               {t.count != null && t.count > 0 && (
-                <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${tab === t.key ? "bg-primary text-primary-foreground" : "bg-border text-muted-foreground"}`}>
+                <span className={`text-[9px] px-1 py-0.5 rounded-full ${tab === t.key ? "bg-primary text-primary-foreground" : "bg-border text-muted-foreground"}`}>
                   {t.count}
                 </span>
               )}
@@ -194,7 +230,7 @@ const FriendsPage = () => {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-                  placeholder="Search by username..."
+                  placeholder="Search by username or name..."
                   className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-secondary border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
                 />
               </div>
@@ -207,12 +243,42 @@ const FriendsPage = () => {
             )}
             {searchResults.map(p => (
               <UserCard key={p.user_id} profile={p} actions={
-                <button onClick={() => sendRequest(p.user_id)} className="shrink-0 bg-primary text-primary-foreground px-3 py-1.5 rounded-lg text-xs font-medium hover:opacity-90 flex items-center gap-1">
-                  <UserPlus className="h-3 w-3" /> Add
-                </button>
+                existingFriendIds.has(p.user_id) ? (
+                  <span className="text-[10px] text-muted-foreground">Added</span>
+                ) : (
+                  <button onClick={() => sendRequest(p.user_id)} className="shrink-0 bg-primary text-primary-foreground px-3 py-1.5 rounded-lg text-xs font-medium hover:opacity-90 flex items-center gap-1">
+                    <UserPlus className="h-3 w-3" /> Add
+                  </button>
+                )
               } />
             ))}
           </>
+        )}
+
+        {/* Suggested Tab */}
+        {tab === "suggested" && (
+          suggested.length === 0 ? (
+            <div className="text-center py-12 space-y-3">
+              <Sparkles className="h-12 w-12 text-muted-foreground/50 mx-auto" />
+              <p className="text-sm text-muted-foreground">No suggestions yet</p>
+              <p className="text-xs text-muted-foreground">As more users join and share their profiles, suggestions will appear here.</p>
+            </div>
+          ) : (
+            <>
+              <p className="text-xs text-muted-foreground mb-2">People with public profiles you might want to connect with</p>
+              {suggested.map(p => (
+                <UserCard key={p.user_id} profile={p} actions={
+                  existingFriendIds.has(p.user_id) ? (
+                    <span className="text-[10px] text-muted-foreground">Sent</span>
+                  ) : (
+                    <button onClick={() => sendRequest(p.user_id)} className="shrink-0 bg-primary text-primary-foreground px-3 py-1.5 rounded-lg text-xs font-medium hover:opacity-90 flex items-center gap-1">
+                      <UserPlus className="h-3 w-3" /> Add
+                    </button>
+                  )
+                } />
+              ))}
+            </>
+          )
         )}
 
         {/* Requests Tab */}
@@ -235,7 +301,7 @@ const FriendsPage = () => {
             <div className="text-center py-12 space-y-3">
               <Users className="h-12 w-12 text-muted-foreground/50 mx-auto" />
               <p className="text-sm text-muted-foreground">No friends yet</p>
-              <button onClick={() => setTab("search")} className="text-sm text-primary hover:underline">Find people to connect with</button>
+              <button onClick={() => setTab("suggested")} className="text-sm text-primary hover:underline">See suggested connections</button>
             </div>
           ) : friends.map(f => (
             <UserCard key={f.id} profile={f.profile} actions={

@@ -1967,6 +1967,60 @@ export type Database = {
         }
         Relationships: []
       }
+      user_settings: {
+        Row: {
+          astro_weight: number
+          astrocartography: boolean
+          combustion: boolean
+          created_at: string
+          house_system: string
+          id: string
+          market_weight: number
+          orb_size: string
+          reception_dignity: boolean
+          retrograde: boolean
+          stat_weight: number
+          travel_factors: boolean
+          updated_at: string
+          user_id: string
+          void_of_course: boolean
+        }
+        Insert: {
+          astro_weight?: number
+          astrocartography?: boolean
+          combustion?: boolean
+          created_at?: string
+          house_system?: string
+          id?: string
+          market_weight?: number
+          orb_size?: string
+          reception_dignity?: boolean
+          retrograde?: boolean
+          stat_weight?: number
+          travel_factors?: boolean
+          updated_at?: string
+          user_id: string
+          void_of_course?: boolean
+        }
+        Update: {
+          astro_weight?: number
+          astrocartography?: boolean
+          combustion?: boolean
+          created_at?: string
+          house_system?: string
+          id?: string
+          market_weight?: number
+          orb_size?: string
+          reception_dignity?: boolean
+          retrograde?: boolean
+          stat_weight?: number
+          travel_factors?: boolean
+          updated_at?: string
+          user_id?: string
+          void_of_course?: boolean
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
