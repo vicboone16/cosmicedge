@@ -8,131 +8,129 @@ const corsHeaders = {
 
 const AI_GATEWAY = "https://ai.gateway.lovable.dev/v1/chat/completions";
 
-const ASTRA_RESPONSE_TOOL = {
+const COSMIC_EDGE_TOOL = {
   type: "function",
   function: {
-    name: "astra_response",
-    description: "Return a structured Astra AI response with narrative, takeaways, confidence, volatility, and disclaimers.",
+    name: "cosmic_edge_response",
+    description: "Return a structured CosmicEdge response blending astro narrative with quant signals.",
     parameters: {
       type: "object",
-      required: ["mode", "query", "answer", "takeaways", "confidence", "volatility", "disclaimers"],
+      required: ["astro", "disclaimers"],
       additionalProperties: false,
       properties: {
-        mode: {
-          type: "string",
-          enum: ["astro_ai_chat", "glossary", "prop_explainer", "team_bets", "player_props"],
-        },
-        query: {
+        astro: {
           type: "object",
-          required: ["text", "category"],
+          required: ["answer", "takeaways", "confidence", "volatility"],
+          additionalProperties: false,
+          properties: {
+            answer: {
+              type: "object",
+              required: ["narrative", "summary", "tone"],
+              additionalProperties: false,
+              properties: {
+                narrative: { type: "string", description: "Cohesive conversational paragraph (5-10 sentences)." },
+                summary: { type: "string", description: "1-2 sentence TL;DR for cards." },
+                tone: { type: "string", enum: ["conversational", "direct", "clinical", "playful"] },
+              },
+            },
+            takeaways: {
+              type: "object",
+              required: ["strengtheners", "weakeners", "team_vs_player"],
+              additionalProperties: false,
+              properties: {
+                strengtheners: { type: "array", items: { $ref: "#/$defs/bullet" } },
+                weakeners: { type: "array", items: { $ref: "#/$defs/bullet" } },
+                team_vs_player: { type: "array", items: { $ref: "#/$defs/bullet" } },
+              },
+            },
+            confidence: { type: "string", enum: ["low", "medium", "high"] },
+            volatility: { type: "string", enum: ["low", "medium", "high"] },
+            follow_up_questions: { type: "array", maxItems: 2, items: { type: "string" } },
+          },
+        },
+        astro_signal: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            lean: { type: "string", enum: ["support", "fade", "neutral"] },
+            strength: { type: "string", enum: ["weak", "medium", "strong"] },
+          },
+        },
+        disclaimers: { type: "array", minItems: 1, items: { type: "string" } },
+      },
+      $defs: {
+        bullet: {
+          type: "object",
+          required: ["text"],
           additionalProperties: false,
           properties: {
             text: { type: "string" },
-            category: {
+            tag: {
               type: "string",
-              enum: ["placement_meaning", "transit_impact", "horary_rules", "astrocartography_factor", "betting_lens", "definition", "other"],
+              enum: ["transits", "natal", "aspects", "location", "chemistry", "role_usage", "matchup", "injury_news", "market", "stats", "other"],
             },
+            priority: { type: "integer", minimum: 1, maximum: 5 },
           },
-        },
-        answer: {
-          type: "object",
-          required: ["narrative", "tone"],
-          additionalProperties: false,
-          properties: {
-            narrative: { type: "string", description: "Single cohesive conversational paragraph (5-10 sentences). No source labels." },
-            tone: { type: "string", enum: ["conversational", "clinical", "playful", "direct"] },
-            summary: { type: "string", description: "Optional 1-2 sentence TL;DR." },
-          },
-        },
-        takeaways: {
-          type: "object",
-          required: ["strengtheners", "weakeners", "team_vs_player"],
-          additionalProperties: false,
-          properties: {
-            strengtheners: {
-              type: "array",
-              items: {
-                type: "object",
-                required: ["text"],
-                additionalProperties: false,
-                properties: {
-                  text: { type: "string" },
-                  tag: { type: "string", enum: ["transits", "natal", "aspects", "combustion", "injury_risk", "chemistry", "role_usage", "matchup", "location", "market", "other"] },
-                  priority: { type: "integer", minimum: 1, maximum: 5 },
-                },
-              },
-            },
-            weakeners: {
-              type: "array",
-              items: {
-                type: "object",
-                required: ["text"],
-                additionalProperties: false,
-                properties: {
-                  text: { type: "string" },
-                  tag: { type: "string", enum: ["transits", "natal", "aspects", "combustion", "injury_risk", "chemistry", "role_usage", "matchup", "location", "market", "other"] },
-                  priority: { type: "integer", minimum: 1, maximum: 5 },
-                },
-              },
-            },
-            team_vs_player: {
-              type: "array",
-              items: {
-                type: "object",
-                required: ["text"],
-                additionalProperties: false,
-                properties: {
-                  text: { type: "string" },
-                  tag: { type: "string", enum: ["transits", "natal", "aspects", "combustion", "injury_risk", "chemistry", "role_usage", "matchup", "location", "market", "other"] },
-                  priority: { type: "integer", minimum: 1, maximum: 5 },
-                },
-              },
-            },
-            actionable_next_steps: {
-              type: "array",
-              items: {
-                type: "object",
-                required: ["text"],
-                additionalProperties: false,
-                properties: {
-                  text: { type: "string" },
-                  tag: { type: "string", enum: ["transits", "natal", "aspects", "combustion", "injury_risk", "chemistry", "role_usage", "matchup", "location", "market", "other"] },
-                  priority: { type: "integer", minimum: 1, maximum: 5 },
-                },
-              },
-            },
-          },
-        },
-        confidence: {
-          type: "object",
-          required: ["level", "rationale"],
-          additionalProperties: false,
-          properties: {
-            level: { type: "string", enum: ["low", "medium", "high"] },
-            rationale: { type: "string" },
-          },
-        },
-        volatility: {
-          type: "object",
-          required: ["level", "rationale"],
-          additionalProperties: false,
-          properties: {
-            level: { type: "string", enum: ["low", "medium", "high"] },
-            rationale: { type: "string" },
-          },
-        },
-        disclaimers: {
-          type: "array",
-          items: { type: "string" },
-        },
-        follow_up_questions: {
-          type: "array",
-          items: { type: "string" },
         },
       },
     },
   },
 };
+
+// Build system prompt with quant context
+function buildSystemPrompt(quantData: any | null) {
+  let quantContext = "";
+  if (quantData?.quant?.models?.length) {
+    const models = quantData.quant.models;
+    const verdict = quantData.quant.verdict;
+    quantContext = `
+
+QUANT DATA (pre-computed statistical models for this game):
+${models.map((m: any) => `- ${m.model_id} (${m.scope}): ${m.summary} → Signal: ${m.signal?.direction} (${m.signal?.strength}, score=${m.signal?.score})`).join("\n")}
+
+QUANT VERDICT: Score=${verdict?.quant_score}, Edge=${verdict?.edge_assessment}
+Notes: ${verdict?.notes}
+
+MARKET: ${JSON.stringify(quantData.quant.market_snapshot)}
+
+When you have quant data, WEAVE statistical insights into your narrative naturally.
+For example: "The numbers back this up — eFG% is running at 54% over the last 5..." 
+Do NOT just list stats. Integrate them with the astrological read.
+If quant and astro signals conflict, acknowledge the tension and explain which you weigh more heavily.`;
+  }
+
+  return `You are Astra, a conversational astro-sports analyst who also reads statistical models.
+
+You synthesize astrological signals AND quantitative models into ONE cohesive answer.
+${quantContext}
+
+STYLE:
+- Warm, clear, conversational. No source labels like "Astrology API" or "AstroVisor."
+- No bullet-dumps as the main answer. Bullets come in structured takeaways.
+- If signals conflict, reconcile with conditional language.
+- Use probabilistic language, never absolutes.
+- When stats are available, reference them naturally in the narrative.
+
+LOGIC ORDER (highest weight first):
+1) "Today" factors: transits, aspects to key natal points, combust/afflictions
+2) Natal baseline: sign/house/aspects
+3) Statistical edge: quant models, efficiency, pace, matchup data
+4) Context: role on team, matchup, minutes/usage
+5) Location: astrocartography / venue
+6) Market: odds movement, lines, injury/news
+
+You MUST call the cosmic_edge_response function. The narrative should be 5-10 sentences covering:
+- Direct answer with both astro and stats perspective
+- How it shows up in performance (use specific stats if available)
+- Where it can backfire
+- What changes the call today
+- Betting lens
+- Bottom line
+
+The summary should be 1-2 sentences suitable for a compact card display.
+Include an astro_signal with lean (support/fade/neutral) and strength (weak/medium/strong).
+Always include at least one disclaimer about responsible gambling.`;
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -146,6 +144,7 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const {
       mode = "chart",
+      delivery_mode = "chat",
       chart_data,
       player_name,
       player2_name,
@@ -155,44 +154,11 @@ Deno.serve(async (req) => {
       transit_data,
       astrocarto_data,
       custom_prompt,
+      quant_data,
+      astro_weight = 0.5,
     } = body;
 
-    const systemPrompt = `You are Astra, a conversational astro-sports analyst.
-
-You receive structured astro signals from multiple engines that may overlap or conflict.
-Your job is to synthesize them into ONE cohesive answer for a non-astrologer.
-
-STYLE:
-- Warm, clear, conversational. No source labels like "Astrology API" or "AstroVisor."
-- No bullet-dumps as the main answer. Bullets come in structured takeaways.
-- If signals conflict, reconcile with conditional language ("can indicate X, but if Y then expect Z instead").
-- Avoid absolute claims. Use probabilistic language.
-
-LOGIC ORDER (highest weight first):
-1) "Today" factors: transits, aspects to key natal points, combust/afflictions
-2) Natal baseline: sign/house/aspects
-3) Context: role on team, matchup, minutes/usage, coaching tendencies
-4) Location: astrocartography / venue
-5) Market: odds movement, lines, injury/news
-
-INTERNAL RULES (never expose these in output):
-- If hard transit to Mars → downgrade "statement game," upgrade "tilt/injury/reckless" risk
-- If supportive transit to Mars → upgrade "big play / leadership / confidence"
-- If team chemistry unstable → steer user to props over team outcomes
-- Multiple engines may disagree — always unify into ONE voice
-
-You MUST call the astra_response function with your structured answer. The narrative should be 5-10 sentences covering:
-- Direct answer (what it generally means)
-- How it shows up in performance
-- Where it can backfire
-- What changes the call today (transits / aspects / location / role / matchup)
-- Betting lens (player props vs team outcome)
-- Bottom line
-
-Always include at least one disclaimer about responsible gambling.
-Always set tone to "conversational" unless context demands otherwise.
-Classify the query category accurately.`;
-
+    // Build user prompt based on mode
     let userPrompt = "";
 
     if (mode === "chart" && chart_data) {
@@ -217,7 +183,13 @@ Classify the query category accurately.`;
       throw new Error("Invalid mode or missing data");
     }
 
-    // Call Lovable AI with tool calling for structured output
+    // Add delivery mode instructions
+    if (delivery_mode === "trend_card" || delivery_mode === "prop_card") {
+      userPrompt += "\n\nIMPORTANT: This is for a compact card display. Keep the summary very concise (1-2 sentences max). Focus on the bottom line.";
+    }
+
+    const systemPrompt = buildSystemPrompt(quant_data);
+
     const aiResp = await fetch(AI_GATEWAY, {
       method: "POST",
       headers: {
@@ -230,9 +202,9 @@ Classify the query category accurately.`;
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
         ],
-        tools: [ASTRA_RESPONSE_TOOL],
-        tool_choice: { type: "function", function: { name: "astra_response" } },
-        max_tokens: 2000,
+        tools: [COSMIC_EDGE_TOOL],
+        tool_choice: { type: "function", function: { name: "cosmic_edge_response" } },
+        max_tokens: 2500,
         temperature: 0.7,
       }),
     });
@@ -240,7 +212,6 @@ Classify the query category accurately.`;
     if (!aiResp.ok) {
       const errText = await aiResp.text();
       console.error("AI Gateway error:", aiResp.status, errText);
-      
       if (aiResp.status === 429) {
         return new Response(JSON.stringify({ error: "Rate limit exceeded. Please try again shortly." }), {
           status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -255,36 +226,109 @@ Classify the query category accurately.`;
     }
 
     const aiResult = await aiResp.json();
-    
-    // Extract structured response from tool call
     const toolCall = aiResult.choices?.[0]?.message?.tool_calls?.[0];
+
     if (toolCall?.function?.arguments) {
-      let structured: any;
+      let aiOutput: any;
       try {
-        structured = typeof toolCall.function.arguments === "string"
+        aiOutput = typeof toolCall.function.arguments === "string"
           ? JSON.parse(toolCall.function.arguments)
           : toolCall.function.arguments;
       } catch {
         throw new Error("Failed to parse structured AI response");
       }
 
-      // Add version and original query text
+      // Build the full CosmicEdge response
+      const astroSignal = aiOutput.astro_signal || { lean: "neutral", strength: "weak" };
+      const quantSignals = quant_data?.signals?.quant || { lean: "neutral", edge: "no_edge" };
+
+      // Blend signals
+      const astroScore = astroSignal.lean === "support" ? 0.5 : astroSignal.lean === "fade" ? -0.5 : 0;
+      const strengthMult = astroSignal.strength === "strong" ? 1.5 : astroSignal.strength === "medium" ? 1.0 : 0.5;
+      const astroWeighted = astroScore * strengthMult;
+
+      const quantScore = quant_data?.quant?.verdict?.quant_score || 0;
+      const blendScore = astro_weight * astroWeighted + (1 - astro_weight) * quantScore;
+      const blendClamped = Math.max(-1, Math.min(1, blendScore));
+
+      let blendDecision = "neutral";
+      if (blendClamped > 0.25) blendDecision = "support";
+      else if (blendClamped < -0.25) blendDecision = "fade";
+      else if (Math.abs(blendClamped) > 0.1) blendDecision = "watchlist";
+
+      // Downgrade to watchlist if high volatility + thin edge
+      if (aiOutput.astro?.volatility === "high" && quantSignals.edge !== "clear_edge") {
+        blendDecision = "watchlist";
+      }
+
+      const blendConfidence = aiOutput.astro?.confidence || "medium";
+      const blendVolatility = aiOutput.astro?.volatility || "medium";
+
+      // Build explain string
+      let explain = "Astro and stats both weigh in.";
+      if (astro_weight > 0.6) explain = "Astro leads the read" + (quantScore > 0.15 ? ", quant confirms." : ".");
+      else if (astro_weight < 0.4) explain = "Stats lead" + (astroScore > 0 ? ", astro adds support." : ", astro adds volatility.");
+      else explain = astroSignal.lean === quantSignals.lean ? "Both lenses agree." : "Signals diverge — blend is cautious.";
+
+      // Determine category
+      let category = "other";
+      if (mode === "prop") category = "prop_eval";
+      else if (mode === "matchup") category = "team_eval";
+      else if (mode === "chart") category = "placement_meaning";
+      else if (mode === "transit") category = "transit_impact";
+      else if (mode === "astrocarto") category = "astrocartography_factor";
+      else if (mode === "election") category = "betting_lens";
+
       const response = {
-        version: "1.0",
-        ...structured,
-        query: {
-          ...structured.query,
-          text: custom_prompt || userPrompt.slice(0, 200),
+        version: "2.0",
+        delivery_mode,
+        context: {
+          query: {
+            text: custom_prompt || userPrompt.slice(0, 200),
+            category,
+          },
+          entities: {
+            ...(player_name && { player_name }),
+            ...(game_context?.home_team && { team_name: game_context.home_team }),
+            ...(game_context?.away_team && { opponent_name: game_context.away_team }),
+            ...(game_context?.venue && { venue: game_context.venue }),
+            ...(prop_context?.market && { market_type: prop_context.market }),
+          },
         },
+        astro: aiOutput.astro,
+        quant: quant_data?.quant || {
+          market_snapshot: { market_type: "other" },
+          models: [],
+          verdict: { quant_score: 0, edge_assessment: "no_edge", notes: "No quant data available" },
+        },
+        signals: {
+          astro: astroSignal,
+          quant: quantSignals,
+          blend: {
+            decision: blendDecision,
+            confidence: blendConfidence,
+            volatility: blendVolatility,
+            astro_weight_used: astro_weight,
+            explain,
+          },
+        },
+        preferences: {
+          emphasis: { astro_weight },
+          visibility: {
+            default_user: delivery_mode === "chat" ? "collapsed" : "summary_only",
+            admin: "expanded",
+          },
+        },
+        disclaimers: aiOutput.disclaimers || ["This is for entertainment purposes only. Always gamble responsibly."],
       };
 
       return new Response(
-        JSON.stringify({ success: true, structured: response, mode }),
+        JSON.stringify({ success: true, cosmic_edge: response, mode, delivery_mode }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Fallback: if tool calling didn't work, return raw text wrapped in legacy format
+    // Fallback for legacy
     const interpretation = aiResult.choices?.[0]?.message?.content || "Unable to generate interpretation.";
     return new Response(
       JSON.stringify({ success: true, interpretation, mode }),

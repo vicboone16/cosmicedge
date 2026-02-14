@@ -53,3 +53,6 @@ verify_jwt = false
 
 [functions.import-historical-csv]
 verify_jwt = false
+
+[functions.quant-engine]
+verify_jwt = false
