@@ -160,72 +160,109 @@ Deno.serve(async (req) => {
         );
       }
 
-      for (let i = 0; i < dataRows.length; i += BATCH) {
-        const batch = dataRows.slice(i, i + BATCH);
-        const records = batch.map((r) => {
-          const homeTeam = val(r, iHome) || "";
-          const awayTeam = val(r, iAway) || "";
-          const homeAbbrVal = val(r, iHomeAbbr) || abbr(homeTeam);
-          const awayAbbrVal = val(r, iAwayAbbr) || abbr(awayTeam);
+      // Pre-fetch all existing NBA games in the date range to match against
+      const allParsed = dataRows.map((r) => {
+        const homeTeam = val(r, iHome) || "";
+        const awayTeam = val(r, iAway) || "";
+        const homeAbbrVal = val(r, iHomeAbbr) || abbr(homeTeam);
+        const awayAbbrVal = val(r, iAwayAbbr) || abbr(awayTeam);
 
-          // Build start_time: combine date + time columns if separate
-          let startTimeStr = val(r, iDate) || new Date().toISOString();
-          // If we have a separate time column (start_time_et) and it's not the same as date
-          const iTime = findCol(headers, "StartTimeEt", "start_time_et", "StartTime");
-          if (iTime >= 0 && iTime !== iDate) {
-            const timeVal = val(r, iTime);
-            if (timeVal) {
-              // Combine date + time: "2025-10-21" + "19:30" or "7:30p"
-              let t = timeVal.replace(/[ap]$/i, (m: string) => ` ${m.toUpperCase()}M`);
-              startTimeStr = `${startTimeStr} ${t}`;
-            }
+        // Build start_time: combine date + time columns if separate
+        let startTimeStr = val(r, iDate) || new Date().toISOString();
+        const iTime = findCol(headers, "StartTimeEt", "start_time_et", "StartTime");
+        if (iTime >= 0 && iTime !== iDate) {
+          const timeVal = val(r, iTime);
+          if (timeVal) {
+            let t = timeVal.replace(/[ap]$/i, (m: string) => ` ${m.toUpperCase()}M`);
+            startTimeStr = `${startTimeStr} ${t}`;
           }
-          // Handle time suffixed with p/a (e.g., "10:00p")
-          startTimeStr = startTimeStr.replace(/(\d{1,2}:\d{2})p\b/gi, "$1 PM").replace(/(\d{1,2}:\d{2})a\b/gi, "$1 AM");
+        }
+        startTimeStr = startTimeStr.replace(/(\d{1,2}:\d{2})p\b/gi, "$1 PM").replace(/(\d{1,2}:\d{2})a\b/gi, "$1 AM");
 
-          let parsedDate: Date;
-          try { parsedDate = new Date(startTimeStr); } catch { parsedDate = new Date(); }
-          if (isNaN(parsedDate.getTime())) parsedDate = new Date();
+        // Parse as ET (US Eastern) - append timezone if it looks like a bare date+time
+        if (!startTimeStr.includes("Z") && !startTimeStr.includes("+") && !startTimeStr.includes("GMT")) {
+          startTimeStr = startTimeStr + " EST";
+        }
 
-          const statusVal = val(r, iStatus) || "Final";
-          const normalizedStatus = statusVal.toLowerCase().includes("final") || statusVal.toLowerCase() === "completed" ? "final" : statusVal.toLowerCase();
+        let parsedDate: Date;
+        try { parsedDate = new Date(startTimeStr); } catch { parsedDate = new Date(); }
+        if (isNaN(parsedDate.getTime())) {
+          // Try without timezone suffix as fallback
+          try { parsedDate = new Date(startTimeStr.replace(" EST", "")); } catch { parsedDate = new Date(); }
+        }
 
-          return {
-            league,
-            home_team: homeTeam,
-            away_team: awayTeam,
-            home_abbr: homeAbbrVal,
-            away_abbr: awayAbbrVal,
-            home_score: num(r, iHomeScore),
-            away_score: num(r, iAwayScore),
-            start_time: parsedDate.toISOString(),
-            venue: val(r, iVenue),
-            status: normalizedStatus,
-            source: "csv",
-            external_id: val(r, iGameId),
-          };
-        }).filter((r) => r.home_team && r.away_team);
+        const statusVal = val(r, iStatus) || "Final";
+        const normalizedStatus = statusVal.toLowerCase().includes("final") || statusVal.toLowerCase() === "completed" ? "final" : statusVal.toLowerCase();
 
-        const { data, error } = await supabase.from("games").upsert(records, {
-          onConflict: "league,home_team,away_team,start_time",
-          ignoreDuplicates: true,
-        }).select("id");
+        return {
+          league,
+          home_team: homeTeam,
+          away_team: awayTeam,
+          home_abbr: homeAbbrVal,
+          away_abbr: awayAbbrVal,
+          home_score: num(r, iHomeScore),
+          away_score: num(r, iAwayScore),
+          start_time: parsedDate.toISOString(),
+          venue: val(r, iVenue),
+          status: normalizedStatus,
+          source: "csv",
+          external_id: val(r, iGameId),
+        };
+      }).filter((r) => r.home_team && r.away_team);
 
-        if (error) {
-          // fallback: insert one by one
-          for (const rec of records) {
-            const { error: e2 } = await supabase.from("games").insert(rec);
-            if (e2) {
-              if (e2.code === "23505") rowsSkipped++;
-              else errors.push(`Row ${i}: ${e2.message}`);
-            } else {
-              rowsInserted++;
-            }
+      // Fetch existing games for the date range to match by team + date
+      const dates = allParsed.map(r => new Date(r.start_time));
+      const minDate = new Date(Math.min(...dates.map(d => d.getTime())));
+      const maxDate = new Date(Math.max(...dates.map(d => d.getTime())));
+      minDate.setDate(minDate.getDate() - 1);
+      maxDate.setDate(maxDate.getDate() + 1);
+
+      const { data: existingGames } = await supabase
+        .from("games")
+        .select("id, home_team, home_abbr, away_team, away_abbr, start_time, status, home_score")
+        .eq("league", league)
+        .gte("start_time", minDate.toISOString())
+        .lte("start_time", maxDate.toISOString());
+
+      // Build lookup: match by home_abbr + away_abbr + same calendar date (UTC)
+      const existingMap = new Map<string, any>();
+      for (const g of existingGames || []) {
+        const d = g.start_time.split("T")[0];
+        const key = `${g.home_abbr}_${g.away_abbr}_${d}`;
+        existingMap.set(key, g);
+      }
+
+      for (const rec of allParsed) {
+        const d = rec.start_time.split("T")[0];
+        const key = `${rec.home_abbr}_${rec.away_abbr}_${d}`;
+        const existing = existingMap.get(key);
+
+        if (existing) {
+          // Update existing game with scores and status
+          if (rec.home_score !== null || rec.away_score !== null) {
+            const { error: upErr } = await supabase.from("games").update({
+              home_score: rec.home_score,
+              away_score: rec.away_score,
+              status: rec.status,
+              venue: rec.venue || undefined,
+            }).eq("id", existing.id);
+            if (upErr) errors.push(`Update ${key}: ${upErr.message}`);
+            else rowsInserted++;
+          } else {
+            rowsSkipped++;
           }
         } else {
-          rowsInserted += data?.length || records.length;
+          // Insert new game
+          const { error: insErr } = await supabase.from("games").insert(rec);
+          if (insErr) {
+            if (insErr.code === "23505") rowsSkipped++;
+            else errors.push(`Insert ${key}: ${insErr.message}`);
+          } else {
+            rowsInserted++;
+          }
         }
       }
+
     } else if (dataType === "odds") {
       const iDate = findCol(headers, "DateTime", "Date", "Day", "GameDate");
       const iHome = findCol(headers, "HomeTeam", "Home");
