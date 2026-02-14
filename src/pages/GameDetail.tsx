@@ -16,6 +16,7 @@ import { PeriodOddsSection } from "@/components/game/PeriodOddsSection";
 import { HoraryChartSection } from "@/components/game/HoraryChartSection";
 import { AstrocartographySection } from "@/components/game/AstrocartographySection";
 import { TransitScrubber } from "@/components/game/TransitScrubber";
+import { AstraInsightsSection } from "@/components/game/AstraInsightsSection";
 import { GameChartRulers } from "@/components/game/GameChartRulers";
 import { GameMatchupTab } from "@/components/game/GameMatchupTab";
 import { TrackedPropsWidget } from "@/components/tracking/TrackedProps";
@@ -655,6 +656,20 @@ const GameDetail = () => {
                 </div>
               </div>
             </section>
+
+            {/* Astra AI Game Analysis */}
+            <AstraInsightsSection
+              gameId={game.id}
+              homeAbbr={game.home_abbr}
+              awayAbbr={game.away_abbr}
+              homeTeam={game.home_team}
+              awayTeam={game.away_team}
+              startTime={game.start_time}
+              venue={game.venue}
+              venueLat={game.venue_lat ?? null}
+              venueLng={game.venue_lng ?? null}
+              league={game.league}
+            />
 
             {/* Horary Chart Analysis */}
             <HoraryChartSection
