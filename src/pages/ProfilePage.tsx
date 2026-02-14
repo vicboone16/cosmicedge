@@ -4,6 +4,7 @@ import { User, Mail, Phone, Lock, Star, Eye, EyeOff, ChevronRight, LogOut, Users
 import { useAuth } from "@/hooks/use-auth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import { ProfileInputField } from "@/components/profile/ProfileInputField";
 
 const SIGNS = ["Aries","Taurus","Gemini","Cancer","Leo","Virgo","Libra","Scorpio","Sagittarius","Capricorn","Aquarius","Pisces"];
 
@@ -21,6 +22,20 @@ interface ProfileData {
   share_picks: boolean;
   avatar_url: string;
 }
+
+const SignSelect = ({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) => (
+  <div className="space-y-1.5">
+    <label className="text-xs font-medium text-muted-foreground">{label}</label>
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className="w-full px-3 py-2.5 rounded-xl bg-secondary border border-border text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+    >
+      <option value="">Select...</option>
+      {SIGNS.map(s => <option key={s} value={s}>{s}</option>)}
+    </select>
+  </div>
+);
 
 const ProfilePage = () => {
   const { user, signOut } = useAuth();
@@ -118,36 +133,6 @@ const ProfilePage = () => {
 
   if (loading) return <div className="min-h-screen flex items-center justify-center"><div className="animate-spin h-6 w-6 border-2 border-primary border-t-transparent rounded-full" /></div>;
 
-  const InputField = ({ icon: Icon, label, value, onChange, type = "text", placeholder = "" }: any) => (
-    <div className="space-y-1.5">
-      <label className="text-xs font-medium text-muted-foreground">{label}</label>
-      <div className="relative">
-        <Icon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <input
-          type={type}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder={placeholder}
-          className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-secondary border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
-        />
-      </div>
-    </div>
-  );
-
-  const SignSelect = ({ label, value, onChange }: any) => (
-    <div className="space-y-1.5">
-      <label className="text-xs font-medium text-muted-foreground">{label}</label>
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full px-3 py-2.5 rounded-xl bg-secondary border border-border text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
-      >
-        <option value="">Select...</option>
-        {SIGNS.map(s => <option key={s} value={s}>{s}</option>)}
-      </select>
-    </div>
-  );
-
   return (
     <div className="min-h-screen pb-24">
       <header className="px-4 pt-12 pb-4">
@@ -162,12 +147,12 @@ const ProfilePage = () => {
         {/* Account Info */}
         <div className="cosmic-card rounded-xl p-4 space-y-3">
           <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">Account</p>
-          <InputField icon={User} label="Username" value={profile.username} onChange={(v: string) => setProfile(p => ({ ...p, username: v.toLowerCase().replace(/[^a-z0-9_]/g, "") }))} placeholder="cosmicedge_user" />
+          <ProfileInputField icon={User} label="Username" value={profile.username} onChange={(v) => setProfile(p => ({ ...p, username: v.toLowerCase().replace(/[^a-z0-9_]/g, "") }))} placeholder="cosmicedge_user" />
           <div className="grid grid-cols-2 gap-3">
-            <InputField icon={User} label="First Name" value={profile.first_name} onChange={(v: string) => setProfile(p => ({ ...p, first_name: v }))} />
-            <InputField icon={User} label="Last Name" value={profile.last_name} onChange={(v: string) => setProfile(p => ({ ...p, last_name: v }))} />
+            <ProfileInputField icon={User} label="First Name" value={profile.first_name} onChange={(v) => setProfile(p => ({ ...p, first_name: v }))} />
+            <ProfileInputField icon={User} label="Last Name" value={profile.last_name} onChange={(v) => setProfile(p => ({ ...p, last_name: v }))} />
           </div>
-          <InputField icon={User} label="Display Name" value={profile.display_name} onChange={(v: string) => setProfile(p => ({ ...p, display_name: v }))} />
+          <ProfileInputField icon={User} label="Display Name" value={profile.display_name} onChange={(v) => setProfile(p => ({ ...p, display_name: v }))} />
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-muted-foreground">Email</label>
             <div className="relative">
@@ -175,7 +160,7 @@ const ProfilePage = () => {
               <input type="email" value={user?.email || ""} disabled className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-secondary/50 border border-border text-sm text-muted-foreground cursor-not-allowed" />
             </div>
           </div>
-          <InputField icon={Phone} label="Phone Number" value={profile.phone} onChange={(v: string) => setProfile(p => ({ ...p, phone: v }))} placeholder="+1 (555) 123-4567" type="tel" />
+          <ProfileInputField icon={Phone} label="Phone Number" value={profile.phone} onChange={(v) => setProfile(p => ({ ...p, phone: v }))} placeholder="+1 (555) 123-4567" type="tel" />
         </div>
 
         {/* Bio */}
@@ -198,9 +183,9 @@ const ProfilePage = () => {
             <Star className="h-4 w-4 text-cosmic-gold" />
           </div>
           <div className="grid grid-cols-3 gap-3">
-            <SignSelect label="☉ Sun" value={profile.sun_sign} onChange={(v: string) => setProfile(p => ({ ...p, sun_sign: v }))} />
-            <SignSelect label="☽ Moon" value={profile.moon_sign} onChange={(v: string) => setProfile(p => ({ ...p, moon_sign: v }))} />
-            <SignSelect label="⬆ Rising" value={profile.rising_sign} onChange={(v: string) => setProfile(p => ({ ...p, rising_sign: v }))} />
+            <SignSelect label="☉ Sun" value={profile.sun_sign} onChange={(v) => setProfile(p => ({ ...p, sun_sign: v }))} />
+            <SignSelect label="☽ Moon" value={profile.moon_sign} onChange={(v) => setProfile(p => ({ ...p, moon_sign: v }))} />
+            <SignSelect label="⬆ Rising" value={profile.rising_sign} onChange={(v) => setProfile(p => ({ ...p, rising_sign: v }))} />
           </div>
         </div>
 
@@ -257,8 +242,8 @@ const ProfilePage = () => {
           </button>
           {showPasswordChange && (
             <div className="space-y-3 pt-2">
-              <InputField icon={Lock} label="New Password" type="password" value={newPassword} onChange={setNewPassword} placeholder="••••••••" />
-              <InputField icon={Lock} label="Confirm Password" type="password" value={confirmPassword} onChange={setConfirmPassword} placeholder="••••••••" />
+              <ProfileInputField icon={Lock} label="New Password" type="password" value={newPassword} onChange={setNewPassword} placeholder="••••••••" />
+              <ProfileInputField icon={Lock} label="Confirm Password" type="password" value={confirmPassword} onChange={setConfirmPassword} placeholder="••••••••" />
               <button onClick={handlePasswordChange} className="w-full bg-secondary text-foreground font-medium py-2.5 rounded-xl hover:bg-accent transition-colors text-sm">
                 Update Password
               </button>
