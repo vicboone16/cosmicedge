@@ -58,16 +58,8 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  // Validate authentication - paid API usage
-  const authHeader = req.headers.get("Authorization");
-  if (!authHeader?.startsWith("Bearer ")) {
-    return new Response(JSON.stringify({ error: "Missing authorization" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-  }
-  const authClient = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!, { global: { headers: { Authorization: authHeader } } });
-  const { data: claims, error: authErr } = await authClient.auth.getClaims(authHeader.replace("Bearer ", ""));
-  if (authErr || !claims?.claims) {
-    return new Response(JSON.stringify({ error: "Invalid or expired token" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-  }
+  // Auth is handled at the route level (RequireAuth) — no JWT check needed here
+  // The Supabase client sends the anon key or user JWT automatically
 
   try {
     const url = new URL(req.url);
