@@ -121,6 +121,7 @@ Deno.serve(async (req) => {
     // Step 2: Process events → upsert games + store odds snapshots
     let gamesUpserted = 0;
     let snapshotsStored = 0;
+    let stateSnapshotsStored = 0;
 
     for (const event of events) {
       const eventLeague = event.leagueID || "";
@@ -182,12 +183,26 @@ Deno.serve(async (req) => {
       gamesUpserted++;
 
       // Update live scores if available
-      if (event.score) {
-        const homeScore = event.score?.home?.total ?? event.score?.home ?? null;
-        const awayScore = event.score?.away?.total ?? event.score?.away ?? null;
-        if (homeScore != null || awayScore != null) {
-          await supabase.from("games").update({ home_score: homeScore, away_score: awayScore }).eq("id", gameId);
-        }
+      // Update live scores + store game_state_snapshot for real-time tracking
+      const homeScore = event.score?.home?.total ?? event.score?.home ?? null;
+      const awayScore = event.score?.away?.total ?? event.score?.away ?? null;
+      if (homeScore != null || awayScore != null) {
+        await supabase.from("games").update({ home_score: homeScore, away_score: awayScore }).eq("id", gameId);
+      }
+
+      // Always store a game_state_snapshot for live games (enables real-time score timeline)
+      if (status === "live" || status === "final") {
+        const quarter = event.period?.current ?? event.quarter ?? null;
+        const clock = event.clock ?? event.time ?? null;
+        const { error: snapErr } = await supabase.from("game_state_snapshots").insert({
+          game_id: gameId,
+          status,
+          home_score: homeScore,
+          away_score: awayScore,
+          quarter: quarter ? String(quarter) : null,
+          clock: typeof clock === "string" ? clock : null,
+        });
+        if (!snapErr) stateSnapshotsStored++;
       }
 
       // Parse odds into snapshots
@@ -281,7 +296,8 @@ Deno.serve(async (req) => {
         feed,
         events_found: events.length,
         games_upserted: gamesUpserted,
-        snapshots_stored: snapshotsStored,
+        odds_snapshots_stored: snapshotsStored,
+        state_snapshots_stored: stateSnapshotsStored,
         fetched_at: new Date().toISOString(),
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
