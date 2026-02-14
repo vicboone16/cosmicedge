@@ -71,8 +71,8 @@ export function GameMatchupTab({
     { label: "Off Rtg", home: homeStat.off_rating, away: awayStat.off_rating },
     { label: "Def Rtg", home: homeStat.def_rating, away: awayStat.def_rating, lower: true },
     { label: "Pace", home: homeStat.pace, away: awayStat.pace },
-    { label: "FG%", home: homeStat.fg_pct ? (homeStat.fg_pct * 100).toFixed(1) : null, away: awayStat.fg_pct ? (awayStat.fg_pct * 100).toFixed(1) : null },
-    { label: "3P%", home: homeStat.three_pct ? (homeStat.three_pct * 100).toFixed(1) : null, away: awayStat.three_pct ? (awayStat.three_pct * 100).toFixed(1) : null },
+    { label: "FG%", home: homeStat.fg_pct?.toFixed(1) ?? null, away: awayStat.fg_pct?.toFixed(1) ?? null },
+    { label: "3P%", home: homeStat.three_pct?.toFixed(1) ?? null, away: awayStat.three_pct?.toFixed(1) ?? null },
   ] : [];
 
   return (
