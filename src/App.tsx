@@ -39,8 +39,8 @@ const App = () => (
         <BrowserRouter>
           <Routes>
             <Route element={<AppLayout />}>
-              {/* Slate (home) is public */}
-              <Route path="/" element={<Index />} />
+              {/* All routes require auth */}
+              <Route path="/" element={<RequireAuth><Index /></RequireAuth>} />
               {/* All other routes require auth */}
               <Route path="/game/:id" element={<RequireAuth><GameDetail /></RequireAuth>} />
               <Route path="/team/:abbr" element={<RequireAuth><TeamPage /></RequireAuth>} />
