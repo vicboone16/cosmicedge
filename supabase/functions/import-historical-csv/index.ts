@@ -142,13 +142,16 @@ Deno.serve(async (req) => {
     const BATCH = 200;
 
     if (dataType === "games") {
-      const iDate = findCol(headers, "DateTime", "Date", "Day", "GameDate", "StartTime");
-      const iHome = findCol(headers, "HomeTeam", "Home", "HomeTeamName");
-      const iAway = findCol(headers, "AwayTeam", "Away", "AwayTeamName", "Visitor");
-      const iHomeScore = findCol(headers, "HomeScore", "HomeTeamScore", "HomePoints", "HomePts");
-      const iAwayScore = findCol(headers, "AwayScore", "AwayTeamScore", "AwayPoints", "AwayPts", "VisitorScore");
-      const iVenue = findCol(headers, "Stadium", "StadiumName", "Venue", "Arena");
-      const iStatus = findCol(headers, "Status");
+      const iDate = findCol(headers, "DateTime", "Date", "Day", "GameDate", "StartTime", "StartTimeEt", "start_time_et");
+      const iHome = findCol(headers, "HomeTeam", "Home", "HomeTeamName", "home_team");
+      const iAway = findCol(headers, "AwayTeam", "Away", "AwayTeamName", "Visitor", "VisitorTeam", "visitor_team");
+      const iHomeAbbr = findCol(headers, "HomeAbbrev", "HomeAbbr", "home_abbrev", "home_abbr");
+      const iAwayAbbr = findCol(headers, "AwayAbbrev", "AwayAbbr", "VisitorAbbrev", "visitor_abbrev", "away_abbrev", "away_abbr");
+      const iHomeScore = findCol(headers, "HomeScore", "HomeTeamScore", "HomePoints", "HomePts", "home_pts");
+      const iAwayScore = findCol(headers, "AwayScore", "AwayTeamScore", "AwayPoints", "AwayPts", "VisitorScore", "VisitorPts", "visitor_pts");
+      const iVenue = findCol(headers, "Stadium", "StadiumName", "Venue", "Arena", "arena");
+      const iStatus = findCol(headers, "Status", "GameStatus", "game_status");
+      const iGameId = findCol(headers, "GameId", "game_id");
 
       if (iHome < 0 || iAway < 0) {
         return new Response(
@@ -162,19 +165,44 @@ Deno.serve(async (req) => {
         const records = batch.map((r) => {
           const homeTeam = val(r, iHome) || "";
           const awayTeam = val(r, iAway) || "";
-          const startTime = val(r, iDate) || new Date().toISOString();
+          const homeAbbrVal = val(r, iHomeAbbr) || abbr(homeTeam);
+          const awayAbbrVal = val(r, iAwayAbbr) || abbr(awayTeam);
+
+          // Build start_time: combine date + time columns if separate
+          let startTimeStr = val(r, iDate) || new Date().toISOString();
+          // If we have a separate time column (start_time_et) and it's not the same as date
+          const iTime = findCol(headers, "StartTimeEt", "start_time_et", "StartTime");
+          if (iTime >= 0 && iTime !== iDate) {
+            const timeVal = val(r, iTime);
+            if (timeVal) {
+              // Combine date + time: "2025-10-21" + "19:30" or "7:30p"
+              let t = timeVal.replace(/[ap]$/i, (m: string) => ` ${m.toUpperCase()}M`);
+              startTimeStr = `${startTimeStr} ${t}`;
+            }
+          }
+          // Handle time suffixed with p/a (e.g., "10:00p")
+          startTimeStr = startTimeStr.replace(/(\d{1,2}:\d{2})p\b/gi, "$1 PM").replace(/(\d{1,2}:\d{2})a\b/gi, "$1 AM");
+
+          let parsedDate: Date;
+          try { parsedDate = new Date(startTimeStr); } catch { parsedDate = new Date(); }
+          if (isNaN(parsedDate.getTime())) parsedDate = new Date();
+
+          const statusVal = val(r, iStatus) || "Final";
+          const normalizedStatus = statusVal.toLowerCase().includes("final") || statusVal.toLowerCase() === "completed" ? "final" : statusVal.toLowerCase();
+
           return {
             league,
             home_team: homeTeam,
             away_team: awayTeam,
-            home_abbr: abbr(homeTeam),
-            away_abbr: abbr(awayTeam),
+            home_abbr: homeAbbrVal,
+            away_abbr: awayAbbrVal,
             home_score: num(r, iHomeScore),
             away_score: num(r, iAwayScore),
-            start_time: new Date(startTime).toISOString(),
+            start_time: parsedDate.toISOString(),
             venue: val(r, iVenue),
-            status: val(r, iStatus) || "Final",
+            status: normalizedStatus,
             source: "csv",
+            external_id: val(r, iGameId),
           };
         }).filter((r) => r.home_team && r.away_team);
 
