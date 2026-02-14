@@ -216,17 +216,30 @@ async function fetchFromSportsGameOdds(apiKey: string, leagues: string[]): Promi
   const allGames: NormalizedGame[] = [];
   const leagueParam = leagues.join(",");
 
+  const fetchWithRetry = async (url: string, maxRetries = 2): Promise<Response | null> => {
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      const resp = await fetch(url, { headers: { "X-Api-Key": apiKey } });
+      if (resp.status === 429) {
+        const retryAfter = parseInt(resp.headers.get("retry-after") || "5", 10);
+        const waitMs = Math.min((retryAfter || 5) * 1000, 15000);
+        console.warn(`SGO 429 rate limit — waiting ${waitMs}ms (attempt ${attempt + 1}/${maxRetries + 1})`);
+        await new Promise(r => setTimeout(r, waitMs));
+        continue;
+      }
+      if (!resp.ok) {
+        console.error(`SGO API error: ${resp.status} ${await resp.text()}`);
+        return null;
+      }
+      return resp;
+    }
+    console.error("SGO API: max retries exceeded for rate limit");
+    return null;
+  };
+
   try {
     const url = `${SGO_API_BASE}/events?leagueID=${leagueParam}&oddsAvailable=true&finalized=false&limit=50`;
-
-    const resp = await fetch(url, {
-      headers: { "X-Api-Key": apiKey },
-    });
-
-    if (!resp.ok) {
-      console.error(`SGO API error: ${resp.status} ${await resp.text()}`);
-      return { games: [] };
-    }
+    const resp = await fetchWithRetry(url);
+    if (!resp) return { games: [] };
 
     const json = await resp.json();
     const events = json.data || [];
@@ -515,8 +528,9 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Fetch from SportsGameOdds
+    // Fetch from SportsGameOdds (throttle after previous provider)
     if (provider === "all" || provider === "sgo") {
+      if (provider === "all") await new Promise(r => setTimeout(r, 1500));
       const apiKey = Deno.env.get("SPORTSGAMEODDS_API_KEY");
       if (apiKey) {
         const result = await fetchFromSportsGameOdds(apiKey, leaguesList);
