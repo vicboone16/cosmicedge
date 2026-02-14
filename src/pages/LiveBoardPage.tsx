@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Zap, Pin, PinOff, Trash2, Star, TrendingUp, AlertTriangle, CheckCircle } from "lucide-react";
+import { Zap, Pin, PinOff, Trash2, Star, TrendingUp, AlertTriangle, CheckCircle, RefreshCw } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
@@ -8,6 +8,7 @@ import { format } from "date-fns";
 import type { Tables } from "@/integrations/supabase/types";
 import { useAuth } from "@/hooks/use-auth";
 import { TrackedPropsWidget } from "@/components/tracking/TrackedProps";
+import { toast } from "@/hooks/use-toast";
 
 type BetRow = Tables<"bets">;
 type LiveBoardItem = Tables<"live_board_items">;
@@ -67,6 +68,24 @@ const LiveBoardPage = () => {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const userId = user?.id ?? null;
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Subscribe to realtime score updates
+  useEffect(() => {
+    if (!userId) return;
+    const channel = supabase
+      .channel("live-scores")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "game_state_snapshots" },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["live-board"] });
+        }
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [userId, queryClient]);
 
   // Trigger edge function to refresh snapshots
   const triggerScoreRefresh = async () => {
@@ -166,11 +185,27 @@ const LiveBoardPage = () => {
   return (
     <div className="min-h-screen">
       <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-xl border-b border-border/50 px-4 pt-12 pb-3">
-        <div className="flex items-center gap-2">
-          <Zap className="h-5 w-5 text-primary" />
-          <h1 className="text-xl font-bold font-display">Live Board</h1>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Zap className="h-5 w-5 text-primary" />
+            <h1 className="text-xl font-bold font-display">Live Board</h1>
+          </div>
+          <button
+            onClick={async () => {
+              setRefreshing(true);
+              await triggerScoreRefresh();
+              queryClient.invalidateQueries({ queryKey: ["live-board"] });
+              toast({ title: "Scores refreshed" });
+              setTimeout(() => setRefreshing(false), 1000);
+            }}
+            disabled={refreshing}
+            className="p-2 rounded-lg bg-secondary hover:bg-accent transition-colors disabled:opacity-50"
+            aria-label="Refresh scores"
+          >
+            <RefreshCw className={cn("h-4 w-4 text-muted-foreground", refreshing && "animate-spin")} />
+          </button>
         </div>
-        <p className="text-xs text-muted-foreground mt-0.5">Live tracking initiated…</p>
+        <p className="text-xs text-muted-foreground mt-0.5">Real-time tracking • auto-updates</p>
         {liveItems && liveItems.length > 0 && (
           <div className="flex items-center gap-3 mt-2">
             <span className="text-[10px] text-cosmic-green font-semibold">

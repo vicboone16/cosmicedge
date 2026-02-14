@@ -2,6 +2,7 @@ import { Settings, Sliders, Star, MapPin, Shield, LogIn, LogOut, User, Globe, Up
 import { useAuth } from "@/hooks/use-auth";
 import { useTimezone } from "@/hooks/use-timezone";
 import { useIsAdmin } from "@/hooks/use-admin";
+import { useSettings } from "@/hooks/use-settings";
 import { useNavigate } from "react-router-dom";
 import { useState, useMemo, useRef } from "react";
 import {
@@ -18,27 +19,13 @@ const SettingsPage = () => {
   const navigate = useNavigate();
   const { userTimezone, updateTimezone } = useTimezone();
   const { isAdmin } = useIsAdmin();
+  const { settings, updateSettings } = useSettings();
   const [csvLeague, setCsvLeague] = useState("NBA");
   const [csvDataType, setCsvDataType] = useState("games");
   const [importing, setImporting] = useState(false);
   const [importProgress, setImportProgress] = useState(0);
   const fileRef = useRef<HTMLInputElement>(null);
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
-
-  // Settings state
-  const [statWeight, setStatWeight] = useState(40);
-  const [marketWeight, setMarketWeight] = useState(35);
-  const [astroWeight, setAstroWeight] = useState(25);
-  const [horaryRules, setHoraryRules] = useState({
-    voidOfCourse: true,
-    combustion: true,
-    retrograde: true,
-    receptionDignity: true,
-  });
-  const [houseSystem, setHouseSystem] = useState("Placidus");
-  const [orbSize, setOrbSize] = useState("standard");
-  const [travelFactors, setTravelFactors] = useState(true);
-  const [astrocarto, setAstrocarto] = useState(true);
 
   const timezones = useMemo(() => {
     try {
@@ -52,6 +39,10 @@ const SettingsPage = () => {
     setExpandedSection(prev => prev === key ? null : key);
   };
 
+  const saveSetting = (patch: Parameters<typeof updateSettings.mutate>[0]) => {
+    updateSettings.mutate(patch);
+  };
+
   const sections = [
     {
       key: "scoring",
@@ -61,18 +52,27 @@ const SettingsPage = () => {
       content: (
         <div className="space-y-4 pt-3">
           <div className="space-y-2">
-            <div className="flex justify-between text-xs"><span>Statistical</span><span className="text-primary font-medium">{statWeight}%</span></div>
-            <Slider value={[statWeight]} onValueChange={([v]) => { setStatWeight(v); setMarketWeight(Math.min(100 - v - astroWeight, 100 - v)); }} max={100} step={5} />
+            <div className="flex justify-between text-xs"><span>Statistical</span><span className="text-primary font-medium">{settings.stat_weight}%</span></div>
+            <Slider value={[settings.stat_weight]} onValueChange={([v]) => {
+              const newMarket = Math.min(100 - v - settings.astro_weight, 100 - v);
+              saveSetting({ stat_weight: v, market_weight: newMarket });
+            }} max={100} step={5} />
           </div>
           <div className="space-y-2">
-            <div className="flex justify-between text-xs"><span>Market / Odds</span><span className="text-primary font-medium">{marketWeight}%</span></div>
-            <Slider value={[marketWeight]} onValueChange={([v]) => { setMarketWeight(v); setAstroWeight(Math.max(0, 100 - statWeight - v)); }} max={100 - statWeight} step={5} />
+            <div className="flex justify-between text-xs"><span>Market / Odds</span><span className="text-primary font-medium">{settings.market_weight}%</span></div>
+            <Slider value={[settings.market_weight]} onValueChange={([v]) => {
+              const newAstro = Math.max(0, 100 - settings.stat_weight - v);
+              saveSetting({ market_weight: v, astro_weight: newAstro });
+            }} max={100 - settings.stat_weight} step={5} />
           </div>
           <div className="space-y-2">
-            <div className="flex justify-between text-xs"><span>Astrological</span><span className="text-primary font-medium">{astroWeight}%</span></div>
-            <Slider value={[astroWeight]} onValueChange={([v]) => { setAstroWeight(v); setMarketWeight(Math.max(0, 100 - statWeight - v)); }} max={100 - statWeight} step={5} />
+            <div className="flex justify-between text-xs"><span>Astrological</span><span className="text-primary font-medium">{settings.astro_weight}%</span></div>
+            <Slider value={[settings.astro_weight]} onValueChange={([v]) => {
+              const newMarket = Math.max(0, 100 - settings.stat_weight - v);
+              saveSetting({ astro_weight: v, market_weight: newMarket });
+            }} max={100 - settings.stat_weight} step={5} />
           </div>
-          <p className="text-[10px] text-muted-foreground text-center">Total: {statWeight + marketWeight + astroWeight}%</p>
+          <p className="text-[10px] text-muted-foreground text-center">Total: {settings.stat_weight + settings.market_weight + settings.astro_weight}%</p>
         </div>
       ),
     },
@@ -84,16 +84,16 @@ const SettingsPage = () => {
       content: (
         <div className="space-y-3 pt-3">
           {([
-            { key: "voidOfCourse", label: "Void of Course Moon" },
-            { key: "combustion", label: "Combustion (within 8° of Sun)" },
-            { key: "retrograde", label: "Retrograde significators" },
-            { key: "receptionDignity", label: "Reception & Essential Dignity" },
-          ] as const).map(rule => (
+            { key: "void_of_course" as const, label: "Void of Course Moon" },
+            { key: "combustion" as const, label: "Combustion (within 8° of Sun)" },
+            { key: "retrograde" as const, label: "Retrograde significators" },
+            { key: "reception_dignity" as const, label: "Reception & Essential Dignity" },
+          ]).map(rule => (
             <div key={rule.key} className="flex items-center justify-between">
               <span className="text-sm">{rule.label}</span>
               <Switch
-                checked={horaryRules[rule.key]}
-                onCheckedChange={(v) => setHoraryRules(prev => ({ ...prev, [rule.key]: v }))}
+                checked={settings[rule.key]}
+                onCheckedChange={(v) => saveSetting({ [rule.key]: v })}
               />
             </div>
           ))}
@@ -109,7 +109,7 @@ const SettingsPage = () => {
         <div className="space-y-3 pt-3">
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-muted-foreground">House System</label>
-            <Select value={houseSystem} onValueChange={setHouseSystem}>
+            <Select value={settings.house_system} onValueChange={(v) => saveSetting({ house_system: v })}>
               <SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {["Placidus", "Whole Sign", "Koch", "Equal", "Regiomontanus", "Campanus"].map(s => (
@@ -120,7 +120,7 @@ const SettingsPage = () => {
           </div>
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-muted-foreground">Orb Sizes</label>
-            <Select value={orbSize} onValueChange={setOrbSize}>
+            <Select value={settings.orb_size} onValueChange={(v) => saveSetting({ orb_size: v })}>
               <SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="tight" className="text-xs">Tight (±3°)</SelectItem>
@@ -141,11 +141,11 @@ const SettingsPage = () => {
         <div className="space-y-3 pt-3">
           <div className="flex items-center justify-between">
             <span className="text-sm">Include travel factors</span>
-            <Switch checked={travelFactors} onCheckedChange={setTravelFactors} />
+            <Switch checked={settings.travel_factors} onCheckedChange={(v) => saveSetting({ travel_factors: v })} />
           </div>
           <div className="flex items-center justify-between">
             <span className="text-sm">Astrocartography overlay</span>
-            <Switch checked={astrocarto} onCheckedChange={setAstrocarto} />
+            <Switch checked={settings.astrocartography} onCheckedChange={(v) => saveSetting({ astrocartography: v })} />
           </div>
           <p className="text-[10px] text-muted-foreground">When enabled, predictions factor in team travel distance, time zone shifts, and planetary lines crossing the venue.</p>
         </div>
