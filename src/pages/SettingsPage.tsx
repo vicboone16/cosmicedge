@@ -40,7 +40,14 @@ const SettingsPage = () => {
   };
 
   const saveSetting = (patch: Parameters<typeof updateSettings.mutate>[0]) => {
-    updateSettings.mutate(patch);
+    updateSettings.mutate(patch, {
+      onSuccess: () => {
+        toast({ title: "Saved", description: "Your settings have been updated." });
+      },
+      onError: (err: any) => {
+        toast({ title: "Save failed", description: err.message, variant: "destructive" });
+      },
+    });
   };
 
   const sections = [
