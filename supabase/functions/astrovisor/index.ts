@@ -215,7 +215,7 @@ Deno.serve(async (req) => {
     }
 
     let result: any = null;
-    let expiresIn = 24 * 60 * 60 * 1000;
+    let expiresIn = 24 * 60 * 60 * 1000; // default 24h
 
     if (mode === "natal") {
       const resp = await fetch(`${ASTROVISOR_BASE}/api/v1/natal/chart`, {
@@ -234,7 +234,7 @@ Deno.serve(async (req) => {
 
       if (!resp.ok) throw new Error(`AstroVisor natal error: ${resp.status} ${await resp.text()}`);
       result = await resp.json();
-      expiresIn = 365 * 24 * 60 * 60 * 1000;
+      expiresIn = 10 * 365 * 24 * 60 * 60 * 1000; // natal never changes
 
     } else if (mode === "transits") {
       const resp = await fetch(`${ASTROVISOR_BASE}/api/v1/transits/calculate`, {
@@ -257,7 +257,7 @@ Deno.serve(async (req) => {
 
       if (!resp.ok) throw new Error(`AstroVisor transits error: ${resp.status} ${await resp.text()}`);
       result = await resp.json();
-      expiresIn = 6 * 60 * 60 * 1000;
+      expiresIn = 24 * 60 * 60 * 1000; // transits valid for the full day
 
     } else if (mode === "synastry" && entity2Id) {
       const birthData2 = await getBirthData(entity2Id, entityType);
@@ -292,7 +292,7 @@ Deno.serve(async (req) => {
 
       if (!resp.ok) throw new Error(`AstroVisor synastry error: ${resp.status} ${await resp.text()}`);
       result = await resp.json();
-      expiresIn = 365 * 24 * 60 * 60 * 1000;
+      expiresIn = 10 * 365 * 24 * 60 * 60 * 1000; // synastry between same two people never changes
 
     } else if (mode === "progressions") {
       const resp = await fetch(`${ASTROVISOR_BASE}/api/v1/progressions/secondary`, {
@@ -312,7 +312,7 @@ Deno.serve(async (req) => {
 
       if (!resp.ok) throw new Error(`AstroVisor progressions error: ${resp.status} ${await resp.text()}`);
       result = await resp.json();
-      expiresIn = 24 * 60 * 60 * 1000;
+      expiresIn = 7 * 24 * 60 * 60 * 1000; // progressions change very slowly
 
     }
 
