@@ -70,7 +70,7 @@ function getPlayerProps(stats: any, element: string) {
     { stat: "AST", baseline: stats.assists_per_game, label: "Assists" },
     { stat: "STL", baseline: stats.steals_per_game, label: "Steals" },
     { stat: "BLK", baseline: stats.blocks_per_game, label: "Blocks" },
-    { stat: "3P%", baseline: stats.three_pct ? stats.three_pct * 100 : null, label: "3PT %" },
+    { stat: "3P%", baseline: stats.three_pct ?? null, label: "3PT %" },
   ].filter(p => p.baseline != null);
   return props.map(p => {
     const mod = mods.find(m => m.stat === p.stat);
@@ -363,8 +363,8 @@ const PlayerPage = () => {
               </button>
             ))}
 
-            {/* Opponent filter */}
-            {opponent && (
+            {/* Opponent filter - only show when game logs exist */}
+            {opponent && gameLogs && gameLogs.length > 0 && (
               <button
                 onClick={() => setShowOpponent(!showOpponent)}
                 className={cn(
@@ -378,48 +378,49 @@ const PlayerPage = () => {
             )}
           </div>
 
-          {statsTab === "stats" && avgStats && (
+          {statsTab === "stats" && (
             <div className="grid grid-cols-4 gap-2">
-              {[
-                { label: "PTS", val: avgStats.pts },
-                { label: "REB", val: avgStats.reb },
-                { label: "AST", val: avgStats.ast },
-                { label: "FG%", val: avgStats.fgPct },
-                { label: "3P%", val: avgStats.threePct },
-                { label: "STL", val: avgStats.stl },
-                { label: "BLK", val: avgStats.blk },
-                { label: "MIN", val: avgStats.min },
-              ].map(({ label, val }) => (
-                <div key={label} className="cosmic-card rounded-xl p-2.5 text-center">
-                  <p className="text-[10px] text-muted-foreground uppercase">{label}</p>
-                  <p className="text-sm font-semibold mt-0.5 tabular-nums">{val ?? "—"}</p>
-                </div>
-              ))}
+              {(() => {
+                // Use game log averages if available, otherwise fall back to season stats
+                const useGameLogs = avgStats && avgStats.games > 0;
+                const stats = useGameLogs
+                  ? [
+                      { label: "PTS", val: avgStats.pts },
+                      { label: "REB", val: avgStats.reb },
+                      { label: "AST", val: avgStats.ast },
+                      { label: "FG%", val: avgStats.fgPct },
+                      { label: "3P%", val: avgStats.threePct },
+                      { label: "STL", val: avgStats.stl },
+                      { label: "BLK", val: avgStats.blk },
+                      { label: "MIN", val: avgStats.min },
+                    ]
+                  : seasonStats
+                  ? [
+                      { label: "PTS", val: seasonStats.points_per_game },
+                      { label: "REB", val: seasonStats.rebounds_per_game },
+                      { label: "AST", val: seasonStats.assists_per_game },
+                      { label: "FG%", val: seasonStats.fg_pct != null ? seasonStats.fg_pct.toFixed(1) : null },
+                      { label: "3P%", val: seasonStats.three_pct != null ? seasonStats.three_pct.toFixed(1) : null },
+                      { label: "STL", val: seasonStats.steals_per_game },
+                      { label: "BLK", val: seasonStats.blocks_per_game },
+                      { label: "MIN", val: seasonStats.minutes_per_game },
+                    ]
+                  : [];
+                return stats.map(({ label, val }) => (
+                  <div key={label} className="cosmic-card rounded-xl p-2.5 text-center">
+                    <p className="text-[10px] text-muted-foreground uppercase">{label}</p>
+                    <p className="text-sm font-semibold mt-0.5 tabular-nums">{val ?? "—"}</p>
+                  </div>
+                ));
+              })()}
               <div className="col-span-4 text-center">
                 <p className="text-[10px] text-muted-foreground">
-                  {showOpponent ? `${avgStats.games} games vs ${opponent}` : `${avgStats.games} game${avgStats.games !== 1 ? "s" : ""} sample`}
+                  {avgStats && avgStats.games > 0
+                    ? showOpponent ? `${avgStats.games} games vs ${opponent}` : `${avgStats.games} game${avgStats.games !== 1 ? "s" : ""} sample`
+                    : seasonStats ? "Season averages · Box scores not yet imported" : "No stats available"
+                  }
                 </p>
               </div>
-            </div>
-          )}
-
-          {statsTab === "stats" && !avgStats && seasonStats && (
-            <div className="grid grid-cols-4 gap-2">
-              {[
-                { label: "PTS", val: seasonStats.points_per_game },
-                { label: "REB", val: seasonStats.rebounds_per_game },
-                { label: "AST", val: seasonStats.assists_per_game },
-                { label: "FG%", val: seasonStats.fg_pct ? (seasonStats.fg_pct * 100).toFixed(1) : null },
-                { label: "3P%", val: seasonStats.three_pct ? (seasonStats.three_pct * 100).toFixed(1) : null },
-                { label: "STL", val: seasonStats.steals_per_game },
-                { label: "BLK", val: seasonStats.blocks_per_game },
-                { label: "MIN", val: seasonStats.minutes_per_game },
-              ].map(({ label, val }) => (
-                <div key={label} className="cosmic-card rounded-xl p-2.5 text-center">
-                  <p className="text-[10px] text-muted-foreground uppercase">{label}</p>
-                  <p className="text-sm font-semibold mt-0.5 tabular-nums">{val ?? "—"}</p>
-                </div>
-              ))}
             </div>
           )}
 
