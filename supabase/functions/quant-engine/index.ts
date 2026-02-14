@@ -6,51 +6,66 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-/* ── Utility Functions ── */
+/* ══════════════════════════════════════════════════════════
+   NBA METRIC REGISTRY — market profile weights per model
+   ══════════════════════════════════════════════════════════ */
+
+const MARKET_WEIGHTS: Record<string, Record<string, number>> = {
+  four_factors:     { moneyline: 0.30, spread: 0.30, total: 0.25, team_total: 0.25, player_prop: 0.05 },
+  pace:             { moneyline: 0.10, spread: 0.10, total: 0.25, team_total: 0.20, player_prop: 0.15 },
+  efficiency:       { moneyline: 0.30, spread: 0.35, total: 0.15, team_total: 0.20, player_prop: 0.05 },
+  log5:             { moneyline: 0.25, spread: 0.10, total: 0.00, team_total: 0.00, player_prop: 0.00 },
+  pythag_expectation: { moneyline: 0.15, spread: 0.10, total: 0.00, team_total: 0.00, player_prop: 0.00 },
+  net_rating:       { moneyline: 0.20, spread: 0.25, total: 0.10, team_total: 0.15, player_prop: 0.05 },
+  game_score:       { moneyline: 0.05, spread: 0.05, total: 0.05, team_total: 0.05, player_prop: 0.20 },
+  usage:            { moneyline: 0.00, spread: 0.05, total: 0.10, team_total: 0.10, player_prop: 0.30 },
+  ppp:              { moneyline: 0.00, spread: 0.05, total: 0.10, team_total: 0.10, player_prop: 0.20 },
+  points_per_shot:  { moneyline: 0.00, spread: 0.00, total: 0.05, team_total: 0.05, player_prop: 0.15 },
+  plus_minus:       { moneyline: 0.05, spread: 0.05, total: 0.00, team_total: 0.00, player_prop: 0.10 },
+};
+
+/* NBA league baselines (2024-25 season averages) */
+const NBA_BASELINES: Record<string, { mean: number; std: number }> = {
+  efg:        { mean: 0.534, std: 0.025 },
+  tov_rate:   { mean: 0.128, std: 0.015 },
+  orb_rate:   { mean: 0.255, std: 0.030 },
+  ft_rate:    { mean: 0.195, std: 0.030 },
+  pace:       { mean: 100.0, std: 3.5 },
+  ortg:       { mean: 113.5, std: 4.5 },
+  drtg:       { mean: 113.5, std: 4.5 },
+  net_rating: { mean: 0.0,   std: 5.0 },
+  game_score: { mean: 10.0,  std: 8.0 },
+  usg_rate:   { mean: 20.0,  std: 5.0 },
+  ppp:        { mean: 1.05,  std: 0.15 },
+  pps:        { mean: 1.20,  std: 0.18 },
+  plus_minus: { mean: 0.0,   std: 8.0 },
+  win_pct:    { mean: 0.500, std: 0.120 },
+};
+
+/* ══════════════════════════════════════════════════════════
+   SHARED UTILITIES
+   ══════════════════════════════════════════════════════════ */
 
 function estimatePossessions(fga: number, fta: number, orb: number, tov: number): number {
   return fga + 0.44 * fta - orb + tov;
 }
 
-/* ── Team Models ── */
-
-function computeFourFactors(team: any, opp: any) {
-  const fga = team.fg_attempted || 1;
-  const tpm = team.three_made || 0;
-  const fgm = team.fg_made || 0;
-  const fta = team.ft_attempted || 0;
-  const ftm = team.ft_made || 0;
-  const tov = team.turnovers || 0;
-  const orb = team.off_rebounds || 0;
-  const drb = opp.def_rebounds || opp.rebounds ? (opp.rebounds || 0) - (opp.off_rebounds || 0) : 20;
-
-  const efg = (fgm + 0.5 * tpm) / fga;
-  const tovRate = tov / (fga + 0.44 * fta + tov || 1);
-  const orbRate = orb / (orb + drb || 1);
-  const ftRate = ftm / (fga || 1);
-
-  return {
-    model_id: "four_factors",
-    scope: "team",
-    metrics: [
-      { name: "eFG%", value: +(efg * 100).toFixed(1), unit: "%" },
-      { name: "TOV%", value: +(tovRate * 100).toFixed(1), unit: "%" },
-      { name: "ORB%", value: +(orbRate * 100).toFixed(1), unit: "%" },
-      { name: "FT Rate", value: +(ftRate * 100).toFixed(1), unit: "%" },
-    ],
-    signal: scoreFromFourFactors(efg, tovRate, orbRate, ftRate),
-    summary: `eFG ${(efg * 100).toFixed(1)}%, TOV ${(tovRate * 100).toFixed(1)}%, ORB ${(orbRate * 100).toFixed(1)}%`,
-  };
+function oddsToImpliedProb(odds: number): number {
+  if (odds < 0) return Math.abs(odds) / (Math.abs(odds) + 100);
+  return 100 / (odds + 100);
 }
 
-function scoreFromFourFactors(efg: number, tov: number, orb: number, ft: number) {
-  // Score based on how good each factor is relative to league avg
-  let s = 0;
-  s += (efg - 0.50) * 4; // eFG above 50% is good
-  s += (0.14 - tov) * 3; // TOV below 14% is good
-  s += (orb - 0.25) * 3; // ORB above 25% is good
-  s += (ft - 0.20) * 2; // FT rate above 20% is good
-  const clamped = Math.max(-1, Math.min(1, s));
+/** z-score → tanh squash to [-1, 1] */
+function normalizeMetric(value: number, baselineKey: string): number {
+  const b = NBA_BASELINES[baselineKey];
+  if (!b || b.std === 0) return 0;
+  const z = (value - b.mean) / b.std;
+  return Math.tanh(z);
+}
+
+/** Convert raw score to signal object */
+function toSignal(score: number): { direction: string; strength: string; score: number } {
+  const clamped = Math.max(-1, Math.min(1, score));
   return {
     direction: clamped > 0.15 ? "supports" : clamped < -0.15 ? "conflicts" : "neutral",
     strength: Math.abs(clamped) > 0.5 ? "strong" : Math.abs(clamped) > 0.2 ? "medium" : "weak",
@@ -58,8 +73,72 @@ function scoreFromFourFactors(efg: number, tov: number, orb: number, ft: number)
   };
 }
 
-function computeEfficiency(team: any, opp: any) {
-  const poss = estimatePossessions(
+/** Average an array of stat objects over numeric keys */
+function avgStats(stats: any[], keys: string[]): any | null {
+  if (!stats.length) return null;
+  const avg: any = {};
+  keys.forEach(k => {
+    avg[k] = stats.reduce((s, r) => s + (r[k] || 0), 0) / stats.length;
+  });
+  avg.minutes = 240; // NBA regulation team minutes
+  avg.def_rebounds = (avg.rebounds || 0) - (avg.off_rebounds || 0);
+  return avg;
+}
+
+const TEAM_STAT_KEYS = [
+  "fg_made", "fg_attempted", "three_made", "three_attempted",
+  "ft_made", "ft_attempted", "off_rebounds", "def_rebounds",
+  "rebounds", "assists", "steals", "blocks", "turnovers", "fouls", "points",
+  "pace", "possessions",
+];
+
+const PLAYER_STAT_KEYS = [
+  "minutes", "points", "fg_made", "fg_attempted", "three_made", "three_attempted",
+  "ft_made", "ft_attempted", "off_rebounds", "def_rebounds", "rebounds",
+  "assists", "steals", "blocks", "turnovers", "fouls", "plus_minus",
+];
+
+/* ══════════════════════════════════════════════════════════
+   TEAM MODELS
+   ══════════════════════════════════════════════════════════ */
+
+function computeFourFactors(team: any, opp: any, window: string) {
+  const fga = team.fg_attempted || 1;
+  const fgm = team.fg_made || 0;
+  const tpm = team.three_made || 0;
+  const fta = team.ft_attempted || 0;
+  const ftm = team.ft_made || 0;
+  const tov = team.turnovers || 0;
+  const orb = team.off_rebounds || 0;
+  const oppDrb = opp.def_rebounds || ((opp.rebounds || 0) - (opp.off_rebounds || 0)) || 20;
+
+  const efg = (fgm + 0.5 * tpm) / fga;
+  const tovRate = tov / (fga + 0.44 * fta + tov || 1);
+  const orbRate = orb / ((orb + oppDrb) || 1);
+  const ftRate = ftm / (fga || 1);
+
+  // Composite: weighted z-score blend (Dean Oliver weights: 40/25/20/15)
+  const composite = 0.40 * normalizeMetric(efg, "efg")
+                   + 0.25 * -normalizeMetric(tovRate, "tov_rate") // lower TOV is better
+                   + 0.20 * normalizeMetric(orbRate, "orb_rate")
+                   + 0.15 * normalizeMetric(ftRate, "ft_rate");
+
+  return {
+    model_id: "four_factors",
+    scope: "team",
+    metrics: [
+      { name: "eFG%", value: +(efg * 100).toFixed(1), unit: "%", window },
+      { name: "TOV%", value: +(tovRate * 100).toFixed(1), unit: "%", window },
+      { name: "ORB%", value: +(orbRate * 100).toFixed(1), unit: "%", window },
+      { name: "FT Rate", value: +(ftRate * 100).toFixed(1), unit: "%", window },
+    ],
+    signal: toSignal(composite),
+    summary: `eFG ${(efg * 100).toFixed(1)}%, TOV ${(tovRate * 100).toFixed(1)}%, ORB ${(orbRate * 100).toFixed(1)}%`,
+  };
+}
+
+function computeEfficiency(team: any, opp: any, window: string) {
+  const teamPoss = estimatePossessions(
     team.fg_attempted || 80, team.ft_attempted || 20,
     team.off_rebounds || 10, team.turnovers || 14
   );
@@ -70,31 +149,27 @@ function computeEfficiency(team: any, opp: any) {
   const pts = team.points || 100;
   const oppPts = opp.points || 100;
 
-  const ortg = (pts / (poss || 1)) * 100;
+  const ortg = (pts / (teamPoss || 1)) * 100;
   const drtg = (oppPts / (oppPoss || 1)) * 100;
   const net = ortg - drtg;
 
-  const score = Math.max(-1, Math.min(1, net / 15));
+  const score = normalizeMetric(net, "net_rating");
 
   return {
-    model_id: "ortg_drtg",
+    model_id: "efficiency",
     scope: "team",
     metrics: [
-      { name: "ORtg", value: +ortg.toFixed(1) },
-      { name: "DRtg", value: +drtg.toFixed(1) },
-      { name: "Net", value: +net.toFixed(1) },
+      { name: "ORtg", value: +ortg.toFixed(1), window },
+      { name: "DRtg", value: +drtg.toFixed(1), window },
+      { name: "Net", value: +net.toFixed(1), window },
     ],
-    signal: {
-      direction: score > 0.15 ? "supports" : score < -0.15 ? "conflicts" : "neutral",
-      strength: Math.abs(score) > 0.5 ? "strong" : Math.abs(score) > 0.2 ? "medium" : "weak",
-      score: +score.toFixed(3),
-    },
+    signal: toSignal(score),
     summary: `ORtg ${ortg.toFixed(1)}, DRtg ${drtg.toFixed(1)}, Net ${net > 0 ? "+" : ""}${net.toFixed(1)}`,
   };
 }
 
-function computePace(team: any, opp: any) {
-  const poss = estimatePossessions(
+function computePace(team: any, opp: any, window: string) {
+  const teamPoss = estimatePossessions(
     team.fg_attempted || 80, team.ft_attempted || 20,
     team.off_rebounds || 10, team.turnovers || 14
   );
@@ -102,156 +177,70 @@ function computePace(team: any, opp: any) {
     opp.fg_attempted || 80, opp.ft_attempted || 20,
     opp.off_rebounds || 10, opp.turnovers || 14
   );
-  const pace = (poss + oppPoss) / 2;
-  const leagueAvgPace = 100;
-  const diff = pace - leagueAvgPace;
-  const score = Math.max(-1, Math.min(1, diff / 15));
+  const teamMin = team.minutes || 240;
+  const pace = 48 * ((teamPoss + oppPoss) / 2) / (teamMin / 5);
+  const score = normalizeMetric(pace, "pace");
 
   return {
     model_id: "pace",
     scope: "team",
     metrics: [
-      { name: "Pace", value: +pace.toFixed(1), unit: "poss/game" },
-      { name: "vs League Avg", value: +(diff).toFixed(1) },
+      { name: "Pace", value: +pace.toFixed(1), unit: "poss/game", window },
+      { name: "vs League Avg", value: +(pace - NBA_BASELINES.pace.mean).toFixed(1), window },
     ],
-    signal: {
-      direction: "neutral" as const,
-      strength: Math.abs(score) > 0.5 ? "strong" : Math.abs(score) > 0.2 ? "medium" : "weak",
-      score: +score.toFixed(3),
-    },
-    summary: `Pace ${pace.toFixed(1)} (${diff > 0 ? "+" : ""}${diff.toFixed(1)} vs avg)`,
+    signal: { ...toSignal(score), direction: "neutral" as string }, // pace isn't inherently good/bad
+    summary: `Pace ${pace.toFixed(1)} (${pace > NBA_BASELINES.pace.mean ? "+" : ""}${(pace - NBA_BASELINES.pace.mean).toFixed(1)} vs avg)`,
   };
 }
 
 function computeNetRating(seasonStats: any) {
   if (!seasonStats) return null;
-  const net = (seasonStats.net_rating ?? seasonStats.off_rating ?? 0) - (seasonStats.def_rating ?? 0);
-  const actualNet = seasonStats.net_rating ?? net;
-  const score = Math.max(-1, Math.min(1, actualNet / 10));
+  const net = seasonStats.net_rating ?? ((seasonStats.off_rating ?? 0) - (seasonStats.def_rating ?? 0));
+  const score = normalizeMetric(net, "net_rating");
 
   return {
     model_id: "net_rating",
     scope: "team",
     metrics: [
-      { name: "Net Rating", value: +actualNet.toFixed(1) },
-      { name: "ORtg", value: +(seasonStats.off_rating || 0).toFixed(1) },
-      { name: "DRtg", value: +(seasonStats.def_rating || 0).toFixed(1) },
+      { name: "Net Rating", value: +net.toFixed(1), window: "season" },
+      { name: "ORtg", value: +(seasonStats.off_rating || 0).toFixed(1), window: "season" },
+      { name: "DRtg", value: +(seasonStats.def_rating || 0).toFixed(1), window: "season" },
     ],
-    signal: {
-      direction: score > 0.15 ? "supports" : score < -0.15 ? "conflicts" : "neutral",
-      strength: Math.abs(score) > 0.5 ? "strong" : Math.abs(score) > 0.2 ? "medium" : "weak",
-      score: +score.toFixed(3),
-    },
-    summary: `Season Net Rating: ${actualNet > 0 ? "+" : ""}${actualNet.toFixed(1)}`,
+    signal: toSignal(score),
+    summary: `Season Net Rating: ${net > 0 ? "+" : ""}${net.toFixed(1)}`,
   };
 }
 
-/* ── Player Models ── */
-
-function computeGameScore(p: any) {
-  const gs = (p.points || 0)
-    + 0.4 * (p.fg_made || 0)
-    - 0.7 * (p.fg_attempted || 0)
-    - 0.4 * ((p.ft_attempted || 0) - (p.ft_made || 0))
-    + 0.7 * (p.off_rebounds || 0)
-    + 0.3 * ((p.rebounds || 0) - (p.off_rebounds || 0))
-    + (p.steals || 0)
-    + 0.7 * (p.assists || 0)
-    + 0.7 * (p.blocks || 0)
-    - 0.4 * (p.fouls || 0)
-    - (p.turnovers || 0);
-
-  const score = Math.max(-1, Math.min(1, (gs - 10) / 20));
-  return {
-    model_id: "game_score",
-    scope: "player",
-    metrics: [
-      { name: "Game Score", value: +gs.toFixed(1) },
-      { name: "PTS", value: p.points || 0 },
-      { name: "AST", value: p.assists || 0 },
-      { name: "REB", value: p.rebounds || 0 },
-    ],
-    signal: {
-      direction: score > 0.15 ? "supports" : score < -0.15 ? "conflicts" : "neutral",
-      strength: Math.abs(score) > 0.5 ? "strong" : Math.abs(score) > 0.2 ? "medium" : "weak",
-      score: +score.toFixed(3),
-    },
-    summary: `Game Score: ${gs.toFixed(1)} (${p.points || 0}pts, ${p.assists || 0}ast, ${p.rebounds || 0}reb)`,
-  };
-}
-
-function computeUsage(p: any, teamTotals: any) {
-  if (!p.minutes || !teamTotals.fg_attempted) return null;
-  const num = ((p.fg_attempted || 0) + 0.44 * (p.ft_attempted || 0) + (p.turnovers || 0)) * ((teamTotals.minutes || 240) / 5);
-  const den = (p.minutes || 1) * ((teamTotals.fg_attempted || 1) + 0.44 * (teamTotals.ft_attempted || 0) + (teamTotals.turnovers || 0));
-  const usg = 100 * (num / (den || 1));
-  const score = Math.max(-1, Math.min(1, (usg - 20) / 15));
-
-  return {
-    model_id: "usage",
-    scope: "player",
-    metrics: [
-      { name: "USG%", value: +usg.toFixed(1), unit: "%" },
-      { name: "Minutes", value: p.minutes || 0, unit: "min" },
-    ],
-    signal: {
-      direction: score > 0.15 ? "supports" : score < -0.15 ? "conflicts" : "neutral",
-      strength: Math.abs(score) > 0.5 ? "strong" : Math.abs(score) > 0.2 ? "medium" : "weak",
-      score: +score.toFixed(3),
-    },
-    summary: `USG% ${usg.toFixed(1)}% in ${p.minutes || 0} min`,
-  };
-}
-
-function computePlusMinus(p: any) {
-  const pm = p.plus_minus ?? 0;
-  const score = Math.max(-1, Math.min(1, pm / 20));
-  return {
-    model_id: "plus_minus",
-    scope: "player",
-    metrics: [{ name: "+/-", value: pm }],
-    signal: {
-      direction: score > 0.15 ? "supports" : score < -0.15 ? "conflicts" : "neutral",
-      strength: Math.abs(score) > 0.5 ? "strong" : Math.abs(score) > 0.2 ? "medium" : "weak",
-      score: +score.toFixed(3),
-    },
-    summary: `+/- ${pm > 0 ? "+" : ""}${pm}`,
-  };
-}
-
-/* ── Matchup Models ── */
+/* ══════════════════════════════════════════════════════════
+   MATCHUP MODELS
+   ══════════════════════════════════════════════════════════ */
 
 function computeLog5(homeWinPct: number, awayWinPct: number) {
-  // Log5 formula: P(A beats B) = (pA - pA*pB) / (pA + pB - 2*pA*pB)
   const pA = Math.max(0.01, Math.min(0.99, homeWinPct));
   const pB = Math.max(0.01, Math.min(0.99, awayWinPct));
   const prob = (pA - pA * pB) / (pA + pB - 2 * pA * pB);
-  const score = Math.max(-1, Math.min(1, (prob - 0.5) * 4));
+  const score = normalizeMetric(prob, "win_pct");
 
   return {
     model_id: "log5",
-    scope: "hybrid",
+    scope: "team",
     metrics: [
       { name: "Home Win Prob", value: +(prob * 100).toFixed(1), unit: "%" },
-      { name: "Home Win%", value: +(homeWinPct * 100).toFixed(1), unit: "%" },
-      { name: "Away Win%", value: +(awayWinPct * 100).toFixed(1), unit: "%" },
+      { name: "Home Win%", value: +(pA * 100).toFixed(1), unit: "%" },
+      { name: "Away Win%", value: +(pB * 100).toFixed(1), unit: "%" },
     ],
-    signal: {
-      direction: score > 0.15 ? "supports" : score < -0.15 ? "conflicts" : "neutral",
-      strength: Math.abs(score) > 0.5 ? "strong" : Math.abs(score) > 0.2 ? "medium" : "weak",
-      score: +score.toFixed(3),
-    },
+    signal: toSignal(score),
     summary: `Log5 Home Win Prob: ${(prob * 100).toFixed(1)}%`,
   };
 }
 
 function computePythag(wins: number, losses: number, ptsFor: number, ptsAgainst: number) {
-  const exp = 13.91; // NBA exponent
+  const exp = 13.91; // NBA Pythagorean exponent
   const pf = ptsFor || 1;
   const pa = ptsAgainst || 1;
   const pyth = Math.pow(pf, exp) / (Math.pow(pf, exp) + Math.pow(pa, exp));
   const actualWinPct = wins / ((wins + losses) || 1);
-  const luck = actualWinPct - pyth;
+  const luck = actualWinPct - pyth; // positive = overperforming (due for regression)
 
   return {
     model_id: "pythag_expectation",
@@ -261,56 +250,186 @@ function computePythag(wins: number, losses: number, ptsFor: number, ptsAgainst:
       { name: "Actual Win%", value: +(actualWinPct * 100).toFixed(1), unit: "%" },
       { name: "Luck Factor", value: +(luck * 100).toFixed(1), unit: "%" },
     ],
-    signal: {
-      direction: luck > 0.03 ? "conflicts" : luck < -0.03 ? "supports" : "neutral",
-      strength: Math.abs(luck) > 0.05 ? "strong" : Math.abs(luck) > 0.02 ? "medium" : "weak",
-      score: +Math.max(-1, Math.min(1, -luck * 10)).toFixed(3),
-    },
+    signal: toSignal(-luck * 5), // overperformers regress → fade signal
     summary: `Pythag ${(pyth * 100).toFixed(1)}% vs Actual ${(actualWinPct * 100).toFixed(1)}% (Luck: ${luck > 0 ? "+" : ""}${(luck * 100).toFixed(1)}%)`,
   };
 }
 
-/* ── Market Models ── */
+/* ══════════════════════════════════════════════════════════
+   PLAYER MODELS
+   ══════════════════════════════════════════════════════════ */
 
-function computeMarketEdge(impliedProb: number, modelProb: number) {
-  const edge = modelProb - impliedProb;
-  const score = Math.max(-1, Math.min(1, edge * 5));
+function computeGameScoreAvg(games: any[], window: string) {
+  const scores = games.map(p => {
+    const drb = (p.def_rebounds ?? ((p.rebounds || 0) - (p.off_rebounds || 0)));
+    return (p.points || 0)
+      + 0.4 * (p.fg_made || 0)
+      - 0.7 * (p.fg_attempted || 0)
+      - 0.4 * ((p.ft_attempted || 0) - (p.ft_made || 0))
+      + 0.7 * (p.off_rebounds || 0)
+      + 0.3 * drb
+      + (p.steals || 0)
+      + 0.7 * (p.assists || 0)
+      + 0.7 * (p.blocks || 0)
+      - 0.4 * (p.fouls || 0)
+      - (p.turnovers || 0);
+  });
+
+  const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
+  const latest = scores[0];
 
   return {
-    edge,
-    edgeAssessment: Math.abs(edge) > 0.08 ? "clear_edge" : Math.abs(edge) > 0.03 ? "thin_edge" : "no_edge",
-    score,
+    model_id: "game_score",
+    scope: "player",
+    metrics: [
+      { name: "Game Score (avg)", value: +avg.toFixed(1), window },
+      { name: "Last Game", value: +latest.toFixed(1) },
+      { name: "PTS (avg)", value: +(games.reduce((s, p) => s + (p.points || 0), 0) / games.length).toFixed(1), window },
+    ],
+    signal: toSignal(normalizeMetric(avg, "game_score")),
+    summary: `GmSc avg ${avg.toFixed(1)} (last: ${latest.toFixed(1)})`,
   };
 }
 
-function oddsToImpliedProb(odds: number): number {
-  if (odds > 0) return 100 / (odds + 100);
-  return Math.abs(odds) / (Math.abs(odds) + 100);
+function computeUsageAvg(games: any[], teamStatsByGame: Map<string, any>, window: string) {
+  const usages: number[] = [];
+  for (const p of games) {
+    if (!p.minutes || p.minutes < 5) continue;
+    const teamTotals = teamStatsByGame.get(p.game_id);
+    if (!teamTotals) continue;
+    const teamMin = teamTotals.minutes || 240;
+    const teamFga = teamTotals.fg_attempted || 80;
+    const teamFta = teamTotals.ft_attempted || 20;
+    const teamTov = teamTotals.turnovers || 14;
+    const num = ((p.fg_attempted || 0) + 0.44 * (p.ft_attempted || 0) + (p.turnovers || 0)) * (teamMin / 5);
+    const den = p.minutes * (teamFga + 0.44 * teamFta + teamTov);
+    if (den > 0) usages.push(100 * num / den);
+  }
+
+  if (!usages.length) return null;
+  const avg = usages.reduce((a, b) => a + b, 0) / usages.length;
+  const avgMin = games.reduce((s, p) => s + (p.minutes || 0), 0) / games.length;
+
+  return {
+    model_id: "usage",
+    scope: "player",
+    metrics: [
+      { name: "USG%", value: +avg.toFixed(1), unit: "%", window },
+      { name: "Avg Minutes", value: +avgMin.toFixed(1), unit: "min", window },
+    ],
+    signal: toSignal(normalizeMetric(avg, "usg_rate")),
+    summary: `USG% ${avg.toFixed(1)}% in ${avgMin.toFixed(0)} min`,
+  };
 }
 
-/* ── Aggregation ── */
+function computePPPAvg(games: any[], window: string) {
+  const vals: number[] = [];
+  for (const p of games) {
+    const possUsed = (p.fg_attempted || 0) + 0.44 * (p.ft_attempted || 0) + (p.turnovers || 0);
+    if (possUsed > 0) vals.push((p.points || 0) / possUsed);
+  }
+  if (!vals.length) return null;
+  const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
 
-function aggregateQuant(models: any[], marketSnapshot: any) {
-  if (!models.length) return { quant_score: 0, edge_assessment: "no_edge", notes: "Insufficient data" };
+  return {
+    model_id: "ppp",
+    scope: "player",
+    metrics: [
+      { name: "PPP", value: +avg.toFixed(3), window },
+    ],
+    signal: toSignal(normalizeMetric(avg, "ppp")),
+    summary: `Points/Possession: ${avg.toFixed(2)}`,
+  };
+}
 
-  const totalScore = models.reduce((sum, m) => sum + (m.signal?.score || 0), 0);
-  const avgScore = totalScore / models.length;
-  const clamped = Math.max(-1, Math.min(1, avgScore));
+function computePPSAvg(games: any[], window: string) {
+  const vals: number[] = [];
+  for (const p of games) {
+    if ((p.fg_attempted || 0) > 0) vals.push((p.points || 0) / p.fg_attempted);
+  }
+  if (!vals.length) return null;
+  const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
 
-  // Use market edge if available
+  return {
+    model_id: "points_per_shot",
+    scope: "player",
+    metrics: [
+      { name: "PPS", value: +avg.toFixed(3), window },
+    ],
+    signal: toSignal(normalizeMetric(avg, "pps")),
+    summary: `Points/Shot: ${avg.toFixed(2)}`,
+  };
+}
+
+function computePlusMinusAvg(games: any[], window: string) {
+  const vals = games.map(p => p.plus_minus ?? 0);
+  const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
+  const latest = vals[0];
+
+  return {
+    model_id: "plus_minus",
+    scope: "player",
+    metrics: [
+      { name: "+/- (avg)", value: +avg.toFixed(1), window },
+      { name: "Last Game", value: latest },
+    ],
+    signal: toSignal(normalizeMetric(avg, "plus_minus")),
+    summary: `+/- avg ${avg > 0 ? "+" : ""}${avg.toFixed(1)} (last: ${latest > 0 ? "+" : ""}${latest})`,
+  };
+}
+
+/* ══════════════════════════════════════════════════════════
+   MARKET-WEIGHTED AGGREGATION
+   ══════════════════════════════════════════════════════════ */
+
+function aggregateQuant(
+  models: any[],
+  marketType: string,
+  marketSnapshot: any,
+) {
+  if (!models.length) return { quant_score: 0, edge_assessment: "no_edge" as const, notes: "Insufficient data" };
+
+  const profile = marketType || "moneyline";
+
+  // Weighted aggregate using market profile
+  let weightedSum = 0;
+  let totalWeight = 0;
+  for (const m of models) {
+    const w = MARKET_WEIGHTS[m.model_id]?.[profile] ?? 0.05;
+    weightedSum += (m.signal?.score || 0) * w;
+    totalWeight += w;
+  }
+
+  const quantScore = totalWeight > 0 ? Math.max(-1, Math.min(1, weightedSum / totalWeight)) : 0;
+
+  // Edge detection vs market implied probability
+  let edgeAssessment = "no_edge";
+  if (marketSnapshot?.implied_prob && profile !== "player_prop") {
+    // Convert quant score to a probability-like value
+    const modelProb = 0.5 + quantScore * 0.25; // maps [-1,1] → [0.25, 0.75]
+    const edge = Math.abs(modelProb - marketSnapshot.implied_prob);
+    if (edge > 0.08) edgeAssessment = "clear_edge";
+    else if (edge > 0.03) edgeAssessment = "thin_edge";
+  } else {
+    // Fallback: use raw score magnitude
+    if (Math.abs(quantScore) > 0.4) edgeAssessment = "clear_edge";
+    else if (Math.abs(quantScore) > 0.2) edgeAssessment = "thin_edge";
+  }
+
   const supportCount = models.filter(m => m.signal?.direction === "supports").length;
   const conflictCount = models.filter(m => m.signal?.direction === "conflicts").length;
-
-  let edgeAssessment = "no_edge";
-  if (Math.abs(clamped) > 0.35) edgeAssessment = "clear_edge";
-  else if (Math.abs(clamped) > 0.15) edgeAssessment = "thin_edge";
+  const neutralCount = models.filter(m => m.signal?.direction === "neutral").length;
 
   return {
-    quant_score: +clamped.toFixed(3),
+    quant_score: +quantScore.toFixed(3),
     edge_assessment: edgeAssessment,
-    notes: `${supportCount} models support, ${conflictCount} conflict. Avg signal: ${clamped > 0 ? "+" : ""}${clamped.toFixed(2)}`,
+    notes: `${supportCount} support, ${conflictCount} conflict, ${neutralCount} neutral (weighted ${profile}: ${quantScore > 0 ? "+" : ""}${quantScore.toFixed(2)})`,
   };
 }
+
+/* ══════════════════════════════════════════════════════════
+   MAIN HANDLER
+   ══════════════════════════════════════════════════════════ */
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -322,10 +441,18 @@ Deno.serve(async (req) => {
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const sb = createClient(supabaseUrl, serviceKey);
 
-    const { game_id, player_id, force_refresh } = await req.json();
+    const body = await req.json();
+    const {
+      game_id,
+      player_id,
+      market_type = "moneyline",
+      force_refresh = false,
+      window_size = 5, // last N games
+    } = body;
+
     if (!game_id) throw new Error("game_id is required");
 
-    // Check cache first
+    // ── Cache check ──
     if (!force_refresh) {
       const { data: cached } = await sb
         .from("quant_cache")
@@ -350,14 +477,15 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Fetch game
+    // ── Fetch game ──
     const { data: game } = await sb.from("games").select("*").eq("id", game_id).single();
     if (!game) throw new Error("Game not found");
 
+    const window = `last_${window_size}`;
     const models: any[] = [];
-    let marketSnapshot: any = { market_type: "moneyline" };
+    let marketSnapshot: any = { market_type: market_type };
 
-    // Fetch odds
+    // ── Fetch odds ──
     const { data: odds } = await sb
       .from("odds_snapshots")
       .select("*")
@@ -365,29 +493,40 @@ Deno.serve(async (req) => {
       .order("captured_at", { ascending: false })
       .limit(10);
 
-    const ml = odds?.find(o => o.market_type === "moneyline");
-    const spread = odds?.find(o => o.market_type === "spread");
-    const total = odds?.find(o => o.market_type === "total");
+    // Also check sdio_game_lines
+    const { data: sdioLines } = await sb
+      .from("sdio_game_lines")
+      .select("*")
+      .eq("game_id", game_id)
+      .order("captured_at", { ascending: false })
+      .limit(10);
+
+    // Build market snapshot from best available source
+    const ml = odds?.find(o => o.market_type === "moneyline") ||
+               sdioLines?.find(o => o.market_type === "moneyline");
+    const spreadOdds = odds?.find(o => o.market_type === "spread") ||
+                       sdioLines?.find(o => o.market_type === "spread");
+    const totalOdds = odds?.find(o => o.market_type === "total") ||
+                      sdioLines?.find(o => o.market_type === "total");
 
     if (ml) {
       const homeOdds = ml.home_price || -110;
-      const impliedProb = oddsToImpliedProb(homeOdds);
       marketSnapshot = {
-        market_type: "moneyline",
-        line: ml.line,
+        market_type: market_type,
+        line: ml.line ?? spreadOdds?.home_line,
         odds_american: homeOdds,
-        implied_prob: +impliedProb.toFixed(3),
+        implied_prob: +oddsToImpliedProb(homeOdds).toFixed(3),
       };
     }
 
-    // Fetch team game stats (recent 5 games for each team)
+    // ── Fetch team game stats (recent N for each team) ──
     const fetchRecentTeamStats = async (abbr: string) => {
       const { data } = await sb
         .from("team_game_stats")
         .select("*")
         .eq("team_abbr", abbr)
         .order("created_at", { ascending: false })
-        .limit(5);
+        .limit(window_size);
       return data || [];
     };
 
@@ -396,48 +535,47 @@ Deno.serve(async (req) => {
       fetchRecentTeamStats(game.away_abbr),
     ]);
 
-    // Average recent stats
-    const avgStats = (stats: any[]) => {
-      if (!stats.length) return null;
-      const keys = ["fg_made", "fg_attempted", "three_made", "three_attempted", "ft_made", "ft_attempted",
-        "off_rebounds", "rebounds", "assists", "steals", "blocks", "turnovers", "fouls", "points"];
-      const avg: any = { minutes: 240 };
-      keys.forEach(k => { avg[k] = stats.reduce((s, r) => s + (r[k] || 0), 0) / stats.length; });
-      avg.def_rebounds = avg.rebounds - avg.off_rebounds;
-      return avg;
-    };
+    const homeAvg = avgStats(homeStats, TEAM_STAT_KEYS);
+    const awayAvg = avgStats(awayStats, TEAM_STAT_KEYS);
 
-    const homeAvg = avgStats(homeStats);
-    const awayAvg = avgStats(awayStats);
-
-    // Team models
+    // ── Team models ──
     if (homeAvg && awayAvg) {
-      models.push(computeFourFactors(homeAvg, awayAvg));
-      models.push(computeEfficiency(homeAvg, awayAvg));
-      models.push(computePace(homeAvg, awayAvg));
+      models.push(computeFourFactors(homeAvg, awayAvg, window));
+      models.push(computeEfficiency(homeAvg, awayAvg, window));
+      models.push(computePace(homeAvg, awayAvg, window));
     }
 
     // Season stats for net rating
-    const { data: homeSeasonStats } = await sb
-      .from("team_season_stats")
-      .select("*")
-      .eq("team_abbr", game.home_abbr)
-      .order("season", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    const fetchSeasonStats = async (abbr: string) => {
+      const { data } = await sb
+        .from("team_season_stats")
+        .select("*")
+        .eq("team_abbr", abbr)
+        .eq("league", game.league)
+        .order("season", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      return data;
+    };
+
+    const [homeSeasonStats, awaySeasonStats] = await Promise.all([
+      fetchSeasonStats(game.home_abbr),
+      fetchSeasonStats(game.away_abbr),
+    ]);
 
     if (homeSeasonStats) {
       const nr = computeNetRating(homeSeasonStats);
       if (nr) models.push(nr);
     }
 
-    // Standings for matchup models
+    // ── Matchup models (standings) ──
     const { data: standings } = await sb
       .from("standings")
       .select("*")
       .in("team_abbr", [game.home_abbr, game.away_abbr])
+      .eq("league", game.league)
       .order("season", { ascending: false })
-      .limit(2);
+      .limit(4);
 
     const homeStanding = standings?.find(s => s.team_abbr === game.home_abbr);
     const awayStanding = standings?.find(s => s.team_abbr === game.away_abbr);
@@ -455,40 +593,53 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Player models if requested
+    // ── Player models ──
     if (player_id) {
       const { data: playerStats } = await sb
         .from("player_game_stats")
         .select("*")
         .eq("player_id", player_id)
         .order("created_at", { ascending: false })
-        .limit(5);
+        .limit(window_size);
 
       if (playerStats?.length) {
-        // Use most recent game for game score
-        models.push(computeGameScore(playerStats[0]));
-        models.push(computePlusMinus(playerStats[0]));
-
-        // Compute usage using team totals
+        // Build team stats lookup per game for usage calculation
+        const gameIds = [...new Set(playerStats.map(p => p.game_id))];
         const teamAbbr = playerStats[0].team_abbr;
-        const teamStats = teamAbbr === game.home_abbr ? homeAvg : awayAvg;
-        if (teamStats) {
-          const usg = computeUsage(playerStats[0], teamStats);
-          if (usg) models.push(usg);
-        }
+        const { data: teamStatsForGames } = await sb
+          .from("team_game_stats")
+          .select("*")
+          .in("game_id", gameIds)
+          .eq("team_abbr", teamAbbr);
+
+        const teamStatsByGame = new Map<string, any>();
+        (teamStatsForGames || []).forEach(t => teamStatsByGame.set(t.game_id, t));
+
+        // Compute all player models
+        models.push(computeGameScoreAvg(playerStats, window));
+        models.push(computePlusMinusAvg(playerStats, window));
+
+        const usg = computeUsageAvg(playerStats, teamStatsByGame, window);
+        if (usg) models.push(usg);
+
+        const ppp = computePPPAvg(playerStats, window);
+        if (ppp) models.push(ppp);
+
+        const pps = computePPSAvg(playerStats, window);
+        if (pps) models.push(pps);
       }
     }
 
-    // Aggregate verdict
-    const verdict = aggregateQuant(models, marketSnapshot);
+    // ── Aggregate verdict ──
+    const effectiveMarket = player_id ? "player_prop" : market_type;
+    const verdict = aggregateQuant(models, effectiveMarket, marketSnapshot);
 
-    // Build signals
     const quantLean = verdict.quant_score > 0.15 ? "support" : verdict.quant_score < -0.15 ? "fade" : "neutral";
     const signals = {
       quant: { lean: quantLean, edge: verdict.edge_assessment },
     };
 
-    // Cache the result
+    // ── Cache ──
     await sb.from("quant_cache").upsert({
       game_id,
       entity_type: player_id ? "player" : "game",
@@ -504,6 +655,8 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({
       success: true,
       cached: false,
+      league: game.league,
+      window,
       quant: { market_snapshot: marketSnapshot, models, verdict },
       signals,
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
