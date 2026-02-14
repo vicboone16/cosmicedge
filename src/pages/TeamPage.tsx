@@ -4,6 +4,32 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 
+const ZODIAC_RANGES = [
+  { sign: "Capricorn", symbol: "♑", m1: 1, d1: 1, m2: 1, d2: 19 },
+  { sign: "Aquarius", symbol: "♒", m1: 1, d1: 20, m2: 2, d2: 18 },
+  { sign: "Pisces", symbol: "♓", m1: 2, d1: 19, m2: 3, d2: 20 },
+  { sign: "Aries", symbol: "♈", m1: 3, d1: 21, m2: 4, d2: 19 },
+  { sign: "Taurus", symbol: "♉", m1: 4, d1: 20, m2: 5, d2: 20 },
+  { sign: "Gemini", symbol: "♊", m1: 5, d1: 21, m2: 6, d2: 20 },
+  { sign: "Cancer", symbol: "♋", m1: 6, d1: 21, m2: 7, d2: 22 },
+  { sign: "Leo", symbol: "♌", m1: 7, d1: 23, m2: 8, d2: 22 },
+  { sign: "Virgo", symbol: "♍", m1: 8, d1: 23, m2: 9, d2: 22 },
+  { sign: "Libra", symbol: "♎", m1: 9, d1: 23, m2: 10, d2: 22 },
+  { sign: "Scorpio", symbol: "♏", m1: 10, d1: 23, m2: 11, d2: 21 },
+  { sign: "Sagittarius", symbol: "♐", m1: 11, d1: 22, m2: 12, d2: 21 },
+  { sign: "Capricorn", symbol: "♑", m1: 12, d1: 22, m2: 12, d2: 31 },
+];
+
+function getSignFromDate(dateStr: string): { sign: string; symbol: string } {
+  const d = new Date(dateStr + "T12:00:00");
+  const month = d.getMonth() + 1;
+  const day = d.getDate();
+  for (const s of ZODIAC_RANGES) {
+    if ((month === s.m1 && day >= s.d1) || (month === s.m2 && day <= s.d2))
+      return { sign: s.sign, symbol: s.symbol };
+  }
+  return { sign: "Capricorn", symbol: "♑" };
+}
 const TeamPage = () => {
   const { abbr } = useParams();
   const navigate = useNavigate();
@@ -109,11 +135,14 @@ const TeamPage = () => {
                     <p className="text-sm font-medium text-foreground">{p.name}</p>
                     <p className="text-[10px] text-muted-foreground">{p.position || "—"}</p>
                   </div>
-                  {p.birth_date && (
-                    <span className="astro-badge rounded-full px-2 py-0.5 text-[10px] font-medium text-cosmic-indigo">
-                      {p.natal_data_quality === "exact" ? "☉ Exact" : "☉ Approx"}
-                    </span>
-                  )}
+                  {p.birth_date && (() => {
+                    const z = getSignFromDate(p.birth_date);
+                    return (
+                      <span className="astro-badge rounded-full px-2 py-0.5 text-[10px] font-medium text-cosmic-indigo">
+                        {z.symbol} {z.sign}
+                      </span>
+                    );
+                  })()}
                 </button>
               ))}
             </div>
