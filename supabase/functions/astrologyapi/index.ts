@@ -286,7 +286,7 @@ Deno.serve(async (req) => {
         location: { latitude: locationLat, longitude: locationLng },
         analysis_options: { orb_tolerance: 1.5, include_minor_aspects: true },
       });
-      await cacheResult(entityId, entityType, "astrocartography", result, 30 * 24 * 60 * 60 * 1000);
+      await cacheResult(entityId, entityType, "astrocartography", result, 90 * 24 * 60 * 60 * 1000); // astrocarto changes very slowly
       return new Response(
         JSON.stringify({ success: true, cached: false, provider: "astrology-api", result }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -327,7 +327,7 @@ Deno.serve(async (req) => {
           dignity_system: "traditional",
         },
       });
-      await cacheResult(entityId, entityType, "dignities", result, 365 * 24 * 60 * 60 * 1000);
+      await cacheResult(entityId, entityType, "dignities", result, 10 * 365 * 24 * 60 * 60 * 1000); // natal dignities never change
       return new Response(
         JSON.stringify({ success: true, cached: false, provider: "astrology-api", result }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -355,6 +355,7 @@ Deno.serve(async (req) => {
           precision: enhanced ? 2 : 6,
         },
       });
+      if (entityId) await cacheResult(entityId, entityType, enhanced ? "positions_enhanced" : "positions", result, 10 * 365 * 24 * 60 * 60 * 1000); // natal positions never change
       return new Response(
         JSON.stringify({ success: true, provider: "astrology-api", result }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -381,6 +382,7 @@ Deno.serve(async (req) => {
           precision: 4,
         },
       });
+      if (entityId) await cacheResult(entityId, entityType, enhanced ? "aspects_enhanced" : "aspects", result, 10 * 365 * 24 * 60 * 60 * 1000); // natal aspects never change
       return new Response(
         JSON.stringify({ success: true, provider: "astrology-api", result }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -422,6 +424,7 @@ Deno.serve(async (req) => {
         subject: { name: birthData.name, birth_data: buildBirthData(birthData.date, birthData.time, birthData.latitude, birthData.longitude) },
         options: { house_system: url.searchParams.get("house_system") || "P", zodiac_type: "Tropic", active_points: TRADITIONAL_POINTS, precision: 4 },
       });
+      if (entityId) await cacheResult(entityId, entityType, "house_cusps", result, 10 * 365 * 24 * 60 * 60 * 1000); // natal house cusps never change
       return new Response(
         JSON.stringify({ success: true, provider: "astrology-api", result }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -439,7 +442,7 @@ Deno.serve(async (req) => {
         subject: { name: birthData.name, birth_data: buildBirthData(birthData.date, birthData.time, birthData.latitude, birthData.longitude) },
         options: { house_system: "P", zodiac_type: "Tropic", active_points: EXTENDED_POINTS, precision: 6 },
       });
-      await cacheResult(entityId, entityType, "natal", result, 365 * 24 * 60 * 60 * 1000);
+      await cacheResult(entityId, entityType, "natal", result, 10 * 365 * 24 * 60 * 60 * 1000); // natal never changes
       return new Response(
         JSON.stringify({ success: true, cached: false, provider: "astrology-api", result }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -459,7 +462,7 @@ Deno.serve(async (req) => {
         transit_time: { datetime: { ...dp, hour: 12, minute: 0, second: 0, latitude: locationLat || birthData.latitude, longitude: locationLng || birthData.longitude } },
         options: { house_system: "P", zodiac_type: "Tropic", active_points: TRADITIONAL_POINTS, precision: 2 },
       });
-      await cacheResult(entityId, entityType, "transits", result, 6 * 60 * 60 * 1000);
+      await cacheResult(entityId, entityType, "transits", result, 24 * 60 * 60 * 1000); // transits valid full day
       return new Response(
         JSON.stringify({ success: true, cached: false, provider: "astrology-api", result }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
