@@ -56,3 +56,6 @@ verify_jwt = false
 
 [functions.quant-engine]
 verify_jwt = false
+
+[functions.astro-game-verdict]
+verify_jwt = false
