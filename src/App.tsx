@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/hooks/use-auth";
 import { AppLayout } from "@/components/layout/AppLayout";
+import { RequireAuth } from "@/components/auth/RequireAuth";
 import Index from "./pages/Index";
 import GameDetail from "./pages/GameDetail";
 import TeamPage from "./pages/TeamPage";
@@ -38,24 +39,26 @@ const App = () => (
         <BrowserRouter>
           <Routes>
             <Route element={<AppLayout />}>
+              {/* Slate (home) is public */}
               <Route path="/" element={<Index />} />
-              <Route path="/game/:id" element={<GameDetail />} />
-              <Route path="/team/:abbr" element={<TeamPage />} />
-              <Route path="/player/:id" element={<PlayerPage />} />
-              <Route path="/transits" element={<TransitsPage />} />
-              <Route path="/results" element={<Results />} />
-              <Route path="/analytics" element={<Analytics />} />
-              <Route path="/settings" element={<SettingsPage />} />
-              <Route path="/calendar" element={<CosmicCalendar />} />
-              <Route path="/skyspread" element={<SkySpreadPage />} />
-              <Route path="/live-board" element={<LiveBoardPage />} />
-              <Route path="/trends" element={<TrendsPage />} />
-              <Route path="/props" element={<PlayerPropsPage />} />
-              <Route path="/historical" element={<HistoricalPage />} />
-              <Route path="/clv" element={<CLVCalculatorPage />} />
-              <Route path="/astra" element={<AstraPage />} />
-              <Route path="/profile" element={<ProfilePage />} />
-              <Route path="/friends" element={<FriendsPage />} />
+              {/* All other routes require auth */}
+              <Route path="/game/:id" element={<RequireAuth><GameDetail /></RequireAuth>} />
+              <Route path="/team/:abbr" element={<RequireAuth><TeamPage /></RequireAuth>} />
+              <Route path="/player/:id" element={<RequireAuth><PlayerPage /></RequireAuth>} />
+              <Route path="/transits" element={<RequireAuth><TransitsPage /></RequireAuth>} />
+              <Route path="/results" element={<RequireAuth><Results /></RequireAuth>} />
+              <Route path="/analytics" element={<RequireAuth><Analytics /></RequireAuth>} />
+              <Route path="/settings" element={<RequireAuth><SettingsPage /></RequireAuth>} />
+              <Route path="/calendar" element={<RequireAuth><CosmicCalendar /></RequireAuth>} />
+              <Route path="/skyspread" element={<RequireAuth><SkySpreadPage /></RequireAuth>} />
+              <Route path="/live-board" element={<RequireAuth><LiveBoardPage /></RequireAuth>} />
+              <Route path="/trends" element={<RequireAuth><TrendsPage /></RequireAuth>} />
+              <Route path="/props" element={<RequireAuth><PlayerPropsPage /></RequireAuth>} />
+              <Route path="/historical" element={<RequireAuth><HistoricalPage /></RequireAuth>} />
+              <Route path="/clv" element={<RequireAuth><CLVCalculatorPage /></RequireAuth>} />
+              <Route path="/astra" element={<RequireAuth><AstraPage /></RequireAuth>} />
+              <Route path="/profile" element={<RequireAuth><ProfilePage /></RequireAuth>} />
+              <Route path="/friends" element={<RequireAuth><FriendsPage /></RequireAuth>} />
             </Route>
             <Route path="/auth" element={<AuthPage />} />
             <Route path="/admin/import" element={<AdminImportPage />} />
