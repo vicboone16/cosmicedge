@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { ArrowLeft, Star, TrendingUp, Zap, Shield, Flame, ArrowUp, ArrowDown, BarChart3, Users } from "lucide-react";
+import { ArrowLeft, Star, TrendingUp, Zap, Shield, Flame, ArrowUp, ArrowDown, BarChart3, Users, Calendar, Swords } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
@@ -131,7 +131,7 @@ const PlayerPage = () => {
       const now = new Date().toISOString();
       const { data } = await supabase
         .from("games")
-        .select("id, home_abbr, away_abbr, start_time")
+        .select("id, home_abbr, away_abbr, start_time, venue")
         .or(`home_abbr.eq.${player.team},away_abbr.eq.${player.team}`)
         .gte("start_time", now)
         .order("start_time", { ascending: true })
@@ -145,6 +145,40 @@ const PlayerPage = () => {
   const opponent = nextGame && player?.team
     ? (nextGame.home_abbr === player.team ? nextGame.away_abbr : nextGame.home_abbr)
     : null;
+
+  const isHome = nextGame ? nextGame.home_abbr === player?.team : false;
+
+  // Opponent team season stats for comparison
+  const { data: oppTeamStats } = useQuery({
+    queryKey: ["opp-team-stats", opponent],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("team_season_stats")
+        .select("*")
+        .eq("team_abbr", opponent!)
+        .order("season", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      return data;
+    },
+    enabled: !!opponent,
+  });
+
+  // Player's own team season stats
+  const { data: ownTeamStats } = useQuery({
+    queryKey: ["own-team-stats", player?.team],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("team_season_stats")
+        .select("*")
+        .eq("team_abbr", player!.team!)
+        .order("season", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      return data;
+    },
+    enabled: !!player?.team,
+  });
 
   // Opponent-specific stats (games vs this team)
   const opponentLogs = useMemo(() => {
@@ -363,8 +397,8 @@ const PlayerPage = () => {
               </button>
             ))}
 
-            {/* Opponent filter - only show when game logs exist */}
-            {opponent && gameLogs && gameLogs.length > 0 && (
+            {/* Opponent filter - always show when there's a next game */}
+            {opponent && nextGame && (
               <button
                 onClick={() => setShowOpponent(!showOpponent)}
                 className={cn(
@@ -372,11 +406,122 @@ const PlayerPage = () => {
                   showOpponent ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground"
                 )}
               >
-                <Users className="h-3 w-3" />
-                vs {opponent}
+                <Swords className="h-3 w-3" />
+                vs {opponent} · {format(new Date(nextGame.start_time), "M/d")}
               </button>
             )}
           </div>
+
+          {/* ── Next Matchup Preview ── */}
+          {showOpponent && opponent && nextGame && (
+            <div className="cosmic-card rounded-xl overflow-hidden mb-3 border border-primary/20">
+              <div className="flex items-center justify-between px-4 py-2.5 bg-primary/5 border-b border-border">
+                <div className="flex items-center gap-2">
+                  <Swords className="h-3.5 w-3.5 text-primary" />
+                  <span className="text-xs font-bold text-foreground">Next Matchup</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <Calendar className="h-3 w-3 text-muted-foreground" />
+                  <span className="text-[10px] text-muted-foreground">
+                    {format(new Date(nextGame.start_time), "EEE, MMM d · h:mm a")}
+                  </span>
+                </div>
+              </div>
+
+              {/* Matchup header */}
+              <div className="flex items-center justify-between px-4 py-3">
+                <div className="text-center flex-1">
+                  <p className="text-lg font-bold text-foreground">{player?.team}</p>
+                  <p className="text-[10px] text-muted-foreground">{isHome ? "Home" : "Away"}</p>
+                </div>
+                <span className="text-xs font-semibold text-muted-foreground px-3">VS</span>
+                <div className="text-center flex-1">
+                  <p className="text-lg font-bold text-foreground">{opponent}</p>
+                  <p className="text-[10px] text-muted-foreground">{isHome ? "Away" : "Home"}</p>
+                </div>
+              </div>
+
+              {/* Team stat comparison */}
+              {ownTeamStats && oppTeamStats && (
+                <div className="border-t border-border">
+                  <div className="px-4 py-2 border-b border-border/50">
+                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Team Comparison</p>
+                  </div>
+                  {[
+                    { label: "PPG", own: ownTeamStats.points_per_game, opp: oppTeamStats.points_per_game },
+                    { label: "Opp PPG", own: ownTeamStats.opp_points_per_game, opp: oppTeamStats.opp_points_per_game, lower: true },
+                    { label: "Off Rtg", own: ownTeamStats.off_rating, opp: oppTeamStats.off_rating },
+                    { label: "Def Rtg", own: ownTeamStats.def_rating, opp: oppTeamStats.def_rating, lower: true },
+                    { label: "Pace", own: ownTeamStats.pace, opp: oppTeamStats.pace },
+                    { label: "FG%", own: ownTeamStats.fg_pct, opp: oppTeamStats.fg_pct },
+                  ].map(s => {
+                    const ownVal = s.own ?? 0;
+                    const oppVal = s.opp ?? 0;
+                    const ownWins = s.lower ? ownVal < oppVal : ownVal > oppVal;
+                    const oppWins = s.lower ? oppVal < ownVal : oppVal > ownVal;
+                    return (
+                      <div key={s.label} className="flex items-center justify-between px-4 py-2 border-b border-border/30 last:border-b-0">
+                        <span className={cn("text-xs tabular-nums font-semibold", ownWins && "text-cosmic-green")}>
+                          {s.own?.toFixed(1) ?? "—"}
+                        </span>
+                        <span className="text-[10px] text-muted-foreground">{s.label}</span>
+                        <span className={cn("text-xs tabular-nums font-semibold", oppWins && "text-cosmic-green")}>
+                          {s.opp?.toFixed(1) ?? "—"}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Head-to-head game logs */}
+              {opponentLogs.length > 0 ? (
+                <div className="border-t border-border">
+                  <div className="px-4 py-2 border-b border-border/50">
+                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                      {player?.name} vs {opponent} · {opponentLogs.length} game{opponentLogs.length !== 1 ? "s" : ""}
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-8 gap-1 text-[9px] text-muted-foreground font-semibold uppercase tracking-wider px-3 py-1.5">
+                    <span className="col-span-2">Date</span>
+                    <span className="text-right">PTS</span>
+                    <span className="text-right">REB</span>
+                    <span className="text-right">AST</span>
+                    <span className="text-right">STL</span>
+                    <span className="text-right">BLK</span>
+                    <span className="text-right">MIN</span>
+                  </div>
+                  {opponentLogs.slice(0, 5).map((g, i) => {
+                    const game = g.games as any;
+                    const dateStr = game?.start_time ? format(new Date(game.start_time), "M/d") : "—";
+                    return (
+                      <div key={g.id || i} className="grid grid-cols-8 gap-1 text-xs px-3 py-1.5 border-t border-border/20">
+                        <span className="col-span-2 text-[10px] font-medium">{dateStr}</span>
+                        <span className="text-right font-semibold tabular-nums">{g.points ?? "—"}</span>
+                        <span className="text-right tabular-nums">{g.rebounds ?? "—"}</span>
+                        <span className="text-right tabular-nums">{g.assists ?? "—"}</span>
+                        <span className="text-right tabular-nums">{g.steals ?? "—"}</span>
+                        <span className="text-right tabular-nums">{g.blocks ?? "—"}</span>
+                        <span className="text-right tabular-nums text-muted-foreground">{g.minutes ?? "—"}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="border-t border-border px-4 py-3">
+                  <p className="text-[10px] text-muted-foreground text-center">
+                    No past games vs {opponent} this season · Box scores will populate after import
+                  </p>
+                </div>
+              )}
+
+              {nextGame.venue && (
+                <div className="border-t border-border px-4 py-2">
+                  <p className="text-[10px] text-muted-foreground text-center">📍 {nextGame.venue}</p>
+                </div>
+              )}
+            </div>
+          )}
 
           {statsTab === "stats" && (
             <div className="grid grid-cols-4 gap-2">
