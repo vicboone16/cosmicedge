@@ -39,6 +39,7 @@ const FriendsPage = () => {
   const [searchResults, setSearchResults] = useState<FriendProfile[]>([]);
   const [friends, setFriends] = useState<Friendship[]>([]);
   const [pendingRequests, setPendingRequests] = useState<Friendship[]>([]);
+  const [sentRequests, setSentRequests] = useState<Friendship[]>([]);
   const [suggested, setSuggested] = useState<FriendProfile[]>([]);
   const [loading, setLoading] = useState(false);
   const [existingFriendIds, setExistingFriendIds] = useState<Set<string>>(new Set());
@@ -80,6 +81,7 @@ const FriendsPage = () => {
 
     setFriends(enriched.filter((f: any) => f.status === "accepted"));
     setPendingRequests(enriched.filter((f: any) => f.status === "pending" && f.addressee_id === user.id));
+    setSentRequests(enriched.filter((f: any) => f.status === "pending" && f.requester_id === user.id));
   };
 
   const loadSuggested = async () => {
@@ -183,7 +185,7 @@ const FriendsPage = () => {
 
   const tabs = [
     { key: "friends" as const, label: "Friends", icon: Users, count: friends.length },
-    { key: "requests" as const, label: "Requests", icon: Clock, count: pendingRequests.length },
+    { key: "requests" as const, label: "Requests", icon: Clock, count: pendingRequests.length + sentRequests.length },
     { key: "suggested" as const, label: "Suggested", icon: Sparkles, count: suggested.length },
     { key: "search" as const, label: "Find", icon: Search },
   ];
@@ -283,16 +285,35 @@ const FriendsPage = () => {
 
         {/* Requests Tab */}
         {tab === "requests" && (
-          pendingRequests.length === 0 ? (
+          pendingRequests.length === 0 && sentRequests.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-8">No pending requests</p>
-          ) : pendingRequests.map(f => (
-            <UserCard key={f.id} profile={f.profile} actions={
-              <div className="flex items-center gap-1.5 shrink-0">
-                <button onClick={() => acceptRequest(f.id)} className="bg-primary text-primary-foreground p-2 rounded-lg hover:opacity-90"><Check className="h-4 w-4" /></button>
-                <button onClick={() => declineRequest(f.id)} className="bg-secondary text-muted-foreground p-2 rounded-lg hover:bg-accent"><X className="h-4 w-4" /></button>
-              </div>
-            } />
-          ))
+          ) : (
+            <>
+              {pendingRequests.length > 0 && (
+                <>
+                  <p className="text-xs text-muted-foreground font-medium mb-2">Received</p>
+                  {pendingRequests.map(f => (
+                    <UserCard key={f.id} profile={f.profile} actions={
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <button onClick={() => acceptRequest(f.id)} className="bg-primary text-primary-foreground p-2 rounded-lg hover:opacity-90"><Check className="h-4 w-4" /></button>
+                        <button onClick={() => declineRequest(f.id)} className="bg-secondary text-muted-foreground p-2 rounded-lg hover:bg-accent"><X className="h-4 w-4" /></button>
+                      </div>
+                    } />
+                  ))}
+                </>
+              )}
+              {sentRequests.length > 0 && (
+                <>
+                  <p className="text-xs text-muted-foreground font-medium mb-2 mt-4">Sent</p>
+                  {sentRequests.map(f => (
+                    <UserCard key={f.id} profile={f.profile} actions={
+                      <span className="text-[10px] text-muted-foreground italic">Pending</span>
+                    } />
+                  ))}
+                </>
+              )}
+            </>
+          )
         )}
 
         {/* Friends Tab */}

@@ -170,7 +170,7 @@ const ProfilePage = () => {
         {/* Account Info */}
         <div className="cosmic-card rounded-xl p-4 space-y-3">
           <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">Account</p>
-          <ProfileInputField icon={User} label="Username" value={profile.username} onChange={(v) => setProfile(p => ({ ...p, username: v.toLowerCase().replace(/[^a-z0-9_]/g, "") }))} placeholder="cosmicedge_user" />
+          <ProfileInputField icon={User} label="Username" value={profile.username} onChange={(v) => setProfile(p => ({ ...p, username: v.replace(/[^a-zA-Z0-9_]/g, "") }))} placeholder="CosmicEdge_User" />
           <div className="grid grid-cols-2 gap-3">
             <ProfileInputField icon={User} label="First Name" value={profile.first_name} onChange={(v) => setProfile(p => ({ ...p, first_name: v }))} />
             <ProfileInputField icon={User} label="Last Name" value={profile.last_name} onChange={(v) => setProfile(p => ({ ...p, last_name: v }))} />
