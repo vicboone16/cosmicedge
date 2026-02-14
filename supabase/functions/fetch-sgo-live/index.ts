@@ -99,11 +99,10 @@ Deno.serve(async (req) => {
 
     const url = new URL(req.url);
     const feed = url.searchParams.get("feed") || "events:live"; // events:live | events:upcoming
-    const league = url.searchParams.get("league") || "";
+    const league = url.searchParams.get("league") || "NBA,NFL,MLB,NHL";
 
     // Step 1: Get stream seed data
-    const streamParams = new URLSearchParams({ feed });
-    if (league) streamParams.set("leagueID", league);
+    const streamParams = new URLSearchParams({ feed, leagueID: league });
     const streamData = await fetchWithRetry(
       `${SGO_BASE}/stream/events?${streamParams}`,
       apiKey
