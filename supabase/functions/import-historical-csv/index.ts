@@ -168,27 +168,39 @@ Deno.serve(async (req) => {
         const awayAbbrVal = val(r, iAwayAbbr) || abbr(awayTeam);
 
         // Build start_time: combine date + time columns if separate
-        let startTimeStr = val(r, iDate) || new Date().toISOString();
+        let dateStr = val(r, iDate) || new Date().toISOString();
         const iTime = findCol(headers, "StartTimeEt", "start_time_et", "StartTime");
+        let timeStr = "";
         if (iTime >= 0 && iTime !== iDate) {
-          const timeVal = val(r, iTime);
-          if (timeVal) {
-            let t = timeVal.replace(/[ap]$/i, (m: string) => ` ${m.toUpperCase()}M`);
-            startTimeStr = `${startTimeStr} ${t}`;
-          }
-        }
-        startTimeStr = startTimeStr.replace(/(\d{1,2}:\d{2})p\b/gi, "$1 PM").replace(/(\d{1,2}:\d{2})a\b/gi, "$1 AM");
-
-        // Parse as ET (US Eastern) - append timezone if it looks like a bare date+time
-        if (!startTimeStr.includes("Z") && !startTimeStr.includes("+") && !startTimeStr.includes("GMT")) {
-          startTimeStr = startTimeStr + " EST";
+          timeStr = val(r, iTime) || "";
         }
 
         let parsedDate: Date;
-        try { parsedDate = new Date(startTimeStr); } catch { parsedDate = new Date(); }
-        if (isNaN(parsedDate.getTime())) {
-          // Try without timezone suffix as fallback
-          try { parsedDate = new Date(startTimeStr.replace(" EST", "")); } catch { parsedDate = new Date(); }
+        if (timeStr) {
+          // Parse time like "19:30", "7:30p", "10:00p"
+          let hours = 0, minutes = 0;
+          const isPM = /p$/i.test(timeStr);
+          const isAM = /a$/i.test(timeStr);
+          const cleanTime = timeStr.replace(/[ap]$/i, "");
+          const parts = cleanTime.split(":");
+          hours = parseInt(parts[0], 10);
+          minutes = parseInt(parts[1] || "0", 10);
+          if (isPM && hours < 12) hours += 12;
+          if (isAM && hours === 12) hours = 0;
+
+          // Build UTC date: ET is UTC-5 (EST) or UTC-4 (EDT)
+          // October is EDT (UTC-4) until first Sunday in November
+          const dateParts = dateStr.split("-");
+          const year = parseInt(dateParts[0]);
+          const month = parseInt(dateParts[1]) - 1;
+          const day = parseInt(dateParts[2]);
+          // Determine if EDT or EST based on month (rough: Mar-Nov = EDT)
+          const etOffset = (month >= 2 && month <= 10) ? 4 : 5; // EDT=4, EST=5
+          parsedDate = new Date(Date.UTC(year, month, day, hours + etOffset, minutes));
+        } else {
+          // Bare date or already includes time
+          parsedDate = new Date(dateStr);
+          if (isNaN(parsedDate.getTime())) parsedDate = new Date();
         }
 
         const statusVal = val(r, iStatus) || "Final";
