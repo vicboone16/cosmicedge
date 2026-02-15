@@ -278,6 +278,8 @@ Deno.serve(async (req) => {
           away_score: num(r, iAwayScore),
           start_time: parsedDate.toISOString(),
           venue: val(r, iVenue),
+          venue_lat: null as number | null,
+          venue_lng: null as number | null,
           status: normalizedStatus,
           source: "csv",
           external_id: val(r, iGameId),
@@ -295,6 +297,29 @@ Deno.serve(async (req) => {
           JSON.stringify({ success: true, rowsInserted: 0, rowsSkipped: 0, errors: ["No valid game rows parsed from CSV. Check column format."] }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
+      }
+
+      // Auto-fill venue from stadiums table if no venue column in CSV
+      if (iVenue < 0) {
+        const { data: stadiums } = await supabase
+          .from("stadiums")
+          .select("team_abbr, name, latitude, longitude")
+          .eq("league", league);
+        if (stadiums && stadiums.length > 0) {
+          const stadiumMap = new Map<string, { name: string; lat: number; lng: number }>();
+          for (const s of stadiums) {
+            stadiumMap.set(s.team_abbr, { name: s.name, lat: s.latitude, lng: s.longitude });
+          }
+          for (const rec of allParsed) {
+            const stadium = stadiumMap.get(rec.home_abbr);
+            if (stadium && !rec.venue) {
+              rec.venue = stadium.name;
+              (rec as any).venue_lat = stadium.lat;
+              (rec as any).venue_lng = stadium.lng;
+            }
+          }
+          console.log(`Auto-filled venues from stadiums table for ${league}`);
+        }
       }
 
       // Fetch existing games for the date range to match by team + date
