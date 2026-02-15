@@ -395,29 +395,33 @@ Deno.serve(async (req) => {
 
       console.log(`Processing: ${toUpdate.length} updates, ${toInsert.length} inserts, ${rowsSkipped} skipped`);
 
-      // Batch updates in parallel chunks of 50
-      const UPDATE_BATCH = 50;
+      // Batch updates using Promise.all with larger chunks
+      const UPDATE_BATCH = 200;
       for (let i = 0; i < toUpdate.length; i += UPDATE_BATCH) {
         const batch = toUpdate.slice(i, i + UPDATE_BATCH);
-        const results = await Promise.all(
+        const results = await Promise.allSettled(
           batch.map(u => supabase.from("games").update(u.data).eq("id", u.id))
         );
         for (let j = 0; j < results.length; j++) {
-          if (results[j].error) errors.push(`Update ${batch[j].key}: ${results[j].error.message}`);
-          else rowsInserted++;
+          const r = results[j];
+          if (r.status === "fulfilled" && !r.value.error) rowsInserted++;
+          else if (r.status === "fulfilled" && r.value.error) errors.push(`Update ${batch[j].key}: ${r.value.error.message}`);
+          else errors.push(`Update ${batch[j].key}: rejected`);
         }
+        console.log(`Updated batch ${i}-${i + batch.length} of ${toUpdate.length}`);
       }
 
-      // Batch inserts in chunks of 100
-      const INSERT_BATCH = 100;
+      // Batch inserts in chunks of 200
+      const INSERT_BATCH = 200;
       for (let i = 0; i < toInsert.length; i += INSERT_BATCH) {
         const batch = toInsert.slice(i, i + INSERT_BATCH);
-        const { error: insErr, data: insData } = await supabase.from("games").insert(batch);
+        const { error: insErr } = await supabase.from("games").insert(batch);
         if (insErr) {
           errors.push(`Insert batch: ${insErr.message}`);
         } else {
           rowsInserted += batch.length;
         }
+        console.log(`Inserted batch ${i}-${i + batch.length} of ${toInsert.length}`);
       }
 
     } else if (dataType === "odds") {
