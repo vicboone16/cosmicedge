@@ -141,6 +141,7 @@ export type Database = {
           schedule_fatigue: number
           updated_at: string
           user_id: string
+          weights_json: Json | null
         }
         Insert: {
           created_at?: string
@@ -152,6 +153,7 @@ export type Database = {
           schedule_fatigue?: number
           updated_at?: string
           user_id: string
+          weights_json?: Json | null
         }
         Update: {
           created_at?: string
@@ -163,6 +165,7 @@ export type Database = {
           schedule_fatigue?: number
           updated_at?: string
           user_id?: string
+          weights_json?: Json | null
         }
         Relationships: []
       }

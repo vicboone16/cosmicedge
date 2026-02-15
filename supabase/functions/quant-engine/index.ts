@@ -593,14 +593,17 @@ function computePlusMinusAvg(games: any[], window: string) {
    MARKET-WEIGHTED AGGREGATION
    ══════════════════════════════════════════════════════════ */
 
-function aggregateQuant(models: any[], marketType: string, marketSnapshot: any) {
+function aggregateQuant(models: any[], marketType: string, marketSnapshot: any, customWeights?: Record<string, number>) {
   if (!models.length) return { quant_score: 0, edge_assessment: "no_edge" as const, notes: "Insufficient data" };
 
   const profile = marketType || "moneyline";
   let weightedSum = 0;
   let totalWeight = 0;
   for (const m of models) {
-    const w = MARKET_WEIGHTS[m.model_id]?.[profile] ?? 0.05;
+    // If custom weights provided (backtest), use them as percentage overrides
+    const w = customWeights && customWeights[m.model_id] != null
+      ? customWeights[m.model_id] / 100
+      : (MARKET_WEIGHTS[m.model_id]?.[profile] ?? 0.05);
     weightedSum += (m.signal?.score || 0) * w;
     totalWeight += w;
   }
@@ -869,6 +872,7 @@ Deno.serve(async (req) => {
       force_refresh = false,
       window_size = 5,
       mode = "quant", // "quant" | "astro_verdict" | "backtest"
+      custom_weights, // optional: { model_id: percentage }
       // backtest params
       league: backtestLeague,
       date_start,
@@ -1128,7 +1132,7 @@ Deno.serve(async (req) => {
 
     // Aggregate verdict
     const effectiveMarket = player_id ? "player_prop" : market_type;
-    const verdict = aggregateQuant(models, effectiveMarket, marketSnapshot);
+    const verdict = aggregateQuant(models, effectiveMarket, marketSnapshot, custom_weights);
 
     const quantLean = verdict.quant_score > 0.15 ? "support" : verdict.quant_score < -0.15 ? "fade" : "neutral";
     const signals = { quant: { lean: quantLean, edge: verdict.edge_assessment } };
