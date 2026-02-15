@@ -93,12 +93,47 @@ interface StatRow {
   datetime: string;
   homeTeam: string;
   awayTeam: string;
+  period: string;
   [key: string]: string; // dynamic stat fields
+}
+
+const PERIOD_OPTIONS = [
+  { value: "full", label: "Full Game" },
+  { value: "1H", label: "1st Half" },
+  { value: "2H", label: "2nd Half" },
+  { value: "Q1", label: "Q1" },
+  { value: "Q2", label: "Q2" },
+  { value: "Q3", label: "Q3" },
+  { value: "Q4", label: "Q4" },
+  { value: "OT", label: "OT" },
+];
+
+function getPeriodOptions(league: string) {
+  switch (league) {
+    case "NHL":
+      return [
+        { value: "full", label: "Full Game" },
+        { value: "P1", label: "1st Period" },
+        { value: "P2", label: "2nd Period" },
+        { value: "P3", label: "3rd Period" },
+        { value: "OT", label: "OT" },
+      ];
+    case "MLB":
+      return [
+        { value: "full", label: "Full Game" },
+        { value: "1-3", label: "Inn 1–3" },
+        { value: "4-6", label: "Inn 4–6" },
+        { value: "7-9", label: "Inn 7–9" },
+        { value: "extra", label: "Extra" },
+      ];
+    default:
+      return PERIOD_OPTIONS;
+  }
 }
 
 const emptyRow = (): StatRow => ({
   id: crypto.randomUUID(),
-  name: "", team: "", datetime: "", homeTeam: "", awayTeam: "",
+  name: "", team: "", datetime: "", homeTeam: "", awayTeam: "", period: "full",
 });
 
 interface ManualStatsEntryProps {
@@ -182,6 +217,9 @@ export function ManualStatsEntry({ league, onLog }: ManualStatsEntryProps) {
   const [sharedDate, setSharedDate] = useState("");
   const [sharedHome, setSharedHome] = useState("");
   const [sharedAway, setSharedAway] = useState("");
+  const [sharedPeriod, setSharedPeriod] = useState("full");
+
+  const periodOptions = getPeriodOptions(league);
 
   const statColumns = getLeagueColumns(league);
 
@@ -236,7 +274,7 @@ export function ManualStatsEntry({ league, onLog }: ManualStatsEntryProps) {
   const addRow = () => {
     setRows((prev) => [
       ...prev,
-      { ...emptyRow(), datetime: sharedDate, homeTeam: sharedHome, awayTeam: sharedAway },
+      { ...emptyRow(), datetime: sharedDate, homeTeam: sharedHome, awayTeam: sharedAway, period: sharedPeriod },
     ]);
   };
 
@@ -255,13 +293,14 @@ export function ManualStatsEntry({ league, onLog }: ManualStatsEntryProps) {
     onLog(`Submitting ${validRows.length} ${league} player stats rows...`);
 
     try {
-      const headerParts = ["Name", "Team", "Date and Time (PST)", "HomeTeam", "AwayTeam", ...statColumns.map((c) => c.csvHeader)];
+      const headerParts = ["Name", "Team", "Date and Time (PST)", "HomeTeam", "AwayTeam", "Period", ...statColumns.map((c) => c.csvHeader)];
       const header = headerParts.join(",");
 
       const csvLines = validRows.map((r) => {
         const statValues = statColumns.map((c) => r[c.key] || "");
         return [
           r.name, r.team, r.datetime || sharedDate, r.homeTeam || sharedHome, r.awayTeam || sharedAway,
+          r.period || sharedPeriod,
           ...statValues,
         ].join(",");
       });
@@ -314,6 +353,15 @@ export function ManualStatsEntry({ league, onLog }: ManualStatsEntryProps) {
           />
         </div>
         <div className="space-y-1">
+          <label className="text-[10px] text-muted-foreground font-medium">Period</label>
+          <Select value={sharedPeriod} onValueChange={setSharedPeriod}>
+            <SelectTrigger className="h-8 text-xs w-36"><SelectValue /></SelectTrigger>
+            <SelectContent className="bg-popover z-50">
+              {periodOptions.map((p) => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1">
           <label className="text-[10px] text-muted-foreground font-medium">Home Team</label>
           <Select value={sharedHome} onValueChange={setSharedHome}>
             <SelectTrigger className="h-8 text-xs w-48"><SelectValue placeholder="Select home..." /></SelectTrigger>
@@ -344,6 +392,7 @@ export function ManualStatsEntry({ league, onLog }: ManualStatsEntryProps) {
             <tr className="bg-muted/50 border-b border-border">
               <th className="px-2 py-1.5 text-left font-medium text-muted-foreground w-44">Name</th>
               <th className="px-2 py-1.5 text-left font-medium text-muted-foreground w-36">Team</th>
+              <th className="px-1 py-1.5 text-center font-medium text-muted-foreground w-16">Period</th>
               {statColumns.map((c) => (
                 <th key={c.key} className={`px-1 py-1.5 text-center font-medium text-muted-foreground ${c.width}`}>
                   {c.label}
@@ -370,6 +419,16 @@ export function ManualStatsEntry({ league, onLog }: ManualStatsEntryProps) {
                     </SelectTrigger>
                     <SelectContent className="bg-popover z-50">
                       {teams.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </td>
+                <td className="px-1 py-0.5">
+                  <Select value={row.period || sharedPeriod} onValueChange={(v) => updateRow(row.id, "period", v)}>
+                    <SelectTrigger className="h-7 text-xs border-0 bg-transparent px-1 w-16">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-popover z-50">
+                      {periodOptions.map((p) => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </td>
