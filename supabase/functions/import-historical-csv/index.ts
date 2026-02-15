@@ -58,6 +58,7 @@ const TEAM_ABBR: Record<string, string> = {
   "Toronto Maple Leafs": "TOR", "Vancouver Canucks": "VAN", "Vegas Golden Knights": "VGK",
   "Washington Capitals": "WSH", "Winnipeg Jets": "WPG",
   "Utah Hockey Club": "UTA",
+  "Utah Mammoth": "UTA",
 };
 
 function abbr(teamName: string): string {
@@ -134,8 +135,18 @@ Deno.serve(async (req) => {
       );
     }
 
-    const headers = rows[0];
-    const dataRows = rows.slice(1);
+    // Skip title/metadata rows — find the first row that looks like a header
+    // (has at least 3 columns and contains recognizable column names)
+    let headerIdx = 0;
+    const headerCandidates = ["date", "home", "away", "visitor", "hometeam", "awayteam", "time", "datetime", "g", "score"];
+    for (let i = 0; i < Math.min(rows.length, 5); i++) {
+      const normed = rows[i].map(normalizeHeader);
+      const matches = normed.filter(h => headerCandidates.includes(h));
+      if (matches.length >= 2) { headerIdx = i; break; }
+    }
+
+    const headers = rows[headerIdx];
+    const dataRows = rows.slice(headerIdx + 1);
     let rowsInserted = 0;
     let rowsSkipped = 0;
     const errors: string[] = [];
@@ -147,11 +158,22 @@ Deno.serve(async (req) => {
       const iAway = findCol(headers, "AwayTeam", "Away", "AwayTeamName", "Visitor", "VisitorTeam", "visitor_team");
       const iHomeAbbr = findCol(headers, "HomeAbbrev", "HomeAbbr", "home_abbrev", "home_abbr");
       const iAwayAbbr = findCol(headers, "AwayAbbrev", "AwayAbbr", "VisitorAbbrev", "visitor_abbrev", "away_abbrev", "away_abbr");
-      const iHomeScore = findCol(headers, "HomeScore", "HomeTeamScore", "HomePoints", "HomePts", "home_pts");
-      const iAwayScore = findCol(headers, "AwayScore", "AwayTeamScore", "AwayPoints", "AwayPts", "VisitorScore", "VisitorPts", "visitor_pts");
+      let iHomeScore = findCol(headers, "HomeScore", "HomeTeamScore", "HomePoints", "HomePts", "home_pts");
+      let iAwayScore = findCol(headers, "AwayScore", "AwayTeamScore", "AwayPoints", "AwayPts", "VisitorScore", "VisitorPts", "visitor_pts");
       const iVenue = findCol(headers, "Stadium", "StadiumName", "Venue", "Arena", "arena");
       const iStatus = findCol(headers, "Status", "GameStatus", "game_status");
       const iGameId = findCol(headers, "GameId", "game_id");
+
+      // Handle hockey-reference style: "Visitor,G,Home,G" — score columns named "G" adjacent to team columns
+      if (iHomeScore < 0 && iAwayScore < 0) {
+        const normed = headers.map(normalizeHeader);
+        // Find all columns named "g" (goals) — first is visitor goals, second is home goals
+        const gIndices = normed.reduce((acc: number[], h, i) => { if (h === "g") acc.push(i); return acc; }, []);
+        if (gIndices.length >= 2) {
+          iAwayScore = gIndices[0]; // first G is after Visitor
+          iHomeScore = gIndices[1]; // second G is after Home
+        }
+      }
 
       if (iHome < 0 || iAway < 0) {
         return new Response(
@@ -242,8 +264,9 @@ Deno.serve(async (req) => {
           parsedDate = new Date(Date.UTC(year, month, day, 0 + offset, 0));
         }
 
-        const statusVal = val(r, iStatus) || "Final";
-        const normalizedStatus = statusVal.toLowerCase().includes("final") || statusVal.toLowerCase() === "completed" ? "final" : statusVal.toLowerCase();
+        const hasScores = num(r, iHomeScore) !== null && num(r, iAwayScore) !== null;
+        const statusVal = val(r, iStatus) || (hasScores ? "Final" : "Scheduled");
+        const normalizedStatus = statusVal.toLowerCase().includes("final") || statusVal.toLowerCase() === "completed" ? "final" : (statusVal.toLowerCase() === "scheduled" ? "scheduled" : statusVal.toLowerCase());
 
         return {
           league,
