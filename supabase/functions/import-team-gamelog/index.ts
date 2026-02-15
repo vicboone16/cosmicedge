@@ -324,6 +324,46 @@ Deno.serve(async (req) => {
           if (error) errors.push(`Insert stats ${gameDate}: ${error.message}`);
           else inserted++;
         }
+
+        // ── Auto-generate opponent stats from opp_* fields ──
+        // Only insert if no existing row for that opponent+game combo
+        const { data: existingOppStat } = await supabase
+          .from("team_game_stats")
+          .select("id")
+          .eq("game_id", gameId)
+          .eq("team_abbr", oppAbbr)
+          .limit(1);
+
+        if (!existingOppStat || existingOppStat.length === 0) {
+          const oppStatRow: Record<string, unknown> = {
+            game_id: gameId,
+            team_abbr: oppAbbr,
+            is_home: isAway, // opposite of uploading team
+            points: num(row.opp_team_game_score) ?? num(row.opp_pts),
+            source: "bref-opp",
+          };
+
+          if (hasBasic) {
+            Object.assign(oppStatRow, {
+              fg_made: num(row.opp_fg),
+              fg_attempted: num(row.opp_fga),
+              three_made: num(row.opp_fg3),
+              three_attempted: num(row.opp_fg3a),
+              ft_made: num(row.opp_ft),
+              ft_attempted: num(row.opp_fta),
+              off_rebounds: num(row.opp_orb),
+              def_rebounds: num(row.opp_drb),
+              rebounds: num(row.opp_trb),
+              assists: num(row.opp_ast),
+              steals: num(row.opp_stl),
+              blocks: num(row.opp_blk),
+              turnovers: num(row.opp_tov),
+            });
+          }
+
+          const { error: oppErr } = await supabase.from("team_game_stats").insert(oppStatRow);
+          if (oppErr) errors.push(`Insert opp stats ${gameDate} ${oppAbbr}: ${oppErr.message}`);
+        }
       } catch (e) {
         errors.push(`Row error: ${e.message}`);
         skipped++;
