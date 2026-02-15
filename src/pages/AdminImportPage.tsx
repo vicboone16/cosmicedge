@@ -2,7 +2,41 @@ import { useState, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { ExternalLink } from "lucide-react";
 import * as XLSX from "xlsx";
+
+const BREF_TEAMS = [
+  { abbr: "ATL", name: "Atlanta Hawks" },
+  { abbr: "BOS", name: "Boston Celtics" },
+  { abbr: "BRK", name: "Brooklyn Nets" },
+  { abbr: "CHI", name: "Chicago Bulls" },
+  { abbr: "CHO", name: "Charlotte Hornets" },
+  { abbr: "CLE", name: "Cleveland Cavaliers" },
+  { abbr: "DAL", name: "Dallas Mavericks" },
+  { abbr: "DEN", name: "Denver Nuggets" },
+  { abbr: "DET", name: "Detroit Pistons" },
+  { abbr: "GSW", name: "Golden State Warriors" },
+  { abbr: "HOU", name: "Houston Rockets" },
+  { abbr: "IND", name: "Indiana Pacers" },
+  { abbr: "LAC", name: "Los Angeles Clippers" },
+  { abbr: "LAL", name: "Los Angeles Lakers" },
+  { abbr: "MEM", name: "Memphis Grizzlies" },
+  { abbr: "MIA", name: "Miami Heat" },
+  { abbr: "MIL", name: "Milwaukee Bucks" },
+  { abbr: "MIN", name: "Minnesota Timberwolves" },
+  { abbr: "NOP", name: "New Orleans Pelicans" },
+  { abbr: "NYK", name: "New York Knicks" },
+  { abbr: "OKC", name: "Oklahoma City Thunder" },
+  { abbr: "ORL", name: "Orlando Magic" },
+  { abbr: "PHI", name: "Philadelphia 76ers" },
+  { abbr: "PHO", name: "Phoenix Suns" },
+  { abbr: "POR", name: "Portland Trail Blazers" },
+  { abbr: "SAC", name: "Sacramento Kings" },
+  { abbr: "SAS", name: "San Antonio Spurs" },
+  { abbr: "TOR", name: "Toronto Raptors" },
+  { abbr: "UTA", name: "Utah Jazz" },
+  { abbr: "WAS", name: "Washington Wizards" },
+];
 
 // Team ID ranges per league
 function detectLeague(homeTeamId: number): string | null {
@@ -188,6 +222,37 @@ export default function AdminImportPage() {
             💡 Tip: Export both the "Game Log" (basic) and "Advanced Game Log" pages from Basketball Reference 
             for complete data (box scores + advanced metrics).
           </p>
+        </Card>
+
+        <Card className="p-4 space-y-3">
+          <h2 className="text-sm font-semibold text-foreground">Basketball Reference Download Links</h2>
+          <p className="text-xs text-muted-foreground">
+            Click to open game log pages. Use "Share & Export" → download as .xls, then upload above.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 max-h-[400px] overflow-y-auto">
+            {BREF_TEAMS.map((t) => (
+              <div key={t.abbr} className="flex items-center gap-2 py-1">
+                <span className="text-xs font-medium text-foreground w-8">{t.abbr}</span>
+                <span className="text-xs text-muted-foreground truncate flex-1">{t.name}</span>
+                <a
+                  href={`https://www.basketball-reference.com/teams/${t.abbr}/2026/gamelog/`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[10px] text-primary hover:underline flex items-center gap-0.5"
+                >
+                  Basic <ExternalLink className="h-2.5 w-2.5" />
+                </a>
+                <a
+                  href={`https://www.basketball-reference.com/teams/${t.abbr}/2026/gamelog-advanced/`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[10px] text-primary hover:underline flex items-center gap-0.5"
+                >
+                  Advanced <ExternalLink className="h-2.5 w-2.5" />
+                </a>
+              </div>
+            ))}
+          </div>
         </Card>
 
         <Card className="p-4 space-y-3">
