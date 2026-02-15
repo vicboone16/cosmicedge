@@ -84,11 +84,11 @@ const App = () => {
                 <Route path="/messages" element={<RequireAuth><MessagesPage /></RequireAuth>} />
                 <Route path="/messages/:conversationId" element={<RequireAuth><ChatPage /></RequireAuth>} />
                 <Route path="/feed" element={<RequireAuth><FeedPage /></RequireAuth>} />
+                <Route path="/admin/import" element={<RequireAuth><AdminImportPage /></RequireAuth>} />
+                <Route path="/admin/games" element={<RequireAuth><AdminGamesPage /></RequireAuth>} />
+                <Route path="/admin" element={<RequireAuth><AdminPage /></RequireAuth>} />
               </Route>
               <Route path="/auth" element={<AuthPage />} />
-              <Route path="/admin/import" element={<RequireAuth><AdminImportPage /></RequireAuth>} />
-              <Route path="/admin/games" element={<RequireAuth><AdminGamesPage /></RequireAuth>} />
-              <Route path="/admin" element={<RequireAuth><AdminPage /></RequireAuth>} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>
