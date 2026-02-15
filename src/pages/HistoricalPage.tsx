@@ -49,18 +49,28 @@ function getSeasonsForLeague(lg: string) {
 }
 
 const MODEL_WEIGHT_DEFS = [
-  { key: "home_away_splits", label: "Home/Away Splits", defaultMl: 15, defaultSpread: 20 },
-  { key: "schedule_fatigue", label: "Schedule Fatigue", defaultMl: 10, defaultSpread: 15 },
-  { key: "recent_form", label: "Recent Form", defaultMl: 10, defaultSpread: 10 },
-  { key: "h2h_history", label: "Head-to-Head", defaultMl: 5, defaultSpread: 10 },
+  // Team models (all leagues)
+  { key: "four_factors", label: "Four Factors", default: 20, nbaOnly: true, group: "Team" },
+  { key: "efficiency", label: "Efficiency (ORtg/DRtg)", default: 20, nbaOnly: false, group: "Team" },
+  { key: "pace", label: "Pace", default: 5, nbaOnly: true, group: "Team" },
+  { key: "net_rating", label: "Net Rating", default: 10, nbaOnly: false, group: "Team" },
+  { key: "log5", label: "Log5 Win Prob", default: 15, nbaOnly: false, group: "Team" },
+  { key: "pythag_expectation", label: "Pythagorean", default: 10, nbaOnly: false, group: "Team" },
+  { key: "home_away_splits", label: "Home/Away Splits", default: 15, nbaOnly: false, group: "Team" },
+  { key: "schedule_fatigue", label: "Schedule Fatigue", default: 10, nbaOnly: false, group: "Team" },
+  { key: "recent_form", label: "Recent Form", default: 10, nbaOnly: false, group: "Team" },
+  { key: "h2h_history", label: "Head-to-Head", default: 5, nbaOnly: false, group: "Team" },
+  // Player models (NBA-specific)
+  { key: "game_score", label: "Game Score", default: 5, nbaOnly: true, group: "Player" },
+  { key: "usage", label: "Usage Rate", default: 0, nbaOnly: true, group: "Player" },
+  { key: "ppp", label: "Points/Possession", default: 0, nbaOnly: true, group: "Player" },
+  { key: "points_per_shot", label: "Points/Shot", default: 0, nbaOnly: true, group: "Player" },
+  { key: "plus_minus", label: "+/- Avg", default: 5, nbaOnly: true, group: "Player" },
 ];
 
-const DEFAULT_WEIGHTS: Record<string, number> = {
-  home_away_splits: 15,
-  schedule_fatigue: 10,
-  recent_form: 10,
-  h2h_history: 5,
-};
+const DEFAULT_WEIGHTS: Record<string, number> = Object.fromEntries(
+  MODEL_WEIGHT_DEFS.map(d => [d.key, d.default])
+);
 
 export default function HistoricalPage() {
   const { user } = useAuth();
@@ -97,10 +107,11 @@ export default function HistoricalPage() {
       const { error } = await supabase.from("backtest_presets").insert({
         user_id: user.id,
         name: presetName.trim(),
-        home_away_splits: btWeights.home_away_splits,
-        schedule_fatigue: btWeights.schedule_fatigue,
-        recent_form: btWeights.recent_form,
-        h2h_history: btWeights.h2h_history,
+        home_away_splits: btWeights.home_away_splits ?? 15,
+        schedule_fatigue: btWeights.schedule_fatigue ?? 10,
+        recent_form: btWeights.recent_form ?? 10,
+        h2h_history: btWeights.h2h_history ?? 5,
+        weights_json: btWeights,
       });
       if (error) throw error;
     },
@@ -120,12 +131,18 @@ export default function HistoricalPage() {
   });
 
   const loadPreset = (preset: any) => {
-    setBtWeights({
-      home_away_splits: preset.home_away_splits,
-      schedule_fatigue: preset.schedule_fatigue,
-      recent_form: preset.recent_form,
-      h2h_history: preset.h2h_history,
-    });
+    // Prefer weights_json if available, fall back to legacy columns
+    if (preset.weights_json && Object.keys(preset.weights_json).length > 0) {
+      setBtWeights({ ...DEFAULT_WEIGHTS, ...preset.weights_json });
+    } else {
+      setBtWeights({
+        ...DEFAULT_WEIGHTS,
+        home_away_splits: preset.home_away_splits,
+        schedule_fatigue: preset.schedule_fatigue,
+        recent_form: preset.recent_form,
+        h2h_history: preset.h2h_history,
+      });
+    }
     toast({ title: `Loaded "${preset.name}"` });
   };
 
@@ -649,22 +666,35 @@ export default function HistoricalPage() {
               </div>
 
               {/* Model Weight Sliders */}
-              <div className="space-y-2 pt-2 border-t border-border/30">
+              <div className="space-y-3 pt-2 border-t border-border/30">
                 <h4 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Model Weights</h4>
-                {MODEL_WEIGHT_DEFS.map(def => (
-                  <div key={def.key} className="space-y-0.5">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] text-foreground font-medium">{def.label}</span>
-                      <span className="text-[10px] text-primary font-bold tabular-nums w-8 text-right">{btWeights[def.key]}%</span>
+                {["Team", "Player"].map(group => {
+                  const groupDefs = MODEL_WEIGHT_DEFS.filter(d => d.group === group);
+                  const visibleDefs = groupDefs.filter(d => !d.nbaOnly || league === "NBA");
+                  if (visibleDefs.length === 0) return null;
+                  return (
+                    <div key={group} className="space-y-1.5">
+                      <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">{group} Models</p>
+                      {visibleDefs.map(def => (
+                        <div key={def.key} className="space-y-0.5">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] text-foreground font-medium">
+                              {def.label}
+                              {def.nbaOnly && <span className="ml-1 text-[8px] text-primary/60 font-normal">NBA</span>}
+                            </span>
+                            <span className="text-[10px] text-primary font-bold tabular-nums w-8 text-right">{btWeights[def.key] ?? def.default}%</span>
+                          </div>
+                          <Slider
+                            value={[btWeights[def.key] ?? def.default]}
+                            onValueChange={([v]) => setBtWeights(prev => ({ ...prev, [def.key]: v }))}
+                            min={0} max={50} step={1}
+                            className="w-full"
+                          />
+                        </div>
+                      ))}
                     </div>
-                    <Slider
-                      value={[btWeights[def.key]]}
-                      onValueChange={([v]) => setBtWeights(prev => ({ ...prev, [def.key]: v }))}
-                      min={0} max={50} step={1}
-                      className="w-full"
-                    />
-                  </div>
-                ))}
+                  );
+                })}
                 <button
                   onClick={() => setBtWeights({ ...DEFAULT_WEIGHTS })}
                   className="text-[9px] text-muted-foreground hover:text-foreground transition-colors"
@@ -700,7 +730,9 @@ export default function HistoricalPage() {
                         <button onClick={() => loadPreset(p)} className="text-[10px] font-medium text-foreground hover:text-primary transition-colors flex-1 text-left">
                           {p.name}
                           <span className="text-muted-foreground ml-1.5">
-                            ({p.home_away_splits}/{p.schedule_fatigue}/{p.recent_form}/{p.h2h_history})
+                            {p.weights_json && Object.keys(p.weights_json).length > 0
+                              ? `(${Object.keys(p.weights_json).length} models)`
+                              : `(${p.home_away_splits}/${p.schedule_fatigue}/${p.recent_form}/${p.h2h_history})`}
                           </span>
                         </button>
                         <button onClick={() => deletePresetMutation.mutate(p.id)} className="text-muted-foreground hover:text-destructive transition-colors p-0.5">
