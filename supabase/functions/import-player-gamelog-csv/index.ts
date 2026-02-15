@@ -96,6 +96,20 @@ Deno.serve(async (req) => {
     for (const g of games || []) {
       const d = g.start_time?.split("T")[0] || "";
       gameIndex.set(`${g.home_abbr}|${g.away_abbr}|${d}`, g.id);
+      // Also index ±1 day to handle timezone mismatches (PST date vs UTC storage)
+      if (d) {
+        const dt = new Date(d);
+        const prev = new Date(dt); prev.setDate(prev.getDate() - 1);
+        const next = new Date(dt); next.setDate(next.getDate() + 1);
+        const fmt = (dd: Date) => dd.toISOString().split("T")[0];
+        // Only set if not already occupied (prefer exact date match)
+        if (!gameIndex.has(`${g.home_abbr}|${g.away_abbr}|${fmt(prev)}`)) {
+          gameIndex.set(`${g.home_abbr}|${g.away_abbr}|${fmt(prev)}`, g.id);
+        }
+        if (!gameIndex.has(`${g.home_abbr}|${g.away_abbr}|${fmt(next)}`)) {
+          gameIndex.set(`${g.home_abbr}|${g.away_abbr}|${fmt(next)}`, g.id);
+        }
+      }
     }
     console.log(`[import-player-gamelog] ${gameIndex.size} games indexed, ${playerIndex.size} players indexed`);
 
