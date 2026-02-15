@@ -104,8 +104,16 @@ export default function AdminGameManager() {
       if (error) throw error;
     },
     onSuccess: () => {
+      // Invalidate all game-related caches so every page reflects the update
       queryClient.invalidateQueries({ queryKey: ["admin-games"] });
-      toast({ title: "Game updated" });
+      queryClient.invalidateQueries({ queryKey: ["games"] });
+      queryClient.invalidateQueries({ queryKey: ["bets"] });
+      queryClient.invalidateQueries({ queryKey: ["odds"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-game-odds"] });
+      queryClient.invalidateQueries({ queryKey: ["historical-odds"] });
+      queryClient.invalidateQueries({ queryKey: ["game-detail"] });
+      queryClient.invalidateQueries({ queryKey: ["live-scores"] });
+      toast({ title: "Game updated & synced" });
       setEditGame(null);
     },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
@@ -178,7 +186,10 @@ export default function AdminGameManager() {
     },
     onSuccess: (count) => {
       queryClient.invalidateQueries({ queryKey: ["admin-games"] });
-      toast({ title: `${count} games finalized` });
+      queryClient.invalidateQueries({ queryKey: ["games"] });
+      queryClient.invalidateQueries({ queryKey: ["bets"] });
+      queryClient.invalidateQueries({ queryKey: ["game-detail"] });
+      toast({ title: `${count} games finalized & bets settled` });
     },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
