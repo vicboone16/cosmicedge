@@ -52,18 +52,23 @@ function num(v: string | undefined | null): number | null {
   return isNaN(n) ? null : n;
 }
 
-function parseHtmlTable(html: string): Record<string, string>[] {
+function parseHtmlTable(html: string): { rows: Record<string, string>[]; hasBasic: boolean; hasAdvanced: boolean } {
   // Parse BOTH basic (team_game_log_reg) and advanced (team_game_log_adv_reg) tables
   // and merge them by game number (ranker)
+  // Basketball Reference uses "date_game" in basic and "date" in advanced tables
+
+  // Uncomment any HTML comments (BBRef hides tables in comments)
+  const uncommented = html.replace(/<!--\s*([\s\S]*?)-->/g, "$1");
 
   const parseRows = (regex: RegExp): Map<string, Record<string, string>> => {
     const map = new Map<string, Record<string, string>>();
     let trMatch;
-    while ((trMatch = regex.exec(html)) !== null) {
+    while ((trMatch = regex.exec(uncommented)) !== null) {
       const trContent = trMatch[1];
       const row: Record<string, string> = {};
 
-      const cellRegex = /data-stat="([^"]+)"(?:\s+csk="([^"]*)")?[^>]*>([^<]*)/g;
+      // Match cells - handle nested tags like <a> inside <td>
+      const cellRegex = /data-stat="([^"]+)"(?:\s+csk="([^"]*)")?[^>]*>(?:<[^>]*>)*([^<]*)/g;
       let cellMatch;
       while ((cellMatch = cellRegex.exec(trContent)) !== null) {
         const statName = cellMatch[1];
@@ -72,7 +77,12 @@ function parseHtmlTable(html: string): Record<string, string>[] {
         row[statName] = cskVal || displayVal;
       }
 
-      if (row.ranker && row.date) {
+      // Normalize date field: basic uses "date_game", advanced uses "date"
+      if (row.date_game && !row.date) row.date = row.date_game;
+      // Normalize opponent field: basic uses "opp_id", advanced uses "opp_name_abbr"
+      if (row.opp_id && !row.opp_name_abbr) row.opp_name_abbr = row.opp_id;
+
+      if (row.ranker && (row.date || row.date_game)) {
         map.set(row.ranker, row);
       }
     }
@@ -80,25 +90,16 @@ function parseHtmlTable(html: string): Record<string, string>[] {
   };
 
   // Log all tr IDs found in the HTML for debugging
-  const allTrIds = [...html.matchAll(/<tr\s+id="([^"]+)"/g)].map(m => m[1]);
+  const allTrIds = [...uncommented.matchAll(/<tr\s+id="([^"]+)"/g)].map(m => m[1]);
   const uniquePrefixes = [...new Set(allTrIds.map(id => id.replace(/\.\d+$/, "")))];
   console.log(`[parseHtmlTable] Found tr id prefixes: ${uniquePrefixes.join(", ")}`);
 
-  // Basic stats table — try multiple possible ID patterns
-  const basicRegex = /<tr\s+id="(?:team_game_log_reg|tgl_basic|team_and_opponent)\.\d+"[^>]*>([\s\S]*?)<\/tr>/g;
+  // Basic stats table
+  const basicRegex = /<tr\s+id="team_game_log_reg\.\d+"[^>]*>([\s\S]*?)<\/tr>/g;
   const basicMap = parseRows(basicRegex);
 
-  // If basic didn't match, try matching ALL non-advanced game log rows
-  if (basicMap.size === 0) {
-    // Try any tr with an id containing a dot and number that ISN'T the advanced table
-    const fallbackRegex = /<tr\s+id="(?!team_game_log_adv)[a-z_]+\.\d+"[^>]*>([\s\S]*?)<\/tr>/g;
-    const fallbackMap = parseRows(fallbackRegex);
-    console.log(`[parseHtmlTable] fallback basic parse found ${fallbackMap.size} rows`);
-    for (const [k, v] of fallbackMap) basicMap.set(k, v);
-  }
-
-  // Advanced stats table: id="team_game_log_adv_reg.X"
-  const advRegex = /<tr\s+id="team_game_log_adv[^"]*"[^>]*>([\s\S]*?)<\/tr>/g;
+  // Advanced stats table
+  const advRegex = /<tr\s+id="team_game_log_adv[^"]*\.\d+"[^>]*>([\s\S]*?)<\/tr>/g;
   const advMap = parseRows(advRegex);
 
   // Merge: start with basic, overlay advanced
@@ -109,11 +110,11 @@ function parseHtmlTable(html: string): Record<string, string>[] {
     const basic = basicMap.get(key) || {};
     const adv = advMap.get(key) || {};
     const combined = { ...basic, ...adv };
-    if (combined.date) merged.push(combined);
+    if (combined.date || combined.date_game) merged.push(combined);
   }
 
   console.log(`[parseHtmlTable] basic=${basicMap.size}, adv=${advMap.size}, merged=${merged.length}`);
-  return merged;
+  return { rows: merged, hasBasic: basicMap.size > 0, hasAdvanced: advMap.size > 0 };
 }
 
 function detectTeamFromFilename(filename: string): string | null {
@@ -157,11 +158,10 @@ Deno.serve(async (req) => {
     }
 
     const teamFull = ABBR_TO_FULL[teamAbbr];
-    const gameRows = parseHtmlTable(html_content);
-    console.log(`[import-team-gamelog] parsed ${gameRows.length} game rows`);
+    const { rows: gameRows, hasBasic, hasAdvanced } = parseHtmlTable(html_content);
+    console.log(`[import-team-gamelog] parsed ${gameRows.length} game rows (basic=${hasBasic}, adv=${hasAdvanced})`);
 
     if (gameRows.length === 0) {
-      // Log a sample of the HTML to debug
       console.log(`[import-team-gamelog] HTML sample (first 500 chars): ${html_content.substring(0, 500)}`);
       return new Response(
         JSON.stringify({ success: false, error: "No game rows found in HTML" }),
@@ -258,50 +258,59 @@ Deno.serve(async (req) => {
           .eq("team_abbr", teamAbbr)
           .limit(1);
 
-        // Map Basketball Reference data-stat names to our columns
-        // csk values are raw decimals (e.g., 0.478 for eFG%), display values vary
-        // For percentages stored as decimals in csk, multiply by 100 for our schema
+        // Build stat row — only include fields we actually have data for
+        // so we don't overwrite existing data with nulls on partial imports
         const statRow: Record<string, unknown> = {
           game_id: gameId,
           team_abbr: teamAbbr,
           is_home: !isAway,
           points: num(row.team_game_score) ?? num(row.pts),
-          // Basic box score stats (from team_game_log_reg table)
-          fg_made: num(row.fg),
-          fg_attempted: num(row.fga),
-          three_made: num(row.fg3),
-          three_attempted: num(row.fg3a),
-          ft_made: num(row.ft),
-          ft_attempted: num(row.fta),
-          off_rebounds: num(row.orb),
-          def_rebounds: num(row.drb),
-          rebounds: num(row.trb),
-          assists: num(row.ast),
-          steals: num(row.stl),
-          blocks: num(row.blk),
-          turnovers: num(row.tov),
-          // Advanced stats (from team_game_log_adv_reg table)
-          off_rating: num(row.team_off_rtg),
-          def_rating: num(row.team_def_rtg),
-          pace: num(row.pace),
-          ts_pct: num(row.ts_pct),
-          ftr: num(row.fta_per_fga_pct),
-          three_par: num(row.fg3a_per_fga_pct),
-          trb_pct: num(row.team_trb_pct),
-          ast_pct: num(row.team_ast_pct),
-          stl_pct: num(row.team_stl_pct),
-          blk_pct: num(row.team_blk_pct),
-          efg_pct: num(row.efg_pct),
-          tov_pct: num(row.team_tov_pct),
-          orb_pct: num(row.team_orb_pct),
-          ft_per_fga: num(row.ft_rate),
-          opp_efg_pct: num(row.opp_efg_pct),
-          opp_tov_pct: num(row.opp_tov_pct),
-          opp_orb_pct: num(row.opp_orb_pct),
-          opp_ft_per_fga: num(row.opp_ft_rate),
-          overtimes: (row.overtimes && row.overtimes !== "") ? row.overtimes : null,
           source: "bref",
         };
+
+        // Basic box score stats
+        if (hasBasic) {
+          Object.assign(statRow, {
+            fg_made: num(row.fg),
+            fg_attempted: num(row.fga),
+            three_made: num(row.fg3),
+            three_attempted: num(row.fg3a),
+            ft_made: num(row.ft),
+            ft_attempted: num(row.fta),
+            off_rebounds: num(row.orb),
+            def_rebounds: num(row.drb),
+            rebounds: num(row.trb),
+            assists: num(row.ast),
+            steals: num(row.stl),
+            blocks: num(row.blk),
+            turnovers: num(row.tov),
+          });
+        }
+
+        // Advanced stats
+        if (hasAdvanced) {
+          Object.assign(statRow, {
+            off_rating: num(row.team_off_rtg),
+            def_rating: num(row.team_def_rtg),
+            pace: num(row.pace),
+            ts_pct: num(row.ts_pct),
+            ftr: num(row.fta_per_fga_pct),
+            three_par: num(row.fg3a_per_fga_pct),
+            trb_pct: num(row.team_trb_pct),
+            ast_pct: num(row.team_ast_pct),
+            stl_pct: num(row.team_stl_pct),
+            blk_pct: num(row.team_blk_pct),
+            efg_pct: num(row.efg_pct),
+            tov_pct: num(row.team_tov_pct),
+            orb_pct: num(row.team_orb_pct),
+            ft_per_fga: num(row.ft_rate),
+            opp_efg_pct: num(row.opp_efg_pct),
+            opp_tov_pct: num(row.opp_tov_pct),
+            opp_orb_pct: num(row.opp_orb_pct),
+            opp_ft_per_fga: num(row.opp_ft_rate),
+            overtimes: (row.overtimes && row.overtimes !== "") ? row.overtimes : null,
+          });
+        }
 
         if (existingStat && existingStat.length > 0) {
           const { error } = await supabase
