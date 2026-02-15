@@ -601,6 +601,8 @@ Deno.serve(async (req) => {
         rows_parsed: dataRows.length,
         rows_inserted: rowsInserted,
         rows_skipped: rowsSkipped,
+        rowsInserted,
+        rowsSkipped,
         errors: errors.slice(0, 20),
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
