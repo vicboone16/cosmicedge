@@ -7,36 +7,36 @@ import { ExternalLink } from "lucide-react";
 import * as XLSX from "xlsx";
 
 const BREF_TEAMS = [
-  { abbr: "ATL", name: "Atlanta Hawks" },
-  { abbr: "BOS", name: "Boston Celtics" },
-  { abbr: "BRK", name: "Brooklyn Nets" },
-  { abbr: "CHI", name: "Chicago Bulls" },
-  { abbr: "CHO", name: "Charlotte Hornets" },
-  { abbr: "CLE", name: "Cleveland Cavaliers" },
-  { abbr: "DAL", name: "Dallas Mavericks" },
-  { abbr: "DEN", name: "Denver Nuggets" },
-  { abbr: "DET", name: "Detroit Pistons" },
-  { abbr: "GSW", name: "Golden State Warriors" },
-  { abbr: "HOU", name: "Houston Rockets" },
-  { abbr: "IND", name: "Indiana Pacers" },
-  { abbr: "LAC", name: "Los Angeles Clippers" },
-  { abbr: "LAL", name: "Los Angeles Lakers" },
-  { abbr: "MEM", name: "Memphis Grizzlies" },
-  { abbr: "MIA", name: "Miami Heat" },
-  { abbr: "MIL", name: "Milwaukee Bucks" },
-  { abbr: "MIN", name: "Minnesota Timberwolves" },
-  { abbr: "NOP", name: "New Orleans Pelicans" },
-  { abbr: "NYK", name: "New York Knicks" },
-  { abbr: "OKC", name: "Oklahoma City Thunder" },
-  { abbr: "ORL", name: "Orlando Magic" },
-  { abbr: "PHI", name: "Philadelphia 76ers" },
-  { abbr: "PHO", name: "Phoenix Suns" },
-  { abbr: "POR", name: "Portland Trail Blazers" },
-  { abbr: "SAC", name: "Sacramento Kings" },
-  { abbr: "SAS", name: "San Antonio Spurs" },
-  { abbr: "TOR", name: "Toronto Raptors" },
-  { abbr: "UTA", name: "Utah Jazz" },
-  { abbr: "WAS", name: "Washington Wizards" },
+  { abbr: "ATL", bref: "ATL", name: "Atlanta Hawks" },
+  { abbr: "BOS", bref: "BOS", name: "Boston Celtics" },
+  { abbr: "BKN", bref: "BRK", name: "Brooklyn Nets" },
+  { abbr: "CHA", bref: "CHO", name: "Charlotte Hornets" },
+  { abbr: "CHI", bref: "CHI", name: "Chicago Bulls" },
+  { abbr: "CLE", bref: "CLE", name: "Cleveland Cavaliers" },
+  { abbr: "DAL", bref: "DAL", name: "Dallas Mavericks" },
+  { abbr: "DEN", bref: "DEN", name: "Denver Nuggets" },
+  { abbr: "DET", bref: "DET", name: "Detroit Pistons" },
+  { abbr: "GSW", bref: "GSW", name: "Golden State Warriors" },
+  { abbr: "HOU", bref: "HOU", name: "Houston Rockets" },
+  { abbr: "IND", bref: "IND", name: "Indiana Pacers" },
+  { abbr: "LAC", bref: "LAC", name: "Los Angeles Clippers" },
+  { abbr: "LAL", bref: "LAL", name: "Los Angeles Lakers" },
+  { abbr: "MEM", bref: "MEM", name: "Memphis Grizzlies" },
+  { abbr: "MIA", bref: "MIA", name: "Miami Heat" },
+  { abbr: "MIL", bref: "MIL", name: "Milwaukee Bucks" },
+  { abbr: "MIN", bref: "MIN", name: "Minnesota Timberwolves" },
+  { abbr: "NOP", bref: "NOP", name: "New Orleans Pelicans" },
+  { abbr: "NYK", bref: "NYK", name: "New York Knicks" },
+  { abbr: "OKC", bref: "OKC", name: "Oklahoma City Thunder" },
+  { abbr: "ORL", bref: "ORL", name: "Orlando Magic" },
+  { abbr: "PHI", bref: "PHI", name: "Philadelphia 76ers" },
+  { abbr: "PHX", bref: "PHO", name: "Phoenix Suns" },
+  { abbr: "POR", bref: "POR", name: "Portland Trail Blazers" },
+  { abbr: "SAC", bref: "SAC", name: "Sacramento Kings" },
+  { abbr: "SAS", bref: "SAS", name: "San Antonio Spurs" },
+  { abbr: "TOR", bref: "TOR", name: "Toronto Raptors" },
+  { abbr: "UTA", bref: "UTA", name: "Utah Jazz" },
+  { abbr: "WAS", bref: "WAS", name: "Washington Wizards" },
 ];
 
 // Team ID ranges per league
@@ -247,7 +247,7 @@ export default function AdminImportPage() {
                 <span className="text-xs font-medium text-foreground w-8">{t.abbr}</span>
                 <span className="text-xs text-muted-foreground truncate flex-1">{t.name}</span>
                 <a
-                  href={`https://www.basketball-reference.com/teams/${t.abbr}/2026/gamelog/`}
+                  href={`https://www.basketball-reference.com/teams/${t.bref}/2026/gamelog/`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-[10px] text-primary hover:underline flex items-center gap-0.5"
@@ -255,7 +255,7 @@ export default function AdminImportPage() {
                   Basic <ExternalLink className="h-2.5 w-2.5" />
                 </a>
                 <a
-                  href={`https://www.basketball-reference.com/teams/${t.abbr}/2026/gamelog-advanced/`}
+                  href={`https://www.basketball-reference.com/teams/${t.bref}/2026/gamelog-advanced/`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-[10px] text-primary hover:underline flex items-center gap-0.5"
