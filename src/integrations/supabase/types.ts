@@ -1367,6 +1367,7 @@ export type Database = {
           passing_attempts: number | null
           passing_touchdowns: number | null
           passing_yards: number | null
+          period: string
           player_id: string
           plus_minus: number | null
           points: number | null
@@ -1404,6 +1405,7 @@ export type Database = {
           passing_attempts?: number | null
           passing_touchdowns?: number | null
           passing_yards?: number | null
+          period?: string
           player_id: string
           plus_minus?: number | null
           points?: number | null
@@ -1441,6 +1443,7 @@ export type Database = {
           passing_attempts?: number | null
           passing_touchdowns?: number | null
           passing_yards?: number | null
+          period?: string
           player_id?: string
           plus_minus?: number | null
           points?: number | null
@@ -2984,6 +2987,10 @@ export type Database = {
       }
     }
     Functions: {
+      aggregate_period_stats: {
+        Args: { p_game_id?: string }
+        Returns: undefined
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
