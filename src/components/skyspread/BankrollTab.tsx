@@ -1,8 +1,9 @@
-import { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMemo, useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
-import { TrendingUp, TrendingDown, Trophy, Target, Zap, Star, Users } from "lucide-react";
+import { TrendingUp, TrendingDown, Trophy, Target, Zap, Star, Users, DollarSign, Check } from "lucide-react";
+import { toast } from "@/hooks/use-toast";
 import type { Tables } from "@/integrations/supabase/types";
 
 type BetRow = Tables<"bets">;
@@ -162,6 +163,41 @@ function BreakdownRow({ label, stats }: {
 }
 
 export default function BankrollTab({ userId }: BankrollTabProps) {
+  const qc = useQueryClient();
+
+  // Fetch starting bankroll from profile
+  const { data: profile } = useQuery({
+    queryKey: ["profile-bankroll", userId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("starting_bankroll")
+        .eq("user_id", userId)
+        .maybeSingle();
+      return data;
+    },
+  });
+
+  const [editingBankroll, setEditingBankroll] = useState(false);
+  const [bankrollInput, setBankrollInput] = useState("");
+
+  const startingBankroll = profile?.starting_bankroll ?? 0;
+
+  const saveBankrollMutation = useMutation({
+    mutationFn: async (amount: number) => {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ starting_bankroll: amount } as any)
+        .eq("user_id", userId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["profile-bankroll"] });
+      setEditingBankroll(false);
+      toast({ title: "Starting bankroll updated" });
+    },
+  });
+
   // Fetch all user bets
   const { data: bets } = useQuery({
     queryKey: ["bankroll-bets", userId],
@@ -240,9 +276,54 @@ export default function BankrollTab({ userId }: BankrollTabProps) {
 
   const profitLoss = stats.totalReturned - stats.totalStaked;
   const isProfit = profitLoss >= 0;
+  const currentBankroll = startingBankroll + profitLoss;
 
   return (
     <div className="space-y-4">
+      {/* Starting Bankroll */}
+      <div className="cosmic-card rounded-xl p-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1.5">
+            <DollarSign className="h-3.5 w-3.5 text-cosmic-gold" />
+            <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Starting Bankroll</span>
+          </div>
+          {!editingBankroll ? (
+            <button
+              onClick={() => { setEditingBankroll(true); setBankrollInput(String(startingBankroll)); }}
+              className="text-sm font-bold text-foreground hover:text-primary transition-colors tabular-nums"
+            >
+              ${startingBankroll.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+            </button>
+          ) : (
+            <div className="flex items-center gap-1">
+              <span className="text-sm font-bold text-muted-foreground">$</span>
+              <input
+                type="number"
+                value={bankrollInput}
+                onChange={e => setBankrollInput(e.target.value)}
+                className="w-24 bg-secondary/50 border border-border/50 rounded px-2 py-0.5 text-sm font-bold tabular-nums text-right"
+                autoFocus
+                onKeyDown={e => { if (e.key === "Enter") saveBankrollMutation.mutate(parseFloat(bankrollInput) || 0); }}
+              />
+              <button
+                onClick={() => saveBankrollMutation.mutate(parseFloat(bankrollInput) || 0)}
+                className="p-1 rounded hover:bg-primary/20 text-primary transition-colors"
+              >
+                <Check className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          )}
+        </div>
+        {startingBankroll > 0 && (
+          <div className="flex items-center justify-between mt-2 pt-2 border-t border-border/30">
+            <span className="text-[10px] text-muted-foreground">Current Bankroll</span>
+            <span className={cn("text-sm font-bold tabular-nums", currentBankroll >= startingBankroll ? "text-cosmic-green" : "text-cosmic-red")}>
+              ${currentBankroll.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+            </span>
+          </div>
+        )}
+      </div>
+
       {/* Hero Stats */}
       <div className="grid grid-cols-2 gap-2">
         <StatCard

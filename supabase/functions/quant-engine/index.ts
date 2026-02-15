@@ -734,7 +734,7 @@ async function handleAstroVerdict(sb:any,gameId:string,forceRefresh:boolean){
    BACKTEST MODE
    ══════════════════════════════════════════════════════════ */
 
-async function handleBacktest(sb: any, league: string, dateStart: string, dateEnd: string, userId: string) {
+async function handleBacktest(sb: any, league: string, dateStart: string, dateEnd: string, userId: string, customWeights?: Record<string, number>) {
   // Fetch completed games in range
   const { data: games, error } = await sb
     .from("games")
@@ -882,7 +882,7 @@ Deno.serve(async (req) => {
       if (!backtestLeague || !date_start || !date_end) {
         throw new Error("backtest mode requires league, date_start, date_end");
       }
-      const result = await handleBacktest(sb, backtestLeague, date_start, date_end, userId);
+      const result = await handleBacktest(sb, backtestLeague, date_start, date_end, userId, body.custom_weights);
       return new Response(JSON.stringify({ success: true, backtest: result }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
