@@ -1,0 +1,1 @@
+ALTER TABLE public.player_game_stats DROP CONSTRAINT player_game_stats_game_player_unique;
