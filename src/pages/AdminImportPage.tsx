@@ -493,6 +493,60 @@ export default function AdminImportPage() {
           </div>
         </Card>
 
+        {/* NFL Data Warehouse (Rolling Insights) */}
+        <Card className="p-4 space-y-3">
+          <h2 className="text-sm font-semibold text-foreground">🏈 NFL Data Warehouse (Rolling Insights API)</h2>
+          <p className="text-xs text-muted-foreground">
+            Backfill schedules, fetch injuries, and ingest play-by-play from Rolling Insights.
+            Cache-first design — won't re-fetch data already stored.
+          </p>
+          <div className="flex gap-2 flex-wrap">
+            <Button onClick={async () => {
+              setLoading(true);
+              addLog("Backfilling NFL schedules (2024 + 2025 seasons)...");
+              try {
+                const { data, error } = await supabase.functions.invoke("nfl-backfill-schedules", {
+                  body: { action: "backfill", years: [2024, 2025] },
+                });
+                if (error) addLog(`❌ ${error.message}`);
+                else {
+                  addLog(`✅ Backfill complete`);
+                  (data?.results ?? []).forEach((r: any) => addLog(`  Season ${r.year}: ${r.games} games (${r.status})`));
+                }
+              } catch (e: any) { addLog(`❌ ${e.message}`); }
+              setLoading(false);
+            }} disabled={loading} variant="default" size="sm">
+              Backfill Schedules (2024+2025)
+            </Button>
+            <Button onClick={async () => {
+              setLoading(true);
+              addLog("Refreshing NFL weekly schedule...");
+              try {
+                const { data, error } = await supabase.functions.invoke("nfl-backfill-schedules", {
+                  body: { action: "weekly" },
+                });
+                if (error) addLog(`❌ ${error.message}`);
+                else addLog(`✅ Weekly refresh: ${data?.results?.[0]?.updated ?? 0} games updated`);
+              } catch (e: any) { addLog(`❌ ${e.message}`); }
+              setLoading(false);
+            }} disabled={loading} variant="secondary" size="sm">
+              Refresh This Week
+            </Button>
+            <Button onClick={async () => {
+              setLoading(true);
+              addLog("Fetching NFL injuries...");
+              try {
+                const { data, error } = await supabase.functions.invoke("nfl-refresh-injuries");
+                if (error) addLog(`❌ ${error.message}`);
+                else addLog(`✅ Injuries: ${data?.upserted ?? 0} records upserted`);
+              } catch (e: any) { addLog(`❌ ${e.message}`); }
+              setLoading(false);
+            }} disabled={loading} variant="secondary" size="sm">
+              Fetch Injuries
+            </Button>
+          </div>
+        </Card>
+
         {/* Player Game Stats CSV Import (NFL etc.) */}
         <Card className="p-4 space-y-3">
           <h2 className="text-sm font-semibold text-foreground">🏈 Player Game Stats CSV Import</h2>

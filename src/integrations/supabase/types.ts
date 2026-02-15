@@ -14,6 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
+      api_fetch_log: {
+        Row: {
+          cooldown_until: string | null
+          created_at: string
+          endpoint: string
+          fetch_key: string
+          last_fetched_at: string
+          last_http_status: number | null
+          params_json: Json
+        }
+        Insert: {
+          cooldown_until?: string | null
+          created_at?: string
+          endpoint: string
+          fetch_key: string
+          last_fetched_at?: string
+          last_http_status?: number | null
+          params_json?: Json
+        }
+        Update: {
+          cooldown_until?: string | null
+          created_at?: string
+          endpoint?: string
+          fetch_key?: string
+          last_fetched_at?: string
+          last_http_status?: number | null
+          params_json?: Json
+        }
+        Relationships: []
+      }
       astro_calculations: {
         Row: {
           calc_date: string | null
@@ -806,6 +836,330 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "conversations"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      nfl_games: {
+        Row: {
+          arena: string | null
+          away_score: number | null
+          away_team_id: string | null
+          away_team_name: string | null
+          city: string | null
+          country: string | null
+          created_at: string
+          dome: boolean | null
+          event_name: string | null
+          field: string | null
+          game_id: string
+          game_time: string | null
+          home_score: number | null
+          home_team_id: string | null
+          home_team_name: string | null
+          latitude: number | null
+          longitude: number | null
+          postal_code: string | null
+          raw_json: Json | null
+          round: string | null
+          season_type: string | null
+          season_year: number
+          state: string | null
+          status: string | null
+          updated_at: string
+          week: number | null
+        }
+        Insert: {
+          arena?: string | null
+          away_score?: number | null
+          away_team_id?: string | null
+          away_team_name?: string | null
+          city?: string | null
+          country?: string | null
+          created_at?: string
+          dome?: boolean | null
+          event_name?: string | null
+          field?: string | null
+          game_id: string
+          game_time?: string | null
+          home_score?: number | null
+          home_team_id?: string | null
+          home_team_name?: string | null
+          latitude?: number | null
+          longitude?: number | null
+          postal_code?: string | null
+          raw_json?: Json | null
+          round?: string | null
+          season_type?: string | null
+          season_year: number
+          state?: string | null
+          status?: string | null
+          updated_at?: string
+          week?: number | null
+        }
+        Update: {
+          arena?: string | null
+          away_score?: number | null
+          away_team_id?: string | null
+          away_team_name?: string | null
+          city?: string | null
+          country?: string | null
+          created_at?: string
+          dome?: boolean | null
+          event_name?: string | null
+          field?: string | null
+          game_id?: string
+          game_time?: string | null
+          home_score?: number | null
+          home_team_id?: string | null
+          home_team_name?: string | null
+          latitude?: number | null
+          longitude?: number | null
+          postal_code?: string | null
+          raw_json?: Json | null
+          round?: string | null
+          season_type?: string | null
+          season_year?: number
+          state?: string | null
+          status?: string | null
+          updated_at?: string
+          week?: number | null
+        }
+        Relationships: []
+      }
+      nfl_injuries: {
+        Row: {
+          created_at: string
+          date_injured: string | null
+          id: string
+          injury: string
+          last_seen_at: string
+          player_id: string
+          player_name: string
+          raw_json: Json | null
+          returns: string | null
+          team_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          date_injured?: string | null
+          id?: string
+          injury: string
+          last_seen_at?: string
+          player_id: string
+          player_name: string
+          raw_json?: Json | null
+          returns?: string | null
+          team_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          date_injured?: string | null
+          id?: string
+          injury?: string
+          last_seen_at?: string
+          player_id?: string
+          player_name?: string
+          raw_json?: Json | null
+          returns?: string | null
+          team_id?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      nfl_play_by_play: {
+        Row: {
+          created_at: string
+          details_json: Json | null
+          down: number | null
+          event: string | null
+          game_clock: string | null
+          game_id: string
+          is_blocked: boolean | null
+          is_recovered: boolean | null
+          is_returned: boolean | null
+          is_scoring_play: boolean | null
+          is_touchdown: boolean | null
+          possession_abbr: string | null
+          quarter: number | null
+          raw_json: Json | null
+          sequence: number
+          yard_line: string | null
+          yards_to_go: number | null
+        }
+        Insert: {
+          created_at?: string
+          details_json?: Json | null
+          down?: number | null
+          event?: string | null
+          game_clock?: string | null
+          game_id: string
+          is_blocked?: boolean | null
+          is_recovered?: boolean | null
+          is_returned?: boolean | null
+          is_scoring_play?: boolean | null
+          is_touchdown?: boolean | null
+          possession_abbr?: string | null
+          quarter?: number | null
+          raw_json?: Json | null
+          sequence: number
+          yard_line?: string | null
+          yards_to_go?: number | null
+        }
+        Update: {
+          created_at?: string
+          details_json?: Json | null
+          down?: number | null
+          event?: string | null
+          game_clock?: string | null
+          game_id?: string
+          is_blocked?: boolean | null
+          is_recovered?: boolean | null
+          is_returned?: boolean | null
+          is_scoring_play?: boolean | null
+          is_touchdown?: boolean | null
+          possession_abbr?: string | null
+          quarter?: number | null
+          raw_json?: Json | null
+          sequence?: number
+          yard_line?: string | null
+          yards_to_go?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "nfl_play_by_play_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "nfl_games"
+            referencedColumns: ["game_id"]
+          },
+        ]
+      }
+      nfl_play_by_play_players: {
+        Row: {
+          action: string | null
+          created_at: string
+          game_id: string
+          player_id: string
+          player_name: string | null
+          position: string | null
+          role: string
+          sequence: number
+        }
+        Insert: {
+          action?: string | null
+          created_at?: string
+          game_id: string
+          player_id: string
+          player_name?: string | null
+          position?: string | null
+          role: string
+          sequence: number
+        }
+        Update: {
+          action?: string | null
+          created_at?: string
+          game_id?: string
+          player_id?: string
+          player_name?: string | null
+          position?: string | null
+          role?: string
+          sequence?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "nfl_play_by_play_players_game_id_sequence_fkey"
+            columns: ["game_id", "sequence"]
+            isOneToOne: false
+            referencedRelation: "nfl_play_by_play"
+            referencedColumns: ["game_id", "sequence"]
+          },
+        ]
+      }
+      nfl_player_game_stats: {
+        Row: {
+          completions: number | null
+          created_at: string
+          game_id: string
+          interceptions: number | null
+          longest_reception: number | null
+          longest_rush: number | null
+          passing_attempts: number | null
+          passing_tds: number | null
+          passing_yards: number | null
+          player_id: string
+          player_name: string | null
+          raw_json: Json | null
+          receiving_first_downs: number | null
+          receiving_tds: number | null
+          receiving_yards: number | null
+          receptions: number | null
+          rush_attempts: number | null
+          rushing_first_downs: number | null
+          rushing_tds: number | null
+          rushing_yards: number | null
+          targets: number | null
+          team_abbr: string | null
+          updated_at: string
+        }
+        Insert: {
+          completions?: number | null
+          created_at?: string
+          game_id: string
+          interceptions?: number | null
+          longest_reception?: number | null
+          longest_rush?: number | null
+          passing_attempts?: number | null
+          passing_tds?: number | null
+          passing_yards?: number | null
+          player_id: string
+          player_name?: string | null
+          raw_json?: Json | null
+          receiving_first_downs?: number | null
+          receiving_tds?: number | null
+          receiving_yards?: number | null
+          receptions?: number | null
+          rush_attempts?: number | null
+          rushing_first_downs?: number | null
+          rushing_tds?: number | null
+          rushing_yards?: number | null
+          targets?: number | null
+          team_abbr?: string | null
+          updated_at?: string
+        }
+        Update: {
+          completions?: number | null
+          created_at?: string
+          game_id?: string
+          interceptions?: number | null
+          longest_reception?: number | null
+          longest_rush?: number | null
+          passing_attempts?: number | null
+          passing_tds?: number | null
+          passing_yards?: number | null
+          player_id?: string
+          player_name?: string | null
+          raw_json?: Json | null
+          receiving_first_downs?: number | null
+          receiving_tds?: number | null
+          receiving_yards?: number | null
+          receptions?: number | null
+          rush_attempts?: number | null
+          rushing_first_downs?: number | null
+          rushing_tds?: number | null
+          rushing_yards?: number | null
+          targets?: number | null
+          team_abbr?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "nfl_player_game_stats_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "nfl_games"
+            referencedColumns: ["game_id"]
           },
         ]
       }
@@ -2272,7 +2626,74 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      v_nfl_player_game_metrics: {
+        Row: {
+          away_team_name: string | null
+          catch_percentage: number | null
+          completions: number | null
+          created_at: string | null
+          game_id: string | null
+          game_time: string | null
+          home_team_name: string | null
+          interceptions: number | null
+          longest_reception: number | null
+          longest_rush: number | null
+          passing_attempts: number | null
+          passing_tds: number | null
+          passing_yards: number | null
+          player_id: string | null
+          player_name: string | null
+          raw_json: Json | null
+          receiving_first_downs: number | null
+          receiving_tds: number | null
+          receiving_yards: number | null
+          receiving_yards_per_reception: number | null
+          receiving_yards_per_target: number | null
+          receptions: number | null
+          rush_attempts: number | null
+          rush_rec_tds: number | null
+          rush_rec_yards: number | null
+          rushing_first_downs: number | null
+          rushing_tds: number | null
+          rushing_yards: number | null
+          rushing_yards_per_attempt: number | null
+          season_year: number | null
+          targets: number | null
+          team_abbr: string | null
+          updated_at: string | null
+          week: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "nfl_player_game_stats_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "nfl_games"
+            referencedColumns: ["game_id"]
+          },
+        ]
+      }
+      v_nfl_player_quarter_metrics: {
+        Row: {
+          game_id: string | null
+          player_id: string | null
+          player_name: string | null
+          quarter: number | null
+          scoring_plays: number | null
+          team_abbr: string | null
+          total_plays: number | null
+          touchdowns: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "nfl_play_by_play_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "nfl_games"
+            referencedColumns: ["game_id"]
+          },
+        ]
+      }
     }
     Functions: {
       has_role: {
