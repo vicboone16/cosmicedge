@@ -439,6 +439,11 @@ Deno.serve(async (req) => {
           const venueLat = Number(r.venueLatitude) || stadium?.latitude || null;
           const venueLng = Number(r.venueLongitude) || stadium?.longitude || null;
 
+          // Detect scores from record
+          const homeScore = num(r.homeScore ?? r.homeTeamScore ?? r.HomeScore ?? r.HomePts) as number | null;
+          const awayScore = num(r.awayScore ?? r.awayTeamScore ?? r.AwayScore ?? r.AwayPts) as number | null;
+          const hasScores = homeScore !== null && awayScore !== null;
+
           return {
             external_id: String(r.gameId),
             league,
@@ -447,7 +452,9 @@ Deno.serve(async (req) => {
             home_abbr: homeAbbr,
             away_abbr: awayAbbr,
             start_time: startTime,
-            status: "scheduled",
+            status: hasScores ? "final" : "scheduled",
+            home_score: homeScore,
+            away_score: awayScore,
             venue: r.arenaName || r.venueName || null,
             venue_lat: venueLat,
             venue_lng: venueLng,
@@ -455,21 +462,42 @@ Deno.serve(async (req) => {
           };
         });
 
-      // Check which games already exist
+      // Check which games already exist — upsert instead of skip
       const extIds = gameRows.map((r: any) => r.external_id);
-      // Batch the lookup since there could be >1000 IDs
-      const existingSet = new Set<string>();
+      const existingMap = new Map<string, string>(); // external_id → db id
       for (let i = 0; i < extIds.length; i += 500) {
         const batch = extIds.slice(i, i + 500);
         const { data: existing } = await supabase
           .from("games")
-          .select("external_id")
+          .select("id, external_id")
           .in("external_id", batch);
-        (existing || []).forEach((e) => existingSet.add(e.external_id!));
+        (existing || []).forEach((e) => existingMap.set(e.external_id!, e.id));
       }
 
-      const newGames = gameRows.filter((r: any) => !existingSet.has(r.external_id));
-      skipped += gameRows.length - newGames.length;
+      const newGames: any[] = [];
+      let updated = 0;
+      for (const row of gameRows) {
+        const existingId = existingMap.get(row.external_id);
+        if (existingId) {
+          // Upsert: update scores/status if we have new data
+          if (row.home_score !== null && row.away_score !== null) {
+            const { error } = await supabase.from("games").update({
+              home_score: row.home_score,
+              away_score: row.away_score,
+              status: row.status,
+              venue: row.venue,
+              venue_lat: row.venue_lat,
+              venue_lng: row.venue_lng,
+            }).eq("id", existingId);
+            if (error) errors.push(`Update ${row.external_id}: ${error.message}`);
+            else updated++;
+          } else {
+            skipped++;
+          }
+        } else {
+          newGames.push(row);
+        }
+      }
 
       for (let i = 0; i < newGames.length; i += 100) {
         const batch = newGames.slice(i, i + 100);
@@ -480,6 +508,9 @@ Deno.serve(async (req) => {
         if (error) errors.push(`Schedule batch ${i}: ${error.message}`);
         else inserted += data?.length || batch.length;
       }
+
+      // Include updated count in inserted for the response
+      inserted += updated;
     }
 
     // ── ACTION: team_season_stats ──
