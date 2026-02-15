@@ -1,5 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+
+let quotaWarningShown = false;
 
 // ── Fetch cached natal chart from astro_calculations ──
 export function useNatalChart(entityId: string | undefined, entityType = "player") {
@@ -130,6 +133,9 @@ export function useCurrentEphemeris(forDate?: Date) {
           if (json?.result) {
             return extractFromGlobalPositions(json.result);
           }
+        } else if (resp.status === 429 && !quotaWarningShown) {
+          quotaWarningShown = true;
+          toast.warning("Astrology API quota exceeded — using fallback data", { duration: 8000 });
         }
       } catch (e) {
         console.warn("global_positions fetch failed:", e);

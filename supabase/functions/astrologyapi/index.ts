@@ -37,6 +37,10 @@ async function apiCall(path: string, apiKey: string, body?: any, method = "POST"
   const resp = await fetch(`${API_BASE}${path}`, opts);
   if (!resp.ok) {
     const text = await resp.text();
+    // Check for quota/auth errors and throw with a recognizable prefix
+    if (resp.status === 401 && text.includes("Quota exceeded")) {
+      throw new Error(`QUOTA_EXCEEDED: Astrology API quota exceeded for this billing period`);
+    }
     throw new Error(`Astrology API ${path} error ${resp.status}: ${text}`);
   }
   return resp.json();
@@ -494,9 +498,10 @@ Deno.serve(async (req) => {
     throw new Error(`Unknown mode: ${mode}`);
   } catch (error) {
     console.error("astrology-api error:", error);
+    const isQuota = error.message?.startsWith("QUOTA_EXCEEDED");
     return new Response(
-      JSON.stringify({ error: error.message }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      JSON.stringify({ error: error.message, quota_exceeded: isQuota }),
+      { status: isQuota ? 429 : 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 });
