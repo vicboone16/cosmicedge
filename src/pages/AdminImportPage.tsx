@@ -1,4 +1,5 @@
 import { useState, useRef } from "react";
+import { DataHealthDashboard } from "@/components/admin/DataHealthDashboard";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -245,6 +246,7 @@ export default function AdminImportPage() {
   return (
     <div className="min-h-screen bg-background p-6 space-y-4">
       <h1 className="text-2xl font-bold text-foreground">Data Import Admin</h1>
+      <DataHealthDashboard />
 
       <div className="space-y-4">
         {/* CSV Schedule + Scores — all leagues */}
