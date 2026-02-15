@@ -57,7 +57,6 @@ export default function AdminImportPage() {
   const importScheduleBatch = async (league: string, records: any[]) => {
     addLog(`Importing ${league} schedule (${records.length} games)...`);
 
-    // Send in chunks to avoid payload limits
     const CHUNK = 300;
     let totalInserted = 0;
     let totalSkipped = 0;
@@ -78,7 +77,7 @@ export default function AdminImportPage() {
       }
     }
 
-    addLog(`✅ ${league}: Inserted ${totalInserted}, Skipped ${totalSkipped}`);
+    addLog(`✅ ${league}: Inserted/Updated ${totalInserted}, Skipped ${totalSkipped}`);
     if (allErrors.length) {
       allErrors.slice(0, 5).forEach((e) => addLog(`  ⚠️ ${e}`));
       if (allErrors.length > 5) addLog(`  ... and ${allErrors.length - 5} more errors`);
@@ -118,7 +117,6 @@ export default function AdminImportPage() {
       const buffer = await file.arrayBuffer();
       const workbook = XLSX.read(buffer, { type: "array" });
 
-      // Group records by detected league
       const leagueRecords: Record<string, any[]> = {};
 
       for (const sheetName of workbook.SheetNames) {
@@ -132,7 +130,6 @@ export default function AdminImportPage() {
           if (!league) continue;
           if (!leagueRecords[league]) leagueRecords[league] = [];
 
-          // Normalize field names for the edge function
           leagueRecords[league].push({
             gameId: row.gameId,
             gameDateTimeEst: row.gameDateTimeEst,
@@ -145,6 +142,9 @@ export default function AdminImportPage() {
             venueLatitude: row.venueLatitude,
             venueLongitude: row.venueLongitude,
             gameLabel: row.gameLabel,
+            // Pass through score fields for upsert
+            homeScore: row.homeScore ?? row.homeTeamScore ?? row.HomeScore,
+            awayScore: row.awayScore ?? row.awayTeamScore ?? row.AwayScore,
           });
         }
       }
@@ -196,14 +196,89 @@ export default function AdminImportPage() {
     setLoading(false);
   };
 
+  // ── CSV Schedule + Scores Import (all leagues) ──
+  const csvRef = useRef<HTMLInputElement>(null);
+  const [csvLeague, setCsvLeague] = useState<string>("NFL");
+
+  const handleCsvScheduleUpload = async () => {
+    const file = csvRef.current?.files?.[0];
+    if (!file) { addLog("No CSV file selected"); return; }
+
+    setLoading(true);
+    addLog(`Uploading ${csvLeague} schedule CSV: ${file.name}`);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("league", csvLeague);
+      formData.append("data_type", "games");
+
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/import-historical-csv`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${session?.access_token}`,
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          },
+          body: formData,
+        }
+      );
+      const result = await res.json();
+
+      if (!res.ok || result.error) {
+        addLog(`❌ ${result.error || "Upload failed"}`);
+      } else {
+        addLog(`✅ ${csvLeague}: Inserted ${result.rowsInserted || 0}, Skipped ${result.rowsSkipped || 0}`);
+        if (result.errors?.length) {
+          result.errors.slice(0, 5).forEach((e: string) => addLog(`  ⚠️ ${e}`));
+          if (result.errors.length > 5) addLog(`  ... and ${result.errors.length - 5} more`);
+        }
+      }
+    } catch (e: any) {
+      addLog(`❌ ${e.message}`);
+    }
+    setLoading(false);
+  };
+
   return (
     <div className="min-h-screen bg-background p-6 space-y-4">
       <h1 className="text-2xl font-bold text-foreground">Data Import Admin</h1>
 
       <div className="space-y-4">
+        {/* CSV Schedule + Scores — all leagues */}
+        <Card className="p-4 space-y-3">
+          <h2 className="text-sm font-semibold text-foreground">League Schedule + Scores CSV Import</h2>
+          <p className="text-xs text-muted-foreground">
+            Upload a .csv with game schedules and scores. Completed games get final scores; future games are marked as scheduled.
+            Existing games are updated with scores on re-import (upsert).
+          </p>
+          <p className="text-xs text-muted-foreground italic">
+            Expected columns (flexible names): Date, HomeTeam, AwayTeam, HomeScore, AwayScore, Venue, Status
+          </p>
+          <div className="flex gap-3 items-center flex-wrap">
+            <Select value={csvLeague} onValueChange={setCsvLeague}>
+              <SelectTrigger className="w-32 h-9 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="NFL">NFL</SelectItem>
+                <SelectItem value="NHL">NHL</SelectItem>
+                <SelectItem value="MLB">MLB</SelectItem>
+                <SelectItem value="NBA">NBA</SelectItem>
+              </SelectContent>
+            </Select>
+            <input ref={csvRef} type="file" accept=".csv" className="text-xs" />
+            <Button onClick={handleCsvScheduleUpload} disabled={loading} variant="default">
+              {loading ? "Importing..." : "Import CSV Schedule"}
+            </Button>
+          </div>
+        </Card>
+
         <div className="flex gap-3 flex-wrap items-end">
-          <Button onClick={importNbaSchedule} disabled={loading}>
-            {loading ? "Importing..." : "Import NBA 2025-26 Schedule"}
+          <Button onClick={importNbaSchedule} disabled={loading} variant="secondary">
+            {loading ? "Importing..." : "Import NBA 2025-26 Schedule (built-in CSV)"}
           </Button>
         </div>
 
@@ -271,7 +346,7 @@ export default function AdminImportPage() {
           <h2 className="text-sm font-semibold text-foreground">Multi-League Schedule Import (Excel)</h2>
           <p className="text-xs text-muted-foreground">
             Upload an .xlsx file with NFL/NHL/MLB schedules. Teams are auto-detected by ID range 
-            (NFL: 2000s, NHL: 3000s, MLB: 4000s). Each league is imported separately.
+            (NFL: 2000s, NHL: 3000s, MLB: 4000s). Scores are now preserved on re-import (upsert).
           </p>
           <div className="flex gap-3 items-center">
             <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" className="text-xs" />
