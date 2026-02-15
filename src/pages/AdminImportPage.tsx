@@ -58,6 +58,7 @@ export default function AdminImportPage() {
   const [rosterLeague, setRosterLeague] = useState<string>("NFL");
   const gamelogCsvRef = useRef<HTMLInputElement>(null);
   const [gamelogLeague, setGamelogLeague] = useState<string>("NFL");
+  const [manualLeague, setManualLeague] = useState<string>("NFL");
 
   const addLog = (msg: string) => setLog((prev) => [...prev, `${new Date().toLocaleTimeString()} — ${msg}`]);
 
@@ -603,9 +604,21 @@ export default function AdminImportPage() {
         <Card className="p-4 space-y-3">
           <h2 className="text-sm font-semibold text-foreground">📝 Manual Player Stats Entry</h2>
           <p className="text-xs text-muted-foreground">
-            Fill in the spreadsheet below to manually enter per-game player stats. Set the game context (date, home/away teams) once, then add rows for each player.
+            Fill in the spreadsheet below to manually enter per-game player stats. Select the league to change stat fields, players, and teams.
           </p>
-          <ManualStatsEntry league={gamelogLeague} onLog={addLog} />
+          <div className="flex gap-2 items-center">
+            <label className="text-[10px] text-muted-foreground font-medium">League</label>
+            <Select value={manualLeague} onValueChange={setManualLeague}>
+              <SelectTrigger className="w-32 h-8 text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="NFL">NFL</SelectItem>
+                <SelectItem value="NBA">NBA</SelectItem>
+                <SelectItem value="NHL">NHL</SelectItem>
+                <SelectItem value="MLB">MLB</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <ManualStatsEntry league={manualLeague} onLog={addLog} />
         </Card>
       </div>
 
