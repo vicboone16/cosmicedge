@@ -130,6 +130,42 @@ export type Database = {
         }
         Relationships: []
       }
+      backtest_presets: {
+        Row: {
+          created_at: string
+          h2h_history: number
+          home_away_splits: number
+          id: string
+          name: string
+          recent_form: number
+          schedule_fatigue: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          h2h_history?: number
+          home_away_splits?: number
+          id?: string
+          name: string
+          recent_form?: number
+          schedule_fatigue?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          h2h_history?: number
+          home_away_splits?: number
+          id?: string
+          name?: string
+          recent_form?: number
+          schedule_fatigue?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       backtest_results: {
         Row: {
           accuracy: number
@@ -1981,6 +2017,7 @@ export type Database = {
           rising_sign: string | null
           share_astro: boolean
           share_picks: boolean
+          starting_bankroll: number | null
           sun_sign: string | null
           timezone: string | null
           updated_at: string
@@ -2001,6 +2038,7 @@ export type Database = {
           rising_sign?: string | null
           share_astro?: boolean
           share_picks?: boolean
+          starting_bankroll?: number | null
           sun_sign?: string | null
           timezone?: string | null
           updated_at?: string
@@ -2021,6 +2059,7 @@ export type Database = {
           rising_sign?: string | null
           share_astro?: boolean
           share_picks?: boolean
+          starting_bankroll?: number | null
           sun_sign?: string | null
           timezone?: string | null
           updated_at?: string

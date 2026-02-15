@@ -1,8 +1,9 @@
 import { useState, useMemo } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { History, TrendingUp, TrendingDown, ChevronLeft, ChevronRight, RefreshCw, Trophy, Star, Users, Target, FlaskConical } from "lucide-react";
+import { History, TrendingUp, TrendingDown, ChevronLeft, ChevronRight, RefreshCw, Trophy, Star, Users, Target, FlaskConical, Save, Trash2 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
+import { useIsAdmin } from "@/hooks/use-admin";
 import { toast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -12,6 +13,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
+import { Slider } from "@/components/ui/slider";
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
 } from "recharts";
@@ -46,8 +48,24 @@ function getSeasonsForLeague(lg: string) {
   return LEAGUE_SEASONS[lg] || LEAGUE_SEASONS.NBA;
 }
 
+const MODEL_WEIGHT_DEFS = [
+  { key: "home_away_splits", label: "Home/Away Splits", defaultMl: 15, defaultSpread: 20 },
+  { key: "schedule_fatigue", label: "Schedule Fatigue", defaultMl: 10, defaultSpread: 15 },
+  { key: "recent_form", label: "Recent Form", defaultMl: 10, defaultSpread: 10 },
+  { key: "h2h_history", label: "Head-to-Head", defaultMl: 5, defaultSpread: 10 },
+];
+
+const DEFAULT_WEIGHTS: Record<string, number> = {
+  home_away_splits: 15,
+  schedule_fatigue: 10,
+  recent_form: 10,
+  h2h_history: 5,
+};
+
 export default function HistoricalPage() {
   const { user } = useAuth();
+  const { isAdmin } = useIsAdmin();
+  const qc = useQueryClient();
   const [league, setLeague] = useState("NBA");
   const [selectedDate, setSelectedDate] = useState(subDays(new Date(), 1));
   const [selectedGameId, setSelectedGameId] = useState<string | null>(null);
@@ -56,13 +74,67 @@ export default function HistoricalPage() {
   const [btStart, setBtStart] = useState("");
   const [btEnd, setBtEnd] = useState("");
   const [btResult, setBtResult] = useState<any>(null);
+  const [btWeights, setBtWeights] = useState<Record<string, number>>({ ...DEFAULT_WEIGHTS });
+  const [presetName, setPresetName] = useState("");
+
+  // Load saved presets
+  const { data: presets } = useQuery({
+    queryKey: ["backtest-presets", user?.id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("backtest_presets")
+        .select("*")
+        .eq("user_id", user!.id)
+        .order("created_at", { ascending: false });
+      return data || [];
+    },
+    enabled: !!user && isAdmin,
+  });
+
+  const savePresetMutation = useMutation({
+    mutationFn: async () => {
+      if (!user || !presetName.trim()) throw new Error("Name required");
+      const { error } = await supabase.from("backtest_presets").insert({
+        user_id: user.id,
+        name: presetName.trim(),
+        home_away_splits: btWeights.home_away_splits,
+        schedule_fatigue: btWeights.schedule_fatigue,
+        recent_form: btWeights.recent_form,
+        h2h_history: btWeights.h2h_history,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast({ title: "Preset saved" });
+      setPresetName("");
+      qc.invalidateQueries({ queryKey: ["backtest-presets"] });
+    },
+  });
+
+  const deletePresetMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("backtest_presets").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["backtest-presets"] }),
+  });
+
+  const loadPreset = (preset: any) => {
+    setBtWeights({
+      home_away_splits: preset.home_away_splits,
+      schedule_fatigue: preset.schedule_fatigue,
+      recent_form: preset.recent_form,
+      h2h_history: preset.h2h_history,
+    });
+    toast({ title: `Loaded "${preset.name}"` });
+  };
 
   const backtestMutation = useMutation({
     mutationFn: async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error("Please log in to run backtests");
       const resp = await supabase.functions.invoke("quant-engine", {
-        body: { mode: "backtest", league, date_start: btStart, date_end: btEnd },
+        body: { mode: "backtest", league, date_start: btStart, date_end: btEnd, custom_weights: btWeights },
       });
       if (resp.error) throw new Error(resp.error.message);
       return resp.data;
@@ -298,13 +370,15 @@ export default function HistoricalPage() {
 
       <div className="px-4 py-4">
         <Tabs defaultValue="results" className="w-full">
-          <TabsList className="w-full grid grid-cols-6 h-8">
+          <TabsList className={`w-full grid h-8 ${isAdmin ? "grid-cols-6" : "grid-cols-5"}`}>
             <TabsTrigger value="results" className="text-[9px] px-1"><Trophy className="h-3 w-3 mr-0.5" />Results</TabsTrigger>
             <TabsTrigger value="odds" className="text-[9px] px-1"><TrendingUp className="h-3 w-3 mr-0.5" />Odds</TabsTrigger>
             <TabsTrigger value="astro" className="text-[9px] px-1"><Star className="h-3 w-3 mr-0.5" />Astro</TabsTrigger>
             <TabsTrigger value="players" className="text-[9px] px-1"><Users className="h-3 w-3 mr-0.5" />Stats</TabsTrigger>
             <TabsTrigger value="markets" className="text-[9px] px-1"><Target className="h-3 w-3 mr-0.5" />ATS</TabsTrigger>
-            <TabsTrigger value="backtest" className="text-[9px] px-1"><FlaskConical className="h-3 w-3 mr-0.5" />Backtest</TabsTrigger>
+            {isAdmin && (
+              <TabsTrigger value="backtest" className="text-[9px] px-1"><FlaskConical className="h-3 w-3 mr-0.5" />Backtest</TabsTrigger>
+            )}
           </TabsList>
 
           {/* Tab 1: Game Results */}
@@ -553,7 +627,8 @@ export default function HistoricalPage() {
             ))}
           </TabsContent>
 
-          {/* Tab 6: Backtest */}
+          {/* Tab 6: Backtest (Admin Only) */}
+          {isAdmin && (
           <TabsContent value="backtest" className="space-y-3 mt-3">
             <div className="cosmic-card rounded-xl p-4 space-y-3">
               <h3 className="text-xs font-semibold text-primary uppercase tracking-widest flex items-center gap-1.5">
@@ -572,6 +647,71 @@ export default function HistoricalPage() {
                     className="w-full bg-secondary/50 border border-border/50 rounded px-2 py-1 text-xs" />
                 </div>
               </div>
+
+              {/* Model Weight Sliders */}
+              <div className="space-y-2 pt-2 border-t border-border/30">
+                <h4 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Model Weights</h4>
+                {MODEL_WEIGHT_DEFS.map(def => (
+                  <div key={def.key} className="space-y-0.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] text-foreground font-medium">{def.label}</span>
+                      <span className="text-[10px] text-primary font-bold tabular-nums w-8 text-right">{btWeights[def.key]}%</span>
+                    </div>
+                    <Slider
+                      value={[btWeights[def.key]]}
+                      onValueChange={([v]) => setBtWeights(prev => ({ ...prev, [def.key]: v }))}
+                      min={0} max={50} step={1}
+                      className="w-full"
+                    />
+                  </div>
+                ))}
+                <button
+                  onClick={() => setBtWeights({ ...DEFAULT_WEIGHTS })}
+                  className="text-[9px] text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Reset to defaults
+                </button>
+              </div>
+
+              {/* Preset Save/Load */}
+              <div className="space-y-2 pt-2 border-t border-border/30">
+                <h4 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Presets</h4>
+                <div className="flex gap-1.5">
+                  <Input
+                    placeholder="Preset name..."
+                    value={presetName}
+                    onChange={e => setPresetName(e.target.value)}
+                    className="h-7 text-[10px] flex-1"
+                  />
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 text-[10px] px-2"
+                    onClick={() => savePresetMutation.mutate()}
+                    disabled={!presetName.trim() || savePresetMutation.isPending}
+                  >
+                    <Save className="h-3 w-3 mr-1" />Save
+                  </Button>
+                </div>
+                {presets && presets.length > 0 && (
+                  <div className="space-y-1">
+                    {presets.map((p: any) => (
+                      <div key={p.id} className="flex items-center justify-between bg-secondary/30 rounded px-2 py-1">
+                        <button onClick={() => loadPreset(p)} className="text-[10px] font-medium text-foreground hover:text-primary transition-colors flex-1 text-left">
+                          {p.name}
+                          <span className="text-muted-foreground ml-1.5">
+                            ({p.home_away_splits}/{p.schedule_fatigue}/{p.recent_form}/{p.h2h_history})
+                          </span>
+                        </button>
+                        <button onClick={() => deletePresetMutation.mutate(p.id)} className="text-muted-foreground hover:text-destructive transition-colors p-0.5">
+                          <Trash2 className="h-3 w-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               <Button onClick={() => backtestMutation.mutate()} disabled={!btStart || !btEnd || backtestMutation.isPending}
                 className="w-full text-xs" size="sm">
                 {backtestMutation.isPending ? "Running backtest..." : `Run Backtest (${league})`}
@@ -662,6 +802,7 @@ export default function HistoricalPage() {
               </div>
             )}
           </TabsContent>
+          )}
         </Tabs>
       </div>
     </div>
