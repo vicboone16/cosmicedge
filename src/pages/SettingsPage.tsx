@@ -25,6 +25,8 @@ const SettingsPage = () => {
   const [importing, setImporting] = useState(false);
   const [importProgress, setImportProgress] = useState(0);
   const fileRef = useRef<HTMLInputElement>(null);
+  const gameLogRef = useRef<HTMLInputElement>(null);
+  const [gameLogImporting, setGameLogImporting] = useState(false);
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
 
   const timezones = useMemo(() => {
@@ -338,6 +340,53 @@ const SettingsPage = () => {
                 {importing ? "Importing…" : "Choose CSV File & Import"}
               </button>
             </div>
+          </div>
+        )}
+
+        {/* Game Log Import - Admin only */}
+        {isAdmin && (
+          <div className="cosmic-card rounded-xl p-4">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="h-10 w-10 rounded-lg bg-secondary flex items-center justify-center shrink-0">
+                <Upload className="h-5 w-5 text-muted-foreground" />
+              </div>
+              <div>
+                <p className="text-sm font-medium">Team Game Logs</p>
+                <p className="text-xs text-muted-foreground">Upload Basketball Reference .xls game log files. Team is auto-detected from filename.</p>
+              </div>
+            </div>
+            <input ref={gameLogRef} type="file" accept=".xls,.xlsx,.html" multiple className="hidden" onChange={async (e) => {
+              const files = e.target.files;
+              if (!files || files.length === 0) return;
+              setGameLogImporting(true);
+              try {
+                for (let f = 0; f < files.length; f++) {
+                  const file = files[f];
+                  const text = await file.text();
+                  const { data, error } = await supabase.functions.invoke("import-team-gamelog", {
+                    body: { html_content: text, filename: file.name },
+                  });
+                  if (error) {
+                    toast({ title: `Import failed: ${file.name}`, description: error.message, variant: "destructive" });
+                  } else {
+                    toast({ title: `${file.name}`, description: `${data.inserted} stats inserted, ${data.skipped} skipped (${data.total} games)` });
+                  }
+                }
+              } catch (err: any) {
+                toast({ title: "Import error", description: err.message, variant: "destructive" });
+              } finally {
+                setGameLogImporting(false);
+                if (gameLogRef.current) gameLogRef.current.value = "";
+              }
+            }} />
+            <button
+              disabled={gameLogImporting}
+              onClick={() => gameLogRef.current?.click()}
+              className="w-full flex items-center justify-center gap-2 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary text-xs font-medium py-2.5 transition-colors disabled:opacity-50"
+            >
+              <Upload className="h-3.5 w-3.5" />
+              {gameLogImporting ? "Importing Game Logs…" : "Choose Game Log Files & Import"}
+            </button>
           </div>
         )}
 
