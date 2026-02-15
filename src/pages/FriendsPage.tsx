@@ -343,9 +343,6 @@ const FriendsPage = () => {
                 <button onClick={(e) => { e.stopPropagation(); navigate(`/user/${f.profile.user_id}`); }} className="p-2 rounded-lg bg-secondary hover:bg-accent transition-colors">
                   <MessageCircle className="h-3.5 w-3.5 text-muted-foreground" />
                 </button>
-                <button onClick={(e) => { e.stopPropagation(); removeFriend(f.id); }} className="text-xs text-muted-foreground hover:text-destructive transition-colors px-2">
-                  Remove
-                </button>
               </div>
             } />
           ))

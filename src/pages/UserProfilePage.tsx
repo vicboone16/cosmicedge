@@ -1,16 +1,30 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, MessageCircle } from "lucide-react";
+import { ArrowLeft, MessageCircle, UserMinus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
+import { useToast } from "@/hooks/use-toast";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { PublicProfilePreview } from "@/components/profile/PublicProfilePreview";
 
 const UserProfilePage = () => {
   const { userId } = useParams<{ userId: string }>();
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [friendship, setFriendship] = useState<any>(null);
 
   useEffect(() => {
     if (!userId) return;
@@ -23,7 +37,18 @@ const UserProfilePage = () => {
         setProfile(data);
         setLoading(false);
       });
-  }, [userId]);
+
+    // Check if we're friends
+    if (user) {
+      supabase
+        .from("friendships")
+        .select("*")
+        .eq("status", "accepted")
+        .or(`and(requester_id.eq.${user.id},addressee_id.eq.${userId}),and(requester_id.eq.${userId},addressee_id.eq.${user.id})`)
+        .maybeSingle()
+        .then(({ data }) => setFriendship(data));
+    }
+  }, [userId, user]);
 
   const startConversation = async () => {
     if (!user || !userId) return;
@@ -75,6 +100,13 @@ const UserProfilePage = () => {
     }
   };
 
+  const removeFriend = async () => {
+    if (!friendship) return;
+    await supabase.from("friendships").delete().eq("id", friendship.id);
+    toast({ title: "Friend removed" });
+    setFriendship(null);
+  };
+
   if (loading) return <div className="min-h-screen flex items-center justify-center"><div className="animate-spin h-6 w-6 border-2 border-primary border-t-transparent rounded-full" /></div>;
   if (!profile) return (
     <div className="min-h-screen flex flex-col items-center justify-center gap-3">
@@ -105,13 +137,39 @@ const UserProfilePage = () => {
           <h1 className="text-xl font-bold font-display tracking-tight">
             {profileData.display_name || profileData.username || "Profile"}
           </h1>
-          <button
-            onClick={startConversation}
-            className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:opacity-90 transition-opacity"
-          >
-            <MessageCircle className="h-3.5 w-3.5" />
-            Message
-          </button>
+          <div className="ml-auto flex items-center gap-2">
+            <button
+              onClick={startConversation}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:opacity-90 transition-opacity"
+            >
+              <MessageCircle className="h-3.5 w-3.5" />
+              Message
+            </button>
+            {friendship && (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-secondary text-destructive text-xs font-medium hover:bg-destructive/10 transition-colors">
+                    <UserMinus className="h-3.5 w-3.5" />
+                    Remove
+                  </button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Remove friend?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Are you sure you want to remove {profileData.display_name || profileData.username || "this person"} from your friends? You can always send a new friend request later.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={removeFriend} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                      Remove Friend
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
+          </div>
         </div>
       </header>
 
