@@ -502,7 +502,7 @@ export function ManualStatsEntry({ league, onLog }: ManualStatsEntryProps) {
         </Button>
         <Button variant="outline" size="sm" className="text-xs" asChild>
           <label className="cursor-pointer">
-            <Upload className="h-3 w-3 mr-1" /> Upload CSV
+            <Upload className="h-3 w-3 mr-1" /> Upload Period CSV (auto-imports)
             <input type="file" accept=".csv" className="hidden" onChange={handleCsvUpload} />
           </label>
         </Button>
