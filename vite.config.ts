@@ -33,8 +33,7 @@ export default defineConfig(({ mode }) => ({
         orientation: "portrait",
         start_url: "/",
         icons: [
-          { src: "/favicon.ico", sizes: "64x64", type: "image/x-icon" },
-          { src: "/placeholder.svg", sizes: "192x192", type: "image/svg+xml", purpose: "any maskable" },
+          { src: "/favicon.png", sizes: "512x512", type: "image/png", purpose: "any maskable" },
         ],
       },
     }),
