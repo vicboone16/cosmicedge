@@ -329,9 +329,9 @@ export function ManualStatsEntry({ league, onLog }: ManualStatsEntryProps) {
         row.name = vals[nameIdx] || "";
         row.team = teamIdx >= 0 ? vals[teamIdx] || "" : "";
         row.period = periodIdx >= 0 ? vals[periodIdx] || sharedPeriod : sharedPeriod;
-        row.datetime = sharedDate;
-        row.homeTeam = sharedHome;
-        row.awayTeam = sharedAway;
+        row.datetime = "";
+        row.homeTeam = "";
+        row.awayTeam = "";
         for (const { key, idx } of statIdxMap) {
           row[key] = vals[idx] || "";
         }
