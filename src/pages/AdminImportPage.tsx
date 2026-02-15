@@ -325,7 +325,10 @@ export default function AdminImportPage() {
 
   return (
     <div className="min-h-screen bg-background p-6 space-y-4">
-      <h1 className="text-2xl font-bold text-foreground">Data Import Admin</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-foreground">Data Import Admin</h1>
+        <a href="/admin/games" className="text-xs text-primary underline">Game Manager →</a>
+      </div>
       <DataHealthDashboard />
       <div className="space-y-4">
         {/* CSV Schedule + Scores — all leagues */}

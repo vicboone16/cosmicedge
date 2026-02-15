@@ -33,6 +33,7 @@ import ChatPage from "./pages/ChatPage";
 import FeedPage from "./pages/FeedPage";
 import AuthPage from "./pages/AuthPage";
 import AdminImportPage from "./pages/AdminImportPage";
+import AdminGamesPage from "./pages/AdminGamesPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -85,6 +86,7 @@ const App = () => {
               </Route>
               <Route path="/auth" element={<AuthPage />} />
               <Route path="/admin/import" element={<RequireAuth><AdminImportPage /></RequireAuth>} />
+              <Route path="/admin/games" element={<RequireAuth><AdminGamesPage /></RequireAuth>} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>
