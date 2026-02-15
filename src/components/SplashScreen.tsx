@@ -126,13 +126,13 @@ export default function SplashScreen({ onComplete }: { onComplete: () => void })
           <motion.img
             src={cosmicLogo}
             alt="Cosmic Edge"
-            className="relative z-10 drop-shadow-[0_0_30px_hsl(260_60%_55%/0.6)]"
-            style={{ width: 120, height: 120, objectFit: "contain" }}
+            className="relative z-10 rounded-3xl drop-shadow-[0_0_40px_hsl(260_60%_55%/0.5)]"
+            style={{ width: 200, height: 200, objectFit: "contain" }}
           />
 
           <motion.h1
-            className="text-3xl font-bold tracking-tight text-white"
-            style={{ fontFamily: "'Space Grotesk', sans-serif" }}
+            className="text-4xl font-light tracking-[0.15em] uppercase text-white"
+            style={{ fontFamily: "'Outfit', sans-serif" }}
           >
             Cosmic Edge
           </motion.h1>
