@@ -356,34 +356,61 @@ Deno.serve(async (req) => {
         existingMap.set(key, g);
       }
 
+      // Separate into updates vs inserts
+      const toUpdate: { id: string; data: any; key: string }[] = [];
+      const toInsert: any[] = [];
+
       for (const rec of allParsed) {
         const d = rec.start_time.split("T")[0];
         const key = `${rec.home_abbr}_${rec.away_abbr}_${d}`;
         const existing = existingMap.get(key);
 
         if (existing) {
-          // Update existing game with scores and status
           if (rec.home_score !== null || rec.away_score !== null) {
-            const { error: upErr } = await supabase.from("games").update({
-              home_score: rec.home_score,
-              away_score: rec.away_score,
-              status: rec.status,
-              venue: rec.venue || undefined,
-            }).eq("id", existing.id);
-            if (upErr) errors.push(`Update ${key}: ${upErr.message}`);
-            else rowsInserted++;
+            toUpdate.push({
+              id: existing.id,
+              data: {
+                home_score: rec.home_score,
+                away_score: rec.away_score,
+                status: rec.status,
+                venue: rec.venue || undefined,
+                venue_lat: (rec as any).venue_lat || undefined,
+                venue_lng: (rec as any).venue_lng || undefined,
+              },
+              key,
+            });
           } else {
             rowsSkipped++;
           }
         } else {
-          // Insert new game
-          const { error: insErr } = await supabase.from("games").insert(rec);
-          if (insErr) {
-            if (insErr.code === "23505") rowsSkipped++;
-            else errors.push(`Insert ${key}: ${insErr.message}`);
-          } else {
-            rowsInserted++;
-          }
+          toInsert.push(rec);
+        }
+      }
+
+      console.log(`Processing: ${toUpdate.length} updates, ${toInsert.length} inserts, ${rowsSkipped} skipped`);
+
+      // Batch updates in parallel chunks of 50
+      const UPDATE_BATCH = 50;
+      for (let i = 0; i < toUpdate.length; i += UPDATE_BATCH) {
+        const batch = toUpdate.slice(i, i + UPDATE_BATCH);
+        const results = await Promise.all(
+          batch.map(u => supabase.from("games").update(u.data).eq("id", u.id))
+        );
+        for (let j = 0; j < results.length; j++) {
+          if (results[j].error) errors.push(`Update ${batch[j].key}: ${results[j].error.message}`);
+          else rowsInserted++;
+        }
+      }
+
+      // Batch inserts in chunks of 100
+      const INSERT_BATCH = 100;
+      for (let i = 0; i < toInsert.length; i += INSERT_BATCH) {
+        const batch = toInsert.slice(i, i + INSERT_BATCH);
+        const { error: insErr, data: insData } = await supabase.from("games").insert(batch);
+        if (insErr) {
+          errors.push(`Insert batch: ${insErr.message}`);
+        } else {
+          rowsInserted += batch.length;
         }
       }
 
