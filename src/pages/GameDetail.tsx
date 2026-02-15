@@ -21,6 +21,7 @@ import { GameChartRulers } from "@/components/game/GameChartRulers";
 import { GameMatchupTab } from "@/components/game/GameMatchupTab";
 import { TrackedPropsWidget } from "@/components/tracking/TrackedProps";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { AlertSetupDialog } from "@/components/live/AlertSetupDialog";
 
 function formatOdds(odds: number): string {
   if (!odds) return "—";
@@ -493,11 +494,14 @@ const GameDetail = () => {
         </div>
 
         {game.venue && (
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground justify-center mb-3">
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground justify-center mb-2">
             <MapPin className="h-3 w-3" />
             <span>{game.venue}</span>
           </div>
         )}
+        <div className="flex justify-center mb-3">
+          <AlertSetupDialog gameId={game.id} homeTeam={game.home_abbr} awayTeam={game.away_abbr} />
+        </div>
 
         {/* Top tabs: Odds / Insights / Matchup */}
         <div className="flex gap-2 justify-center">

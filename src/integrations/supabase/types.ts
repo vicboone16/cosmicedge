@@ -14,6 +14,50 @@ export type Database = {
   }
   public: {
     Tables: {
+      alerts: {
+        Row: {
+          alert_type: string
+          created_at: string
+          game_id: string | null
+          id: string
+          message: string | null
+          threshold: number | null
+          triggered: boolean
+          triggered_at: string | null
+          user_id: string
+        }
+        Insert: {
+          alert_type: string
+          created_at?: string
+          game_id?: string | null
+          id?: string
+          message?: string | null
+          threshold?: number | null
+          triggered?: boolean
+          triggered_at?: string | null
+          user_id: string
+        }
+        Update: {
+          alert_type?: string
+          created_at?: string
+          game_id?: string | null
+          id?: string
+          message?: string | null
+          threshold?: number | null
+          triggered?: boolean
+          triggered_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "alerts_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       api_fetch_log: {
         Row: {
           cooldown_until: string | null
@@ -83,6 +127,48 @@ export type Database = {
           location_lng?: number | null
           provider?: string
           result?: Json
+        }
+        Relationships: []
+      }
+      backtest_results: {
+        Row: {
+          accuracy: number
+          correct_picks: number
+          created_at: string
+          date_end: string
+          date_start: string
+          id: string
+          layer_breakdown: Json | null
+          league: string
+          roi_simulation: Json | null
+          total_games: number
+          user_id: string
+        }
+        Insert: {
+          accuracy?: number
+          correct_picks?: number
+          created_at?: string
+          date_end: string
+          date_start: string
+          id?: string
+          layer_breakdown?: Json | null
+          league: string
+          roi_simulation?: Json | null
+          total_games?: number
+          user_id: string
+        }
+        Update: {
+          accuracy?: number
+          correct_picks?: number
+          created_at?: string
+          date_end?: string
+          date_start?: string
+          id?: string
+          layer_breakdown?: Json | null
+          league?: string
+          roi_simulation?: Json | null
+          total_games?: number
+          user_id?: string
         }
         Relationships: []
       }
