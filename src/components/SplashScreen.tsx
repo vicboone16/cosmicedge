@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import cosmicLogo from "@/assets/cosmic-edge-logo.png";
 
 interface Particle {
   id: number;
@@ -121,22 +122,13 @@ export default function SplashScreen({ onComplete }: { onComplete: () => void })
           }
           transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
         >
-          {/* Icon placeholder — swap with your logo */}
-          <motion.div
-            className="relative flex items-center justify-center"
-            style={{ width: 80, height: 80 }}
-          >
-            <motion.div
-              className="absolute inset-0 rounded-full"
-              style={{
-                background: "linear-gradient(135deg, hsl(260 60% 55%), hsl(195 70% 45%))",
-                boxShadow: "0 0 40px hsl(260 60% 55% / 0.5), 0 0 80px hsl(195 70% 45% / 0.3)",
-              }}
-              animate={{ rotate: 360 }}
-              transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-            />
-            <span className="relative text-4xl z-10">✦</span>
-          </motion.div>
+          {/* Logo */}
+          <motion.img
+            src={cosmicLogo}
+            alt="Cosmic Edge"
+            className="relative z-10 drop-shadow-[0_0_30px_hsl(260_60%_55%/0.6)]"
+            style={{ width: 120, height: 120, objectFit: "contain" }}
+          />
 
           <motion.h1
             className="text-3xl font-bold tracking-tight text-white"
