@@ -103,6 +103,8 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const { html_content, team_abbr: providedAbbr, filename } = body;
 
+    console.log(`[import-team-gamelog] filename=${filename}, team_abbr=${providedAbbr}, html_length=${html_content?.length || 0}`);
+
     if (!html_content) {
       return new Response(
         JSON.stringify({ success: false, error: "No html_content provided" }),
@@ -111,6 +113,7 @@ Deno.serve(async (req) => {
     }
 
     const teamAbbr = providedAbbr || detectTeamFromFilename(filename || "");
+    console.log(`[import-team-gamelog] detected team: ${teamAbbr}`);
     if (!teamAbbr || !ABBR_TO_FULL[teamAbbr]) {
       return new Response(
         JSON.stringify({ success: false, error: `Cannot detect team from filename "${filename}". Provide team_abbr.` }),
@@ -120,8 +123,11 @@ Deno.serve(async (req) => {
 
     const teamFull = ABBR_TO_FULL[teamAbbr];
     const gameRows = parseHtmlTable(html_content);
+    console.log(`[import-team-gamelog] parsed ${gameRows.length} game rows`);
 
     if (gameRows.length === 0) {
+      // Log a sample of the HTML to debug
+      console.log(`[import-team-gamelog] HTML sample (first 500 chars): ${html_content.substring(0, 500)}`);
       return new Response(
         JSON.stringify({ success: false, error: "No game rows found in HTML" }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
