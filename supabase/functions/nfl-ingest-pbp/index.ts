@@ -4,8 +4,7 @@ import { corsHeaders } from "../_shared/cors.ts";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const API_KEY = Deno.env.get("ROLLING_WAVE_API_KEY")!;
-const CLIENT_ID = Deno.env.get("ROLLING_WAVE_CLIENT_ID")!;
-const BASE = "https://rest.datafeeds.rolling-insights.com/api/v1";
+const BASE = "http://rest.datafeeds.rolling-insights.com/api/v1";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -29,7 +28,7 @@ Deno.serve(async (req) => {
     }
 
     // Fetch PBP
-    const url = `${BASE}/play-by-play/NFL?RSC_token=${encodeURIComponent(API_KEY)}&client_id=${encodeURIComponent(CLIENT_ID)}&game_id=${encodeURIComponent(game_id)}`;
+    const url = `${BASE}/play-by-play/NFL?RSC_token=${encodeURIComponent(API_KEY)}&game_id=${encodeURIComponent(game_id)}`;
     console.log(`Fetching PBP for game ${game_id}`);
     const res = await fetch(url);
 
