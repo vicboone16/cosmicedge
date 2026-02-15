@@ -129,6 +129,37 @@ export default function AdminImportPage() {
     setLoading(false);
   };
 
+  const gameLogRef = useRef<HTMLInputElement>(null);
+
+  const handleGameLogUpload = async () => {
+    const files = gameLogRef.current?.files;
+    if (!files || files.length === 0) { addLog("No files selected"); return; }
+
+    setLoading(true);
+    for (let f = 0; f < files.length; f++) {
+      const file = files[f];
+      addLog(`Reading game log: ${file.name}`);
+      try {
+        const text = await file.text();
+        const { data, error } = await supabase.functions.invoke("import-team-gamelog", {
+          body: { html_content: text, filename: file.name },
+        });
+        if (error) {
+          addLog(`❌ ${file.name}: ${error.message}`);
+        } else {
+          addLog(`✅ ${file.name}: ${data.inserted} stats inserted, ${data.skipped} skipped (${data.total} games total)`);
+          if (data.errors?.length) {
+            data.errors.slice(0, 5).forEach((e: string) => addLog(`  ⚠️ ${e}`));
+            if (data.errors.length > 5) addLog(`  ... and ${data.errors.length - 5} more`);
+          }
+        }
+      } catch (e: any) {
+        addLog(`❌ ${file.name}: ${e.message}`);
+      }
+    }
+    setLoading(false);
+  };
+
   return (
     <div className="min-h-screen bg-background p-6 space-y-4">
       <h1 className="text-2xl font-bold text-foreground">Data Import Admin</h1>
@@ -139,6 +170,21 @@ export default function AdminImportPage() {
             {loading ? "Importing..." : "Import NBA 2025-26 Schedule"}
           </Button>
         </div>
+
+        <Card className="p-4 space-y-3">
+          <h2 className="text-sm font-semibold text-foreground">Team Game Logs (Basketball Reference)</h2>
+          <p className="text-xs text-muted-foreground">
+            Upload .xls game log files exported from Basketball Reference. Team is auto-detected from filename.
+            Imports advanced stats (Four Factors, ORtg/DRtg, Pace, TS%, etc.) and links to existing games.
+            You can select multiple files at once.
+          </p>
+          <div className="flex gap-3 items-center">
+            <input ref={gameLogRef} type="file" accept=".xls,.xlsx,.html" multiple className="text-xs" />
+            <Button onClick={handleGameLogUpload} disabled={loading} variant="secondary">
+              {loading ? "Importing..." : "Import Game Logs"}
+            </Button>
+          </div>
+        </Card>
 
         <Card className="p-4 space-y-3">
           <h2 className="text-sm font-semibold text-foreground">Multi-League Schedule Import (Excel)</h2>
