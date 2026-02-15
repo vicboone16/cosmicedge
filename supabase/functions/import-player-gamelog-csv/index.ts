@@ -202,7 +202,7 @@ Deno.serve(async (req) => {
     const batchSize = 100;
     for (let i = 0; i < statsBatch.length; i += batchSize) {
       const batch = statsBatch.slice(i, i + batchSize);
-      const { error } = await sb.from("player_game_stats").insert(batch);
+      const { error } = await sb.from("player_game_stats").upsert(batch, { onConflict: "game_id,player_id" });
       if (error) {
         errors.push(`Stats batch at ${i}: ${error.message}`);
       } else {
