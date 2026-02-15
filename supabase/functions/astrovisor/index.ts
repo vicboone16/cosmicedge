@@ -237,6 +237,33 @@ Deno.serve(async (req) => {
       expiresIn = 10 * 365 * 24 * 60 * 60 * 1000; // natal never changes
 
     } else if (mode === "transits") {
+      // Accept transit_time for accurate house cusp calculations
+      const transitTime = url.searchParams.get("transit_time") || "12:00";
+      
+      // Round to nearest 15-min window for cache key consistency
+      const [th, tm] = transitTime.split(":").map(Number);
+      const roundedMin = Math.floor(tm / 15) * 15;
+      const cacheTimeKey = `${String(th).padStart(2, "0")}:${String(roundedMin).padStart(2, "0")}`;
+      const cacheDate = `${transitDate}T${cacheTimeKey}`;
+
+      // Check for time-specific cache before calling API
+      const { data: timeCached } = await supabase
+        .from("astro_calculations")
+        .select("*")
+        .eq("entity_id", entityId)
+        .eq("entity_type", entityType)
+        .eq("calc_type", "transits")
+        .eq("calc_date", cacheDate)
+        .gt("expires_at", new Date().toISOString())
+        .maybeSingle();
+
+      if (timeCached) {
+        return new Response(
+          JSON.stringify({ success: true, cached: true, result: timeCached.result, calc_id: timeCached.id }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
       const resp = await fetch(`${ASTROVISOR_BASE}/api/v1/transits/calculate`, {
         method: "POST",
         headers: {
@@ -249,7 +276,7 @@ Deno.serve(async (req) => {
           natal_latitude: birthData.latitude,
           natal_longitude: birthData.longitude,
           transit_date: transitDate,
-          transit_time: "12:00",
+          transit_time: transitTime,
           transit_latitude: locationLat || birthData.latitude,
           transit_longitude: locationLng || birthData.longitude,
         }),
@@ -257,7 +284,29 @@ Deno.serve(async (req) => {
 
       if (!resp.ok) throw new Error(`AstroVisor transits error: ${resp.status} ${await resp.text()}`);
       result = await resp.json();
-      expiresIn = 24 * 60 * 60 * 1000; // transits valid for the full day
+
+      // Cache with time-specific key; shorter TTL for live (15-min windows) vs pre-game
+      const isLiveWindow = url.searchParams.get("live") === "true";
+      expiresIn = isLiveWindow ? 15 * 60 * 1000 : 4 * 60 * 60 * 1000;
+
+      // Override calc_date with time-specific key for granular caching
+      const calcRecord = {
+        entity_id: entityId,
+        entity_type: entityType,
+        calc_type: "transits",
+        calc_date: cacheDate,
+        provider: "astrovisor",
+        result,
+        location_lat: locationLat || null,
+        location_lng: locationLng || null,
+        expires_at: new Date(Date.now() + expiresIn).toISOString(),
+      };
+      await supabase.from("astro_calculations").upsert(calcRecord, { onConflict: "entity_id,entity_type,calc_type,calc_date" });
+
+      return new Response(
+        JSON.stringify({ success: true, cached: false, result, cache_key: cacheDate }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
 
     } else if (mode === "synastry" && entity2Id) {
       const birthData2 = await getBirthData(entity2Id, entityType);
