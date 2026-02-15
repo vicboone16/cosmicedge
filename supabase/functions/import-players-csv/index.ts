@@ -28,8 +28,14 @@ Deno.serve(async (req) => {
     const lines = text.trim().split(/\r?\n/);
     if (lines.length < 2) throw new Error("CSV must have header + data rows");
 
+    // Log raw first few lines for debugging
+    console.log(`[import-players-csv] First line raw bytes: ${JSON.stringify(Array.from(lines[0].slice(0, 80)).map(c => c.charCodeAt(0)))}`);
+    console.log(`[import-players-csv] First 3 lines: ${JSON.stringify(lines.slice(0, 3))}`);
+
     const headers = lines[0].split(",").map((h) => h.trim().replace(/"/g, ""));
     const lowerHeaders = headers.map((h) => h.toLowerCase());
+    console.log(`[import-players-csv] Parsed headers: ${JSON.stringify(headers)}`);
+    console.log(`[import-players-csv] Lower headers: ${JSON.stringify(lowerHeaders)}`);
 
     // Column index finder
     const col = (names: string[]): number =>
