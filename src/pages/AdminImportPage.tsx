@@ -2,6 +2,7 @@ import { useState, useRef } from "react";
 import { DataHealthDashboard } from "@/components/admin/DataHealthDashboard";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
+import { ManualStatsEntry } from "@/components/admin/ManualStatsEntry";
 import { Card } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ExternalLink } from "lucide-react";
@@ -596,6 +597,15 @@ export default function AdminImportPage() {
               {loading ? "Importing..." : "Import Player Game Stats"}
             </Button>
           </div>
+        </Card>
+
+        {/* Manual Player Stats Entry */}
+        <Card className="p-4 space-y-3">
+          <h2 className="text-sm font-semibold text-foreground">📝 Manual Player Stats Entry</h2>
+          <p className="text-xs text-muted-foreground">
+            Fill in the spreadsheet below to manually enter per-game player stats. Set the game context (date, home/away teams) once, then add rows for each player.
+          </p>
+          <ManualStatsEntry league={gamelogLeague} onLog={addLog} />
         </Card>
       </div>
 
