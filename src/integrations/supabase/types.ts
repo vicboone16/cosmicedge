@@ -3119,6 +3119,36 @@ export type Database = {
         Args: { p_game_id?: string }
         Returns: undefined
       }
+      get_public_profiles: {
+        Args: { user_ids: string[] }
+        Returns: {
+          avatar_url: string
+          bio: string
+          display_name: string
+          moon_sign: string
+          rising_sign: string
+          share_astro: boolean
+          share_picks: boolean
+          sun_sign: string
+          user_id: string
+          username: string
+        }[]
+      }
+      get_suggested_profiles: {
+        Args: { max_results?: number }
+        Returns: {
+          avatar_url: string
+          bio: string
+          display_name: string
+          moon_sign: string
+          rising_sign: string
+          share_astro: boolean
+          share_picks: boolean
+          sun_sign: string
+          user_id: string
+          username: string
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -3129,6 +3159,21 @@ export type Database = {
       is_conversation_member: {
         Args: { _conversation_id: string; _user_id: string }
         Returns: boolean
+      }
+      search_public_profiles: {
+        Args: { max_results?: number; search_query: string }
+        Returns: {
+          avatar_url: string
+          bio: string
+          display_name: string
+          moon_sign: string
+          rising_sign: string
+          share_astro: boolean
+          share_picks: boolean
+          sun_sign: string
+          user_id: string
+          username: string
+        }[]
       }
       settle_bets_on_game: { Args: { p_game_id: string }; Returns: undefined }
     }

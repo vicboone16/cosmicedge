@@ -249,9 +249,7 @@ export default function BankrollTab({ userId }: BankrollTabProps) {
 
       // Get profiles
       const { data: profiles } = await supabase
-        .from("profiles")
-        .select("user_id, display_name, avatar_url, share_picks")
-        .in("user_id", allIds);
+        .rpc("get_public_profiles", { user_ids: allIds }) as any;
 
       // Get settled bets for all (only users who share picks)
       const sharingIds = (profiles || [])

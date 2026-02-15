@@ -55,11 +55,9 @@ const FeedPage = () => {
     }
 
     // Get unique user IDs
-    const userIds = [...new Set(feedPosts.map((p: any) => p.user_id))];
+    const userIds = [...new Set(feedPosts.map((p: any) => p.user_id))] as string[];
     const { data: profiles } = await supabase
-      .from("profiles")
-      .select("user_id, display_name, avatar_url, username")
-      .in("user_id", userIds as string[]);
+      .rpc("get_public_profiles", { user_ids: userIds }) as any;
 
     const profileMap = new Map((profiles as any[] || []).map((p: any) => [p.user_id, p]));
 
@@ -83,13 +81,11 @@ const FeedPage = () => {
       .order("created_at", { ascending: true }) as any;
 
     // Get comment author profiles
-    const commentUserIds = [...new Set((allComments || []).map((c: any) => c.user_id))];
+    const commentUserIds = [...new Set((allComments || []).map((c: any) => c.user_id))] as string[];
     let commentProfileMap = new Map();
     if (commentUserIds.length > 0) {
       const { data: commentProfiles } = await supabase
-        .from("profiles")
-        .select("user_id, display_name, avatar_url")
-        .in("user_id", commentUserIds as string[]);
+        .rpc("get_public_profiles", { user_ids: commentUserIds }) as any;
       commentProfileMap = new Map((commentProfiles as any[] || []).map((p: any) => [p.user_id, p]));
     }
 
