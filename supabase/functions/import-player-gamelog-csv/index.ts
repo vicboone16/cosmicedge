@@ -49,7 +49,9 @@ Deno.serve(async (req) => {
     );
 
     // ── Parse CSV ──────────────────────────────────────────────────
-    const lines = csvText.split(/\r?\n/).filter((l) => l.trim());
+    // Strip BOM if present
+    const cleanCsv = csvText.replace(/^\uFEFF/, "");
+    const lines = cleanCsv.split(/\r?\n/).filter((l) => l.trim());
     if (lines.length < 2) throw new Error("CSV must have a header row + data");
 
     // Find the actual header row — skip title rows that don't look like headers
@@ -72,7 +74,7 @@ Deno.serve(async (req) => {
     console.log(`[import-player-gamelog] Mapped columns:`, JSON.stringify(colMap));
 
     if (!colMap.name && colMap.name !== 0) {
-      throw new Error(`Could not find 'Name' column in headers: ${rawHeaders.join(", ")}`);
+      throw new Error(`Could not find 'Name' column in headers: ${JSON.stringify(rawHeaders)}`);
     }
 
     // ── Pre-fetch existing players for this league ─────────────────
