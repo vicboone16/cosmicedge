@@ -1,7 +1,11 @@
 import { useState, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { History, TrendingUp, TrendingDown, ChevronLeft, ChevronRight, RefreshCw, Trophy, Star, Users, Target } from "lucide-react";
+import { History, TrendingUp, TrendingDown, ChevronLeft, ChevronRight, RefreshCw, Trophy, Star, Users, Target, FlaskConical } from "lucide-react";
+import { useAuth } from "@/hooks/use-auth";
+import { toast } from "@/hooks/use-toast";
+import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
 import { format, addDays, subDays } from "date-fns";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
@@ -43,11 +47,34 @@ function getSeasonsForLeague(lg: string) {
 }
 
 export default function HistoricalPage() {
+  const { user } = useAuth();
   const [league, setLeague] = useState("NBA");
   const [selectedDate, setSelectedDate] = useState(subDays(new Date(), 1));
   const [selectedGameId, setSelectedGameId] = useState<string | null>(null);
   const [marketType, setMarketType] = useState("moneyline");
   const [playerSearch, setPlayerSearch] = useState("");
+  const [btStart, setBtStart] = useState("");
+  const [btEnd, setBtEnd] = useState("");
+  const [btResult, setBtResult] = useState<any>(null);
+
+  const backtestMutation = useMutation({
+    mutationFn: async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Please log in to run backtests");
+      const resp = await supabase.functions.invoke("quant-engine", {
+        body: { mode: "backtest", league, date_start: btStart, date_end: btEnd },
+      });
+      if (resp.error) throw new Error(resp.error.message);
+      return resp.data;
+    },
+    onSuccess: (data) => {
+      setBtResult(data.backtest);
+      toast({ title: "Backtest complete", description: `${data.backtest.total_picked} games analyzed` });
+    },
+    onError: (err: any) => {
+      toast({ title: "Backtest failed", description: err.message, variant: "destructive" });
+    },
+  });
 
   const dateStr = format(selectedDate, "yyyy-MM-dd");
 
@@ -271,12 +298,13 @@ export default function HistoricalPage() {
 
       <div className="px-4 py-4">
         <Tabs defaultValue="results" className="w-full">
-          <TabsList className="w-full grid grid-cols-5 h-8">
+          <TabsList className="w-full grid grid-cols-6 h-8">
             <TabsTrigger value="results" className="text-[9px] px-1"><Trophy className="h-3 w-3 mr-0.5" />Results</TabsTrigger>
             <TabsTrigger value="odds" className="text-[9px] px-1"><TrendingUp className="h-3 w-3 mr-0.5" />Odds</TabsTrigger>
             <TabsTrigger value="astro" className="text-[9px] px-1"><Star className="h-3 w-3 mr-0.5" />Astro</TabsTrigger>
             <TabsTrigger value="players" className="text-[9px] px-1"><Users className="h-3 w-3 mr-0.5" />Stats</TabsTrigger>
             <TabsTrigger value="markets" className="text-[9px] px-1"><Target className="h-3 w-3 mr-0.5" />ATS</TabsTrigger>
+            <TabsTrigger value="backtest" className="text-[9px] px-1"><FlaskConical className="h-3 w-3 mr-0.5" />Backtest</TabsTrigger>
           </TabsList>
 
           {/* Tab 1: Game Results */}
@@ -523,6 +551,116 @@ export default function HistoricalPage() {
                 </div>
               </div>
             ))}
+          </TabsContent>
+
+          {/* Tab 6: Backtest */}
+          <TabsContent value="backtest" className="space-y-3 mt-3">
+            <div className="cosmic-card rounded-xl p-4 space-y-3">
+              <h3 className="text-xs font-semibold text-primary uppercase tracking-widest flex items-center gap-1.5">
+                <FlaskConical className="h-3.5 w-3.5" /> Astro Backtest Engine
+              </h3>
+              <p className="text-[10px] text-muted-foreground">Run astro verdicts on completed games and measure prediction accuracy.</p>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-[9px] text-muted-foreground block mb-0.5">Start Date</label>
+                  <input type="date" value={btStart} onChange={e => setBtStart(e.target.value)}
+                    className="w-full bg-secondary/50 border border-border/50 rounded px-2 py-1 text-xs" />
+                </div>
+                <div>
+                  <label className="text-[9px] text-muted-foreground block mb-0.5">End Date</label>
+                  <input type="date" value={btEnd} onChange={e => setBtEnd(e.target.value)}
+                    className="w-full bg-secondary/50 border border-border/50 rounded px-2 py-1 text-xs" />
+                </div>
+              </div>
+              <Button onClick={() => backtestMutation.mutate()} disabled={!btStart || !btEnd || backtestMutation.isPending}
+                className="w-full text-xs" size="sm">
+                {backtestMutation.isPending ? "Running backtest..." : `Run Backtest (${league})`}
+              </Button>
+              {backtestMutation.isPending && <Progress value={undefined} className="h-1" />}
+            </div>
+
+            {btResult && (
+              <div className="space-y-2">
+                {/* Overall */}
+                <div className="cosmic-card rounded-xl p-4">
+                  <h4 className="text-xs font-semibold mb-2">Overall Accuracy</h4>
+                  <div className="flex items-center gap-4">
+                    <span className="text-2xl font-bold text-primary">{btResult.accuracy}%</span>
+                    <div className="text-[10px] text-muted-foreground">
+                      <p>{btResult.correct_picks} / {btResult.total_picked} correct picks</p>
+                      <p>{btResult.total_games} total games analyzed</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Strength Breakdown */}
+                {btResult.strength_breakdown && (
+                  <div className="cosmic-card rounded-xl p-4">
+                    <h4 className="text-xs font-semibold mb-2">By Prediction Strength</h4>
+                    <div className="space-y-1.5">
+                      {Object.entries(btResult.strength_breakdown).map(([tier, data]: [string, any]) => (
+                        data.total > 0 && (
+                          <div key={tier} className="flex items-center justify-between text-[10px]">
+                            <span className="capitalize font-medium">{tier}</span>
+                            <div className="flex items-center gap-2">
+                              <Progress value={data.accuracy} className="w-20 h-1.5" />
+                              <span className="tabular-nums font-semibold w-12 text-right">{data.accuracy}%</span>
+                              <span className="text-muted-foreground w-12 text-right">({data.correct}/{data.total})</span>
+                            </div>
+                          </div>
+                        )
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Layer Breakdown */}
+                {btResult.layer_breakdown && (
+                  <div className="cosmic-card rounded-xl p-4">
+                    <h4 className="text-xs font-semibold mb-2">By Astro Layer</h4>
+                    <div className="space-y-1.5">
+                      {Object.entries(btResult.layer_breakdown).map(([layer, data]: [string, any]) => (
+                        data.total > 0 && (
+                          <div key={layer} className="flex items-center justify-between text-[10px]">
+                            <span className="capitalize font-medium">{layer.replace(/_/g, " ")}</span>
+                            <div className="flex items-center gap-2">
+                              <Progress value={data.accuracy} className="w-20 h-1.5" />
+                              <span className="tabular-nums font-semibold w-12 text-right">{data.accuracy}%</span>
+                              <span className="text-muted-foreground w-12 text-right">({data.correct}/{data.total})</span>
+                            </div>
+                          </div>
+                        )
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* ROI Simulation */}
+                {btResult.roi_simulation && (
+                  <div className="cosmic-card rounded-xl p-4">
+                    <h4 className="text-xs font-semibold mb-2">ROI Simulation (Flat $100 Bets)</h4>
+                    <div className="grid grid-cols-3 gap-2 text-center">
+                      <div>
+                        <p className="text-[9px] text-muted-foreground">Wagered</p>
+                        <p className="text-sm font-bold tabular-nums">${btResult.roi_simulation.total_wagered?.toLocaleString()}</p>
+                      </div>
+                      <div>
+                        <p className="text-[9px] text-muted-foreground">Net P&L</p>
+                        <p className={`text-sm font-bold tabular-nums ${btResult.roi_simulation.net_profit >= 0 ? "text-cosmic-green" : "text-cosmic-red"}`}>
+                          {btResult.roi_simulation.net_profit >= 0 ? "+" : ""}${btResult.roi_simulation.net_profit?.toFixed(0)}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-[9px] text-muted-foreground">ROI</p>
+                        <p className={`text-sm font-bold tabular-nums ${btResult.roi_simulation.roi >= 0 ? "text-cosmic-green" : "text-cosmic-red"}`}>
+                          {btResult.roi_simulation.roi >= 0 ? "+" : ""}{btResult.roi_simulation.roi}%
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </TabsContent>
         </Tabs>
       </div>
