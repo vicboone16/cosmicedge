@@ -737,7 +737,7 @@ async function handleAstroVerdict(sb:any,gameId:string,forceRefresh:boolean){
    BACKTEST MODE
    ══════════════════════════════════════════════════════════ */
 
-async function handleBacktest(sb: any, league: string, dateStart: string, dateEnd: string, userId: string, customWeights?: Record<string, number>) {
+async function handleBacktest(sb: any, league: string, dateStart: string, dateEnd: string, userId: string, customWeights?: Record<string, number>, flatBet: number = 100) {
   // Fetch completed games in range
   const { data: games, error } = await sb
     .from("games")
@@ -753,13 +753,44 @@ async function handleBacktest(sb: any, league: string, dateStart: string, dateEn
 
   if (error) throw new Error("Failed to fetch games: " + error.message);
   if (!games?.length) {
-    return { total_games: 0, correct_picks: 0, accuracy: 0, layer_breakdown: {}, roi_simulation: {}, message: "No completed games found in range" };
+    return { total_games: 0, correct_picks: 0, accuracy: 0, layer_breakdown: {}, roi_simulation: {}, by_market: {}, message: "No completed games found in range" };
+  }
+
+  // Fetch historical odds for all games to get market-specific data
+  const gameIds = games.map((g: any) => g.id);
+  const { data: allOdds } = await sb
+    .from("historical_odds")
+    .select("*")
+    .in("game_id", gameIds)
+    .order("captured_at", { ascending: false });
+
+  const { data: allSdioLines } = await sb
+    .from("sdio_game_lines")
+    .select("*")
+    .in("game_id", gameIds)
+    .order("captured_at", { ascending: false });
+
+  // Build odds lookup per game
+  const oddsMap = new Map<string, any[]>();
+  for (const o of [...(allOdds || []), ...(allSdioLines || [])]) {
+    const gid = o.game_id;
+    if (!oddsMap.has(gid)) oddsMap.set(gid, []);
+    oddsMap.get(gid)!.push(o);
   }
 
   let correct = 0;
   const byStrength: Record<string, { total: number; correct: number }> = { strong: { total: 0, correct: 0 }, moderate: { total: 0, correct: 0 }, slight: { total: 0, correct: 0 } };
   const byLayer: Record<string, { total: number; correct: number }> = {};
   let roiTotal = 0;
+
+  // Per-market tracking
+  const byMarket: Record<string, { total: number; correct: number; profit: number }> = {
+    moneyline: { total: 0, correct: 0, profit: 0 },
+    spread: { total: 0, correct: 0, profit: 0 },
+    total: { total: 0, correct: 0, profit: 0 },
+  };
+
+  const winPayout = flatBet * (100 / 110); // -110 standard juice
 
   for (const game of games) {
     try {
@@ -788,8 +819,53 @@ async function handleBacktest(sb: any, league: string, dateStart: string, dateEn
         }
       }
 
-      // ROI simulation: flat $100 bet at -110
-      roiTotal += isCorrect ? 90.91 : -100;
+      // Moneyline: always tracked (pick = verdict favored team)
+      byMarket.moneyline.total++;
+      if (isCorrect) {
+        byMarket.moneyline.correct++;
+        byMarket.moneyline.profit += winPayout;
+      } else {
+        byMarket.moneyline.profit -= flatBet;
+      }
+
+      // Spread: check if model pick covered
+      const gameOdds = oddsMap.get(game.id) || [];
+      const spreadOdds = gameOdds.filter((o: any) => o.market_type === "spread");
+      if (spreadOdds.length > 0) {
+        const avgLine = spreadOdds.reduce((s: number, o: any) => s + (o.line || o.home_line || 0), 0) / spreadOdds.length;
+        // Positive favored_team = home; check if home covers spread
+        const homeMargin = (game.home_score || 0) - (game.away_score || 0);
+        const homeCovered = (homeMargin + avgLine) > 0;
+        const spreadCorrect = verdict.favored_team === "home" ? homeCovered : !homeCovered;
+        byMarket.spread.total++;
+        if (spreadCorrect) {
+          byMarket.spread.correct++;
+          byMarket.spread.profit += winPayout;
+        } else {
+          byMarket.spread.profit -= flatBet;
+        }
+      }
+
+      // Total: use verdict lean direction as over/under proxy
+      const totalOdds = gameOdds.filter((o: any) => o.market_type === "total");
+      if (totalOdds.length > 0) {
+        const avgTotal = totalOdds.reduce((s: number, o: any) => s + (o.line || 0), 0) / totalOdds.length;
+        const actualTotal = (game.home_score || 0) + (game.away_score || 0);
+        // Use blended_score sign: positive = over lean, negative = under lean
+        const predictOver = (verdict.blended_score || 0) > 0;
+        const wentOver = actualTotal > avgTotal;
+        const totalCorrect = predictOver === wentOver;
+        byMarket.total.total++;
+        if (totalCorrect) {
+          byMarket.total.correct++;
+          byMarket.total.profit += winPayout;
+        } else {
+          byMarket.total.profit -= flatBet;
+        }
+      }
+
+      // Overall ROI uses moneyline
+      roiTotal += isCorrect ? winPayout : -flatBet;
     } catch (e) {
       console.error(`Backtest error for game ${game.id}:`, e);
     }
@@ -808,6 +884,21 @@ async function handleBacktest(sb: any, league: string, dateStart: string, dateEn
     strengthBreakdown[k] = { ...v, accuracy: v.total > 0 ? +(v.correct / v.total * 100).toFixed(1) : 0 };
   }
 
+  // Build per-market results
+  const marketResults: Record<string, any> = {};
+  for (const [mkt, data] of Object.entries(byMarket)) {
+    if (data.total > 0) {
+      marketResults[mkt] = {
+        total: data.total,
+        correct: data.correct,
+        win_pct: +(data.correct / data.total * 100).toFixed(1),
+        total_wagered: data.total * flatBet,
+        net_profit: +data.profit.toFixed(2),
+        roi: +(data.profit / (data.total * flatBet) * 100).toFixed(1),
+      };
+    }
+  }
+
   const result = {
     total_games: games.length,
     total_picked: totalPicked,
@@ -815,11 +906,12 @@ async function handleBacktest(sb: any, league: string, dateStart: string, dateEn
     accuracy,
     strength_breakdown: strengthBreakdown,
     layer_breakdown: layerBreakdown,
+    by_market: marketResults,
     roi_simulation: {
-      flat_bet: 100,
-      total_wagered: totalPicked * 100,
+      flat_bet: flatBet,
+      total_wagered: totalPicked * flatBet,
       net_profit: +roiTotal.toFixed(2),
-      roi: totalPicked > 0 ? +(roiTotal / (totalPicked * 100) * 100).toFixed(1) : 0,
+      roi: totalPicked > 0 ? +(roiTotal / (totalPicked * flatBet) * 100).toFixed(1) : 0,
     },
   };
 
@@ -832,7 +924,7 @@ async function handleBacktest(sb: any, league: string, dateStart: string, dateEn
     total_games: totalPicked,
     correct_picks: correct,
     accuracy,
-    layer_breakdown: { layers: layerBreakdown, strength: strengthBreakdown },
+    layer_breakdown: { layers: layerBreakdown, strength: strengthBreakdown, by_market: marketResults },
     roi_simulation: result.roi_simulation,
   });
 
@@ -886,7 +978,7 @@ Deno.serve(async (req) => {
       if (!backtestLeague || !date_start || !date_end) {
         throw new Error("backtest mode requires league, date_start, date_end");
       }
-      const result = await handleBacktest(sb, backtestLeague, date_start, date_end, userId, body.custom_weights);
+      const result = await handleBacktest(sb, backtestLeague, date_start, date_end, userId, body.custom_weights, body.flat_bet || 100);
       return new Response(JSON.stringify({ success: true, backtest: result }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
