@@ -84,10 +84,11 @@ function EntitySearch({ navigate }: { navigate: (path: string) => void }) {
     queryKey: ["search-teams", query],
     queryFn: async () => {
       if (query.length < 2) return [];
+      // Search by team name OR abbreviation
       const { data } = await supabase
         .from("standings")
         .select("team_abbr, team_name, league, wins, losses")
-        .ilike("team_name", `%${query}%`)
+        .or(`team_name.ilike.%${query}%,team_abbr.ilike.%${query}%`)
         .order("season", { ascending: false })
         .limit(8);
       // dedupe by team_abbr
