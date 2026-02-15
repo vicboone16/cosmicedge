@@ -4,7 +4,7 @@ import { corsHeaders } from "../_shared/cors.ts";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const API_KEY = Deno.env.get("ROLLING_WAVE_API_KEY")!;
-const BASE = "https://rest.datafeeds.rollingwave.com/api/v1";
+const BASE = "https://rest.datafeeds.rolling-insights.com/api/v1";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
