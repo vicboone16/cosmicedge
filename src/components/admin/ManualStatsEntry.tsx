@@ -11,6 +11,81 @@ interface PlayerRecord {
   team: string | null;
 }
 
+/* ── League-specific stat column definitions ─────────────────────────── */
+
+interface StatCol {
+  key: string;
+  label: string;
+  csvHeader: string;
+  width: string;
+}
+
+const NFL_COLUMNS: StatCol[] = [
+  { key: "targets", label: "Tgt", csvHeader: "Targets", width: "w-14" },
+  { key: "receivingYards", label: "RecYd", csvHeader: "Receiving Yards", width: "w-16" },
+  { key: "receivingTouchdowns", label: "RecTD", csvHeader: "Receiving Touchdowns", width: "w-16" },
+  { key: "passingAttempts", label: "PaAtt", csvHeader: "Passing Attempts", width: "w-16" },
+  { key: "completions", label: "Cmp", csvHeader: "Completions", width: "w-14" },
+  { key: "passingYards", label: "PaYd", csvHeader: "Passing Yards", width: "w-16" },
+  { key: "passingTouchdowns", label: "PaTD", csvHeader: "Passing Touchdowns", width: "w-16" },
+  { key: "rushingAttempts", label: "RuAtt", csvHeader: "Rushing Attempts", width: "w-16" },
+  { key: "rushingYards", label: "RuYd", csvHeader: "Rushing Yards", width: "w-16" },
+  { key: "rushingTouchdowns", label: "RuTD", csvHeader: "Rushing Touchdowns", width: "w-16" },
+];
+
+const NBA_COLUMNS: StatCol[] = [
+  { key: "minutes", label: "MIN", csvHeader: "Minutes", width: "w-14" },
+  { key: "points", label: "PTS", csvHeader: "Points", width: "w-14" },
+  { key: "rebounds", label: "REB", csvHeader: "Rebounds", width: "w-14" },
+  { key: "assists", label: "AST", csvHeader: "Assists", width: "w-14" },
+  { key: "steals", label: "STL", csvHeader: "Steals", width: "w-14" },
+  { key: "blocks", label: "BLK", csvHeader: "Blocks", width: "w-14" },
+  { key: "turnovers", label: "TO", csvHeader: "Turnovers", width: "w-14" },
+  { key: "fgMade", label: "FGM", csvHeader: "FG Made", width: "w-14" },
+  { key: "fgAttempted", label: "FGA", csvHeader: "FG Attempted", width: "w-14" },
+  { key: "threeMade", label: "3PM", csvHeader: "3P Made", width: "w-14" },
+  { key: "threeAttempted", label: "3PA", csvHeader: "3P Attempted", width: "w-14" },
+  { key: "ftMade", label: "FTM", csvHeader: "FT Made", width: "w-14" },
+  { key: "ftAttempted", label: "FTA", csvHeader: "FT Attempted", width: "w-14" },
+];
+
+const NHL_COLUMNS: StatCol[] = [
+  { key: "goals", label: "G", csvHeader: "Goals", width: "w-14" },
+  { key: "assists", label: "A", csvHeader: "Assists", width: "w-14" },
+  { key: "points", label: "PTS", csvHeader: "Points", width: "w-14" },
+  { key: "shots", label: "SOG", csvHeader: "Shots on Goal", width: "w-14" },
+  { key: "plusMinus", label: "+/-", csvHeader: "Plus Minus", width: "w-14" },
+  { key: "pim", label: "PIM", csvHeader: "Penalty Minutes", width: "w-14" },
+  { key: "hits", label: "HIT", csvHeader: "Hits", width: "w-14" },
+  { key: "blocks", label: "BLK", csvHeader: "Blocked Shots", width: "w-14" },
+  { key: "toi", label: "TOI", csvHeader: "Time on Ice", width: "w-16" },
+];
+
+const MLB_COLUMNS: StatCol[] = [
+  { key: "atBats", label: "AB", csvHeader: "At Bats", width: "w-14" },
+  { key: "hits", label: "H", csvHeader: "Hits", width: "w-14" },
+  { key: "runs", label: "R", csvHeader: "Runs", width: "w-14" },
+  { key: "rbi", label: "RBI", csvHeader: "RBI", width: "w-14" },
+  { key: "homeRuns", label: "HR", csvHeader: "Home Runs", width: "w-14" },
+  { key: "stolenBases", label: "SB", csvHeader: "Stolen Bases", width: "w-14" },
+  { key: "walks", label: "BB", csvHeader: "Walks", width: "w-14" },
+  { key: "strikeouts", label: "K", csvHeader: "Strikeouts", width: "w-14" },
+  { key: "inningsPitched", label: "IP", csvHeader: "Innings Pitched", width: "w-14" },
+  { key: "earnedRuns", label: "ER", csvHeader: "Earned Runs", width: "w-14" },
+];
+
+function getLeagueColumns(league: string): StatCol[] {
+  switch (league) {
+    case "NFL": return NFL_COLUMNS;
+    case "NBA": return NBA_COLUMNS;
+    case "NHL": return NHL_COLUMNS;
+    case "MLB": return MLB_COLUMNS;
+    default: return NBA_COLUMNS;
+  }
+}
+
+/* ── Dynamic row type using Record ──────────────────────────────────── */
+
 interface StatRow {
   id: string;
   name: string;
@@ -18,38 +93,13 @@ interface StatRow {
   datetime: string;
   homeTeam: string;
   awayTeam: string;
-  targets: string;
-  receivingYards: string;
-  receivingTouchdowns: string;
-  passingAttempts: string;
-  completions: string;
-  passingYards: string;
-  passingTouchdowns: string;
-  rushingAttempts: string;
-  rushingYards: string;
-  rushingTouchdowns: string;
+  [key: string]: string; // dynamic stat fields
 }
 
 const emptyRow = (): StatRow => ({
   id: crypto.randomUUID(),
   name: "", team: "", datetime: "", homeTeam: "", awayTeam: "",
-  targets: "", receivingYards: "", receivingTouchdowns: "",
-  passingAttempts: "", completions: "", passingYards: "", passingTouchdowns: "",
-  rushingAttempts: "", rushingYards: "", rushingTouchdowns: "",
 });
-
-const STAT_COLUMNS = [
-  { key: "targets", label: "Tgt", width: "w-14" },
-  { key: "receivingYards", label: "RecYd", width: "w-16" },
-  { key: "receivingTouchdowns", label: "RecTD", width: "w-16" },
-  { key: "passingAttempts", label: "PaAtt", width: "w-16" },
-  { key: "completions", label: "Cmp", width: "w-14" },
-  { key: "passingYards", label: "PaYd", width: "w-16" },
-  { key: "passingTouchdowns", label: "PaTD", width: "w-16" },
-  { key: "rushingAttempts", label: "RuAtt", width: "w-16" },
-  { key: "rushingYards", label: "RuYd", width: "w-16" },
-  { key: "rushingTouchdowns", label: "RuTD", width: "w-16" },
-] as const;
 
 interface ManualStatsEntryProps {
   league: string;
@@ -74,7 +124,6 @@ function PlayerAutocomplete({
 
   useEffect(() => { setQuery(value); }, [value]);
 
-  // Close on outside click
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
@@ -134,9 +183,16 @@ export function ManualStatsEntry({ league, onLog }: ManualStatsEntryProps) {
   const [sharedHome, setSharedHome] = useState("");
   const [sharedAway, setSharedAway] = useState("");
 
-  // Fetch players & teams for the selected league
+  const statColumns = getLeagueColumns(league);
+
+  // Reset rows when league changes (clear old stat fields)
+  useEffect(() => {
+    setRows([emptyRow(), emptyRow(), emptyRow()]);
+    setSharedHome("");
+    setSharedAway("");
+  }, [league]);
+
   const fetchPlayersAndTeams = useCallback(async () => {
-    // Fetch players (paginate past 1000 limit)
     let allPlayers: PlayerRecord[] = [];
     let offset = 0;
     const PAGE = 1000;
@@ -154,7 +210,6 @@ export function ManualStatsEntry({ league, onLog }: ManualStatsEntryProps) {
     }
     setPlayers(allPlayers);
 
-    // Extract unique teams
     const uniqueTeams = [...new Set(allPlayers.map((p) => p.team).filter(Boolean))] as string[];
     uniqueTeams.sort();
     setTeams(uniqueTeams);
@@ -166,7 +221,7 @@ export function ManualStatsEntry({ league, onLog }: ManualStatsEntryProps) {
     fetchPlayersAndTeams();
   }, [fetchPlayersAndTeams]);
 
-  const updateRow = (id: string, field: keyof StatRow, value: string) => {
+  const updateRow = (id: string, field: string, value: string) => {
     setRows((prev) => prev.map((r) => (r.id === id ? { ...r, [field]: value } : r)));
   };
 
@@ -197,18 +252,19 @@ export function ManualStatsEntry({ league, onLog }: ManualStatsEntryProps) {
     }
 
     setSubmitting(true);
-    onLog(`Submitting ${validRows.length} player stats rows...`);
+    onLog(`Submitting ${validRows.length} ${league} player stats rows...`);
 
     try {
-      const header = "Name,Team,Date and Time (PST),HomeTeam,AwayTeam,Targets,Receiving Yards,Receiving Touchdowns,Passing Attempts,Completions,Passing Yards,Passing Touchdowns,Rushing Attempts,Rushing Yards,Rushing Touchdowns";
-      const csvLines = validRows.map((r) =>
-        [
+      const headerParts = ["Name", "Team", "Date and Time (PST)", "HomeTeam", "AwayTeam", ...statColumns.map((c) => c.csvHeader)];
+      const header = headerParts.join(",");
+
+      const csvLines = validRows.map((r) => {
+        const statValues = statColumns.map((c) => r[c.key] || "");
+        return [
           r.name, r.team, r.datetime || sharedDate, r.homeTeam || sharedHome, r.awayTeam || sharedAway,
-          r.targets, r.receivingYards, r.receivingTouchdowns,
-          r.passingAttempts, r.completions, r.passingYards, r.passingTouchdowns,
-          r.rushingAttempts, r.rushingYards, r.rushingTouchdowns,
-        ].join(",")
-      );
+          ...statValues,
+        ].join(",");
+      });
       const csvText = [header, ...csvLines].join("\n");
 
       const blob = new Blob([csvText], { type: "text/csv" });
@@ -278,7 +334,7 @@ export function ManualStatsEntry({ league, onLog }: ManualStatsEntryProps) {
       </div>
 
       <p className="text-[10px] text-muted-foreground">
-        💡 Type 2+ characters to search {players.length} {league} players. Selecting a player auto-fills their team.
+        💡 Showing <span className="font-semibold text-foreground">{league}</span> stat fields ({statColumns.length} columns). Type 2+ characters to search {players.length} players.
       </p>
 
       {/* Spreadsheet table */}
@@ -288,7 +344,7 @@ export function ManualStatsEntry({ league, onLog }: ManualStatsEntryProps) {
             <tr className="bg-muted/50 border-b border-border">
               <th className="px-2 py-1.5 text-left font-medium text-muted-foreground w-44">Name</th>
               <th className="px-2 py-1.5 text-left font-medium text-muted-foreground w-36">Team</th>
-              {STAT_COLUMNS.map((c) => (
+              {statColumns.map((c) => (
                 <th key={c.key} className={`px-1 py-1.5 text-center font-medium text-muted-foreground ${c.width}`}>
                   {c.label}
                 </th>
@@ -317,12 +373,12 @@ export function ManualStatsEntry({ league, onLog }: ManualStatsEntryProps) {
                     </SelectContent>
                   </Select>
                 </td>
-                {STAT_COLUMNS.map((c) => (
+                {statColumns.map((c) => (
                   <td key={c.key} className="px-0.5 py-0.5">
                     <Input
                       type="number"
-                      value={row[c.key as keyof StatRow]}
-                      onChange={(e) => updateRow(row.id, c.key as keyof StatRow, e.target.value)}
+                      value={row[c.key] || ""}
+                      onChange={(e) => updateRow(row.id, c.key, e.target.value)}
                       className="h-7 text-xs text-center border-0 bg-transparent px-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                     />
                   </td>
