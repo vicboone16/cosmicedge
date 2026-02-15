@@ -31,6 +31,8 @@ Deno.serve(async (req) => {
     const file = formData.get("file") as File;
     const league = (formData.get("league") as string) || "NBA";
     const season = parseInt((formData.get("season") as string) || "2025", 10);
+    const periodOverride = (formData.get("period") as string) || "";
+    console.log("Parameters — league:", league, "season:", season, "periodOverride:", periodOverride);
 
     if (!file) {
       return new Response(JSON.stringify({ error: "No file provided" }), {
@@ -98,7 +100,7 @@ Deno.serve(async (req) => {
       if (!name) { skipped++; continue; }
 
       const team = teamIdx >= 0 ? normalizeTeam(vals[teamIdx] || "") : "";
-      const period = periodIdx >= 0 ? vals[periodIdx]?.trim() || "full" : "full";
+      const period = periodOverride || (periodIdx >= 0 ? vals[periodIdx]?.trim() || "full" : "full");
 
       // Resolve player
       let playerId = playerMap.get(name.toLowerCase());

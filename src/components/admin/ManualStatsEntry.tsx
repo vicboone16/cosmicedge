@@ -218,6 +218,7 @@ export function ManualStatsEntry({ league, onLog }: ManualStatsEntryProps) {
   const [sharedHome, setSharedHome] = useState("");
   const [sharedAway, setSharedAway] = useState("");
   const [sharedPeriod, setSharedPeriod] = useState("full");
+  const [csvPeriod, setCsvPeriod] = useState("q1");
 
   const periodOptions = getPeriodOptions(league);
 
@@ -294,6 +295,7 @@ export function ManualStatsEntry({ league, onLog }: ManualStatsEntryProps) {
       formData.append("file", file);
       formData.append("league", league);
       formData.append("season", "2025");
+      formData.append("period", csvPeriod);
 
       const { data: { session } } = await supabase.auth.getSession();
       const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/import-period-stats-csv`;
@@ -502,9 +504,17 @@ export function ManualStatsEntry({ league, onLog }: ManualStatsEntryProps) {
         <Button variant="outline" size="sm" onClick={addRow} className="text-xs">
           <Plus className="h-3 w-3 mr-1" /> Add Row
         </Button>
+        <Select value={csvPeriod} onValueChange={setCsvPeriod}>
+          <SelectTrigger className="h-8 w-20 text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent className="bg-popover z-50">
+            {periodOptions.map((p) => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}
+          </SelectContent>
+        </Select>
         <Button variant="outline" size="sm" className="text-xs" asChild>
           <label className="cursor-pointer">
-            <Upload className="h-3 w-3 mr-1" /> Upload Period CSV (auto-imports)
+            <Upload className="h-3 w-3 mr-1" /> Upload CSV as "{csvPeriod}"
             <input type="file" accept=".csv" className="hidden" onChange={handleCsvUpload} />
           </label>
         </Button>
