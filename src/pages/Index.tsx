@@ -76,14 +76,22 @@ const Index = () => {
 
       {/* Content */}
       <div className="px-4 py-4 space-y-6">
-        {isLoading && (
+        {(selectedLeague === "NCAAB" || selectedLeague === "NCAAF") ? (
+          <div className="flex flex-col items-center justify-center py-20 gap-4 text-center px-6">
+            <span className="text-4xl">🔮✨</span>
+            <p className="text-lg font-semibold font-display text-foreground">The Stars Are Still Charting This One…</p>
+            <p className="text-sm text-muted-foreground max-w-xs">
+              NCAA coverage is aligning in the cosmos. Stay tuned — the celestial edge is coming to college sports soon.
+            </p>
+          </div>
+        ) : isLoading ? (
           <div className="flex flex-col items-center justify-center py-16 gap-3">
             <Loader2 className="h-6 w-6 animate-spin text-primary" />
             <span className="text-sm text-muted-foreground">Consulting the stars...</span>
           </div>
-        )}
+        ) : null}
 
-        {isError && (
+        {selectedLeague !== "NCAAB" && selectedLeague !== "NCAAF" && isError && (
           <div className="text-center py-16">
             <p className="text-sm text-destructive mb-2">The cosmos are misaligned</p>
             <button onClick={() => refetch()} className="text-xs text-primary hover:underline">
@@ -92,7 +100,7 @@ const Index = () => {
           </div>
         )}
 
-        {!isLoading && !isError && (
+        {selectedLeague !== "NCAAB" && selectedLeague !== "NCAAF" && !isLoading && !isError && (
           <>
             {liveGames.length > 0 && (
               <section>
