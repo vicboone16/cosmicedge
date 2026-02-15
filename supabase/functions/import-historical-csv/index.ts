@@ -233,9 +233,16 @@ Deno.serve(async (req) => {
           timeStr = val(r, iTime) || "";
         }
 
+        // Normalise M/D/YY or M/D/YYYY to YYYY-MM-DD
+        if (dateStr.includes("/")) {
+          const [m, d, y] = dateStr.split("/");
+          const fullYear = y.length === 2 ? (parseInt(y) >= 50 ? `19${y}` : `20${y}`) : y;
+          dateStr = `${fullYear}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
+        }
+
         let parsedDate: Date;
         if (timeStr) {
-          // Parse time like "19:30", "7:30p", "10:00 PM", "5:00 PM"
+          // Parse time like "19:30", "7:30p", "10:00 PM", "5:00PM"
           const isPM = /pm?$/i.test(timeStr.trim());
           const isAM = /am?$/i.test(timeStr.trim());
           const cleanTime = timeStr.trim().replace(/\s*(am|pm|a|p)$/i, "").trim();
@@ -269,10 +276,10 @@ Deno.serve(async (req) => {
         const statusVal = val(r, iStatus) || (hasScores ? "Final" : "Scheduled");
         const normalizedStatus = statusVal.toLowerCase().includes("final") || statusVal.toLowerCase() === "completed" ? "final" : (statusVal.toLowerCase() === "scheduled" ? "scheduled" : statusVal.toLowerCase());
 
-        // Check Notes column for venue override (ignore OT/SO/2OT markers)
+        // Check Notes column for venue override (ignore OT/SO/2OT and playoff round markers)
         const notesVal = iNotes >= 0 ? val(r, iNotes) : null;
-        const isOvertimeNote = notesVal && /^(OT|SO|2OT|3OT|OT\d?|shootout)$/i.test(notesVal.trim());
-        const venueFromNotes = notesVal && !isOvertimeNote ? notesVal.trim() : null;
+        const isNonVenueNote = notesVal && /^(OT|SO|2OT|3OT|OT\d?|shootout|WildCard|Wild Card|Division|Divisional|ConfChamp|Conference Championship|Superbowl|Super Bowl|Playoff|Preseason|Pro Bowl)$/i.test(notesVal.trim());
+        const venueFromNotes = notesVal && !isNonVenueNote ? notesVal.trim() : null;
 
         return {
           league,
