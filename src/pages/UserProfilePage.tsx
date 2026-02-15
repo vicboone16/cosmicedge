@@ -137,39 +137,13 @@ const UserProfilePage = () => {
           <h1 className="text-xl font-bold font-display tracking-tight">
             {profileData.display_name || profileData.username || "Profile"}
           </h1>
-          <div className="ml-auto flex items-center gap-2">
-            <button
+          <button
               onClick={startConversation}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:opacity-90 transition-opacity"
+              className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:opacity-90 transition-opacity"
             >
               <MessageCircle className="h-3.5 w-3.5" />
               Message
             </button>
-            {friendship && (
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-secondary text-destructive text-xs font-medium hover:bg-destructive/10 transition-colors">
-                    <UserMinus className="h-3.5 w-3.5" />
-                    Remove
-                  </button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Remove friend?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      Are you sure you want to remove {profileData.display_name || profileData.username || "this person"} from your friends? You can always send a new friend request later.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={removeFriend} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                      Remove Friend
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            )}
-          </div>
         </div>
       </header>
 
@@ -211,6 +185,34 @@ const UserProfilePage = () => {
         {!profileData.share_picks && !profileData.share_astro && (
           <div className="cosmic-card rounded-xl p-6 text-center">
             <p className="text-sm text-muted-foreground">This user hasn't shared any additional info yet.</p>
+          </div>
+        )}
+
+        {/* Remove Friend - bottom center with confirmation */}
+        {friendship && (
+          <div className="flex justify-center pt-6">
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <button className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-destructive text-xs font-medium hover:bg-destructive/10 transition-colors">
+                  <UserMinus className="h-3.5 w-3.5" />
+                  Remove Friend
+                </button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Remove friend?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Are you sure you want to remove {profileData.display_name || profileData.username || "this person"} from your friends? You can always send a new friend request later.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={removeFriend} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                    Remove Friend
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </div>
         )}
       </div>
