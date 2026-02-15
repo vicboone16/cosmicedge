@@ -60,8 +60,8 @@ export function DataHealthDashboard() {
         Promise.all(playerPromises),
       ]);
 
-      setGames(gameResults.filter(g => g.total > 0));
-      setPlayers(playerResults.filter(p => p.total > 0));
+      setGames(gameResults);
+      setPlayers(playerResults);
       setLoading(false);
     }
     fetchData();
