@@ -924,6 +924,7 @@ export type Database = {
         Row: {
           assists: number | null
           blocks: number | null
+          completions: number | null
           created_at: string
           def_rebounds: number | null
           fantasy_points: number | null
@@ -934,14 +935,24 @@ export type Database = {
           ft_made: number | null
           game_id: string
           id: string
+          league: string | null
           minutes: number | null
           off_rebounds: number | null
+          passing_attempts: number | null
+          passing_touchdowns: number | null
+          passing_yards: number | null
           player_id: string
           plus_minus: number | null
           points: number | null
           rebounds: number | null
+          receiving_touchdowns: number | null
+          receiving_yards: number | null
+          rushing_attempts: number | null
+          rushing_touchdowns: number | null
+          rushing_yards: number | null
           starter: boolean | null
           steals: number | null
+          targets: number | null
           team_abbr: string
           three_attempted: number | null
           three_made: number | null
@@ -950,6 +961,7 @@ export type Database = {
         Insert: {
           assists?: number | null
           blocks?: number | null
+          completions?: number | null
           created_at?: string
           def_rebounds?: number | null
           fantasy_points?: number | null
@@ -960,14 +972,24 @@ export type Database = {
           ft_made?: number | null
           game_id: string
           id?: string
+          league?: string | null
           minutes?: number | null
           off_rebounds?: number | null
+          passing_attempts?: number | null
+          passing_touchdowns?: number | null
+          passing_yards?: number | null
           player_id: string
           plus_minus?: number | null
           points?: number | null
           rebounds?: number | null
+          receiving_touchdowns?: number | null
+          receiving_yards?: number | null
+          rushing_attempts?: number | null
+          rushing_touchdowns?: number | null
+          rushing_yards?: number | null
           starter?: boolean | null
           steals?: number | null
+          targets?: number | null
           team_abbr: string
           three_attempted?: number | null
           three_made?: number | null
@@ -976,6 +998,7 @@ export type Database = {
         Update: {
           assists?: number | null
           blocks?: number | null
+          completions?: number | null
           created_at?: string
           def_rebounds?: number | null
           fantasy_points?: number | null
@@ -986,14 +1009,24 @@ export type Database = {
           ft_made?: number | null
           game_id?: string
           id?: string
+          league?: string | null
           minutes?: number | null
           off_rebounds?: number | null
+          passing_attempts?: number | null
+          passing_touchdowns?: number | null
+          passing_yards?: number | null
           player_id?: string
           plus_minus?: number | null
           points?: number | null
           rebounds?: number | null
+          receiving_touchdowns?: number | null
+          receiving_yards?: number | null
+          rushing_attempts?: number | null
+          rushing_touchdowns?: number | null
+          rushing_yards?: number | null
           starter?: boolean | null
           steals?: number | null
+          targets?: number | null
           team_abbr?: string
           three_attempted?: number | null
           three_made?: number | null
