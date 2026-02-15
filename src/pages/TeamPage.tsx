@@ -1,5 +1,6 @@
+import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Users, TrendingUp } from "lucide-react";
+import { ArrowLeft, Users, TrendingUp, ChevronDown, ChevronUp, BarChart3 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
@@ -30,7 +31,17 @@ function getSignFromDate(dateStr: string): { sign: string; symbol: string } {
   }
   return { sign: "Capricorn", symbol: "♑" };
 }
+function StatCell({ label, value }: { label: string; value: string | null | undefined }) {
+  return (
+    <div className="cosmic-card rounded-xl p-2 text-center">
+      <p className="text-[9px] text-muted-foreground uppercase">{label}</p>
+      <p className="text-xs font-semibold mt-0.5">{value ?? "—"}</p>
+    </div>
+  );
+}
+
 const TeamPage = () => {
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const { abbr } = useParams();
   const navigate = useNavigate();
 
@@ -66,6 +77,55 @@ const TeamPage = () => {
     },
     enabled: !!abbr,
   });
+
+  // Fetch advanced game stats (Four Factors, ORtg/DRtg, etc.)
+  const { data: advancedStats } = useQuery({
+    queryKey: ["team-advanced-stats", abbr],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("team_game_stats")
+        .select("*")
+        .eq("team_abbr", abbr!)
+        .order("created_at", { ascending: false });
+      return data || [];
+    },
+    enabled: !!abbr,
+  });
+
+  // Compute season averages from game logs
+  const seasonAvg = advancedStats && advancedStats.length > 0
+    ? (() => {
+        const n = advancedStats.length;
+        const avg = (key: string) => {
+          const vals = advancedStats
+            .map((r: any) => r[key])
+            .filter((v: any) => v !== null && v !== undefined);
+          return vals.length ? (vals.reduce((a: number, b: number) => a + b, 0) / vals.length) : null;
+        };
+        return {
+          games: n,
+          ppg: avg("points"),
+          off_rating: avg("off_rating"),
+          def_rating: avg("def_rating"),
+          pace: avg("pace"),
+          ts_pct: avg("ts_pct"),
+          efg_pct: avg("efg_pct"),
+          tov_pct: avg("tov_pct"),
+          orb_pct: avg("orb_pct"),
+          ft_per_fga: avg("ft_per_fga"),
+          opp_efg_pct: avg("opp_efg_pct"),
+          opp_tov_pct: avg("opp_tov_pct"),
+          opp_orb_pct: avg("opp_orb_pct"),
+          opp_ft_per_fga: avg("opp_ft_per_fga"),
+          ftr: avg("ftr"),
+          three_par: avg("three_par"),
+          trb_pct: avg("trb_pct"),
+          ast_pct: avg("ast_pct"),
+          stl_pct: avg("stl_pct"),
+          blk_pct: avg("blk_pct"),
+        };
+      })()
+    : null;
 
   const teamName = standings?.team_name || players?.[0]?.team || abbr;
 
@@ -106,6 +166,72 @@ const TeamPage = () => {
                 <p className="text-sm font-semibold mt-1">{standings.streak || "—"}</p>
               </div>
             </div>
+          </section>
+        )}
+
+        {/* Advanced Stats - Hidden by default */}
+        {seasonAvg && (
+          <section>
+            <button
+              onClick={() => setShowAdvanced(!showAdvanced)}
+              className="w-full flex items-center justify-between py-2 group"
+            >
+              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-widest flex items-center gap-1.5">
+                <BarChart3 className="h-3.5 w-3.5" />
+                Advanced Stats ({seasonAvg.games} games)
+              </h3>
+              {showAdvanced ? (
+                <ChevronUp className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
+              ) : (
+                <ChevronDown className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
+              )}
+            </button>
+
+            {showAdvanced && (
+              <div className="space-y-3 mt-2 animate-in fade-in slide-in-from-top-2 duration-200">
+                {/* Core Metrics */}
+                <div className="grid grid-cols-4 gap-2">
+                  <StatCell label="PPG" value={seasonAvg.ppg?.toFixed(1)} />
+                  <StatCell label="ORtg" value={seasonAvg.off_rating?.toFixed(1)} />
+                  <StatCell label="DRtg" value={seasonAvg.def_rating?.toFixed(1)} />
+                  <StatCell label="Pace" value={seasonAvg.pace?.toFixed(1)} />
+                </div>
+
+                {/* Shooting */}
+                <div className="grid grid-cols-4 gap-2">
+                  <StatCell label="TS%" value={seasonAvg.ts_pct != null ? (seasonAvg.ts_pct * 100).toFixed(1) + "%" : null} />
+                  <StatCell label="eFG%" value={seasonAvg.efg_pct != null ? (seasonAvg.efg_pct * 100).toFixed(1) + "%" : null} />
+                  <StatCell label="FTr" value={seasonAvg.ftr?.toFixed(3)} />
+                  <StatCell label="3PAr" value={seasonAvg.three_par?.toFixed(3)} />
+                </div>
+
+                {/* Offensive Four Factors */}
+                <p className="text-[9px] font-semibold text-primary/70 uppercase tracking-wider mt-1">Offensive Four Factors</p>
+                <div className="grid grid-cols-4 gap-2">
+                  <StatCell label="eFG%" value={seasonAvg.efg_pct != null ? (seasonAvg.efg_pct * 100).toFixed(1) + "%" : null} />
+                  <StatCell label="TOV%" value={seasonAvg.tov_pct?.toFixed(1)} />
+                  <StatCell label="ORB%" value={seasonAvg.orb_pct?.toFixed(1)} />
+                  <StatCell label="FT/FGA" value={seasonAvg.ft_per_fga?.toFixed(3)} />
+                </div>
+
+                {/* Defensive Four Factors */}
+                <p className="text-[9px] font-semibold text-primary/70 uppercase tracking-wider mt-1">Defensive Four Factors</p>
+                <div className="grid grid-cols-4 gap-2">
+                  <StatCell label="Opp eFG%" value={seasonAvg.opp_efg_pct != null ? (seasonAvg.opp_efg_pct * 100).toFixed(1) + "%" : null} />
+                  <StatCell label="Opp TOV%" value={seasonAvg.opp_tov_pct?.toFixed(1)} />
+                  <StatCell label="Opp ORB%" value={seasonAvg.opp_orb_pct?.toFixed(1)} />
+                  <StatCell label="Opp FT/FGA" value={seasonAvg.opp_ft_per_fga?.toFixed(3)} />
+                </div>
+
+                {/* Other Advanced */}
+                <div className="grid grid-cols-4 gap-2">
+                  <StatCell label="TRB%" value={seasonAvg.trb_pct?.toFixed(1)} />
+                  <StatCell label="AST%" value={seasonAvg.ast_pct?.toFixed(1)} />
+                  <StatCell label="STL%" value={seasonAvg.stl_pct?.toFixed(1)} />
+                  <StatCell label="BLK%" value={seasonAvg.blk_pct?.toFixed(1)} />
+                </div>
+              </div>
+            )}
           </section>
         )}
 
