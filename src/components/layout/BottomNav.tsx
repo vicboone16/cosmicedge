@@ -1,4 +1,4 @@
-import { CalendarDays, Star, Crosshair, Zap, TrendingUp, History, Sparkles } from "lucide-react";
+import { CalendarDays, Star, Crosshair, TrendingUp, History, Sparkles } from "lucide-react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
@@ -9,7 +9,6 @@ const navItems = [
   { to: "/props", icon: TrendingUp, label: "Props", requiresAuth: true },
   { to: "/skyspread", icon: Crosshair, label: "SkySpread", requiresAuth: true },
   { to: "/historical", icon: History, label: "History", requiresAuth: true },
-  { to: "/live-board", icon: Zap, label: "Live", requiresAuth: true },
   { to: "/astra", icon: Sparkles, label: "Astra", requiresAuth: true },
 ];
 
