@@ -82,6 +82,7 @@ function getPlayerProps(stats: any, element: string) {
 
 type StatsTab = "stats" | "1h" | "1q" | "game_logs";
 type SampleSize = 5 | 10 | "season";
+type StatMode = "averages" | "totals";
 
 const PlayerPage = () => {
   const { id } = useParams();
@@ -89,6 +90,7 @@ const PlayerPage = () => {
   const [statsTab, setStatsTab] = useState<StatsTab>("stats");
   const [sampleSize, setSampleSize] = useState<SampleSize>(10);
   const [showOpponent, setShowOpponent] = useState(false);
+  const [statMode, setStatMode] = useState<StatMode>("averages");
 
   const { data: player, isLoading } = useQuery({
     queryKey: ["player", id],
@@ -100,9 +102,29 @@ const PlayerPage = () => {
   });
 
   const { data: seasonStats } = useQuery({
-    queryKey: ["player-season-stats", id],
+    queryKey: ["player-season-stats", id, statMode],
     queryFn: async () => {
-      const { data } = await supabase.from("player_season_stats").select("*").eq("player_id", id!).order("season", { ascending: false }).limit(1).maybeSingle();
+      const { data } = await supabase
+        .from("player_season_stats")
+        .select("*")
+        .eq("player_id", id!)
+        .eq("stat_type", statMode)
+        .order("season", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      // Fallback: if no row for this stat_type, try the other
+      if (!data) {
+        const fallback = statMode === "averages" ? "totals" : "averages";
+        const { data: fb } = await supabase
+          .from("player_season_stats")
+          .select("*")
+          .eq("player_id", id!)
+          .eq("stat_type", fallback)
+          .order("season", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        return fb;
+      }
       return data;
     },
     enabled: !!id,
@@ -360,6 +382,22 @@ const PlayerPage = () => {
             Performance
           </h3>
 
+          {/* Totals / Averages toggle */}
+          <div className="flex items-center gap-1 bg-secondary rounded-lg p-0.5 mb-3 w-fit">
+            {(["averages", "totals"] as StatMode[]).map(mode => (
+              <button
+                key={mode}
+                onClick={() => setStatMode(mode)}
+                className={cn(
+                  "px-3 py-1.5 rounded-md text-[11px] font-semibold transition-colors capitalize",
+                  statMode === mode ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                {mode === "averages" ? "Per Game" : "Season Totals"}
+              </button>
+            ))}
+          </div>
+
           {/* Stats tabs */}
           <div className="flex bg-secondary rounded-lg p-0.5 mb-3">
             {([
@@ -526,29 +564,41 @@ const PlayerPage = () => {
           {statsTab === "stats" && (
             <div className="grid grid-cols-4 gap-2">
               {(() => {
-                // Use game log averages if available, otherwise fall back to season stats
-                const useGameLogs = avgStats && avgStats.games > 0;
+                // Use game log averages if available (only for per-game mode), otherwise fall back to season stats
+                const useGameLogs = statMode === "averages" && avgStats && avgStats.games > 0;
+                const ss = seasonStats as any;
                 const stats = useGameLogs
                   ? [
-                      { label: "PTS", val: avgStats.pts },
-                      { label: "REB", val: avgStats.reb },
-                      { label: "AST", val: avgStats.ast },
-                      { label: "FG%", val: avgStats.fgPct },
-                      { label: "3P%", val: avgStats.threePct },
-                      { label: "STL", val: avgStats.stl },
-                      { label: "BLK", val: avgStats.blk },
-                      { label: "MIN", val: avgStats.min },
+                      { label: "PTS", val: avgStats!.pts },
+                      { label: "REB", val: avgStats!.reb },
+                      { label: "AST", val: avgStats!.ast },
+                      { label: "FG%", val: avgStats!.fgPct },
+                      { label: "3P%", val: avgStats!.threePct },
+                      { label: "STL", val: avgStats!.stl },
+                      { label: "BLK", val: avgStats!.blk },
+                      { label: "MIN", val: avgStats!.min },
                     ]
-                  : seasonStats
+                  : ss
                   ? [
-                      { label: "PTS", val: seasonStats.points_per_game },
-                      { label: "REB", val: seasonStats.rebounds_per_game },
-                      { label: "AST", val: seasonStats.assists_per_game },
-                      { label: "FG%", val: seasonStats.fg_pct != null ? seasonStats.fg_pct.toFixed(1) : null },
-                      { label: "3P%", val: seasonStats.three_pct != null ? seasonStats.three_pct.toFixed(1) : null },
-                      { label: "STL", val: seasonStats.steals_per_game },
-                      { label: "BLK", val: seasonStats.blocks_per_game },
-                      { label: "MIN", val: seasonStats.minutes_per_game },
+                      { label: "PTS", val: ss.points_per_game != null ? (statMode === "totals" ? Math.round(ss.points_per_game) : Number(ss.points_per_game).toFixed(1)) : null },
+                      { label: "REB", val: ss.rebounds_per_game != null ? (statMode === "totals" ? Math.round(ss.rebounds_per_game) : Number(ss.rebounds_per_game).toFixed(1)) : null },
+                      { label: "AST", val: ss.assists_per_game != null ? (statMode === "totals" ? Math.round(ss.assists_per_game) : Number(ss.assists_per_game).toFixed(1)) : null },
+                      { label: "FG%", val: ss.fg_pct != null ? Number(ss.fg_pct).toFixed(1) : null },
+                      { label: "3P%", val: ss.three_pct != null ? Number(ss.three_pct).toFixed(1) : null },
+                      { label: "STL", val: ss.steals_per_game != null ? (statMode === "totals" ? Math.round(ss.steals_per_game) : Number(ss.steals_per_game).toFixed(1)) : null },
+                      { label: "BLK", val: ss.blocks_per_game != null ? (statMode === "totals" ? Math.round(ss.blocks_per_game) : Number(ss.blocks_per_game).toFixed(1)) : null },
+                      { label: "MIN", val: ss.minutes_per_game != null ? (statMode === "totals" ? Math.round(ss.minutes_per_game) : Number(ss.minutes_per_game).toFixed(1)) : null },
+                      ...(statMode === "totals" ? [
+                        { label: "GP", val: ss.games_played },
+                        { label: "GS", val: ss.games_started },
+                        { label: "FG", val: ss.fg_made != null ? `${Math.round(ss.fg_made)}/${Math.round(ss.fg_attempted)}` : null },
+                        { label: "FT", val: ss.ft_made != null ? `${Math.round(ss.ft_made)}/${Math.round(ss.ft_attempted)}` : null },
+                      ] : [
+                        { label: "GP", val: ss.games_played },
+                        { label: "FT%", val: ss.ft_pct != null ? Number(ss.ft_pct).toFixed(1) : null },
+                        { label: "eFG%", val: ss.effective_fg_pct != null ? Number(ss.effective_fg_pct).toFixed(1) : null },
+                        { label: "TOV", val: ss.turnovers_per_game != null ? Number(ss.turnovers_per_game).toFixed(1) : null },
+                      ]),
                     ]
                   : [];
                 return stats.map(({ label, val }) => (
@@ -560,9 +610,9 @@ const PlayerPage = () => {
               })()}
               <div className="col-span-4 text-center">
                 <p className="text-[10px] text-muted-foreground">
-                  {avgStats && avgStats.games > 0
+                  {avgStats && avgStats.games > 0 && statMode === "averages"
                     ? showOpponent ? `${avgStats.games} games vs ${opponent}` : `${avgStats.games} game${avgStats.games !== 1 ? "s" : ""} sample`
-                    : seasonStats ? "Season averages · Box scores not yet imported" : "No stats available"
+                    : seasonStats ? `Season ${statMode} · ${(seasonStats as any).games_played ?? "—"} games` : "No stats available"
                   }
                 </p>
               </div>
