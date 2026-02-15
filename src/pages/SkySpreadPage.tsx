@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Star, Filter, ArrowUpDown, CheckSquare, Square, Zap, TrendingUp, AlertTriangle, ChevronDown, ChevronUp, Pin, PinOff, Trash2, CheckCircle, RefreshCw } from "lucide-react";
+import { Star, Filter, ArrowUpDown, CheckSquare, Square, Zap, TrendingUp, AlertTriangle, ChevronDown, ChevronUp, Pin, PinOff, Trash2, CheckCircle, RefreshCw, Wallet } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
@@ -8,6 +8,8 @@ import { format } from "date-fns";
 import type { Tables } from "@/integrations/supabase/types";
 import { useAuth } from "@/hooks/use-auth";
 import CreateBetForm from "@/components/skyspread/CreateBetForm";
+import PropBuilderDialog from "@/components/skyspread/PropBuilderDialog";
+import BankrollTab from "@/components/skyspread/BankrollTab";
 import { TrackedPropsWidget } from "@/components/tracking/TrackedProps";
 import { toast } from "@/hooks/use-toast";
 
@@ -180,6 +182,7 @@ const SkySpreadPage = () => {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const userId = user?.id ?? null;
+  const [activeTab, setActiveTab] = useState<"ledger" | "bankroll">("ledger");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [sortBy, setSortBy] = useState<string>("confidence");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -350,6 +353,7 @@ const SkySpreadPage = () => {
             <p className="text-xs text-muted-foreground">Where the line meets the sky.</p>
           </div>
           <div className="flex items-center gap-2">
+            <PropBuilderDialog userId={userId} />
             <button
               onClick={async () => {
                 setRefreshing(true);
@@ -367,9 +371,35 @@ const SkySpreadPage = () => {
             <CreateBetForm userId={userId} />
           </div>
         </div>
+
+        {/* Tab Switcher */}
+        <div className="flex gap-1 mt-3">
+          <button
+            onClick={() => setActiveTab("ledger")}
+            className={cn(
+              "flex-1 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center justify-center gap-1.5",
+              activeTab === "ledger" ? "bg-primary text-primary-foreground" : "bg-secondary/60 text-muted-foreground hover:text-foreground"
+            )}
+          >
+            <Star className="h-3 w-3" /> Ledger
+          </button>
+          <button
+            onClick={() => setActiveTab("bankroll")}
+            className={cn(
+              "flex-1 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center justify-center gap-1.5",
+              activeTab === "bankroll" ? "bg-primary text-primary-foreground" : "bg-secondary/60 text-muted-foreground hover:text-foreground"
+            )}
+          >
+            <Wallet className="h-3 w-3" /> Bankroll
+          </button>
+        </div>
       </header>
 
       <div className="px-4 py-4 space-y-4">
+        {activeTab === "bankroll" ? (
+          <BankrollTab userId={userId} />
+        ) : (
+          <>
         {/* Live Board Header Section */}
         {liveItemCount > 0 && (
           <section>
@@ -564,6 +594,8 @@ const SkySpreadPage = () => {
             );
           })}
         </div>
+        </>
+        )}
       </div>
 
       {/* Selection Action Bar */}
