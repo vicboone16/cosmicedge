@@ -19,8 +19,8 @@ interface FriendProfile {
   moon_sign: string | null;
   rising_sign: string | null;
   share_astro: boolean;
+  share_picks?: boolean;
   bio: string | null;
-  phone: string | null;
 }
 
 interface Friendship {
@@ -68,15 +68,13 @@ const FriendsPage = () => {
     setExistingFriendIds(new Set(friendIds));
 
     const { data: profiles } = await supabase
-      .from("profiles")
-      .select("user_id, username, display_name, avatar_url, sun_sign, moon_sign, rising_sign, share_astro, bio" as any)
-      .in("user_id", friendIds);
+      .rpc("get_public_profiles", { user_ids: friendIds }) as any;
 
     const profileMap = new Map((profiles || []).map((p: any) => [p.user_id, p]));
 
     const enriched = fships.map((f: any) => {
       const friendId = f.requester_id === user.id ? f.addressee_id : f.requester_id;
-      return { ...f, profile: profileMap.get(friendId) || { user_id: friendId, username: null, display_name: "Unknown", avatar_url: null, sun_sign: null, moon_sign: null, rising_sign: null, share_astro: false, bio: null, phone: null } };
+      return { ...f, profile: profileMap.get(friendId) || { user_id: friendId, username: null, display_name: "Unknown", avatar_url: null, sun_sign: null, moon_sign: null, rising_sign: null, share_astro: false, bio: null } };
     });
 
     setFriends(enriched.filter((f: any) => f.status === "accepted"));
@@ -101,10 +99,7 @@ const FriendsPage = () => {
 
     // Get users who share picks or astro (public profiles)
     const { data: publicProfiles } = await supabase
-      .from("profiles")
-      .select("user_id, username, display_name, avatar_url, sun_sign, moon_sign, rising_sign, share_astro, share_picks, bio" as any)
-      .or("share_picks.eq.true,share_astro.eq.true")
-      .limit(50);
+      .rpc("get_suggested_profiles", { max_results: 50 }) as any;
 
     const filtered = ((publicProfiles as any[]) || [])
       .filter((p: any) => !connectedIds.has(p.user_id))
@@ -116,14 +111,10 @@ const FriendsPage = () => {
   const handleSearch = async () => {
     if (!searchQuery.trim() || !user) return;
     setLoading(true);
-    const q = searchQuery.trim().toLowerCase();
+    const q = searchQuery.trim();
     const { data } = await supabase
-      .from("profiles")
-      .select("user_id, username, display_name, avatar_url, sun_sign, moon_sign, rising_sign, share_astro, bio" as any)
-      .or(`username.ilike.%${q}%,display_name.ilike.%${q}%`)
-      .neq("user_id", user.id)
-      .limit(20);
-    setSearchResults((data as any[]) || []);
+      .rpc("search_public_profiles", { search_query: q, max_results: 20 }) as any;
+    setSearchResults(((data as any[]) || []).filter((p: any) => p.user_id !== user.id));
     setLoading(false);
   };
 

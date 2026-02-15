@@ -29,12 +29,9 @@ const UserProfilePage = () => {
   useEffect(() => {
     if (!userId) return;
     supabase
-      .from("profiles")
-      .select("*")
-      .eq("user_id", userId)
-      .maybeSingle()
+      .rpc("get_public_profiles", { user_ids: [userId] })
       .then(({ data }) => {
-        setProfile(data);
+        setProfile(data && data.length > 0 ? data[0] : null);
         setLoading(false);
       });
 

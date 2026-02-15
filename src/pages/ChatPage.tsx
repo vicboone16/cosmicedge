@@ -73,9 +73,7 @@ const ChatPage = () => {
     if (memberRows) {
       const userIds = memberRows.map((m: any) => m.user_id).filter((id: string) => id !== user.id);
       const { data: profiles } = await supabase
-        .from("profiles")
-        .select("user_id, display_name, avatar_url")
-        .in("user_id", userIds);
+        .rpc("get_public_profiles", { user_ids: userIds }) as any;
 
       setMembers((profiles as any[]) || []);
       

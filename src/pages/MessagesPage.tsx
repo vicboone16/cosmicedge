@@ -65,12 +65,9 @@ const MessagesPage = () => {
 
       let otherUser = null;
       if (members && members.length > 0 && !convo.is_group) {
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("display_name, avatar_url, username")
-          .eq("user_id", members[0].user_id)
-          .maybeSingle();
-        otherUser = profile;
+        const { data: profileData } = await supabase
+          .rpc("get_public_profiles", { user_ids: [members[0].user_id] }) as any;
+        otherUser = profileData && profileData.length > 0 ? profileData[0] : null;
       }
 
       // Get last message
