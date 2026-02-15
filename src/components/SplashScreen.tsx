@@ -2,30 +2,6 @@ import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import cosmicLogo from "@/assets/cosmic-edge-logo.png";
 
-interface Particle {
-  id: number;
-  x: number;
-  y: number;
-  size: number;
-  delay: number;
-  duration: number;
-  opacity: number;
-}
-
-function generateParticles(count: number): Particle[] {
-  return Array.from({ length: count }, (_, i) => ({
-    id: i,
-    x: Math.random() * 100,
-    y: Math.random() * 100,
-    size: Math.random() * 3 + 1,
-    delay: Math.random() * 1.5,
-    duration: Math.random() * 2 + 2,
-    opacity: Math.random() * 0.7 + 0.3,
-  }));
-}
-
-const PARTICLES = generateParticles(60);
-
 export default function SplashScreen({ onComplete }: { onComplete: () => void }) {
   const [phase, setPhase] = useState<"stars" | "logo" | "tagline" | "exit">("stars");
 
@@ -52,7 +28,7 @@ export default function SplashScreen({ onComplete }: { onComplete: () => void })
       <motion.div
         key="splash"
         className="fixed inset-0 z-[9999] flex flex-col items-center justify-center overflow-hidden"
-        style={{ background: "linear-gradient(135deg, hsl(240 30% 8%), hsl(260 40% 12%), hsl(230 25% 6%))" }}
+        style={{ background: "#000000" }}
         initial={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         animate={phase === "exit" ? { opacity: 0, scale: 1.1 } : { opacity: 1 }}
@@ -61,53 +37,6 @@ export default function SplashScreen({ onComplete }: { onComplete: () => void })
           if (phase === "exit") onComplete();
         }}
       >
-        {/* Particle field */}
-        {PARTICLES.map((p) => (
-          <motion.div
-            key={p.id}
-            className="absolute rounded-full"
-            style={{
-              left: `${p.x}%`,
-              top: `${p.y}%`,
-              width: p.size,
-              height: p.size,
-              background: `radial-gradient(circle, hsl(260 80% 80%), hsl(195 70% 60%))`,
-            }}
-            initial={{ opacity: 0, scale: 0 }}
-            animate={{
-              opacity: [0, p.opacity, p.opacity * 0.3, p.opacity],
-              scale: [0, 1, 0.6, 1],
-            }}
-            transition={{
-              duration: p.duration,
-              delay: p.delay,
-              repeat: Infinity,
-              ease: "easeInOut",
-            }}
-          />
-        ))}
-
-        {/* Cosmic glow rings */}
-        <motion.div
-          className="absolute rounded-full"
-          style={{
-            width: 300,
-            height: 300,
-            background: "radial-gradient(circle, hsl(260 60% 55% / 0.15), transparent 70%)",
-          }}
-          animate={{ scale: [1, 1.4, 1], opacity: [0.5, 0.2, 0.5] }}
-          transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-        />
-        <motion.div
-          className="absolute rounded-full"
-          style={{
-            width: 200,
-            height: 200,
-            background: "radial-gradient(circle, hsl(195 70% 45% / 0.2), transparent 70%)",
-          }}
-          animate={{ scale: [1.2, 0.8, 1.2], opacity: [0.3, 0.6, 0.3] }}
-          transition={{ duration: 3, repeat: Infinity, ease: "easeInOut", delay: 0.5 }}
-        />
 
         {/* Logo / Brand */}
         <motion.div
@@ -126,7 +55,7 @@ export default function SplashScreen({ onComplete }: { onComplete: () => void })
           <motion.img
             src={cosmicLogo}
             alt="Cosmic Edge"
-            className="relative z-10 rounded-3xl drop-shadow-[0_0_40px_hsl(260_60%_55%/0.5)]"
+            className="relative z-10 rounded-3xl"
             style={{ width: 200, height: 200, objectFit: "contain" }}
           />
 
