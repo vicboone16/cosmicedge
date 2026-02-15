@@ -8,7 +8,7 @@ const corsHeaders = {
 const TEAM_MAP: Record<string, string> = {
   "PHO": "PHX", "BRK": "BKN", "CHO": "CHA", "NJN": "BKN", "NOH": "NOP",
   "GS": "GSW", "SA": "SAS", "NY": "NYK", "NO": "NOP", "LA-L": "LAL", "LA-C": "LAC",
-  "2TM": "", "3TM": "", "TOT": "",
+  "2TM": "", "3TM": "",
 };
 
 function normalizeTeam(raw: string): string {
@@ -113,8 +113,9 @@ Deno.serve(async (req) => {
 
       const teamRaw = vals[teamCol] || "";
       const team = normalizeTeam(teamRaw);
-      // Skip multi-team aggregate rows
-      if (!team) { skipped++; continue; }
+      const isTot = teamRaw.trim().toUpperCase() === "TOT";
+      // Skip 2TM/3TM rows but keep TOT
+      if (!team && !isTot) { skipped++; continue; }
 
       const num = (idx: number) => idx >= 0 && vals[idx] ? parseFloat(vals[idx]) : null;
 
@@ -143,14 +144,24 @@ Deno.serve(async (req) => {
         playerMap.set(name.toLowerCase(), playerId!);
       }
 
-      // Also update player team/position
-      await supabase.from("players").update({ team, position: vals[posCol] || null }).eq("id", playerId!);
+      // For TOT rows, resolve the player's current team from DB and use combined stat_type
+      let effectiveTeam = team;
+      let effectiveStatType = detectedType;
+      if (isTot) {
+        effectiveStatType = detectedType === "averages" ? "averages_combined" : "totals_combined";
+        // Look up the player's current team
+        const { data: pRow } = await supabase.from("players").select("team").eq("id", playerId!).single();
+        effectiveTeam = pRow?.team || "UNK";
+      } else {
+        // Update player team/position for non-TOT rows
+        await supabase.from("players").update({ team, position: vals[posCol] || null }).eq("id", playerId!);
+      }
 
       const row: Record<string, any> = {
         player_id: playerId,
         season,
         league: "NBA",
-        stat_type: detectedType,
+        stat_type: effectiveStatType,
         games_played: num(gCol),
         games_started: num(gsCol),
         minutes_per_game: num(mpCol),
