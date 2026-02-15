@@ -34,7 +34,22 @@ interface BankrollStats {
 }
 
 function computeStats(bets: BetRow[]): BankrollStats {
-  const settled = bets.filter(b => b.status === "won" || b.status === "lost" || b.status === "push");
+  // Support both legacy status values ("won"/"lost"/"push") and trigger-settled ("settled" with result field)
+  const settled = bets.filter(b => {
+    if (b.status === "won" || b.status === "lost" || b.status === "push") return true;
+    if (b.status === "settled" && (b.result === "win" || b.result === "loss" || b.result === "push")) return true;
+    return false;
+  });
+
+  // Normalize to a consistent win/loss/push for calculation
+  const getOutcome = (b: BetRow): "won" | "lost" | "push" => {
+    if (b.status === "settled") {
+      if (b.result === "win") return "won";
+      if (b.result === "loss") return "lost";
+      return "push";
+    }
+    return b.status as "won" | "lost" | "push";
+  };
   let totalStaked = 0;
   let totalReturned = 0;
   let wins = 0;
@@ -60,6 +75,7 @@ function computeStats(bets: BetRow[]): BankrollStats {
 
     const league = bet.sport || "Unknown";
     const market = bet.market_type || "Unknown";
+    const outcome = getOutcome(bet);
 
     if (!byLeague[league]) byLeague[league] = { bets: 0, staked: 0, returned: 0, roi: 0, wins: 0, losses: 0 };
     if (!byMarket[market]) byMarket[market] = { bets: 0, staked: 0, returned: 0, roi: 0, wins: 0, losses: 0 };
@@ -69,10 +85,10 @@ function computeStats(bets: BetRow[]): BankrollStats {
     byMarket[market].bets++;
     byMarket[market].staked += stake;
 
-    if (bet.status === "won") {
+    if (outcome === "won") {
       wins++;
-      const dec = americanToDecimal(bet.odds);
-      const returned = stake * dec;
+      // Use payout if available (from trigger), otherwise calculate
+      const returned = bet.payout ? bet.payout : stake * americanToDecimal(bet.odds);
       totalReturned += returned;
       byLeague[league].returned += returned;
       byLeague[league].wins++;
@@ -80,14 +96,14 @@ function computeStats(bets: BetRow[]): BankrollStats {
       byMarket[market].wins++;
       tempStreak++;
       bestStreak = Math.max(bestStreak, tempStreak);
-    } else if (bet.status === "lost") {
+    } else if (outcome === "lost") {
       losses++;
       byLeague[league].losses++;
       byMarket[market].losses++;
       tempStreak = 0;
     } else {
       pushes++;
-      totalReturned += stake; // push = money back
+      totalReturned += stake;
       byLeague[league].returned += stake;
       byMarket[market].returned += stake;
     }
@@ -96,7 +112,7 @@ function computeStats(bets: BetRow[]): BankrollStats {
   // Current streak (from end)
   currentStreak = 0;
   for (let i = sorted.length - 1; i >= 0; i--) {
-    if (sorted[i].status === "won") currentStreak++;
+    if (getOutcome(sorted[i]) === "won") currentStreak++;
     else break;
   }
 
