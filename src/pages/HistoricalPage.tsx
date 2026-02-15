@@ -86,6 +86,7 @@ export default function HistoricalPage() {
   const [btResult, setBtResult] = useState<any>(null);
   const [btWeights, setBtWeights] = useState<Record<string, number>>({ ...DEFAULT_WEIGHTS });
   const [presetName, setPresetName] = useState("");
+  const [flatBet, setFlatBet] = useState(100);
 
   // Load saved presets
   const { data: presets } = useQuery({
@@ -151,7 +152,7 @@ export default function HistoricalPage() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error("Please log in to run backtests");
       const resp = await supabase.functions.invoke("quant-engine", {
-        body: { mode: "backtest", league, date_start: btStart, date_end: btEnd, custom_weights: btWeights },
+        body: { mode: "backtest", league, date_start: btStart, date_end: btEnd, custom_weights: btWeights, flat_bet: flatBet },
       });
       if (resp.error) throw new Error(resp.error.message);
       return resp.data;
@@ -664,6 +665,16 @@ export default function HistoricalPage() {
                     className="w-full bg-secondary/50 border border-border/50 rounded px-2 py-1 text-xs" />
                 </div>
               </div>
+              <div>
+                <label className="text-[9px] text-muted-foreground block mb-0.5">Flat Bet Amount ($)</label>
+                <Input
+                  type="number"
+                  min={1}
+                  value={flatBet}
+                  onChange={e => setFlatBet(Math.max(1, parseInt(e.target.value) || 100))}
+                  className="h-7 text-xs w-28"
+                />
+              </div>
 
               {/* Model Weight Sliders */}
               <div className="space-y-3 pt-2 border-t border-border/30">
@@ -753,7 +764,99 @@ export default function HistoricalPage() {
 
             {btResult && (
               <div className="space-y-2">
-                {/* Overall */}
+                {/* Per-Market Type Cards */}
+                {btResult.by_market && Object.keys(btResult.by_market).length > 0 && (
+                  <div className="space-y-2">
+                    {["spread", "moneyline", "total"].map(mkt => {
+                      const d = btResult.by_market[mkt];
+                      if (!d) return null;
+                      const isProfitable = d.roi >= 0;
+                      return (
+                        <div key={mkt} className="cosmic-card rounded-xl p-4">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <h4 className="text-sm font-bold capitalize">{mkt === "total" ? "Total Points" : mkt}</h4>
+                              <p className="text-[10px] text-muted-foreground">based on {d.total} bets</p>
+                            </div>
+                            <div className="flex items-center gap-6 text-center">
+                              <div>
+                                <p className="text-[9px] text-muted-foreground">Win</p>
+                                <p className="text-lg font-bold tabular-nums">{d.win_pct}%</p>
+                              </div>
+                              <div>
+                                <p className="text-[9px] text-muted-foreground">ROI</p>
+                                <p className="text-lg font-bold tabular-nums">{d.roi}%</p>
+                                <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded-full ${
+                                  isProfitable ? "bg-cosmic-green/20 text-cosmic-green" : "bg-cosmic-red/20 text-cosmic-red"
+                                }`}>
+                                  {isProfitable ? "Profitable" : "Loss"}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Comparison Chart: This Model vs Pro vs Casual */}
+                {btResult.roi_simulation && (
+                  <div className="cosmic-card rounded-xl p-4 space-y-3">
+                    <div>
+                      <h4 className="text-xs font-semibold">
+                        {btResult.roi_simulation.roi >= 7 ? "🏆 This Model Wins Across the Board" :
+                         btResult.roi_simulation.roi >= 4 ? "🏆 This Model Matches the Pros" :
+                         btResult.roi_simulation.roi >= 0 ? "📊 This Model is Profitable" :
+                         "📉 Model Needs Tuning"}
+                      </h4>
+                      <p className="text-[10px] text-muted-foreground mt-1">
+                        {btResult.roi_simulation.roi >= 7
+                          ? `All bet types are profitable with the highest ROI of ${Math.max(...Object.values(btResult.by_market || {}).map((m: any) => m.roi || 0))}%. This model demonstrates consistent winning performance across every bet type.`
+                          : btResult.roi_simulation.roi >= 4
+                          ? `With a ${btResult.roi_simulation.roi}% ROI, this model performs on par with professional bettors and well above the average casual bettor (-5%).`
+                          : btResult.roi_simulation.roi >= 0
+                          ? `With a ${btResult.roi_simulation.roi}% ROI, this model is profitable but has room for improvement. Adjust weights to optimize.`
+                          : `This model returned ${btResult.roi_simulation.roi}% ROI. Consider adjusting model weights to improve performance.`}
+                      </p>
+                    </div>
+                    <div className="space-y-2 pt-2">
+                      {/* This Model bar */}
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-medium w-24 text-right">This Model</span>
+                        <div className="flex-1 h-4 bg-secondary/30 rounded-full overflow-hidden relative">
+                          <div
+                            className="h-full bg-primary rounded-full transition-all"
+                            style={{ width: `${Math.min(100, Math.max(2, (btResult.roi_simulation.roi + 10) * 3))}%` }}
+                          />
+                        </div>
+                        <span className={`text-[10px] font-bold tabular-nums w-14 text-right ${
+                          btResult.roi_simulation.roi >= 0 ? "text-cosmic-green" : "text-cosmic-red"
+                        }`}>
+                          {btResult.roi_simulation.roi > 0 ? "+" : ""}{btResult.roi_simulation.roi}%
+                        </span>
+                      </div>
+                      {/* Pro Bettor bar (fixed 4-7%) */}
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-medium w-24 text-right text-muted-foreground">Pro Bettor</span>
+                        <div className="flex-1 h-4 bg-secondary/30 rounded-full overflow-hidden relative">
+                          <div className="h-full bg-muted-foreground/50 rounded-full" style={{ width: `${(5.5 + 10) * 3}%` }} />
+                        </div>
+                        <span className="text-[10px] font-medium tabular-nums w-14 text-right text-muted-foreground">4–7%</span>
+                      </div>
+                      {/* Casual Bettor bar (fixed -5%) */}
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-medium w-24 text-right text-muted-foreground">Casual Bettor</span>
+                        <div className="flex-1 h-4 bg-secondary/30 rounded-full overflow-hidden relative">
+                          <div className="h-full bg-muted-foreground/30 rounded-full" style={{ width: `${(-5 + 10) * 3}%` }} />
+                        </div>
+                        <span className="text-[10px] font-medium tabular-nums w-14 text-right text-muted-foreground">-5%</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Overall Accuracy */}
                 <div className="cosmic-card rounded-xl p-4">
                   <h4 className="text-xs font-semibold mb-2">Overall Accuracy</h4>
                   <div className="flex items-center gap-4">
@@ -764,6 +867,31 @@ export default function HistoricalPage() {
                     </div>
                   </div>
                 </div>
+
+                {/* ROI Summary */}
+                {btResult.roi_simulation && (
+                  <div className="cosmic-card rounded-xl p-4">
+                    <h4 className="text-xs font-semibold mb-2">ROI Simulation (Flat ${flatBet} Bets)</h4>
+                    <div className="grid grid-cols-3 gap-2 text-center">
+                      <div>
+                        <p className="text-[9px] text-muted-foreground">Wagered</p>
+                        <p className="text-sm font-bold tabular-nums">${btResult.roi_simulation.total_wagered?.toLocaleString()}</p>
+                      </div>
+                      <div>
+                        <p className="text-[9px] text-muted-foreground">Net P&L</p>
+                        <p className={`text-sm font-bold tabular-nums ${btResult.roi_simulation.net_profit >= 0 ? "text-cosmic-green" : "text-cosmic-red"}`}>
+                          {btResult.roi_simulation.net_profit >= 0 ? "+" : ""}${btResult.roi_simulation.net_profit?.toFixed(0)}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-[9px] text-muted-foreground">ROI</p>
+                        <p className={`text-sm font-bold tabular-nums ${btResult.roi_simulation.roi >= 0 ? "text-cosmic-green" : "text-cosmic-red"}`}>
+                          {btResult.roi_simulation.roi >= 0 ? "+" : ""}{btResult.roi_simulation.roi}%
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* Strength Breakdown */}
                 {btResult.strength_breakdown && (
@@ -803,31 +931,6 @@ export default function HistoricalPage() {
                           </div>
                         )
                       ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* ROI Simulation */}
-                {btResult.roi_simulation && (
-                  <div className="cosmic-card rounded-xl p-4">
-                    <h4 className="text-xs font-semibold mb-2">ROI Simulation (Flat $100 Bets)</h4>
-                    <div className="grid grid-cols-3 gap-2 text-center">
-                      <div>
-                        <p className="text-[9px] text-muted-foreground">Wagered</p>
-                        <p className="text-sm font-bold tabular-nums">${btResult.roi_simulation.total_wagered?.toLocaleString()}</p>
-                      </div>
-                      <div>
-                        <p className="text-[9px] text-muted-foreground">Net P&L</p>
-                        <p className={`text-sm font-bold tabular-nums ${btResult.roi_simulation.net_profit >= 0 ? "text-cosmic-green" : "text-cosmic-red"}`}>
-                          {btResult.roi_simulation.net_profit >= 0 ? "+" : ""}${btResult.roi_simulation.net_profit?.toFixed(0)}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-[9px] text-muted-foreground">ROI</p>
-                        <p className={`text-sm font-bold tabular-nums ${btResult.roi_simulation.roi >= 0 ? "text-cosmic-green" : "text-cosmic-red"}`}>
-                          {btResult.roi_simulation.roi >= 0 ? "+" : ""}{btResult.roi_simulation.roi}%
-                        </p>
-                      </div>
                     </div>
                   </div>
                 )}
