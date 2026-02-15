@@ -134,7 +134,7 @@ export default function SplashScreen({ onComplete }: { onComplete: () => void })
             className="text-4xl font-light tracking-[0.15em] uppercase text-white"
             style={{ fontFamily: "'Outfit', sans-serif" }}
           >
-            Cosmic Edge
+          CosmicEdge
           </motion.h1>
         </motion.div>
 
@@ -152,7 +152,7 @@ export default function SplashScreen({ onComplete }: { onComplete: () => void })
           }
           transition={{ duration: 0.6, ease: "easeOut" }}
         >
-          Read the Stars. Beat the Line.
+          Cosmic Signs & Moneylines
         </motion.p>
       </motion.div>
     </AnimatePresence>
