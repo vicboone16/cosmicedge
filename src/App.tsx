@@ -11,11 +11,11 @@ import Index from "./pages/Index";
 import GameDetail from "./pages/GameDetail";
 import TeamPage from "./pages/TeamPage";
 import PlayerPage from "./pages/PlayerPage";
-import TransitsPage from "./pages/TransitsPage";
+import CelestialInsightsPage from "./pages/CelestialInsightsPage";
 import Results from "./pages/Results";
 import Analytics from "./pages/Analytics";
 import SettingsPage from "./pages/SettingsPage";
-import CosmicCalendar from "./pages/CosmicCalendar";
+
 import SkySpreadPage from "./pages/SkySpreadPage";
 import LiveBoardPage from "./pages/LiveBoardPage";
 import PlayerPropsPage from "./pages/PlayerPropsPage";
@@ -50,11 +50,11 @@ const App = () => (
               <Route path="/game/:id" element={<RequireAuth><GameDetail /></RequireAuth>} />
               <Route path="/team/:league/:abbr" element={<RequireAuth><TeamPage /></RequireAuth>} />
               <Route path="/player/:id" element={<RequireAuth><PlayerPage /></RequireAuth>} />
-              <Route path="/transits" element={<RequireAuth><TransitsPage /></RequireAuth>} />
+              <Route path="/transits" element={<RequireAuth><CelestialInsightsPage /></RequireAuth>} />
               <Route path="/results" element={<RequireAuth><Results /></RequireAuth>} />
               <Route path="/analytics" element={<RequireAuth><Analytics /></RequireAuth>} />
               <Route path="/settings" element={<RequireAuth><SettingsPage /></RequireAuth>} />
-              <Route path="/calendar" element={<RequireAuth><CosmicCalendar /></RequireAuth>} />
+              <Route path="/calendar" element={<Navigate to="/transits" replace />} />
               <Route path="/skyspread" element={<RequireAuth><SkySpreadPage /></RequireAuth>} />
               <Route path="/live-board" element={<Navigate to="/skyspread" replace />} />
               <Route path="/trends" element={<RequireAuth><TrendsPage /></RequireAuth>} />
