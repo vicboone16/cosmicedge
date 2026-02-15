@@ -24,9 +24,9 @@ export default defineConfig(({ mode }) => ({
       },
       includeAssets: ["favicon.ico", "placeholder.svg"],
       manifest: {
-        name: "Cosmic Edge",
+        name: "CosmicEdge",
         short_name: "CosmicEdge",
-        description: "Where the line meets the sky — astro-powered sports analytics",
+        description: "Cosmic Signs & Moneylines — astro-powered sports analytics",
         theme_color: "#0f0a1a",
         background_color: "#0f0a1a",
         display: "standalone",
