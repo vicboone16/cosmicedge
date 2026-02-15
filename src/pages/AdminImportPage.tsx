@@ -62,6 +62,7 @@ export default function AdminImportPage() {
   const [manualLeague, setManualLeague] = useState<string>("NFL");
   const nbaTxtRef = useRef<HTMLInputElement>(null);
   const [nbaTxtType, setNbaTxtType] = useState<string>("auto");
+  const nbaSeasonRef = useRef<HTMLInputElement>(null);
 
   const addLog = (msg: string) => setLog((prev) => [...prev, `${new Date().toLocaleTimeString()} — ${msg}`]);
 
@@ -639,6 +640,49 @@ export default function AdminImportPage() {
               setLoading(false);
             }} disabled={loading} variant="default">
               {loading ? "Importing..." : "Import NBA Box Scores"}
+            </Button>
+          </div>
+        </Card>
+
+        {/* NBA Player Season Stats CSV Import */}
+        <Card className="p-4 space-y-3">
+          <h2 className="text-sm font-semibold text-foreground">🏀 NBA Player Season Stats CSV Import</h2>
+          <p className="text-xs text-muted-foreground">
+            Upload NBA player season totals or averages CSV (Basketball Reference format).
+            Auto-detects totals vs averages. Multi-team rows (2TM/3TM) are skipped.
+          </p>
+          <p className="text-xs text-muted-foreground italic">
+            Columns: Player/Name, Age, Team, Pos, G, GS, MP, FG, FGA, FG%, 3P, 3PA, 3P%, 2P, 2PA, 2P%, eFG%, FT, FTA, FT%, ORB, DRB, TRB, AST, STL, BLK, TOV, PF, PTS, Trp-Dbl
+          </p>
+          <div className="flex gap-3 items-center flex-wrap">
+            <input ref={nbaSeasonRef} type="file" accept=".csv" multiple className="text-xs" />
+            <Button onClick={async () => {
+              const files = nbaSeasonRef.current?.files;
+              if (!files || files.length === 0) { addLog("No files selected"); return; }
+              setLoading(true);
+              for (let f = 0; f < files.length; f++) {
+                const file = files[f];
+                addLog(`Uploading NBA season stats: ${file.name}`);
+                try {
+                  const formData = new FormData();
+                  formData.append("file", file);
+                  formData.append("stat_type", "auto");
+                  const { data: { session } } = await supabase.auth.getSession();
+                  const res = await fetch(
+                    `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/import-player-season-stats`,
+                    { method: "POST", headers: { Authorization: `Bearer ${session?.access_token}`, apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY }, body: formData }
+                  );
+                  const result = await res.json();
+                  if (!res.ok || result.error) addLog(`❌ ${file.name}: ${result.error || "Upload failed"}`);
+                  else {
+                    addLog(`✅ ${file.name}: Type=${result.stat_type}, ${result.upserted} upserted, ${result.players_created} players created, ${result.skipped} skipped`);
+                    if (result.errors?.length) result.errors.slice(0, 5).forEach((e: string) => addLog(`  ⚠️ ${e}`));
+                  }
+                } catch (e: any) { addLog(`❌ ${file.name}: ${e.message}`); }
+              }
+              setLoading(false);
+            }} disabled={loading} variant="default">
+              {loading ? "Importing..." : "Import Player Season Stats"}
             </Button>
           </div>
         </Card>

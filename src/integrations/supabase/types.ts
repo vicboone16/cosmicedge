@@ -1694,22 +1694,37 @@ export type Database = {
           assists_per_game: number | null
           blocks_per_game: number | null
           bpm: number | null
+          def_rebounds: number | null
           effective_fg_pct: number | null
+          fg_attempted: number | null
+          fg_made: number | null
           fg_pct: number | null
+          ft_attempted: number | null
+          ft_made: number | null
           ft_pct: number | null
           games_played: number | null
+          games_started: number | null
           id: string
           league: string
           minutes_per_game: number | null
+          off_rebounds: number | null
           per: number | null
+          personal_fouls: number | null
           player_id: string
           points_per_game: number | null
           rebounds_per_game: number | null
           season: number
+          stat_type: string
           steals_per_game: number | null
+          three_attempted: number | null
+          three_made: number | null
           three_pct: number | null
+          triple_doubles: number | null
           true_shooting_pct: number | null
           turnovers_per_game: number | null
+          two_attempted: number | null
+          two_made: number | null
+          two_pct: number | null
           updated_at: string
           usage_rate: number | null
           vorp: number | null
@@ -1719,22 +1734,37 @@ export type Database = {
           assists_per_game?: number | null
           blocks_per_game?: number | null
           bpm?: number | null
+          def_rebounds?: number | null
           effective_fg_pct?: number | null
+          fg_attempted?: number | null
+          fg_made?: number | null
           fg_pct?: number | null
+          ft_attempted?: number | null
+          ft_made?: number | null
           ft_pct?: number | null
           games_played?: number | null
+          games_started?: number | null
           id?: string
           league?: string
           minutes_per_game?: number | null
+          off_rebounds?: number | null
           per?: number | null
+          personal_fouls?: number | null
           player_id: string
           points_per_game?: number | null
           rebounds_per_game?: number | null
           season: number
+          stat_type?: string
           steals_per_game?: number | null
+          three_attempted?: number | null
+          three_made?: number | null
           three_pct?: number | null
+          triple_doubles?: number | null
           true_shooting_pct?: number | null
           turnovers_per_game?: number | null
+          two_attempted?: number | null
+          two_made?: number | null
+          two_pct?: number | null
           updated_at?: string
           usage_rate?: number | null
           vorp?: number | null
@@ -1744,22 +1774,37 @@ export type Database = {
           assists_per_game?: number | null
           blocks_per_game?: number | null
           bpm?: number | null
+          def_rebounds?: number | null
           effective_fg_pct?: number | null
+          fg_attempted?: number | null
+          fg_made?: number | null
           fg_pct?: number | null
+          ft_attempted?: number | null
+          ft_made?: number | null
           ft_pct?: number | null
           games_played?: number | null
+          games_started?: number | null
           id?: string
           league?: string
           minutes_per_game?: number | null
+          off_rebounds?: number | null
           per?: number | null
+          personal_fouls?: number | null
           player_id?: string
           points_per_game?: number | null
           rebounds_per_game?: number | null
           season?: number
+          stat_type?: string
           steals_per_game?: number | null
+          three_attempted?: number | null
+          three_made?: number | null
           three_pct?: number | null
+          triple_doubles?: number | null
           true_shooting_pct?: number | null
           turnovers_per_game?: number | null
+          two_attempted?: number | null
+          two_made?: number | null
+          two_pct?: number | null
           updated_at?: string
           usage_rate?: number | null
           vorp?: number | null
