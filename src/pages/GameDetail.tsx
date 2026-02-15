@@ -473,7 +473,7 @@ const GameDetail = () => {
         </div>
 
         <div className="flex items-center justify-between py-4">
-          <button onClick={() => navigate(`/team/${game.away_abbr}`)} className="text-center flex-1 hover:opacity-80 transition-opacity">
+          <button onClick={() => navigate(`/team/${game.league}/${game.away_abbr}`)} className="text-center flex-1 hover:opacity-80 transition-opacity">
             <p className="text-2xl font-bold font-display">{game.away_abbr}</p>
             <p className="text-xs text-muted-foreground mt-1">{game.away_team}</p>
             {game.away_score !== null && (
@@ -483,7 +483,7 @@ const GameDetail = () => {
           <div className="px-4">
             <span className="text-xs font-bold text-muted-foreground">VS</span>
           </div>
-          <button onClick={() => navigate(`/team/${game.home_abbr}`)} className="text-center flex-1 hover:opacity-80 transition-opacity">
+          <button onClick={() => navigate(`/team/${game.league}/${game.home_abbr}`)} className="text-center flex-1 hover:opacity-80 transition-opacity">
             <p className="text-2xl font-bold font-display">{game.home_abbr}</p>
             <p className="text-xs text-muted-foreground mt-1">{game.home_team}</p>
             {game.home_score !== null && (

@@ -91,11 +91,12 @@ function EntitySearch({ navigate }: { navigate: (path: string) => void }) {
         .or(`team_name.ilike.%${query}%,team_abbr.ilike.%${query}%`)
         .order("season", { ascending: false })
         .limit(8);
-      // dedupe by team_abbr
+      // dedupe by league + team_abbr
       const seen = new Set<string>();
       return (data || []).filter(t => {
-        if (seen.has(t.team_abbr)) return false;
-        seen.add(t.team_abbr);
+        const key = `${t.league}:${t.team_abbr}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
         return true;
       });
     },
@@ -157,8 +158,8 @@ function EntitySearch({ navigate }: { navigate: (path: string) => void }) {
               </p>
               {teams.map(t => (
                 <button
-                  key={t.team_abbr}
-                  onClick={() => { navigate(`/team/${t.team_abbr}`); setOpen(false); setQuery(""); }}
+                  key={`${t.league}:${t.team_abbr}`}
+                  onClick={() => { navigate(`/team/${t.league}/${t.team_abbr}`); setOpen(false); setQuery(""); }}
                   className="w-full text-left px-3 py-2 hover:bg-secondary/60 transition-colors flex items-center justify-between"
                 >
                   <div>

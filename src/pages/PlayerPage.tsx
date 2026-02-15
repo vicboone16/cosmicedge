@@ -266,7 +266,7 @@ const PlayerPage = () => {
             <div className="flex items-center gap-2 mt-1">
               <span className="text-xs text-muted-foreground">{player.position || "—"}</span>
               <span className="text-xs text-muted-foreground">·</span>
-              <button onClick={() => navigate(`/team/${player.team}`)} className="text-xs text-primary hover:underline">
+              <button onClick={() => navigate(`/team/${player.league || "NBA"}/${player.team}`)} className="text-xs text-primary hover:underline">
                 {player.team}
               </button>
             </div>
