@@ -55,6 +55,8 @@ export default function AdminImportPage() {
   const rosterCsvRef = useRef<HTMLInputElement>(null);
   const birthTimeCsvRef = useRef<HTMLInputElement>(null);
   const [rosterLeague, setRosterLeague] = useState<string>("NFL");
+  const gamelogCsvRef = useRef<HTMLInputElement>(null);
+  const [gamelogLeague, setGamelogLeague] = useState<string>("NFL");
 
   const addLog = (msg: string) => setLog((prev) => [...prev, `${new Date().toLocaleTimeString()} — ${msg}`]);
 
@@ -487,6 +489,57 @@ export default function AdminImportPage() {
             ))}
             <Button onClick={() => handleGeocode("")} disabled={loading} variant="outline" size="sm">
               Geocode All
+            </Button>
+          </div>
+        </Card>
+
+        {/* Player Game Stats CSV Import (NFL etc.) */}
+        <Card className="p-4 space-y-3">
+          <h2 className="text-sm font-semibold text-foreground">🏈 Player Game Stats CSV Import</h2>
+          <p className="text-xs text-muted-foreground">
+            Upload per-game player stats. Auto-creates player records if they don't exist.
+            Matches games by HomeTeam + AwayTeam + Date.
+          </p>
+          <p className="text-xs text-muted-foreground italic">
+            Columns: Name, Team, DateTime PST (or Date), HomeTeam, AwayTeam, Targets, ReceivingYards,
+            ReceivingTouchdowns, PassingAttempts, Completions, PassingYards, PassingTouchdowns,
+            RushingAttempts, RushingYards, RushingTouchdowns
+          </p>
+          <div className="flex gap-3 items-center flex-wrap">
+            <Select value={gamelogLeague} onValueChange={setGamelogLeague}>
+              <SelectTrigger className="w-32 h-9 text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="NFL">NFL</SelectItem>
+                <SelectItem value="NHL">NHL</SelectItem>
+                <SelectItem value="MLB">MLB</SelectItem>
+                <SelectItem value="NBA">NBA</SelectItem>
+              </SelectContent>
+            </Select>
+            <input ref={gamelogCsvRef} type="file" accept=".csv" className="text-xs" />
+            <Button onClick={async () => {
+              const file = gamelogCsvRef.current?.files?.[0];
+              if (!file) { addLog("No CSV selected"); return; }
+              setLoading(true);
+              addLog(`Uploading ${gamelogLeague} player game stats: ${file.name}`);
+              try {
+                const formData = new FormData();
+                formData.append("file", file);
+                formData.append("league", gamelogLeague);
+                const { data: { session } } = await supabase.auth.getSession();
+                const res = await fetch(
+                  `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/import-player-gamelog-csv`,
+                  { method: "POST", headers: { Authorization: `Bearer ${session?.access_token}`, apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY }, body: formData }
+                );
+                const result = await res.json();
+                if (!res.ok || result.error) addLog(`❌ ${result.error || "Upload failed"}`);
+                else {
+                  addLog(`✅ ${result.rows_parsed} rows → ${result.stats_inserted} stats inserted, ${result.players_created} players created, ${result.games_not_found} games unmatched`);
+                  if (result.errors?.length) result.errors.slice(0, 5).forEach((e: string) => addLog(`  ⚠️ ${e}`));
+                }
+              } catch (e: any) { addLog(`❌ ${e.message}`); }
+              setLoading(false);
+            }} disabled={loading} variant="default">
+              {loading ? "Importing..." : "Import Player Game Stats"}
             </Button>
           </div>
         </Card>
