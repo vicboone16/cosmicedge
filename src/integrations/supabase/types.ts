@@ -1709,6 +1709,7 @@ export type Database = {
           minutes_per_game: number | null
           off_rebounds: number | null
           per: number | null
+          period: string
           personal_fouls: number | null
           player_id: string
           points_per_game: number | null
@@ -1749,6 +1750,7 @@ export type Database = {
           minutes_per_game?: number | null
           off_rebounds?: number | null
           per?: number | null
+          period?: string
           personal_fouls?: number | null
           player_id: string
           points_per_game?: number | null
@@ -1789,6 +1791,7 @@ export type Database = {
           minutes_per_game?: number | null
           off_rebounds?: number | null
           per?: number | null
+          period?: string
           personal_fouls?: number | null
           player_id?: string
           points_per_game?: number | null

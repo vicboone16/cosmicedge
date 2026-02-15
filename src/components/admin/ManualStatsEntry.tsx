@@ -281,67 +281,44 @@ export function ManualStatsEntry({ league, onLog }: ManualStatsEntryProps) {
     ]);
   };
 
-  const handleCsvUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleCsvUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const text = ev.target?.result as string;
-      if (!text) return;
-      const lines = text.trim().split("\n");
-      if (lines.length < 2) { onLog("CSV has no data rows"); return; }
-      const headers = lines[0].split(",").map((h) => h.trim().toLowerCase());
-      const colIdx = (names: string[]) => headers.findIndex((h) => names.includes(h));
-
-      const nameIdx = colIdx(["player", "name"]);
-      const teamIdx = colIdx(["team", "tm"]);
-      const periodIdx = colIdx(["period"]);
-
-      const csvToKey: Record<string, string[]> = {
-        minutes: ["min", "minutes"], points: ["pts", "points"], rebounds: ["reb", "rebounds"],
-        assists: ["ast", "assists"], steals: ["stl", "steals"], blocks: ["blk", "blocks"],
-        turnovers: ["tov", "to", "turnovers"], fgMade: ["fgm", "fg made"], fgAttempted: ["fga", "fg attempted"],
-        threeMade: ["3pm", "3p made"], threeAttempted: ["3pa", "3p attempted"],
-        ftMade: ["ftm", "ft made"], ftAttempted: ["fta", "ft attempted"],
-        goals: ["g", "goals"], shots: ["sog", "shots on goal"], plusMinus: ["+/-", "plus minus"],
-        pim: ["pim"], hits: ["hit", "hits"], toi: ["toi"], targets: ["tgt", "targets"],
-        receivingYards: ["recyd"], receivingTouchdowns: ["rectd"], passingAttempts: ["paatt"],
-        completions: ["cmp"], passingYards: ["payd"], passingTouchdowns: ["patd"],
-        rushingAttempts: ["ruatt"], rushingYards: ["ruyd"], rushingTouchdowns: ["rutd"],
-        atBats: ["ab"], runs: ["r", "runs"], rbi: ["rbi"], homeRuns: ["hr"],
-        stolenBases: ["sb"], walks: ["bb"], strikeouts: ["k"], inningsPitched: ["ip"], earnedRuns: ["er"],
-      };
-
-      const statIdxMap: { key: string; idx: number }[] = [];
-      for (const col of statColumns) {
-        const aliases = csvToKey[col.key];
-        if (aliases) {
-          const idx = colIdx(aliases);
-          if (idx >= 0) statIdxMap.push({ key: col.key, idx });
-        }
-      }
-
-      const newRows: StatRow[] = [];
-      for (let i = 1; i < lines.length; i++) {
-        const vals = lines[i].split(",").map((v) => v.trim());
-        if (!vals[nameIdx]) continue;
-        const row = emptyRow();
-        row.name = vals[nameIdx] || "";
-        row.team = teamIdx >= 0 ? vals[teamIdx] || "" : "";
-        row.period = periodIdx >= 0 ? vals[periodIdx] || sharedPeriod : sharedPeriod;
-        row.datetime = "";
-        row.homeTeam = "";
-        row.awayTeam = "";
-        for (const { key, idx } of statIdxMap) {
-          row[key] = vals[idx] || "";
-        }
-        newRows.push(row);
-      }
-      setRows(newRows);
-      onLog(`📂 Loaded ${newRows.length} rows from CSV`);
-    };
-    reader.readAsText(file);
     e.target.value = "";
+
+    setSubmitting(true);
+    onLog(`📂 Uploading ${file.name} to period stats importer...`);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("league", league);
+      formData.append("season", "2025");
+
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/import-period-stats-csv`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${session?.access_token}`,
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          },
+          body: formData,
+        }
+      );
+      const result = await res.json();
+
+      if (!res.ok || result.error) {
+        onLog(`❌ ${result.error || "Upload failed"}`);
+      } else {
+        onLog(`✅ ${result.rows_parsed} rows → ${result.stats_inserted} inserted, ${result.players_created} players created, ${result.skipped} skipped`);
+        if (result.errors?.length) result.errors.slice(0, 5).forEach((err: string) => onLog(`  ⚠️ ${err}`));
+      }
+    } catch (err: any) {
+      onLog(`❌ ${err.message}`);
+    }
+    setSubmitting(false);
   };
 
   const removeRow = (id: string) => {
