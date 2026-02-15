@@ -125,6 +125,26 @@ function detectTeamFromFilename(filename: string): string | null {
   return null;
 }
 
+function detectTeamFromHtml(html: string): string | null {
+  // Try title tag, e.g. "2025-26 Brooklyn Nets Game Log"
+  const titleMatch = html.match(/<title[^>]*>([^<]*)<\/title>/i);
+  if (titleMatch) {
+    const title = titleMatch[1].toLowerCase();
+    for (const [pattern, abbr] of Object.entries(FILENAME_TO_ABBR)) {
+      if (title.includes(pattern)) return abbr;
+    }
+  }
+  // Try h1 content
+  const h1Match = html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
+  if (h1Match) {
+    const h1 = h1Match[1].replace(/<[^>]*>/g, "").toLowerCase();
+    for (const [pattern, abbr] of Object.entries(FILENAME_TO_ABBR)) {
+      if (h1.includes(pattern)) return abbr;
+    }
+  }
+  return null;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -148,7 +168,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    const teamAbbr = providedAbbr || detectTeamFromFilename(filename || "");
+    const teamAbbr = providedAbbr || detectTeamFromFilename(filename || "") || detectTeamFromHtml(html_content);
     console.log(`[import-team-gamelog] detected team: ${teamAbbr}`);
     if (!teamAbbr || !ABBR_TO_FULL[teamAbbr]) {
       return new Response(
