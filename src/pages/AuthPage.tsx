@@ -6,14 +6,14 @@ import { lovable } from "@/integrations/lovable/index";
 import { cn } from "@/lib/utils";
 
 const AuthPage = () => {
-  const [mode, setMode] = useState<"login" | "signup">("login");
+  const [mode, setMode] = useState<"login" | "signup" | "reset">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const { signIn, signUp } = useAuth();
+  const { signIn, signUp, resetPassword } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -22,7 +22,14 @@ const AuthPage = () => {
     setSuccess(null);
     setLoading(true);
 
-    if (mode === "login") {
+    if (mode === "reset") {
+      const { error } = await resetPassword(email);
+      if (error) {
+        setError(error.message);
+      } else {
+        setSuccess("Password reset email sent! Check your inbox to set a new password.");
+      }
+    } else if (mode === "login") {
       const { error } = await signIn(email, password);
       if (error) {
         setError(error.message);
@@ -66,6 +73,13 @@ const AuthPage = () => {
           ))}
         </div>
 
+        {mode === "reset" && (
+          <div className="text-center">
+            <h2 className="text-sm font-semibold text-foreground">Reset Password</h2>
+            <p className="text-xs text-muted-foreground mt-1">Enter your email to receive a password reset link.</p>
+          </div>
+        )}
+
         {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-4">
           {mode === "signup" && (
@@ -99,21 +113,33 @@ const AuthPage = () => {
             </div>
           </div>
 
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground">Password</label>
-            <div className="relative">
-              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <input
-                type="password"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                placeholder="••••••••"
-                required
-                minLength={6}
-                className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-secondary border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
-              />
+          {mode !== "reset" && (
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Password</label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <input
+                  type="password"
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  required
+                  minLength={6}
+                  className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-secondary border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                />
+              </div>
             </div>
-          </div>
+          )}
+
+          {mode === "login" && (
+            <button
+              type="button"
+              onClick={() => { setMode("reset"); setError(null); setSuccess(null); }}
+              className="text-xs text-primary hover:underline"
+            >
+              Forgot password? Set one for your account
+            </button>
+          )}
 
           {error && (
             <p className="text-xs text-destructive bg-destructive/10 rounded-lg p-2">{error}</p>
@@ -128,7 +154,7 @@ const AuthPage = () => {
             className="w-full bg-primary text-primary-foreground font-semibold py-2.5 rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center gap-2"
           >
             {loading && <Loader2 className="h-4 w-4 animate-spin" />}
-            {mode === "login" ? "Log In" : "Create Account"}
+            {mode === "reset" ? "Send Reset Link" : mode === "login" ? "Log In" : "Create Account"}
           </button>
         </form>
 
