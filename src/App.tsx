@@ -1,3 +1,4 @@
+import { useState, useCallback } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Navigate } from "react-router-dom";
@@ -7,6 +8,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/hooks/use-auth";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { RequireAuth } from "@/components/auth/RequireAuth";
+import SplashScreen from "@/components/SplashScreen";
 import Index from "./pages/Index";
 import GameDetail from "./pages/GameDetail";
 import TeamPage from "./pages/TeamPage";
@@ -35,48 +37,61 @@ import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <AuthProvider>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <Routes>
-            <Route element={<AppLayout />}>
-              {/* All routes require auth */}
-              <Route path="/" element={<RequireAuth><Index /></RequireAuth>} />
-              {/* All other routes require auth */}
-              <Route path="/game/:id" element={<RequireAuth><GameDetail /></RequireAuth>} />
-              <Route path="/team/:league/:abbr" element={<RequireAuth><TeamPage /></RequireAuth>} />
-              <Route path="/player/:id" element={<RequireAuth><PlayerPage /></RequireAuth>} />
-              <Route path="/transits" element={<RequireAuth><CelestialInsightsPage /></RequireAuth>} />
-              <Route path="/results" element={<RequireAuth><Results /></RequireAuth>} />
-              <Route path="/analytics" element={<RequireAuth><Analytics /></RequireAuth>} />
-              <Route path="/settings" element={<RequireAuth><SettingsPage /></RequireAuth>} />
-              <Route path="/calendar" element={<Navigate to="/transits" replace />} />
-              <Route path="/skyspread" element={<RequireAuth><SkySpreadPage /></RequireAuth>} />
-              <Route path="/live-board" element={<Navigate to="/skyspread" replace />} />
-              <Route path="/trends" element={<RequireAuth><TrendsPage /></RequireAuth>} />
-              <Route path="/props" element={<RequireAuth><PlayerPropsPage /></RequireAuth>} />
-              <Route path="/historical" element={<RequireAuth><HistoricalPage /></RequireAuth>} />
-              <Route path="/clv" element={<RequireAuth><CLVCalculatorPage /></RequireAuth>} />
-              <Route path="/astra" element={<RequireAuth><AstraPage /></RequireAuth>} />
-              <Route path="/profile" element={<RequireAuth><ProfilePage /></RequireAuth>} />
-              <Route path="/friends" element={<RequireAuth><FriendsPage /></RequireAuth>} />
-              <Route path="/user/:userId" element={<RequireAuth><UserProfilePage /></RequireAuth>} />
-              <Route path="/messages" element={<RequireAuth><MessagesPage /></RequireAuth>} />
-              <Route path="/messages/:conversationId" element={<RequireAuth><ChatPage /></RequireAuth>} />
-              <Route path="/feed" element={<RequireAuth><FeedPage /></RequireAuth>} />
-            </Route>
-            <Route path="/auth" element={<AuthPage />} />
-            <Route path="/admin/import" element={<RequireAuth><AdminImportPage /></RequireAuth>} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-      </TooltipProvider>
-    </AuthProvider>
-  </QueryClientProvider>
-);
+const App = () => {
+  const [showSplash, setShowSplash] = useState(() => {
+    // Only show splash once per session
+    if (sessionStorage.getItem("splash_shown")) return false;
+    return true;
+  });
+
+  const handleSplashComplete = useCallback(() => {
+    sessionStorage.setItem("splash_shown", "1");
+    setShowSplash(false);
+  }, []);
+
+  return (
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          {showSplash && <SplashScreen onComplete={handleSplashComplete} />}
+          <BrowserRouter>
+            <Routes>
+              <Route element={<AppLayout />}>
+                {/* All routes require auth */}
+                <Route path="/" element={<RequireAuth><Index /></RequireAuth>} />
+                <Route path="/game/:id" element={<RequireAuth><GameDetail /></RequireAuth>} />
+                <Route path="/team/:league/:abbr" element={<RequireAuth><TeamPage /></RequireAuth>} />
+                <Route path="/player/:id" element={<RequireAuth><PlayerPage /></RequireAuth>} />
+                <Route path="/transits" element={<RequireAuth><CelestialInsightsPage /></RequireAuth>} />
+                <Route path="/results" element={<RequireAuth><Results /></RequireAuth>} />
+                <Route path="/analytics" element={<RequireAuth><Analytics /></RequireAuth>} />
+                <Route path="/settings" element={<RequireAuth><SettingsPage /></RequireAuth>} />
+                <Route path="/calendar" element={<Navigate to="/transits" replace />} />
+                <Route path="/skyspread" element={<RequireAuth><SkySpreadPage /></RequireAuth>} />
+                <Route path="/live-board" element={<Navigate to="/skyspread" replace />} />
+                <Route path="/trends" element={<RequireAuth><TrendsPage /></RequireAuth>} />
+                <Route path="/props" element={<RequireAuth><PlayerPropsPage /></RequireAuth>} />
+                <Route path="/historical" element={<RequireAuth><HistoricalPage /></RequireAuth>} />
+                <Route path="/clv" element={<RequireAuth><CLVCalculatorPage /></RequireAuth>} />
+                <Route path="/astra" element={<RequireAuth><AstraPage /></RequireAuth>} />
+                <Route path="/profile" element={<RequireAuth><ProfilePage /></RequireAuth>} />
+                <Route path="/friends" element={<RequireAuth><FriendsPage /></RequireAuth>} />
+                <Route path="/user/:userId" element={<RequireAuth><UserProfilePage /></RequireAuth>} />
+                <Route path="/messages" element={<RequireAuth><MessagesPage /></RequireAuth>} />
+                <Route path="/messages/:conversationId" element={<RequireAuth><ChatPage /></RequireAuth>} />
+                <Route path="/feed" element={<RequireAuth><FeedPage /></RequireAuth>} />
+              </Route>
+              <Route path="/auth" element={<AuthPage />} />
+              <Route path="/admin/import" element={<RequireAuth><AdminImportPage /></RequireAuth>} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BrowserRouter>
+        </TooltipProvider>
+      </AuthProvider>
+    </QueryClientProvider>
+  );
+};
 
 export default App;
