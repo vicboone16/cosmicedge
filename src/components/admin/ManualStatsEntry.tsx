@@ -230,6 +230,9 @@ export function ManualStatsEntry({ league, onLog }: ManualStatsEntryProps) {
     setSharedAway("");
   }, [league]);
 
+  const onLogRef = useRef(onLog);
+  onLogRef.current = onLog;
+
   const fetchPlayersAndTeams = useCallback(async () => {
     let allPlayers: PlayerRecord[] = [];
     let offset = 0;
@@ -252,8 +255,8 @@ export function ManualStatsEntry({ league, onLog }: ManualStatsEntryProps) {
     uniqueTeams.sort();
     setTeams(uniqueTeams);
 
-    onLog(`📋 Loaded ${allPlayers.length} players and ${uniqueTeams.length} teams for ${league}`);
-  }, [league, onLog]);
+    onLogRef.current(`📋 Loaded ${allPlayers.length} players and ${uniqueTeams.length} teams for ${league}`);
+  }, [league]);
 
   useEffect(() => {
     fetchPlayersAndTeams();
