@@ -1,82 +1,60 @@
 
 
-## Data Gaps and Feature Enhancements Plan
+## Multi-League CSV Schedule + Scores Import
 
-### 1. Populate NFL/NHL/MLB Rosters
+### Current State
+- **NBA**: 2,661 games, 1,506 with scores -- fully working
+- **NFL**: 285 games, **0 scores**
+- **NHL**: 1,320 games, **0 scores**
+- **MLB**: 2,430 games, **0 scores**
 
-Currently only NBA has players (518, all with birthdays). NFL, NHL, and MLB have zero players. The `fetch-players` edge function exists but only supports NBA-style endpoints.
+The Excel importer (`import-sdio-bulk`) always sets games as "scheduled" and ignores scores. To get scores for NFL/NHL/MLB, we need to use the CSV importer (`import-historical-csv`) which already supports flexible column detection and scores.
 
-**Action**: Extend `fetch-players` to support NFL, NHL, and MLB via SportsDataIO endpoints, then trigger for each league. The API structure is the same (`/v3/{league}/scores/json/Players`), but stat field mappings differ per sport. Birth date coverage will depend on what SportsDataIO provides for each league.
+### Plan
 
-### 2. Auto-Generate Opponent Stats on Game Log Upload
+**1. Add CSV Upload Cards for NFL, NHL, and MLB to the Admin Import Page**
 
-Currently uploading ATL's game log only creates `team_game_stats` for ATL. The opponent row is not created, even though the raw data is available in the Basketball Reference file (opponent points, FG%, etc.).
+Add three new import sections (matching the NBA pattern) on the Admin page. Each will:
+- Accept a `.csv` file upload
+- Auto-set the league (NFL / NHL / MLB)
+- Send to `import-historical-csv` which already handles score columns (`HomeScore`, `AwayScore`, `HomePoints`, etc.)
+- For completed games: inserts with final scores and "final" status
+- For future games: inserts with "scheduled" status and no scores
 
-**Action**: Modify `import-team-gamelog` to also insert/update a `team_game_stats` row for the opponent using the `opp_*` fields from the same HTML (opp_fg, opp_fga, opp_ft, etc.). This way, uploading one team's game log populates basic box scores for all 29 opponents automatically. Advanced stats (pace, ORtg, etc.) would still require uploading the opponent's own log.
+**2. Update `import-sdio-bulk` Schedule Action to Handle Scores**
 
-### 3. Feature Brainstorm — Astrology + Sports Betting
+The existing schedule action (used by the Excel upload path) currently hardcodes `status: "scheduled"`. Update it to:
+- Check for score fields in the record (`homeScore`, `awayScore`, `homeTeamScore`, etc.)
+- If scores exist, set `home_score`, `away_score`, and `status: "final"`
+- If no scores, keep `status: "scheduled"` as before
+- For already-imported games (the 285 NFL, 1320 NHL, 2430 MLB), update scores on re-import instead of skipping
 
-Based on apps like Outlier, BetRithm, RotoWire, and the astrological angle unique to this app:
+**3. Change Skip-to-Upsert Logic**
 
-**A. Streak & Trend Engine (RotoWire / BetRithm style)**
-- Auto-detect hot/cold streaks: "Team X is 8-2 ATS in last 10" or "Player Y has hit Over on points in 7 straight"
-- Correlate streaks with planetary transits to find astrological patterns (e.g., "Player shoots better when Moon is in fire signs")
-- Surface these as "Cosmic Trends" cards on the home feed
+Currently the schedule importer skips games that already exist by `external_id`. Since NFL/NHL/MLB games are already in the DB but without scores, we need to upsert -- update the existing record with scores if they exist, rather than skipping.
 
-**B. Prop Builder with Astro Score**
-- Let users build same-game parlays (SGP) with an astrological confidence overlay
-- Each leg gets an "Astro Score" (1-10) based on the player's natal chart vs. game-time transits
-- Show composite parlay confidence combining statistical edge + astrological alignment
+### Expected CSV Format (Same Across All Leagues)
 
-**C. Bankroll Tracker & ROI Dashboard**
-- Track units wagered, won, lost across all bets in SkySpread
-- Show ROI by league, bet type, and astrological factor
-- "Your best bets happen when Mercury is direct" type insights
-- Leaderboard among friends for social competition
+The `import-historical-csv` function auto-detects columns, so any of these work:
 
-**D. Injury Impact Model with Natal Charts**
-- When a player is listed as questionable/out, auto-calculate lineup impact
-- Cross-reference with the replacement player's natal chart for the game time
-- "Backup PG has Saturn opposing natal Mars — expect lower assist numbers"
+```text
+Date,HomeTeam,AwayTeam,HomeScore,AwayScore,Venue,Status
+2025-01-05,Buffalo Bills,Denver Broncos,31,7,Highmark Stadium,Final
+2025-09-04,Kansas City Chiefs,Baltimore Ravens,,,Arrowhead Stadium,Scheduled
+```
 
-**E. Line Movement Alerts + Cosmic Windows**
-- Push notifications when lines move significantly (steam moves, reverse line movement)
-- Overlay with "cosmic windows" — optimal betting times based on planetary hours and electional astrology
-- "Line moved from -3 to -5, AND Jupiter is applying to natal Sun — strong buy signal"
-
-**F. Historical Backtesting**
-- Let users test hypotheses: "How do teams perform when Moon is void-of-course?"
-- Use the team_game_stats + transit data already in the DB
-- Show win rate, ATS record, and statistical significance
-- This leverages all the game logs you're uploading right now
-
-**G. Live Game Astro Overlay (enhancing SkySpread)**
-- During live games, show real-time transit activations
-- "Mercury just crossed the MC of the game chart — watch for a momentum shift"
-- Combine with live play-by-play data for pattern recognition
-
-**H. Matchup Grades (Outlier style)**
-- Auto-generate A-F grades for each game: offensive matchup, defensive matchup, pace matchup
-- Add an "Astro Grade" as a unique differentiator
-- Quick-glance view for the daily slate
-
----
+Column names are flexible -- the function matches: `DateTime/Date/GameDate`, `HomeTeam/Home`, `AwayTeam/Away/Visitor`, `HomeScore/HomePoints/HomePts`, `AwayScore/AwayPoints/VisitorPts`, `Stadium/Venue/Arena`, `Status/GameStatus`.
 
 ### Technical Details
 
-**Roster sync (Item 1):**
-- Update `fetch-players` to accept league parameter and map sport-specific stat fields
-- Run for NFL, NHL, MLB via admin page or cron
-- SportsDataIO endpoints: `/v3/nfl/scores/json/Players`, `/v3/nhl/scores/json/Players`, `/v3/mlb/scores/json/Players`
+**Admin Page changes (`src/pages/AdminImportPage.tsx`):**
+- Add a "League Schedule CSV" card with a league selector (NFL/NHL/MLB/NBA) and file input
+- On upload, read the CSV as text, send to `import-historical-csv` via FormData with `league` and `data_type=games`
+- Display insert/update/skip counts in the log
 
-**Opponent stats (Item 2):**
-- In `import-team-gamelog/index.ts`, after inserting the team's stats row, build a mirror row for the opponent using `opp_*` fields
-- Use the same `game_id`, flip `is_home`, swap `team_abbr` to opponent
-- Only insert if no existing row for that opponent+game combo (don't overwrite their own uploaded data)
+**Edge function changes (`supabase/functions/import-sdio-bulk/index.ts`):**
+- In the `schedule` action, change the skip logic: when a game already exists by `external_id`, check if the incoming record has scores and update if so
+- Map score fields from various possible column names
 
-**Feature priorities (Item 3):**
-- Items A, C, and F build directly on data already being collected
-- Items B and H require the astro scoring engine (partially built via `astro-batch`)
-- Items D and E need injury data integration (endpoint exists via `fetch-injuries-lineups`)
-- Item G extends the existing live board infrastructure
+**No new tables or schema changes required** -- this uses the existing `games` table columns (`home_score`, `away_score`, `status`).
 
