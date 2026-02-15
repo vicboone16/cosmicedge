@@ -1872,89 +1872,140 @@ export type Database = {
       team_game_stats: {
         Row: {
           assists: number | null
+          ast_pct: number | null
           bench_points: number | null
+          blk_pct: number | null
           blocks: number | null
           created_at: string
           def_rating: number | null
           def_rebounds: number | null
+          efg_pct: number | null
           fast_break_points: number | null
           fg_attempted: number | null
           fg_made: number | null
           ft_attempted: number | null
           ft_made: number | null
+          ft_per_fga: number | null
+          ftr: number | null
           game_id: string
           id: string
           is_home: boolean
           off_rating: number | null
           off_rebounds: number | null
+          opp_efg_pct: number | null
+          opp_ft_per_fga: number | null
+          opp_orb_pct: number | null
+          opp_tov_pct: number | null
+          orb_pct: number | null
+          overtimes: string | null
           pace: number | null
           points: number | null
           points_in_paint: number | null
           possessions: number | null
           rebounds: number | null
           second_chance_points: number | null
+          source: string | null
           steals: number | null
+          stl_pct: number | null
           team_abbr: string
           three_attempted: number | null
           three_made: number | null
+          three_par: number | null
+          tov_pct: number | null
+          trb_pct: number | null
+          ts_pct: number | null
           turnovers: number | null
         }
         Insert: {
           assists?: number | null
+          ast_pct?: number | null
           bench_points?: number | null
+          blk_pct?: number | null
           blocks?: number | null
           created_at?: string
           def_rating?: number | null
           def_rebounds?: number | null
+          efg_pct?: number | null
           fast_break_points?: number | null
           fg_attempted?: number | null
           fg_made?: number | null
           ft_attempted?: number | null
           ft_made?: number | null
+          ft_per_fga?: number | null
+          ftr?: number | null
           game_id: string
           id?: string
           is_home: boolean
           off_rating?: number | null
           off_rebounds?: number | null
+          opp_efg_pct?: number | null
+          opp_ft_per_fga?: number | null
+          opp_orb_pct?: number | null
+          opp_tov_pct?: number | null
+          orb_pct?: number | null
+          overtimes?: string | null
           pace?: number | null
           points?: number | null
           points_in_paint?: number | null
           possessions?: number | null
           rebounds?: number | null
           second_chance_points?: number | null
+          source?: string | null
           steals?: number | null
+          stl_pct?: number | null
           team_abbr: string
           three_attempted?: number | null
           three_made?: number | null
+          three_par?: number | null
+          tov_pct?: number | null
+          trb_pct?: number | null
+          ts_pct?: number | null
           turnovers?: number | null
         }
         Update: {
           assists?: number | null
+          ast_pct?: number | null
           bench_points?: number | null
+          blk_pct?: number | null
           blocks?: number | null
           created_at?: string
           def_rating?: number | null
           def_rebounds?: number | null
+          efg_pct?: number | null
           fast_break_points?: number | null
           fg_attempted?: number | null
           fg_made?: number | null
           ft_attempted?: number | null
           ft_made?: number | null
+          ft_per_fga?: number | null
+          ftr?: number | null
           game_id?: string
           id?: string
           is_home?: boolean
           off_rating?: number | null
           off_rebounds?: number | null
+          opp_efg_pct?: number | null
+          opp_ft_per_fga?: number | null
+          opp_orb_pct?: number | null
+          opp_tov_pct?: number | null
+          orb_pct?: number | null
+          overtimes?: string | null
           pace?: number | null
           points?: number | null
           points_in_paint?: number | null
           possessions?: number | null
           rebounds?: number | null
           second_chance_points?: number | null
+          source?: string | null
           steals?: number | null
+          stl_pct?: number | null
           team_abbr?: string
           three_attempted?: number | null
           three_made?: number | null
+          three_par?: number | null
+          tov_pct?: number | null
+          trb_pct?: number | null
+          ts_pct?: number | null
           turnovers?: number | null
         }
         Relationships: [
