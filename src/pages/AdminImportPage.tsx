@@ -174,8 +174,8 @@ export default function AdminImportPage() {
         <Card className="p-4 space-y-3">
           <h2 className="text-sm font-semibold text-foreground">Team Game Logs (Basketball Reference)</h2>
           <p className="text-xs text-muted-foreground">
-            Upload .xls game log files exported from Basketball Reference. Team is auto-detected from filename.
-            Imports advanced stats (Four Factors, ORtg/DRtg, Pace, TS%, etc.) and links to existing games.
+            Upload .xls game log files exported from Basketball Reference (basic or advanced).
+            Team is auto-detected from filename. Basic and advanced stats are merged automatically.
             You can select multiple files at once.
           </p>
           <div className="flex gap-3 items-center">
@@ -184,6 +184,10 @@ export default function AdminImportPage() {
               {loading ? "Importing..." : "Import Game Logs"}
             </Button>
           </div>
+          <p className="text-xs text-muted-foreground italic">
+            💡 Tip: Export both the "Game Log" (basic) and "Advanced Game Log" pages from Basketball Reference 
+            for complete data (box scores + advanced metrics).
+          </p>
         </Card>
 
         <Card className="p-4 space-y-3">
