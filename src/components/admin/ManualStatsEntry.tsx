@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
-import { Plus, Trash2, Send } from "lucide-react";
+import { Plus, Trash2, Send, Upload } from "lucide-react";
 
 interface PlayerRecord {
   id: string;
@@ -281,6 +281,69 @@ export function ManualStatsEntry({ league, onLog }: ManualStatsEntryProps) {
     ]);
   };
 
+  const handleCsvUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const text = ev.target?.result as string;
+      if (!text) return;
+      const lines = text.trim().split("\n");
+      if (lines.length < 2) { onLog("CSV has no data rows"); return; }
+      const headers = lines[0].split(",").map((h) => h.trim().toLowerCase());
+      const colIdx = (names: string[]) => headers.findIndex((h) => names.includes(h));
+
+      const nameIdx = colIdx(["player", "name"]);
+      const teamIdx = colIdx(["team", "tm"]);
+      const periodIdx = colIdx(["period"]);
+
+      const csvToKey: Record<string, string[]> = {
+        minutes: ["min", "minutes"], points: ["pts", "points"], rebounds: ["reb", "rebounds"],
+        assists: ["ast", "assists"], steals: ["stl", "steals"], blocks: ["blk", "blocks"],
+        turnovers: ["tov", "to", "turnovers"], fgMade: ["fgm", "fg made"], fgAttempted: ["fga", "fg attempted"],
+        threeMade: ["3pm", "3p made"], threeAttempted: ["3pa", "3p attempted"],
+        ftMade: ["ftm", "ft made"], ftAttempted: ["fta", "ft attempted"],
+        goals: ["g", "goals"], shots: ["sog", "shots on goal"], plusMinus: ["+/-", "plus minus"],
+        pim: ["pim"], hits: ["hit", "hits"], toi: ["toi"], targets: ["tgt", "targets"],
+        receivingYards: ["recyd"], receivingTouchdowns: ["rectd"], passingAttempts: ["paatt"],
+        completions: ["cmp"], passingYards: ["payd"], passingTouchdowns: ["patd"],
+        rushingAttempts: ["ruatt"], rushingYards: ["ruyd"], rushingTouchdowns: ["rutd"],
+        atBats: ["ab"], runs: ["r", "runs"], rbi: ["rbi"], homeRuns: ["hr"],
+        stolenBases: ["sb"], walks: ["bb"], strikeouts: ["k"], inningsPitched: ["ip"], earnedRuns: ["er"],
+      };
+
+      const statIdxMap: { key: string; idx: number }[] = [];
+      for (const col of statColumns) {
+        const aliases = csvToKey[col.key];
+        if (aliases) {
+          const idx = colIdx(aliases);
+          if (idx >= 0) statIdxMap.push({ key: col.key, idx });
+        }
+      }
+
+      const newRows: StatRow[] = [];
+      for (let i = 1; i < lines.length; i++) {
+        const vals = lines[i].split(",").map((v) => v.trim());
+        if (!vals[nameIdx]) continue;
+        const row = emptyRow();
+        row.name = vals[nameIdx] || "";
+        row.team = teamIdx >= 0 ? vals[teamIdx] || "" : "";
+        row.period = periodIdx >= 0 ? vals[periodIdx] || sharedPeriod : sharedPeriod;
+        row.datetime = sharedDate;
+        row.homeTeam = sharedHome;
+        row.awayTeam = sharedAway;
+        for (const { key, idx } of statIdxMap) {
+          row[key] = vals[idx] || "";
+        }
+        newRows.push(row);
+      }
+      setRows(newRows);
+      onLog(`📂 Loaded ${newRows.length} rows from CSV`);
+    };
+    reader.readAsText(file);
+    e.target.value = "";
+  };
+
   const removeRow = (id: string) => {
     setRows((prev) => (prev.length > 1 ? prev.filter((r) => r.id !== id) : prev));
   };
@@ -456,9 +519,15 @@ export function ManualStatsEntry({ league, onLog }: ManualStatsEntryProps) {
         </table>
       </div>
 
-      <div className="flex gap-2">
+      <div className="flex gap-2 flex-wrap">
         <Button variant="outline" size="sm" onClick={addRow} className="text-xs">
           <Plus className="h-3 w-3 mr-1" /> Add Row
+        </Button>
+        <Button variant="outline" size="sm" className="text-xs" asChild>
+          <label className="cursor-pointer">
+            <Upload className="h-3 w-3 mr-1" /> Upload CSV
+            <input type="file" accept=".csv" className="hidden" onChange={handleCsvUpload} />
+          </label>
         </Button>
         <Button variant="default" size="sm" onClick={handleSubmit} disabled={submitting} className="text-xs">
           <Send className="h-3 w-3 mr-1" /> {submitting ? "Submitting..." : `Submit ${rows.filter((r) => r.name.trim()).length} Rows`}
