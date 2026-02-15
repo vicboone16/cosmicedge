@@ -15,10 +15,10 @@ export default function SplashScreen({ onComplete }: { onComplete: () => void })
   }, []);
 
   useEffect(() => {
-    const t1 = setTimeout(() => advance(), 600);   // stars → logo
-    const t2 = setTimeout(() => advance(), 2000);  // logo → tagline
-    const t3 = setTimeout(() => advance(), 3400);  // tagline → exit
-    const t4 = setTimeout(() => onComplete(), 4200); // unmount
+    const t1 = setTimeout(() => advance(), 900);   // stars → logo
+    const t2 = setTimeout(() => advance(), 2800);  // logo → tagline
+    const t3 = setTimeout(() => advance(), 4600);  // tagline → exit
+    const t4 = setTimeout(() => onComplete(), 5600); // unmount
     return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); clearTimeout(t4); };
   }, [advance, onComplete]);
 
@@ -63,7 +63,7 @@ export default function SplashScreen({ onComplete }: { onComplete: () => void })
             className="text-4xl font-light tracking-[0.15em] uppercase text-white"
             style={{ fontFamily: "'Outfit', sans-serif" }}
           >
-          CosmicEdge
+          CosmicEdge<sup className="text-xs font-normal align-super ml-1" style={{ fontSize: '0.5em' }}>™</sup>
           </motion.h1>
         </motion.div>
 
