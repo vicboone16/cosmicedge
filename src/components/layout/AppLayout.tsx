@@ -1,7 +1,8 @@
 import { Outlet, useNavigate } from "react-router-dom";
 import { BottomNav } from "./BottomNav";
 import { useAuth } from "@/hooks/use-auth";
-import { User, LogIn, Moon, Settings, Users, LogOut } from "lucide-react";
+import { useIsAdmin } from "@/hooks/use-admin";
+import { User, LogIn, Moon, Settings, Users, LogOut, Shield } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,6 +15,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 export function AppLayout() {
   const { user, signOut } = useAuth();
+  const { isAdmin } = useIsAdmin();
   const navigate = useNavigate();
 
   // Query pending friend requests for badge
@@ -70,6 +72,12 @@ export function AppLayout() {
                   <Settings className="h-4 w-4" />
                   Settings
                 </DropdownMenuItem>
+                {isAdmin && (
+                  <DropdownMenuItem onClick={() => navigate("/admin")} className="gap-2 cursor-pointer">
+                    <Shield className="h-4 w-4" />
+                    Admin
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   onClick={async () => { await signOut(); navigate("/"); }}
