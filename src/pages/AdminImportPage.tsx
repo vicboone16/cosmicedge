@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useCallback } from "react";
 import { DataHealthDashboard } from "@/components/admin/DataHealthDashboard";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -64,7 +64,7 @@ export default function AdminImportPage() {
   const [nbaTxtType, setNbaTxtType] = useState<string>("auto");
   const nbaSeasonRef = useRef<HTMLInputElement>(null);
 
-  const addLog = (msg: string) => setLog((prev) => [...prev, `${new Date().toLocaleTimeString()} — ${msg}`]);
+  const addLog = useCallback((msg: string) => setLog((prev) => [...prev, `${new Date().toLocaleTimeString()} — ${msg}`]), []);
 
   const importScheduleBatch = async (league: string, records: any[]) => {
     addLog(`Importing ${league} schedule (${records.length} games)...`);
