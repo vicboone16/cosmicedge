@@ -42,19 +42,20 @@ function StatCell({ label, value }: { label: string; value: string | null | unde
 
 const TeamPage = () => {
   const [showAdvanced, setShowAdvanced] = useState(false);
-  const { abbr } = useParams();
+  const { abbr, league: leagueParam } = useParams();
   const navigate = useNavigate();
 
   const { data: standings } = useQuery({
     queryKey: ["team-standings", abbr],
     queryFn: async () => {
-      const { data } = await supabase
+      let query = supabase
         .from("standings")
         .select("*")
         .eq("team_abbr", abbr!)
         .order("season", { ascending: false })
-        .limit(1)
-        .maybeSingle();
+        .limit(1);
+      if (leagueParam) query = query.eq("league", leagueParam.toUpperCase());
+      const { data } = await query.maybeSingle();
       return data;
     },
     enabled: !!abbr,

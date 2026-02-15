@@ -22,7 +22,7 @@ export function GameCard({ game }: { game: GameWithOdds }) {
 
   const handleTeamClick = (e: React.MouseEvent, abbr: string) => {
     e.stopPropagation();
-    navigate(`/team/${abbr}`);
+    navigate(`/team/${game.league}/${abbr}`);
   };
 
   return (

@@ -48,7 +48,7 @@ const App = () => (
               <Route path="/" element={<RequireAuth><Index /></RequireAuth>} />
               {/* All other routes require auth */}
               <Route path="/game/:id" element={<RequireAuth><GameDetail /></RequireAuth>} />
-              <Route path="/team/:abbr" element={<RequireAuth><TeamPage /></RequireAuth>} />
+              <Route path="/team/:league/:abbr" element={<RequireAuth><TeamPage /></RequireAuth>} />
               <Route path="/player/:id" element={<RequireAuth><PlayerPage /></RequireAuth>} />
               <Route path="/transits" element={<RequireAuth><TransitsPage /></RequireAuth>} />
               <Route path="/results" element={<RequireAuth><Results /></RequireAuth>} />
