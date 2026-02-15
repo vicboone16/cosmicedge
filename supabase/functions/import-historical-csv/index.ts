@@ -184,6 +184,7 @@ Deno.serve(async (req) => {
 
       // Detect timezone from column names or explicit timezone column
       const iTimezone = findCol(headers, "Timezone", "TimeZone", "TZ", "timezone", "tz");
+      const iNotes = findCol(headers, "Notes", "Note", "Remark", "Remarks", "Comment");
       const timeColCandidates = ["StartTimeEt", "start_time_et", "StartTimePt", "start_time_pt",
         "StartTimeCt", "start_time_ct", "StartTimeMt", "start_time_mt",
         "StartTimeUtc", "start_time_utc", "StartTime", "start_time", "Time", "time"];
@@ -268,6 +269,11 @@ Deno.serve(async (req) => {
         const statusVal = val(r, iStatus) || (hasScores ? "Final" : "Scheduled");
         const normalizedStatus = statusVal.toLowerCase().includes("final") || statusVal.toLowerCase() === "completed" ? "final" : (statusVal.toLowerCase() === "scheduled" ? "scheduled" : statusVal.toLowerCase());
 
+        // Check Notes column for venue override (ignore OT/SO/2OT markers)
+        const notesVal = iNotes >= 0 ? val(r, iNotes) : null;
+        const isOvertimeNote = notesVal && /^(OT|SO|2OT|3OT|OT\d?|shootout)$/i.test(notesVal.trim());
+        const venueFromNotes = notesVal && !isOvertimeNote ? notesVal.trim() : null;
+
         return {
           league,
           home_team: homeTeam,
@@ -277,7 +283,7 @@ Deno.serve(async (req) => {
           home_score: num(r, iHomeScore),
           away_score: num(r, iAwayScore),
           start_time: parsedDate.toISOString(),
-          venue: val(r, iVenue),
+          venue: venueFromNotes || val(r, iVenue),
           venue_lat: null as number | null,
           venue_lng: null as number | null,
           status: normalizedStatus,
