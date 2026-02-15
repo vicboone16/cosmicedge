@@ -768,10 +768,20 @@ export default function AdminImportPage() {
         </Card>
       </div>
 
-      <Card className="p-4 bg-muted/30 max-h-96 overflow-y-auto">
-        <pre className="text-xs text-muted-foreground whitespace-pre-wrap">
-          {log.length ? log.join("\n") : "No activity yet. Click a button above to start importing."}
-        </pre>
+      <Card className="p-4 bg-muted/30">
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="text-sm font-semibold text-foreground">Import Log</h2>
+          {log.length > 0 && (
+            <Button variant="ghost" size="sm" className="text-xs h-7" onClick={() => setLog([])}>
+              Clear
+            </Button>
+          )}
+        </div>
+        <div className="max-h-64 overflow-y-auto border border-border rounded-lg bg-background p-3">
+          <pre className="text-xs text-muted-foreground whitespace-pre-wrap break-words">
+            {log.length ? log.join("\n") : "No activity yet. Click a button above to start importing."}
+          </pre>
+        </div>
       </Card>
     </div>
   );
