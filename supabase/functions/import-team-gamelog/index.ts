@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { CANONICAL, getAbbrToName, normalizeAbbr } from "../_shared/team-mappings.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -6,44 +7,18 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-// Basketball Reference abbreviation → our DB abbreviation
-const BREF_TO_ABBR: Record<string, string> = {
-  ATL: "ATL", BOS: "BOS", BRK: "BKN", CHI: "CHI", CHO: "CHA", CLE: "CLE",
-  DAL: "DAL", DEN: "DEN", DET: "DET", GSW: "GSW", HOU: "HOU", IND: "IND",
-  LAC: "LAC", LAL: "LAL", MEM: "MEM", MIA: "MIA", MIL: "MIL", MIN: "MIN",
-  NOP: "NOP", NYK: "NYK", OKC: "OKC", ORL: "ORL", PHI: "PHI", PHO: "PHX",
-  PHX: "PHX", POR: "POR", SAC: "SAC", SAS: "SAS", TOR: "TOR", UTA: "UTA",
-  WAS: "WAS",
-};
+// Reverse map for NBA: abbr → full name
+const ABBR_TO_FULL = getAbbrToName("NBA");
 
-const ABBR_TO_FULL: Record<string, string> = {
-  ATL: "Atlanta Hawks", BOS: "Boston Celtics", BKN: "Brooklyn Nets",
-  CHA: "Charlotte Hornets", CHI: "Chicago Bulls", CLE: "Cleveland Cavaliers",
-  DAL: "Dallas Mavericks", DEN: "Denver Nuggets", DET: "Detroit Pistons",
-  GSW: "Golden State Warriors", HOU: "Houston Rockets", IND: "Indiana Pacers",
-  LAC: "Los Angeles Clippers", LAL: "Los Angeles Lakers", MEM: "Memphis Grizzlies",
-  MIA: "Miami Heat", MIL: "Milwaukee Bucks", MIN: "Minnesota Timberwolves",
-  NOP: "New Orleans Pelicans", NYK: "New York Knicks", OKC: "Oklahoma City Thunder",
-  ORL: "Orlando Magic", PHI: "Philadelphia 76ers", PHX: "Phoenix Suns",
-  POR: "Portland Trail Blazers", SAC: "Sacramento Kings", SAS: "San Antonio Spurs",
-  TOR: "Toronto Raptors", UTA: "Utah Jazz", WAS: "Washington Wizards",
-};
-
-const FILENAME_TO_ABBR: Record<string, string> = {
-  atlanta_hawks: "ATL", boston_celtics: "BOS", brooklyn_nets: "BKN",
-  charlotte_hornets: "CHA", chicago_bulls: "CHI", cleveland_cavaliers: "CLE",
-  dallas_mavericks: "DAL", denver_nuggets: "DEN", detroit_pistons: "DET",
-  golden_state_warriors: "GSW", houston_rockets: "HOU", indiana_pacers: "IND",
-  la_clippers: "LAC", los_angeles_clippers: "LAC", la_lakers: "LAL",
-  los_angeles_lakers: "LAL", memphis_grizzlies: "MEM", miami_heat: "MIA",
-  milwaukee_bucks: "MIL", minnesota_timberwolves: "MIN",
-  new_orleans_pelicans: "NOP", new_york_knicks: "NYK",
-  oklahoma_city_thunder: "OKC", orlando_magic: "ORL",
-  philadelphia_76ers: "PHI", phoenix_suns: "PHX",
-  portland_trail_blazers: "POR", sacramento_kings: "SAC",
-  san_antonio_spurs: "SAS", toronto_raptors: "TOR", utah_jazz: "UTA",
-  washington_wizards: "WAS", was: "WAS",
-};
+// Build FILENAME_TO_ABBR from canonical NBA names
+const FILENAME_TO_ABBR: Record<string, string> = {};
+for (const [name, abbr] of Object.entries(CANONICAL.NBA)) {
+  FILENAME_TO_ABBR[name.toLowerCase().replace(/[^a-z0-9]/g, "_")] = abbr;
+}
+// Extra short aliases
+FILENAME_TO_ABBR["la_clippers"] = "LAC";
+FILENAME_TO_ABBR["la_lakers"] = "LAL";
+FILENAME_TO_ABBR["was"] = "WAS";
 
 function num(v: string | undefined | null): number | null {
   if (!v || v === "") return null;
@@ -170,8 +145,8 @@ Deno.serve(async (req) => {
 
     // Normalize: accept both BBRef abbrs (BRK, CHO, PHO) and DB abbrs (BKN, CHA, PHX)
     let teamAbbr = providedAbbr || detectTeamFromFilename(filename || "") || detectTeamFromHtml(html_content);
-    // Convert BBRef abbreviation to DB abbreviation if needed
-    if (teamAbbr && BREF_TO_ABBR[teamAbbr]) teamAbbr = BREF_TO_ABBR[teamAbbr];
+    // Convert any alias to canonical NBA abbreviation
+    if (teamAbbr) teamAbbr = normalizeAbbr("NBA", teamAbbr);
     console.log(`[import-team-gamelog] detected team: ${teamAbbr}`);
     if (!teamAbbr || !ABBR_TO_FULL[teamAbbr]) {
       return new Response(
@@ -201,8 +176,10 @@ Deno.serve(async (req) => {
         const gameDate = row.date;
         const isAway = row.game_location === "@";
         const oppBref = row.opp_name_abbr;
-        const oppAbbr = BREF_TO_ABBR[oppBref];
-        if (!oppAbbr) {
+        let oppAbbr: string;
+        try {
+          oppAbbr = normalizeAbbr("NBA", oppBref);
+        } catch {
           errors.push(`Unknown opponent: ${oppBref}`);
           skipped++;
           continue;
