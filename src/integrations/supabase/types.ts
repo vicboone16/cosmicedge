@@ -839,6 +839,78 @@ export type Database = {
           },
         ]
       }
+      nba_standings: {
+        Row: {
+          conference: string | null
+          created_at: string
+          division: string | null
+          gb: number | null
+          h2h_record: Json | null
+          home_losses: number | null
+          home_wins: number | null
+          id: string
+          last_10: string | null
+          losses: number | null
+          neutral_losses: number | null
+          neutral_wins: number | null
+          pct: number | null
+          road_losses: number | null
+          road_wins: number | null
+          season: number
+          snapshot_date: string
+          streak: string | null
+          team_abbr: string
+          updated_at: string
+          wins: number | null
+        }
+        Insert: {
+          conference?: string | null
+          created_at?: string
+          division?: string | null
+          gb?: number | null
+          h2h_record?: Json | null
+          home_losses?: number | null
+          home_wins?: number | null
+          id?: string
+          last_10?: string | null
+          losses?: number | null
+          neutral_losses?: number | null
+          neutral_wins?: number | null
+          pct?: number | null
+          road_losses?: number | null
+          road_wins?: number | null
+          season?: number
+          snapshot_date?: string
+          streak?: string | null
+          team_abbr: string
+          updated_at?: string
+          wins?: number | null
+        }
+        Update: {
+          conference?: string | null
+          created_at?: string
+          division?: string | null
+          gb?: number | null
+          h2h_record?: Json | null
+          home_losses?: number | null
+          home_wins?: number | null
+          id?: string
+          last_10?: string | null
+          losses?: number | null
+          neutral_losses?: number | null
+          neutral_wins?: number | null
+          pct?: number | null
+          road_losses?: number | null
+          road_wins?: number | null
+          season?: number
+          snapshot_date?: string
+          streak?: string | null
+          team_abbr?: string
+          updated_at?: string
+          wins?: number | null
+        }
+        Relationships: []
+      }
       nfl_games: {
         Row: {
           arena: string | null
@@ -2407,66 +2479,234 @@ export type Database = {
       }
       team_season_stats: {
         Row: {
+          assists: number | null
           ast_pct: number | null
+          ast_to_ratio: number | null
+          below_100_opp: number | null
+          below_100_own: number | null
+          blocks: number | null
+          decided_10_losses: number | null
+          decided_10_wins: number | null
+          decided_3_losses: number | null
+          decided_3_wins: number | null
           def_rating: number | null
+          def_reb_pct: number | null
+          def_rebounds: number | null
+          disqualifications: number | null
+          fast_break_points: number | null
+          fast_break_points_pg: number | null
+          fg_attempted: number | null
+          fg_made: number | null
           fg_pct: number | null
+          ft_attempted: number | null
+          ft_made: number | null
           ft_pct: number | null
+          games: number | null
           id: string
           league: string
           net_rating: number | null
           off_rating: number | null
+          off_reb_pct: number | null
+          off_rebounds: number | null
+          opp_assists: number | null
+          opp_blocks: number | null
+          opp_def_rebounds: number | null
+          opp_disqualifications: number | null
+          opp_fast_break_points: number | null
+          opp_fast_break_points_pg: number | null
+          opp_fg_attempted: number | null
+          opp_fg_made: number | null
           opp_fg_pct: number | null
+          opp_ft_attempted: number | null
+          opp_ft_made: number | null
+          opp_off_rebounds: number | null
+          opp_personal_fouls: number | null
+          opp_points: number | null
+          opp_points_in_paint: number | null
+          opp_points_in_paint_pg: number | null
           opp_points_per_game: number | null
+          opp_steals: number | null
+          opp_three_attempted: number | null
+          opp_three_made: number | null
           opp_three_pct: number | null
+          opp_tot_rebounds: number | null
+          opp_turnovers: number | null
+          ot_losses: number | null
+          ot_wins: number | null
           pace: number | null
+          personal_fouls: number | null
+          point_diff: number | null
+          points: number | null
+          points_in_paint: number | null
+          points_in_paint_pg: number | null
           points_per_game: number | null
           reb_pct: number | null
           season: number
+          snapshot_date: string | null
+          steals: number | null
+          stl_to_ratio: number | null
           team_abbr: string
+          three_attempted: number | null
+          three_made: number | null
           three_pct: number | null
+          tot_reb_pct: number | null
+          tot_rebounds: number | null
           tov_pct: number | null
+          turnovers: number | null
           updated_at: string
         }
         Insert: {
+          assists?: number | null
           ast_pct?: number | null
+          ast_to_ratio?: number | null
+          below_100_opp?: number | null
+          below_100_own?: number | null
+          blocks?: number | null
+          decided_10_losses?: number | null
+          decided_10_wins?: number | null
+          decided_3_losses?: number | null
+          decided_3_wins?: number | null
           def_rating?: number | null
+          def_reb_pct?: number | null
+          def_rebounds?: number | null
+          disqualifications?: number | null
+          fast_break_points?: number | null
+          fast_break_points_pg?: number | null
+          fg_attempted?: number | null
+          fg_made?: number | null
           fg_pct?: number | null
+          ft_attempted?: number | null
+          ft_made?: number | null
           ft_pct?: number | null
+          games?: number | null
           id?: string
           league?: string
           net_rating?: number | null
           off_rating?: number | null
+          off_reb_pct?: number | null
+          off_rebounds?: number | null
+          opp_assists?: number | null
+          opp_blocks?: number | null
+          opp_def_rebounds?: number | null
+          opp_disqualifications?: number | null
+          opp_fast_break_points?: number | null
+          opp_fast_break_points_pg?: number | null
+          opp_fg_attempted?: number | null
+          opp_fg_made?: number | null
           opp_fg_pct?: number | null
+          opp_ft_attempted?: number | null
+          opp_ft_made?: number | null
+          opp_off_rebounds?: number | null
+          opp_personal_fouls?: number | null
+          opp_points?: number | null
+          opp_points_in_paint?: number | null
+          opp_points_in_paint_pg?: number | null
           opp_points_per_game?: number | null
+          opp_steals?: number | null
+          opp_three_attempted?: number | null
+          opp_three_made?: number | null
           opp_three_pct?: number | null
+          opp_tot_rebounds?: number | null
+          opp_turnovers?: number | null
+          ot_losses?: number | null
+          ot_wins?: number | null
           pace?: number | null
+          personal_fouls?: number | null
+          point_diff?: number | null
+          points?: number | null
+          points_in_paint?: number | null
+          points_in_paint_pg?: number | null
           points_per_game?: number | null
           reb_pct?: number | null
           season: number
+          snapshot_date?: string | null
+          steals?: number | null
+          stl_to_ratio?: number | null
           team_abbr: string
+          three_attempted?: number | null
+          three_made?: number | null
           three_pct?: number | null
+          tot_reb_pct?: number | null
+          tot_rebounds?: number | null
           tov_pct?: number | null
+          turnovers?: number | null
           updated_at?: string
         }
         Update: {
+          assists?: number | null
           ast_pct?: number | null
+          ast_to_ratio?: number | null
+          below_100_opp?: number | null
+          below_100_own?: number | null
+          blocks?: number | null
+          decided_10_losses?: number | null
+          decided_10_wins?: number | null
+          decided_3_losses?: number | null
+          decided_3_wins?: number | null
           def_rating?: number | null
+          def_reb_pct?: number | null
+          def_rebounds?: number | null
+          disqualifications?: number | null
+          fast_break_points?: number | null
+          fast_break_points_pg?: number | null
+          fg_attempted?: number | null
+          fg_made?: number | null
           fg_pct?: number | null
+          ft_attempted?: number | null
+          ft_made?: number | null
           ft_pct?: number | null
+          games?: number | null
           id?: string
           league?: string
           net_rating?: number | null
           off_rating?: number | null
+          off_reb_pct?: number | null
+          off_rebounds?: number | null
+          opp_assists?: number | null
+          opp_blocks?: number | null
+          opp_def_rebounds?: number | null
+          opp_disqualifications?: number | null
+          opp_fast_break_points?: number | null
+          opp_fast_break_points_pg?: number | null
+          opp_fg_attempted?: number | null
+          opp_fg_made?: number | null
           opp_fg_pct?: number | null
+          opp_ft_attempted?: number | null
+          opp_ft_made?: number | null
+          opp_off_rebounds?: number | null
+          opp_personal_fouls?: number | null
+          opp_points?: number | null
+          opp_points_in_paint?: number | null
+          opp_points_in_paint_pg?: number | null
           opp_points_per_game?: number | null
+          opp_steals?: number | null
+          opp_three_attempted?: number | null
+          opp_three_made?: number | null
           opp_three_pct?: number | null
+          opp_tot_rebounds?: number | null
+          opp_turnovers?: number | null
+          ot_losses?: number | null
+          ot_wins?: number | null
           pace?: number | null
+          personal_fouls?: number | null
+          point_diff?: number | null
+          points?: number | null
+          points_in_paint?: number | null
+          points_in_paint_pg?: number | null
           points_per_game?: number | null
           reb_pct?: number | null
           season?: number
+          snapshot_date?: string | null
+          steals?: number | null
+          stl_to_ratio?: number | null
           team_abbr?: string
+          three_attempted?: number | null
+          three_made?: number | null
           three_pct?: number | null
+          tot_reb_pct?: number | null
+          tot_rebounds?: number | null
           tov_pct?: number | null
+          turnovers?: number | null
           updated_at?: string
         }
         Relationships: []

@@ -60,6 +60,8 @@ export default function AdminImportPage() {
   const [gamelogLeague, setGamelogLeague] = useState<string>("NFL");
   const nbaBoxscoreRef = useRef<HTMLInputElement>(null);
   const [manualLeague, setManualLeague] = useState<string>("NFL");
+  const nbaTxtRef = useRef<HTMLInputElement>(null);
+  const [nbaTxtType, setNbaTxtType] = useState<string>("auto");
 
   const addLog = (msg: string) => setLog((prev) => [...prev, `${new Date().toLocaleTimeString()} — ${msg}`]);
 
@@ -637,6 +639,65 @@ export default function AdminImportPage() {
               setLoading(false);
             }} disabled={loading} variant="default">
               {loading ? "Importing..." : "Import NBA Box Scores"}
+            </Button>
+          </div>
+        </Card>
+
+        {/* NBA Team Stats / Standings / Misc TXT Import */}
+        <Card className="p-4 space-y-3">
+          <h2 className="text-sm font-semibold text-foreground">🏀 NBA Team Data TXT Import</h2>
+          <p className="text-xs text-muted-foreground">
+            Upload NBA.com text files: team stats, opponent stats, standings, misc, points breakdown, ratios, or daily scores.
+            Auto-detects format or select manually.
+          </p>
+          <div className="flex gap-3 items-center flex-wrap">
+            <Select value={nbaTxtType} onValueChange={setNbaTxtType}>
+              <SelectTrigger className="w-40 h-9 text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="auto">Auto-detect</SelectItem>
+                <SelectItem value="team_stats">Team Stats</SelectItem>
+                <SelectItem value="team_misc">Team Misc</SelectItem>
+                <SelectItem value="pts_breakdown">Paint/FastBreak</SelectItem>
+                <SelectItem value="standings">Standings</SelectItem>
+                <SelectItem value="standings_h2h">Head-to-Head</SelectItem>
+                <SelectItem value="ratios">Ratios</SelectItem>
+                <SelectItem value="day_scores">Daily Scores</SelectItem>
+              </SelectContent>
+            </Select>
+            <input ref={nbaTxtRef} type="file" accept=".txt,.csv" multiple className="text-xs" />
+            <Button onClick={async () => {
+              const files = nbaTxtRef.current?.files;
+              if (!files || files.length === 0) { addLog("No files selected"); return; }
+              setLoading(true);
+              for (let f = 0; f < files.length; f++) {
+                const file = files[f];
+                addLog(`Uploading NBA data: ${file.name} (type: ${nbaTxtType})`);
+                try {
+                  const formData = new FormData();
+                  formData.append("file", file);
+                  formData.append("file_type", nbaTxtType);
+                  const { data: { session } } = await supabase.auth.getSession();
+                  const res = await fetch(
+                    `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/import-nba-txt`,
+                    { method: "POST", headers: { Authorization: `Bearer ${session?.access_token}`, apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY }, body: formData }
+                  );
+                  const result = await res.json();
+                  if (!res.ok || result.error) addLog(`❌ ${file.name}: ${result.error || "Upload failed"}`);
+                  else {
+                    const parts = [];
+                    if (result.type) parts.push(`Type: ${result.type}`);
+                    if (result.upserted) parts.push(`${result.upserted} upserted`);
+                    if (result.teams) parts.push(`${result.teams} teams`);
+                    if (result.games_updated) parts.push(`${result.games_updated} games updated`);
+                    if (result.quarters_inserted) parts.push(`${result.quarters_inserted} quarters`);
+                    addLog(`✅ ${file.name}: ${parts.join(", ")}`);
+                    if (result.errors?.length) result.errors.slice(0, 5).forEach((e: string) => addLog(`  ⚠️ ${e}`));
+                  }
+                } catch (e: any) { addLog(`❌ ${file.name}: ${e.message}`); }
+              }
+              setLoading(false);
+            }} disabled={loading} variant="default">
+              {loading ? "Importing..." : "Import NBA Team Data"}
             </Button>
           </div>
         </Card>
