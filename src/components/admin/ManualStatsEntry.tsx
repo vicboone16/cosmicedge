@@ -1,20 +1,15 @@
-import { useState } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { Plus, Trash2, Send } from "lucide-react";
 
-const NFL_TEAMS = [
-  "Arizona Cardinals", "Atlanta Falcons", "Baltimore Ravens", "Buffalo Bills",
-  "Carolina Panthers", "Chicago Bears", "Cincinnati Bengals", "Cleveland Browns",
-  "Dallas Cowboys", "Denver Broncos", "Detroit Lions", "Green Bay Packers",
-  "Houston Texans", "Indianapolis Colts", "Jacksonville Jaguars", "Kansas City Chiefs",
-  "Las Vegas Raiders", "Los Angeles Chargers", "Los Angeles Rams", "Miami Dolphins",
-  "Minnesota Vikings", "New England Patriots", "New Orleans Saints", "New York Giants",
-  "New York Jets", "Philadelphia Eagles", "Pittsburgh Steelers", "San Francisco 49ers",
-  "Seattle Seahawks", "Tampa Bay Buccaneers", "Tennessee Titans", "Washington Commanders",
-];
+interface PlayerRecord {
+  id: string;
+  name: string;
+  team: string | null;
+}
 
 interface StatRow {
   id: string;
@@ -37,21 +32,10 @@ interface StatRow {
 
 const emptyRow = (): StatRow => ({
   id: crypto.randomUUID(),
-  name: "",
-  team: "",
-  datetime: "",
-  homeTeam: "",
-  awayTeam: "",
-  targets: "",
-  receivingYards: "",
-  receivingTouchdowns: "",
-  passingAttempts: "",
-  completions: "",
-  passingYards: "",
-  passingTouchdowns: "",
-  rushingAttempts: "",
-  rushingYards: "",
-  rushingTouchdowns: "",
+  name: "", team: "", datetime: "", homeTeam: "", awayTeam: "",
+  targets: "", receivingYards: "", receivingTouchdowns: "",
+  passingAttempts: "", completions: "", passingYards: "", passingTouchdowns: "",
+  rushingAttempts: "", rushingYards: "", rushingTouchdowns: "",
 });
 
 const STAT_COLUMNS = [
@@ -72,17 +56,126 @@ interface ManualStatsEntryProps {
   onLog: (msg: string) => void;
 }
 
+// ── Player Name Autocomplete ──────────────────────────────────────────
+function PlayerAutocomplete({
+  value,
+  players,
+  onChange,
+  onSelectPlayer,
+}: {
+  value: string;
+  players: PlayerRecord[];
+  onChange: (v: string) => void;
+  onSelectPlayer: (p: PlayerRecord) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState(value);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => { setQuery(value); }, [value]);
+
+  // Close on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const filtered = query.length >= 2
+    ? players.filter((p) => p.name.toLowerCase().includes(query.toLowerCase())).slice(0, 15)
+    : [];
+
+  return (
+    <div ref={ref} className="relative">
+      <Input
+        value={query}
+        onChange={(e) => {
+          setQuery(e.target.value);
+          onChange(e.target.value);
+          setOpen(e.target.value.length >= 2);
+        }}
+        onFocus={() => { if (query.length >= 2) setOpen(true); }}
+        placeholder="Player name"
+        className="h-7 text-xs border-0 bg-transparent px-1"
+      />
+      {open && filtered.length > 0 && (
+        <div className="absolute z-50 top-full left-0 w-64 max-h-48 overflow-y-auto bg-popover border border-border rounded-md shadow-lg mt-0.5">
+          {filtered.map((p) => (
+            <button
+              key={p.id}
+              type="button"
+              className="w-full text-left px-2 py-1.5 text-xs hover:bg-accent hover:text-accent-foreground flex justify-between"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                onSelectPlayer(p);
+                setQuery(p.name);
+                setOpen(false);
+              }}
+            >
+              <span className="font-medium">{p.name}</span>
+              {p.team && <span className="text-muted-foreground">{p.team}</span>}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function ManualStatsEntry({ league, onLog }: ManualStatsEntryProps) {
   const [rows, setRows] = useState<StatRow[]>([emptyRow(), emptyRow(), emptyRow()]);
   const [submitting, setSubmitting] = useState(false);
+  const [players, setPlayers] = useState<PlayerRecord[]>([]);
+  const [teams, setTeams] = useState<string[]>([]);
 
-  // Shared game context — auto-fill for new rows
   const [sharedDate, setSharedDate] = useState("");
   const [sharedHome, setSharedHome] = useState("");
   const [sharedAway, setSharedAway] = useState("");
 
+  // Fetch players & teams for the selected league
+  const fetchPlayersAndTeams = useCallback(async () => {
+    // Fetch players (paginate past 1000 limit)
+    let allPlayers: PlayerRecord[] = [];
+    let offset = 0;
+    const PAGE = 1000;
+    while (true) {
+      const { data } = await supabase
+        .from("players")
+        .select("id, name, team")
+        .eq("league", league)
+        .order("name")
+        .range(offset, offset + PAGE - 1);
+      if (!data || data.length === 0) break;
+      allPlayers = allPlayers.concat(data);
+      if (data.length < PAGE) break;
+      offset += PAGE;
+    }
+    setPlayers(allPlayers);
+
+    // Extract unique teams
+    const uniqueTeams = [...new Set(allPlayers.map((p) => p.team).filter(Boolean))] as string[];
+    uniqueTeams.sort();
+    setTeams(uniqueTeams);
+
+    onLog(`📋 Loaded ${allPlayers.length} players and ${uniqueTeams.length} teams for ${league}`);
+  }, [league, onLog]);
+
+  useEffect(() => {
+    fetchPlayersAndTeams();
+  }, [fetchPlayersAndTeams]);
+
   const updateRow = (id: string, field: keyof StatRow, value: string) => {
     setRows((prev) => prev.map((r) => (r.id === id ? { ...r, [field]: value } : r)));
+  };
+
+  const handleSelectPlayer = (rowId: string, player: PlayerRecord) => {
+    setRows((prev) =>
+      prev.map((r) =>
+        r.id === rowId ? { ...r, name: player.name, team: player.team || r.team } : r
+      )
+    );
   };
 
   const addRow = () => {
@@ -107,7 +200,6 @@ export function ManualStatsEntry({ league, onLog }: ManualStatsEntryProps) {
     onLog(`Submitting ${validRows.length} player stats rows...`);
 
     try {
-      // Build CSV text from the rows
       const header = "Name,Team,Date and Time (PST),HomeTeam,AwayTeam,Targets,Receiving Yards,Receiving Touchdowns,Passing Attempts,Completions,Passing Yards,Passing Touchdowns,Rushing Attempts,Rushing Yards,Rushing Touchdowns";
       const csvLines = validRows.map((r) =>
         [
@@ -121,7 +213,6 @@ export function ManualStatsEntry({ league, onLog }: ManualStatsEntryProps) {
 
       const blob = new Blob([csvText], { type: "text/csv" });
       const file = new File([blob], "manual-entry.csv", { type: "text/csv" });
-
       const formData = new FormData();
       formData.append("file", file);
       formData.append("league", league);
@@ -145,7 +236,6 @@ export function ManualStatsEntry({ league, onLog }: ManualStatsEntryProps) {
       } else {
         onLog(`✅ ${result.rows_parsed} rows → ${result.stats_inserted} inserted, ${result.players_created} players created, ${result.games_not_found} unmatched`);
         if (result.errors?.length) result.errors.slice(0, 5).forEach((e: string) => onLog(`  ⚠️ ${e}`));
-        // Clear rows on success
         setRows([emptyRow(), emptyRow(), emptyRow()]);
       }
     } catch (e: any) {
@@ -171,8 +261,8 @@ export function ManualStatsEntry({ league, onLog }: ManualStatsEntryProps) {
           <label className="text-[10px] text-muted-foreground font-medium">Home Team</label>
           <Select value={sharedHome} onValueChange={setSharedHome}>
             <SelectTrigger className="h-8 text-xs w-48"><SelectValue placeholder="Select home..." /></SelectTrigger>
-            <SelectContent>
-              {NFL_TEAMS.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+            <SelectContent className="bg-popover z-50">
+              {teams.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
             </SelectContent>
           </Select>
         </div>
@@ -180,20 +270,24 @@ export function ManualStatsEntry({ league, onLog }: ManualStatsEntryProps) {
           <label className="text-[10px] text-muted-foreground font-medium">Away Team</label>
           <Select value={sharedAway} onValueChange={setSharedAway}>
             <SelectTrigger className="h-8 text-xs w-48"><SelectValue placeholder="Select away..." /></SelectTrigger>
-            <SelectContent>
-              {NFL_TEAMS.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+            <SelectContent className="bg-popover z-50">
+              {teams.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
             </SelectContent>
           </Select>
         </div>
       </div>
+
+      <p className="text-[10px] text-muted-foreground">
+        💡 Type 2+ characters to search {players.length} {league} players. Selecting a player auto-fills their team.
+      </p>
 
       {/* Spreadsheet table */}
       <div className="overflow-x-auto border border-border rounded-md">
         <table className="w-full text-xs">
           <thead>
             <tr className="bg-muted/50 border-b border-border">
-              <th className="px-2 py-1.5 text-left font-medium text-muted-foreground w-40">Name</th>
-              <th className="px-2 py-1.5 text-left font-medium text-muted-foreground w-44">Team</th>
+              <th className="px-2 py-1.5 text-left font-medium text-muted-foreground w-44">Name</th>
+              <th className="px-2 py-1.5 text-left font-medium text-muted-foreground w-36">Team</th>
               {STAT_COLUMNS.map((c) => (
                 <th key={c.key} className={`px-1 py-1.5 text-center font-medium text-muted-foreground ${c.width}`}>
                   {c.label}
@@ -206,11 +300,11 @@ export function ManualStatsEntry({ league, onLog }: ManualStatsEntryProps) {
             {rows.map((row, idx) => (
               <tr key={row.id} className={idx % 2 === 0 ? "bg-background" : "bg-muted/20"}>
                 <td className="px-1 py-0.5">
-                  <Input
+                  <PlayerAutocomplete
                     value={row.name}
-                    onChange={(e) => updateRow(row.id, "name", e.target.value)}
-                    placeholder="Player name"
-                    className="h-7 text-xs border-0 bg-transparent px-1"
+                    players={players}
+                    onChange={(v) => updateRow(row.id, "name", v)}
+                    onSelectPlayer={(p) => handleSelectPlayer(row.id, p)}
                   />
                 </td>
                 <td className="px-1 py-0.5">
@@ -218,8 +312,8 @@ export function ManualStatsEntry({ league, onLog }: ManualStatsEntryProps) {
                     <SelectTrigger className="h-7 text-xs border-0 bg-transparent px-1">
                       <SelectValue placeholder="Team..." />
                     </SelectTrigger>
-                    <SelectContent>
-                      {NFL_TEAMS.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                    <SelectContent className="bg-popover z-50">
+                      {teams.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </td>
@@ -234,12 +328,7 @@ export function ManualStatsEntry({ league, onLog }: ManualStatsEntryProps) {
                   </td>
                 ))}
                 <td className="px-0.5 py-0.5">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-6 w-6"
-                    onClick={() => removeRow(row.id)}
-                  >
+                  <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => removeRow(row.id)}>
                     <Trash2 className="h-3 w-3 text-muted-foreground" />
                   </Button>
                 </td>
@@ -253,14 +342,11 @@ export function ManualStatsEntry({ league, onLog }: ManualStatsEntryProps) {
         <Button variant="outline" size="sm" onClick={addRow} className="text-xs">
           <Plus className="h-3 w-3 mr-1" /> Add Row
         </Button>
-        <Button
-          variant="default"
-          size="sm"
-          onClick={handleSubmit}
-          disabled={submitting}
-          className="text-xs"
-        >
+        <Button variant="default" size="sm" onClick={handleSubmit} disabled={submitting} className="text-xs">
           <Send className="h-3 w-3 mr-1" /> {submitting ? "Submitting..." : `Submit ${rows.filter((r) => r.name.trim()).length} Rows`}
+        </Button>
+        <Button variant="ghost" size="sm" onClick={fetchPlayersAndTeams} className="text-xs text-muted-foreground">
+          ↻ Refresh Players
         </Button>
       </div>
     </div>
