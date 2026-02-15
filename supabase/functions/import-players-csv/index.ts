@@ -24,8 +24,8 @@ Deno.serve(async (req) => {
 
     if (!file) throw new Error("No file uploaded");
 
-    const text = await file.text();
-    const lines = text.trim().split("\n");
+    const text = (await file.text()).replace(/^\uFEFF/, "");
+    const lines = text.trim().split(/\r?\n/);
     if (lines.length < 2) throw new Error("CSV must have header + data rows");
 
     const headers = lines[0].split(",").map((h) => h.trim().replace(/"/g, ""));
