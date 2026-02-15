@@ -276,7 +276,7 @@ export default function AdminGameManager() {
       ) : (
         <div className="space-y-2">
           {filtered.map(g => (
-            <Card key={g.id} className="p-3 flex items-center justify-between cursor-pointer hover:bg-accent/50 transition-colors" onClick={() => openEdit(g)}>
+            <Card key={g.id} className="p-3 flex items-center justify-between cursor-pointer active:bg-accent/50 transition-colors" onClick={() => openEdit(g)}>
               <div className="flex-1">
                 <div className="flex items-center gap-2">
                   <Badge variant="outline" className="text-[10px]">{g.league}</Badge>
