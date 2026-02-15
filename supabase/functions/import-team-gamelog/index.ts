@@ -168,7 +168,10 @@ Deno.serve(async (req) => {
       );
     }
 
-    const teamAbbr = providedAbbr || detectTeamFromFilename(filename || "") || detectTeamFromHtml(html_content);
+    // Normalize: accept both BBRef abbrs (BRK, CHO, PHO) and DB abbrs (BKN, CHA, PHX)
+    let teamAbbr = providedAbbr || detectTeamFromFilename(filename || "") || detectTeamFromHtml(html_content);
+    // Convert BBRef abbreviation to DB abbreviation if needed
+    if (teamAbbr && BREF_TO_ABBR[teamAbbr]) teamAbbr = BREF_TO_ABBR[teamAbbr];
     console.log(`[import-team-gamelog] detected team: ${teamAbbr}`);
     if (!teamAbbr || !ABBR_TO_FULL[teamAbbr]) {
       return new Response(
