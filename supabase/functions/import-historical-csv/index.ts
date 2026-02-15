@@ -234,10 +234,10 @@ Deno.serve(async (req) => {
 
         let parsedDate: Date;
         if (timeStr) {
-          // Parse time like "19:30", "7:30p", "10:00p"
-          const isPM = /p$/i.test(timeStr);
-          const isAM = /a$/i.test(timeStr);
-          const cleanTime = timeStr.replace(/[ap]$/i, "");
+          // Parse time like "19:30", "7:30p", "10:00 PM", "5:00 PM"
+          const isPM = /pm?$/i.test(timeStr.trim());
+          const isAM = /am?$/i.test(timeStr.trim());
+          const cleanTime = timeStr.trim().replace(/\s*(am|pm|a|p)$/i, "").trim();
           const parts = cleanTime.split(":");
           let hours = parseInt(parts[0], 10);
           const minutes = parseInt(parts[1] || "0", 10);
@@ -284,6 +284,19 @@ Deno.serve(async (req) => {
         };
       }).filter((r) => r.home_team && r.away_team);
 
+      console.log(`Parsed ${allParsed.length} valid game rows from CSV (headers at row ${headerIdx}: ${headers.join(",")})`);
+      console.log(`Column indices: date=${iDate} home=${iHome} away=${iAway} homeScore=${iHomeScore} awayScore=${iAwayScore} time=${iTime}`);
+      if (allParsed.length > 0) {
+        console.log(`First record:`, JSON.stringify(allParsed[0]));
+      }
+
+      if (allParsed.length === 0) {
+        return new Response(
+          JSON.stringify({ success: true, rowsInserted: 0, rowsSkipped: 0, errors: ["No valid game rows parsed from CSV. Check column format."] }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
       // Fetch existing games for the date range to match by team + date
       const dates = allParsed.map(r => new Date(r.start_time));
       const minDate = new Date(Math.min(...dates.map(d => d.getTime())));
@@ -291,16 +304,28 @@ Deno.serve(async (req) => {
       minDate.setDate(minDate.getDate() - 1);
       maxDate.setDate(maxDate.getDate() + 1);
 
-      const { data: existingGames } = await supabase
-        .from("games")
-        .select("id, home_team, home_abbr, away_team, away_abbr, start_time, status, home_score")
-        .eq("league", league)
-        .gte("start_time", minDate.toISOString())
-        .lte("start_time", maxDate.toISOString());
+      // Paginate to avoid 1000-row limit
+      let existingGames: any[] = [];
+      let from = 0;
+      const PAGE = 1000;
+      while (true) {
+        const { data } = await supabase
+          .from("games")
+          .select("id, home_team, home_abbr, away_team, away_abbr, start_time, status, home_score")
+          .eq("league", league)
+          .gte("start_time", minDate.toISOString())
+          .lte("start_time", maxDate.toISOString())
+          .range(from, from + PAGE - 1);
+        if (!data || data.length === 0) break;
+        existingGames = existingGames.concat(data);
+        if (data.length < PAGE) break;
+        from += PAGE;
+      }
+      console.log(`Found ${existingGames.length} existing ${league} games in date range`);
 
       // Build lookup: match by home_abbr + away_abbr + same calendar date (UTC)
       const existingMap = new Map<string, any>();
-      for (const g of existingGames || []) {
+      for (const g of existingGames) {
         const d = g.start_time.split("T")[0];
         const key = `${g.home_abbr}_${g.away_abbr}_${d}`;
         existingMap.set(key, g);
