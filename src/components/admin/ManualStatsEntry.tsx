@@ -296,9 +296,10 @@ export function ManualStatsEntry({ league, onLog }: ManualStatsEntryProps) {
       formData.append("season", "2025");
 
       const { data: { session } } = await supabase.auth.getSession();
-      const res = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/import-period-stats-csv`,
-        {
+      const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/import-period-stats-csv`;
+      console.log("Uploading to:", url, "file size:", file.size, "league:", league);
+      onLog(`⏳ Sending ${file.size} bytes to server...`);
+      const res = await fetch(url, {
           method: "POST",
           headers: {
             Authorization: `Bearer ${session?.access_token}`,
@@ -307,6 +308,7 @@ export function ManualStatsEntry({ league, onLog }: ManualStatsEntryProps) {
           body: formData,
         }
       );
+      console.log("Response status:", res.status);
       const result = await res.json();
 
       if (!res.ok || result.error) {
