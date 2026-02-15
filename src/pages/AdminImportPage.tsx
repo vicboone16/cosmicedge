@@ -2,6 +2,7 @@ import { useState, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ExternalLink } from "lucide-react";
 import * as XLSX from "xlsx";
 
@@ -164,6 +165,7 @@ export default function AdminImportPage() {
   };
 
   const gameLogRef = useRef<HTMLInputElement>(null);
+  const [gameLogTeam, setGameLogTeam] = useState<string>("");
 
   const handleGameLogUpload = async () => {
     const files = gameLogRef.current?.files;
@@ -172,12 +174,12 @@ export default function AdminImportPage() {
     setLoading(true);
     for (let f = 0; f < files.length; f++) {
       const file = files[f];
-      addLog(`Reading game log: ${file.name}`);
+      addLog(`Reading game log: ${file.name}${gameLogTeam ? ` (team: ${gameLogTeam})` : " (auto-detect)"}`);
       try {
         const text = await file.text();
-        const { data, error } = await supabase.functions.invoke("import-team-gamelog", {
-          body: { html_content: text, filename: file.name },
-        });
+        const body: Record<string, string> = { html_content: text, filename: file.name };
+        if (gameLogTeam && gameLogTeam !== "auto") body.team_abbr = gameLogTeam;
+        const { data, error } = await supabase.functions.invoke("import-team-gamelog", { body });
         if (error) {
           addLog(`❌ ${file.name}: ${error.message}`);
         } else {
@@ -209,10 +211,20 @@ export default function AdminImportPage() {
           <h2 className="text-sm font-semibold text-foreground">Team Game Logs (Basketball Reference)</h2>
           <p className="text-xs text-muted-foreground">
             Upload .xls game log files exported from Basketball Reference (basic or advanced).
-            Team is auto-detected from filename. Basic and advanced stats are merged automatically.
-            You can select multiple files at once.
+            Select the team below, or leave as "Auto-detect" if the filename contains the team name.
           </p>
-          <div className="flex gap-3 items-center">
+          <div className="flex gap-3 items-center flex-wrap">
+            <Select value={gameLogTeam} onValueChange={setGameLogTeam}>
+              <SelectTrigger className="w-48 h-9 text-xs">
+                <SelectValue placeholder="Auto-detect team" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="auto">Auto-detect</SelectItem>
+                {BREF_TEAMS.map((t) => (
+                  <SelectItem key={t.abbr} value={t.abbr}>{t.abbr} — {t.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <input ref={gameLogRef} type="file" accept=".xls,.xlsx,.html" multiple className="text-xs" />
             <Button onClick={handleGameLogUpload} disabled={loading} variant="secondary">
               {loading ? "Importing..." : "Import Game Logs"}
