@@ -87,6 +87,7 @@ export default function HistoricalPage() {
   const [btWeights, setBtWeights] = useState<Record<string, number>>({ ...DEFAULT_WEIGHTS });
   const [presetName, setPresetName] = useState("");
   const [flatBet, setFlatBet] = useState(100);
+  const [btLeagues, setBtLeagues] = useState<string[]>(["NBA"]);
 
   // Load saved presets
   const { data: presets } = useQuery({
@@ -151,15 +152,96 @@ export default function HistoricalPage() {
     mutationFn: async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error("Please log in to run backtests");
-      const resp = await supabase.functions.invoke("quant-engine", {
-        body: { mode: "backtest", league, date_start: btStart, date_end: btEnd, custom_weights: btWeights, flat_bet: flatBet },
-      });
-      if (resp.error) throw new Error(resp.error.message);
-      return resp.data;
+
+      const leaguesToRun = btLeagues.length > 0 ? btLeagues : [league];
+      const allResults: any[] = [];
+
+      for (const lg of leaguesToRun) {
+        const resp = await supabase.functions.invoke("quant-engine", {
+          body: { mode: "backtest", league: lg, date_start: btStart, date_end: btEnd, custom_weights: btWeights, flat_bet: flatBet },
+        });
+        if (resp.error) throw new Error(resp.error.message);
+        allResults.push({ league: lg, ...resp.data.backtest });
+      }
+
+      // Merge results across leagues
+      if (allResults.length === 1) return allResults[0];
+
+      const merged: any = {
+        total_games: 0, total_picked: 0, correct_picks: 0,
+        strength_breakdown: {} as Record<string, any>,
+        layer_breakdown: {} as Record<string, any>,
+        by_market: {} as Record<string, any>,
+        by_league: {} as Record<string, any>,
+        roi_simulation: { flat_bet: flatBet, total_wagered: 0, net_profit: 0, roi: 0 },
+      };
+
+      for (const r of allResults) {
+        merged.total_games += r.total_games || 0;
+        merged.total_picked += r.total_picked || 0;
+        merged.correct_picks += r.correct_picks || 0;
+
+        // Merge strength
+        for (const [k, v] of Object.entries(r.strength_breakdown || {})) {
+          const d = v as any;
+          if (!merged.strength_breakdown[k]) merged.strength_breakdown[k] = { total: 0, correct: 0 };
+          merged.strength_breakdown[k].total += d.total;
+          merged.strength_breakdown[k].correct += d.correct;
+        }
+
+        // Merge layers
+        for (const [k, v] of Object.entries(r.layer_breakdown || {})) {
+          const d = v as any;
+          if (!merged.layer_breakdown[k]) merged.layer_breakdown[k] = { total: 0, correct: 0 };
+          merged.layer_breakdown[k].total += d.total;
+          merged.layer_breakdown[k].correct += d.correct;
+        }
+
+        // Merge by_market
+        for (const [k, v] of Object.entries(r.by_market || {})) {
+          const d = v as any;
+          if (!merged.by_market[k]) merged.by_market[k] = { total: 0, correct: 0, total_wagered: 0, net_profit: 0 };
+          merged.by_market[k].total += d.total;
+          merged.by_market[k].correct += d.correct;
+          merged.by_market[k].total_wagered += d.total_wagered;
+          merged.by_market[k].net_profit += d.net_profit;
+        }
+
+        // ROI
+        merged.roi_simulation.total_wagered += r.roi_simulation?.total_wagered || 0;
+        merged.roi_simulation.net_profit += r.roi_simulation?.net_profit || 0;
+
+        // Per-league breakdown
+        merged.by_league[r.league] = {
+          total_picked: r.total_picked, correct_picks: r.correct_picks,
+          accuracy: r.accuracy, roi: r.roi_simulation?.roi || 0,
+        };
+      }
+
+      merged.accuracy = merged.total_picked > 0 ? +(merged.correct_picks / merged.total_picked * 100).toFixed(1) : 0;
+      merged.roi_simulation.roi = merged.roi_simulation.total_wagered > 0
+        ? +(merged.roi_simulation.net_profit / merged.roi_simulation.total_wagered * 100).toFixed(1) : 0;
+
+      // Compute derived fields for merged sub-objects
+      for (const v of Object.values(merged.strength_breakdown)) {
+        const d = v as any;
+        d.accuracy = d.total > 0 ? +(d.correct / d.total * 100).toFixed(1) : 0;
+      }
+      for (const v of Object.values(merged.layer_breakdown)) {
+        const d = v as any;
+        d.accuracy = d.total > 0 ? +(d.correct / d.total * 100).toFixed(1) : 0;
+      }
+      for (const v of Object.values(merged.by_market)) {
+        const d = v as any;
+        d.win_pct = d.total > 0 ? +(d.correct / d.total * 100).toFixed(1) : 0;
+        d.roi = d.total_wagered > 0 ? +(d.net_profit / d.total_wagered * 100).toFixed(1) : 0;
+      }
+
+      return merged;
     },
     onSuccess: (data) => {
-      setBtResult(data.backtest);
-      toast({ title: "Backtest complete", description: `${data.backtest.total_picked} games analyzed` });
+      setBtResult(data);
+      toast({ title: "Backtest complete", description: `${data.total_picked} games analyzed across ${btLeagues.length} league(s)` });
     },
     onError: (err: any) => {
       toast({ title: "Backtest failed", description: err.message, variant: "destructive" });
@@ -653,6 +735,24 @@ export default function HistoricalPage() {
                 <FlaskConical className="h-3.5 w-3.5" /> Astro Backtest Engine
               </h3>
               <p className="text-[10px] text-muted-foreground">Run astro verdicts on completed games and measure prediction accuracy.</p>
+
+              {/* Multi-league selector */}
+              <div>
+                <label className="text-[9px] text-muted-foreground block mb-1">Leagues</label>
+                <div className="flex gap-1.5">
+                  {["NBA", "NHL", "NFL", "MLB"].map(lg => {
+                    const isSelected = btLeagues.includes(lg);
+                    return (
+                      <button key={lg} onClick={() => {
+                        setBtLeagues(prev => isSelected ? prev.filter(l => l !== lg) : [...prev, lg]);
+                      }}
+                        className={`px-3 py-1 rounded-full text-[11px] font-semibold transition-colors ${
+                          isSelected ? "bg-primary text-primary-foreground" : "bg-secondary/60 text-muted-foreground hover:bg-secondary hover:text-foreground"
+                        }`}>{lg}</button>
+                    );
+                  })}
+                </div>
+              </div>
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="text-[9px] text-muted-foreground block mb-0.5">Start Date</label>
@@ -681,7 +781,7 @@ export default function HistoricalPage() {
                 <h4 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Model Weights</h4>
                 {["Team", "Player"].map(group => {
                   const groupDefs = MODEL_WEIGHT_DEFS.filter(d => d.group === group);
-                  const visibleDefs = groupDefs.filter(d => !d.nbaOnly || league === "NBA");
+                  const visibleDefs = groupDefs.filter(d => !d.nbaOnly || btLeagues.includes("NBA"));
                   if (visibleDefs.length === 0) return null;
                   return (
                     <div key={group} className="space-y-1.5">
@@ -755,9 +855,9 @@ export default function HistoricalPage() {
                 )}
               </div>
 
-              <Button onClick={() => backtestMutation.mutate()} disabled={!btStart || !btEnd || backtestMutation.isPending}
+              <Button onClick={() => backtestMutation.mutate()} disabled={!btStart || !btEnd || btLeagues.length === 0 || backtestMutation.isPending}
                 className="w-full text-xs" size="sm">
-                {backtestMutation.isPending ? "Running backtest..." : `Run Backtest (${league})`}
+                {backtestMutation.isPending ? "Running backtest..." : `Run Backtest (${btLeagues.join(", ") || "select leagues"})`}
               </Button>
               {backtestMutation.isPending && <Progress value={undefined} className="h-1" />}
             </div>
@@ -868,6 +968,26 @@ export default function HistoricalPage() {
                   </div>
                 </div>
 
+                {/* Per-League Breakdown (multi-league only) */}
+                {btResult.by_league && Object.keys(btResult.by_league).length > 1 && (
+                  <div className="cosmic-card rounded-xl p-4">
+                    <h4 className="text-xs font-semibold mb-2">By League</h4>
+                    <div className="space-y-1.5">
+                      {Object.entries(btResult.by_league).map(([lg, data]: [string, any]) => (
+                        <div key={lg} className="flex items-center justify-between text-[10px]">
+                          <span className="font-bold">{lg}</span>
+                          <div className="flex items-center gap-3">
+                            <span className="tabular-nums">{data.accuracy}% win</span>
+                            <span className={`tabular-nums font-semibold ${data.roi >= 0 ? "text-cosmic-green" : "text-cosmic-red"}`}>
+                              {data.roi >= 0 ? "+" : ""}{data.roi}% ROI
+                            </span>
+                            <span className="text-muted-foreground">({data.correct_picks}/{data.total_picked})</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 {/* ROI Summary */}
                 {btResult.roi_simulation && (
                   <div className="cosmic-card rounded-xl p-4">
