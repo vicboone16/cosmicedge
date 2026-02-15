@@ -53,32 +53,53 @@ function num(v: string | undefined | null): number | null {
 }
 
 function parseHtmlTable(html: string): Record<string, string>[] {
-  const rows: Record<string, string>[] = [];
+  // Parse BOTH basic (team_game_log_reg) and advanced (team_game_log_adv_reg) tables
+  // and merge them by game number (ranker)
 
-  // Match each data row: <tr id="team_game_log_adv_reg.X" ...> ... </tr>
-  const trRegex = /<tr\s+id="team_game_log_adv[^"]*"[^>]*>([\s\S]*?)<\/tr>/g;
-  let trMatch;
+  const parseRows = (regex: RegExp): Map<string, Record<string, string>> => {
+    const map = new Map<string, Record<string, string>>();
+    let trMatch;
+    while ((trMatch = regex.exec(html)) !== null) {
+      const trContent = trMatch[1];
+      const row: Record<string, string> = {};
 
-  while ((trMatch = trRegex.exec(html)) !== null) {
-    const trContent = trMatch[1];
-    const row: Record<string, string> = {};
+      const cellRegex = /data-stat="([^"]+)"(?:\s+csk="([^"]*)")?[^>]*>([^<]*)/g;
+      let cellMatch;
+      while ((cellMatch = cellRegex.exec(trContent)) !== null) {
+        const statName = cellMatch[1];
+        const cskVal = cellMatch[2];
+        const displayVal = cellMatch[3].trim();
+        row[statName] = cskVal || displayVal;
+      }
 
-    // Match both <th> and <td> elements with data-stat
-    // Prefer csk attribute for precise values, fallback to display text
-    const cellRegex = /data-stat="([^"]+)"(?:\s+csk="([^"]*)")?[^>]*>([^<]*)/g;
-    let cellMatch;
-    while ((cellMatch = cellRegex.exec(trContent)) !== null) {
-      const statName = cellMatch[1];
-      const cskVal = cellMatch[2];
-      const displayVal = cellMatch[3].trim();
-      // Use csk for numeric precision, display for text fields
-      row[statName] = cskVal || displayVal;
+      if (row.ranker && row.date) {
+        map.set(row.ranker, row);
+      }
     }
+    return map;
+  };
 
-    if (row.ranker && row.date) rows.push(row);
+  // Basic stats table: id="team_game_log_reg.X"
+  const basicRegex = /<tr\s+id="team_game_log_reg\.\d+"[^>]*>([\s\S]*?)<\/tr>/g;
+  const basicMap = parseRows(basicRegex);
+
+  // Advanced stats table: id="team_game_log_adv_reg.X"
+  const advRegex = /<tr\s+id="team_game_log_adv[^"]*"[^>]*>([\s\S]*?)<\/tr>/g;
+  const advMap = parseRows(advRegex);
+
+  // Merge: start with basic, overlay advanced
+  const merged: Record<string, string>[] = [];
+  const allKeys = new Set([...basicMap.keys(), ...advMap.keys()]);
+
+  for (const key of allKeys) {
+    const basic = basicMap.get(key) || {};
+    const adv = advMap.get(key) || {};
+    const combined = { ...basic, ...adv };
+    if (combined.date) merged.push(combined);
   }
 
-  return rows;
+  console.log(`[parseHtmlTable] basic=${basicMap.size}, adv=${advMap.size}, merged=${merged.length}`);
+  return merged;
 }
 
 function detectTeamFromFilename(filename: string): string | null {
@@ -230,11 +251,25 @@ Deno.serve(async (req) => {
           game_id: gameId,
           team_abbr: teamAbbr,
           is_home: !isAway,
-          points: num(row.team_game_score),
+          points: num(row.team_game_score) ?? num(row.pts),
+          // Basic box score stats (from team_game_log_reg table)
+          fg_made: num(row.fg),
+          fg_attempted: num(row.fga),
+          three_made: num(row.fg3),
+          three_attempted: num(row.fg3a),
+          ft_made: num(row.ft),
+          ft_attempted: num(row.fta),
+          off_rebounds: num(row.orb),
+          def_rebounds: num(row.drb),
+          rebounds: num(row.trb),
+          assists: num(row.ast),
+          steals: num(row.stl),
+          blocks: num(row.blk),
+          turnovers: num(row.tov),
+          // Advanced stats (from team_game_log_adv_reg table)
           off_rating: num(row.team_off_rtg),
           def_rating: num(row.team_def_rtg),
           pace: num(row.pace),
-          // Advanced stats (csk values are raw decimals, store as-is for consistency)
           ts_pct: num(row.ts_pct),
           ftr: num(row.fta_per_fga_pct),
           three_par: num(row.fg3a_per_fga_pct),
@@ -242,12 +277,10 @@ Deno.serve(async (req) => {
           ast_pct: num(row.team_ast_pct),
           stl_pct: num(row.team_stl_pct),
           blk_pct: num(row.team_blk_pct),
-          // Offensive Four Factors
           efg_pct: num(row.efg_pct),
           tov_pct: num(row.team_tov_pct),
           orb_pct: num(row.team_orb_pct),
           ft_per_fga: num(row.ft_rate),
-          // Defensive Four Factors
           opp_efg_pct: num(row.opp_efg_pct),
           opp_tov_pct: num(row.opp_tov_pct),
           opp_orb_pct: num(row.opp_orb_pct),
