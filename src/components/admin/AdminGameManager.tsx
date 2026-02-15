@@ -57,6 +57,9 @@ export default function AdminGameManager() {
   const [editStatus, setEditStatus] = useState("");
   const [editHomeScore, setEditHomeScore] = useState("");
   const [editAwayScore, setEditAwayScore] = useState("");
+  const [editDate, setEditDate] = useState("");
+  const [editTime, setEditTime] = useState("");
+  const [editDateCalOpen, setEditDateCalOpen] = useState(false);
   const [oddsForm, setOddsForm] = useState<OddsFormState>({ ...EMPTY_ODDS });
 
   const dateStr = format(date, "yyyy-MM-dd");
@@ -96,15 +99,22 @@ export default function AdminGameManager() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: async (payload: { id: string; status: string; home_score: number | null; away_score: number | null }) => {
+    mutationFn: async (payload: { id: string; status: string; home_score: number | null; away_score: number | null; start_time?: string }) => {
+      const updateData: any = { status: payload.status, home_score: payload.home_score, away_score: payload.away_score, updated_at: new Date().toISOString() };
+      if (payload.start_time) updateData.start_time = payload.start_time;
       const { error } = await supabase
         .from("games")
-        .update({ status: payload.status, home_score: payload.home_score, away_score: payload.away_score, updated_at: new Date().toISOString() })
+        .update(updateData)
         .eq("id", payload.id);
       if (error) throw error;
+
+      // If date changed, update associated bets start_time & clear astro cache
+      if (payload.start_time) {
+        await supabase.from("bets").update({ start_time: payload.start_time, updated_at: new Date().toISOString() }).eq("game_id", payload.id);
+        await supabase.from("astro_calculations").delete().eq("entity_id", payload.id);
+      }
     },
     onSuccess: () => {
-      // Invalidate all game-related caches so every page reflects the update
       queryClient.invalidateQueries({ queryKey: ["admin-games"] });
       queryClient.invalidateQueries({ queryKey: ["games"] });
       queryClient.invalidateQueries({ queryKey: ["bets"] });
@@ -113,6 +123,9 @@ export default function AdminGameManager() {
       queryClient.invalidateQueries({ queryKey: ["historical-odds"] });
       queryClient.invalidateQueries({ queryKey: ["game-detail"] });
       queryClient.invalidateQueries({ queryKey: ["live-scores"] });
+      queryClient.invalidateQueries({ queryKey: ["astro"] });
+      queryClient.invalidateQueries({ queryKey: ["horary"] });
+      queryClient.invalidateQueries({ queryKey: ["transits"] });
       toast({ title: "Game updated & synced" });
       setEditGame(null);
     },
@@ -199,16 +212,21 @@ export default function AdminGameManager() {
     setEditStatus(game.status);
     setEditHomeScore(game.home_score?.toString() ?? "");
     setEditAwayScore(game.away_score?.toString() ?? "");
+    const dt = new Date(game.start_time);
+    setEditDate(format(dt, "yyyy-MM-dd"));
+    setEditTime(format(dt, "HH:mm"));
     setOddsForm({ ...EMPTY_ODDS });
   }, []);
 
   const handleSave = () => {
     if (!editGame) return;
+    const newStartTime = editDate && editTime ? new Date(`${editDate}T${editTime}:00Z`).toISOString() : undefined;
     updateMutation.mutate({
       id: editGame.id,
       status: editStatus,
       home_score: editHomeScore ? Number(editHomeScore) : null,
       away_score: editAwayScore ? Number(editAwayScore) : null,
+      start_time: newStartTime,
     });
   };
 
@@ -325,6 +343,29 @@ export default function AdminGameManager() {
 
             {/* Game Info Tab */}
             <TabsContent value="game" className="mt-3 space-y-3">
+              <div>
+                <label className="text-xs font-medium text-foreground">Date & Time (UTC)</label>
+                <div className="grid grid-cols-2 gap-2 mt-1">
+                  <Popover open={editDateCalOpen} onOpenChange={setEditDateCalOpen}>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" className="h-9 text-xs justify-start gap-1.5">
+                        <CalendarIcon className="h-3 w-3" />
+                        {editDate || "Pick date"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={editDate ? new Date(editDate + "T12:00:00") : undefined}
+                        onSelect={(d) => { if (d) { setEditDate(format(d, "yyyy-MM-dd")); setEditDateCalOpen(false); } }}
+                        initialFocus
+                        className={cn("p-3 pointer-events-auto")}
+                      />
+                    </PopoverContent>
+                  </Popover>
+                  <Input type="time" value={editTime} onChange={e => setEditTime(e.target.value)} className="h-9 text-xs" />
+                </div>
+              </div>
               <div>
                 <label className="text-xs font-medium text-foreground">Status</label>
                 <Select value={editStatus} onValueChange={setEditStatus}>
