@@ -52,6 +52,9 @@ export default function AdminImportPage() {
   const [log, setLog] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const rosterCsvRef = useRef<HTMLInputElement>(null);
+  const birthTimeCsvRef = useRef<HTMLInputElement>(null);
+  const [rosterLeague, setRosterLeague] = useState<string>("NFL");
 
   const addLog = (msg: string) => setLog((prev) => [...prev, `${new Date().toLocaleTimeString()} — ${msg}`]);
 
@@ -243,11 +246,83 @@ export default function AdminImportPage() {
     setLoading(false);
   };
 
+  const handleRosterCsvUpload = async () => {
+    const file = rosterCsvRef.current?.files?.[0];
+    if (!file) { addLog("No roster CSV selected"); return; }
+    setLoading(true);
+    addLog(`Uploading ${rosterLeague} roster CSV: ${file.name}`);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("mode", "roster");
+      formData.append("league", rosterLeague);
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/import-players-csv`,
+        { method: "POST", headers: { Authorization: `Bearer ${session?.access_token}`, apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY }, body: formData }
+      );
+      const result = await res.json();
+      if (!res.ok || result.error) addLog(`❌ ${result.error || "Upload failed"}`);
+      else {
+        addLog(`✅ Inserted ${result.inserted}, Updated ${result.updated}, Skipped ${result.skipped}`);
+        if (result.errors?.length) result.errors.slice(0, 5).forEach((e: string) => addLog(`  ⚠️ ${e}`));
+      }
+    } catch (e: any) { addLog(`❌ ${e.message}`); }
+    setLoading(false);
+  };
+
+  const handleBirthTimeCsvUpload = async () => {
+    const file = birthTimeCsvRef.current?.files?.[0];
+    if (!file) { addLog("No birth time CSV selected"); return; }
+    setLoading(true);
+    addLog(`Uploading birth time CSV: ${file.name}`);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("mode", "birthtime");
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/import-players-csv`,
+        { method: "POST", headers: { Authorization: `Bearer ${session?.access_token}`, apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY }, body: formData }
+      );
+      const result = await res.json();
+      if (!res.ok || result.error) addLog(`❌ ${result.error || "Upload failed"}`);
+      else {
+        addLog(`✅ Updated ${result.updated} birth times, Skipped ${result.skipped}`);
+        if (result.errors?.length) result.errors.slice(0, 5).forEach((e: string) => addLog(`  ⚠️ ${e}`));
+      }
+    } catch (e: any) { addLog(`❌ ${e.message}`); }
+    setLoading(false);
+  };
+
+  const handleGeocode = async (league: string) => {
+    setLoading(true);
+    addLog(`Geocoding ${league || "all"} player birth places (this takes ~1s per player)...`);
+    try {
+      const { data, error } = await supabase.functions.invoke("geocode-birthplaces", {
+        body: null,
+        headers: {},
+      });
+      // Use GET with query params
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/geocode-birthplaces?league=${league}&limit=50`,
+        { headers: { Authorization: `Bearer ${session?.access_token}`, apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY } }
+      );
+      const result = await res.json();
+      if (!res.ok || result.error) addLog(`❌ ${result.error}`);
+      else {
+        addLog(`✅ Geocoded ${result.geocoded}/${result.total} players (${result.failed} failed)`);
+        if (result.errors?.length) result.errors.slice(0, 5).forEach((e: string) => addLog(`  ⚠️ ${e}`));
+      }
+    } catch (e: any) { addLog(`❌ ${e.message}`); }
+    setLoading(false);
+  };
+
   return (
     <div className="min-h-screen bg-background p-6 space-y-4">
       <h1 className="text-2xl font-bold text-foreground">Data Import Admin</h1>
       <DataHealthDashboard />
-
       <div className="space-y-4">
         {/* CSV Schedule + Scores — all leagues */}
         <Card className="p-4 space-y-3">
@@ -354,6 +429,68 @@ export default function AdminImportPage() {
             <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" className="text-xs" />
             <Button onClick={handleExcelUpload} disabled={loading} variant="secondary">
               {loading ? "Importing..." : "Import Excel Schedules"}
+            </Button>
+          </div>
+        </Card>
+
+        {/* Roster CSV Import */}
+        <Card className="p-4 space-y-3">
+          <h2 className="text-sm font-semibold text-foreground">🏟️ Player Roster CSV Import</h2>
+          <p className="text-xs text-muted-foreground">
+            Upload a .csv with player rosters. Matches existing players by name+league; creates new ones if not found.
+          </p>
+          <p className="text-xs text-muted-foreground italic">
+            Columns: Name, Team, Position, League, BirthDate, BirthPlace (optional: BirthTime, ExternalId)
+          </p>
+          <div className="flex gap-3 items-center flex-wrap">
+            <Select value={rosterLeague} onValueChange={setRosterLeague}>
+              <SelectTrigger className="w-32 h-9 text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="NFL">NFL</SelectItem>
+                <SelectItem value="NHL">NHL</SelectItem>
+                <SelectItem value="MLB">MLB</SelectItem>
+                <SelectItem value="NBA">NBA</SelectItem>
+              </SelectContent>
+            </Select>
+            <input ref={rosterCsvRef} type="file" accept=".csv" className="text-xs" />
+            <Button onClick={handleRosterCsvUpload} disabled={loading} variant="default">
+              {loading ? "Importing..." : "Import Roster CSV"}
+            </Button>
+          </div>
+        </Card>
+
+        {/* Birth Time CSV Import */}
+        <Card className="p-4 space-y-3">
+          <h2 className="text-sm font-semibold text-foreground">🕐 Birth Time CSV Update</h2>
+          <p className="text-xs text-muted-foreground">
+            Upload a .csv to update birth times for existing players. Matches by Name + League.
+          </p>
+          <p className="text-xs text-muted-foreground italic">
+            Columns: Name, League, BirthTime (HH:MM 24hr), BirthPlace (optional)
+          </p>
+          <div className="flex gap-3 items-center flex-wrap">
+            <input ref={birthTimeCsvRef} type="file" accept=".csv" className="text-xs" />
+            <Button onClick={handleBirthTimeCsvUpload} disabled={loading} variant="default">
+              {loading ? "Updating..." : "Update Birth Times"}
+            </Button>
+          </div>
+        </Card>
+
+        {/* Geocode Birth Places */}
+        <Card className="p-4 space-y-3">
+          <h2 className="text-sm font-semibold text-foreground">📍 Geocode Birth Places → Coordinates</h2>
+          <p className="text-xs text-muted-foreground">
+            Converts birth_place text to lat/lng coordinates for natal charts.
+            Processes 50 players at a time (~1 sec each). Run multiple times until all are done.
+          </p>
+          <div className="flex gap-2 flex-wrap">
+            {["NBA", "NFL", "NHL", "MLB"].map((l) => (
+              <Button key={l} onClick={() => handleGeocode(l)} disabled={loading} variant="secondary" size="sm">
+                Geocode {l}
+              </Button>
+            ))}
+            <Button onClick={() => handleGeocode("")} disabled={loading} variant="outline" size="sm">
+              Geocode All
             </Button>
           </div>
         </Card>
