@@ -297,23 +297,19 @@ export default function AdminImportPage() {
 
   const handleGeocode = async (league: string) => {
     setLoading(true);
-    addLog(`Geocoding ${league || "all"} player birth places (this takes ~1s per player)...`);
+    addLog(`Geocoding ${league || "all"} player birth places (batch of 15, ~1s per player)...`);
     try {
-      const { data, error } = await supabase.functions.invoke("geocode-birthplaces", {
-        body: null,
-        headers: {},
-      });
-      // Use GET with query params
       const { data: { session } } = await supabase.auth.getSession();
       const res = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/geocode-birthplaces?league=${league}&limit=50`,
-        { headers: { Authorization: `Bearer ${session?.access_token}`, apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY } }
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/fetch-players?mode=geocode&league=${league}&limit=15`,
+        { method: "POST", headers: { Authorization: `Bearer ${session?.access_token}`, apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY } }
       );
       const result = await res.json();
       if (!res.ok || result.error) addLog(`❌ ${result.error}`);
       else {
         addLog(`✅ Geocoded ${result.geocoded}/${result.total} players (${result.failed} failed)`);
         if (result.errors?.length) result.errors.slice(0, 5).forEach((e: string) => addLog(`  ⚠️ ${e}`));
+        if (result.geocoded > 0) addLog(`ℹ️ Click again to geocode the next batch`);
       }
     } catch (e: any) { addLog(`❌ ${e.message}`); }
     setLoading(false);

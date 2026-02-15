@@ -6,11 +6,6 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
-/**
- * Geocode players who have birth_place but no birth_lat/birth_lng.
- * Uses free Nominatim (OpenStreetMap) geocoder — rate limited to 1 req/sec.
- * Call with ?league=NBA&limit=50 to process in batches.
- */
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -26,7 +21,6 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Find players with birth_place but no coordinates
     let query = supabase
       .from("players")
       .select("id, name, birth_place")
@@ -53,7 +47,6 @@ Deno.serve(async (req) => {
 
     for (const player of players) {
       try {
-        // Nominatim free geocoder — 1 req/sec rate limit
         const encPlace = encodeURIComponent(player.birth_place!);
         const geoRes = await fetch(
           `https://nominatim.openstreetmap.org/search?q=${encPlace}&format=json&limit=1`,
@@ -63,7 +56,7 @@ Deno.serve(async (req) => {
         if (!geoRes.ok) {
           errors.push(`${player.name}: Nominatim ${geoRes.status}`);
           failed++;
-          await delay(1100);
+          await new Promise((r) => setTimeout(r, 1100));
           continue;
         }
 
@@ -71,7 +64,7 @@ Deno.serve(async (req) => {
         if (!results || results.length === 0) {
           errors.push(`${player.name}: "${player.birth_place}" not found`);
           failed++;
-          await delay(1100);
+          await new Promise((r) => setTimeout(r, 1100));
           continue;
         }
 
@@ -90,8 +83,7 @@ Deno.serve(async (req) => {
           geocoded++;
         }
 
-        // Respect Nominatim rate limit
-        await delay(1100);
+        await new Promise((r) => setTimeout(r, 1100));
       } catch (e) {
         errors.push(`${player.name}: ${e.message}`);
         failed++;
@@ -99,13 +91,7 @@ Deno.serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({
-        success: true,
-        geocoded,
-        failed,
-        total: players.length,
-        errors: errors.slice(0, 20),
-      }),
+      JSON.stringify({ success: true, geocoded, failed, total: players.length, errors: errors.slice(0, 20) }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
@@ -116,7 +102,3 @@ Deno.serve(async (req) => {
     );
   }
 });
-
-function delay(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}

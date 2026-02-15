@@ -103,15 +103,60 @@ Deno.serve(async (req) => {
 
   try {
     const url = new URL(req.url);
+    const mode = url.searchParams.get("mode") || "roster";
     const league = (url.searchParams.get("league") || "NBA").toUpperCase();
 
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+    // ── GEOCODE MODE ──────────────────────────────────────────────
+    if (mode === "geocode") {
+      const sb = createClient(supabaseUrl, supabaseKey);
+      const limit = Math.min(Number(url.searchParams.get("limit") || "50"), 200);
+
+      let q = sb.from("players").select("id, name, birth_place")
+        .not("birth_place", "is", null).is("birth_lat", null).limit(limit);
+      if (league) q = q.eq("league", league);
+
+      const { data: players, error: fe } = await q;
+      if (fe) throw new Error(fe.message);
+      if (!players?.length) {
+        return new Response(JSON.stringify({ success: true, geocoded: 0, message: "All geocoded" }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+
+      console.log(`[geocode] Processing ${players.length} players`);
+      let geocoded = 0, failed = 0;
+      const errors: string[] = [];
+
+      for (const p of players) {
+        try {
+          const enc = encodeURIComponent(p.birth_place!);
+          const r = await fetch(
+            `https://nominatim.openstreetmap.org/search?q=${enc}&format=json&limit=1`,
+            { headers: { "User-Agent": "CosmicEdge/1.0" } }
+          );
+          if (!r.ok) { errors.push(`${p.name}: ${r.status}`); failed++; await delay(1100); continue; }
+          const res = await r.json();
+          if (!res?.length) { errors.push(`${p.name}: not found`); failed++; await delay(1100); continue; }
+
+          const { error: ue } = await sb.from("players")
+            .update({ birth_lat: parseFloat(res[0].lat), birth_lng: parseFloat(res[0].lon) })
+            .eq("id", p.id);
+          if (ue) { errors.push(`${p.name}: ${ue.message}`); failed++; } else { geocoded++; }
+          await delay(1100);
+        } catch (e) { errors.push(`${p.name}: ${e.message}`); failed++; }
+      }
+
+      return new Response(JSON.stringify({ success: true, geocoded, failed, total: players.length, errors: errors.slice(0, 20) }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    // ── ROSTER MODE (default) ─────────────────────────────────────
     const sdioKey = Deno.env.get("SPORTSDATAIO_API_KEY");
     if (!sdioKey) throw new Error("SPORTSDATAIO_API_KEY not configured");
 
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-    );
+    const supabase = createClient(supabaseUrl, supabaseKey);
 
     const slug = league.toLowerCase();
     const posMap = POSITION_MAP[league] || {};
@@ -210,3 +255,7 @@ Deno.serve(async (req) => {
     );
   }
 });
+
+function delay(ms: number): Promise<void> {
+  return new Promise((r) => setTimeout(r, ms));
+}
