@@ -9,13 +9,27 @@ const corsHeaders = {
 /**
  * Import NFL (or any league) player game stats from CSV.
  * Also auto-creates player records if they don't exist.
- *
- * Expected CSV columns (flexible naming):
- *   Name, Team, DateTime PST (or Date), HomeTeam, AwayTeam,
- *   Targets, ReceivingYards, ReceivingTouchdowns,
- *   PassingAttempts, Completions, PassingYards, PassingTouchdowns,
- *   RushingAttempts, RushingYards, RushingTouchdowns
  */
+
+// ── NFL team name → abbreviation map ────────────────────────────────────────
+const NFL_TEAM_ABBR: Record<string, string> = {
+  "arizona cardinals": "ARI", "atlanta falcons": "ATL", "baltimore ravens": "BAL",
+  "buffalo bills": "BUF", "carolina panthers": "CAR", "chicago bears": "CHI",
+  "cincinnati bengals": "CIN", "cleveland browns": "CLE", "dallas cowboys": "DAL",
+  "denver broncos": "DEN", "detroit lions": "DET", "green bay packers": "GB",
+  "houston texans": "HOU", "indianapolis colts": "IND", "jacksonville jaguars": "JAX",
+  "kansas city chiefs": "KC", "las vegas raiders": "LV", "los angeles chargers": "LAC",
+  "los angeles rams": "LAR", "miami dolphins": "MIA", "minnesota vikings": "MIN",
+  "new england patriots": "NE", "new orleans saints": "NO", "new york giants": "NYG",
+  "new york jets": "NYJ", "philadelphia eagles": "PHI", "pittsburgh steelers": "PIT",
+  "san francisco 49ers": "SF", "seattle seahawks": "SEA", "tampa bay buccaneers": "TB",
+  "tennessee titans": "TEN", "washington commanders": "WAS",
+};
+
+function toAbbr(teamName: string): string {
+  const lower = teamName.trim().toLowerCase();
+  return NFL_TEAM_ABBR[lower] || teamName.trim().toUpperCase();
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -38,9 +52,28 @@ Deno.serve(async (req) => {
     const lines = csvText.split(/\r?\n/).filter((l) => l.trim());
     if (lines.length < 2) throw new Error("CSV must have a header row + data");
 
-    const rawHeaders = parseCSVLine(lines[0]);
+    // Find the actual header row — skip title rows that don't look like headers
+    let headerIdx = 0;
+    for (let i = 0; i < Math.min(5, lines.length); i++) {
+      const cols = parseCSVLine(lines[i]);
+      const norm = cols.map(c => c.toLowerCase().replace(/[^a-z0-9]/g, ""));
+      // Header row should contain recognizable column names
+      if (norm.some(h => ["name", "player", "playername"].includes(h)) &&
+          norm.some(h => ["team", "teamabbr", "tm"].includes(h))) {
+        headerIdx = i;
+        break;
+      }
+    }
+
+    const rawHeaders = parseCSVLine(lines[headerIdx]);
     const colMap = mapColumns(rawHeaders);
+    console.log(`[import-player-gamelog] Header row index: ${headerIdx}`);
+    console.log(`[import-player-gamelog] Raw headers: ${JSON.stringify(rawHeaders)}`);
     console.log(`[import-player-gamelog] Mapped columns:`, JSON.stringify(colMap));
+
+    if (!colMap.name && colMap.name !== 0) {
+      throw new Error(`Could not find 'Name' column in headers: ${rawHeaders.join(", ")}`);
+    }
 
     // ── Pre-fetch existing players for this league ─────────────────
     const { data: existingPlayers } = await sb
@@ -64,23 +97,27 @@ Deno.serve(async (req) => {
       const d = g.start_time?.split("T")[0] || "";
       gameIndex.set(`${g.home_abbr}|${g.away_abbr}|${d}`, g.id);
     }
+    console.log(`[import-player-gamelog] ${gameIndex.size} games indexed, ${playerIndex.size} players indexed`);
 
     let playersCreated = 0;
     let statsInserted = 0;
     let statsSkipped = 0;
     let gameNotFound = 0;
     const errors: string[] = [];
+    const unmatchedGames: string[] = [];
 
     const statsBatch: any[] = [];
 
-    for (let i = 1; i < lines.length; i++) {
+    for (let i = headerIdx + 1; i < lines.length; i++) {
       const vals = parseCSVLine(lines[i]);
       if (vals.length < 3) continue;
 
       const row = mapRow(colMap, vals);
       const name = row.name?.trim();
-      const team = row.team?.trim()?.toUpperCase();
-      if (!name || !team) continue;
+      const rawTeam = row.team?.trim();
+      if (!name || !rawTeam) continue;
+
+      const team = toAbbr(rawTeam);
 
       // ── Ensure player exists ──────────────────────────────────────
       const pKey = `${name}|${team}`;
@@ -104,8 +141,8 @@ Deno.serve(async (req) => {
       }
 
       // ── Match game ────────────────────────────────────────────────
-      const homeTeam = row.home_team?.trim()?.toUpperCase();
-      const awayTeam = row.away_team?.trim()?.toUpperCase();
+      const homeTeam = row.home_team ? toAbbr(row.home_team) : "";
+      const awayTeam = row.away_team ? toAbbr(row.away_team) : "";
       const dateStr = parseDate(row.datetime);
 
       let gameId: string | undefined;
@@ -115,7 +152,10 @@ Deno.serve(async (req) => {
 
       if (!gameId) {
         gameNotFound++;
-        // Still insert stats without game link if we can't match
+        const key = `${homeTeam}@${awayTeam} ${dateStr}`;
+        if (!unmatchedGames.includes(key) && unmatchedGames.length < 10) {
+          unmatchedGames.push(key);
+        }
       }
 
       // ── Build stat record ─────────────────────────────────────────
@@ -137,7 +177,6 @@ Deno.serve(async (req) => {
       };
 
       if (!stat.game_id) {
-        // Can't upsert without game_id (it's required), skip
         statsSkipped++;
         continue;
       }
@@ -157,15 +196,21 @@ Deno.serve(async (req) => {
       }
     }
 
+    console.log(`[import-player-gamelog] Done: ${statsInserted} inserted, ${playersCreated} players created, ${gameNotFound} unmatched`);
+    if (unmatchedGames.length > 0) {
+      console.log(`[import-player-gamelog] Unmatched game samples:`, unmatchedGames);
+    }
+
     return new Response(
       JSON.stringify({
         success: true,
         league,
-        rows_parsed: lines.length - 1,
+        rows_parsed: lines.length - 1 - headerIdx,
         players_created: playersCreated,
         stats_inserted: statsInserted,
         stats_skipped: statsSkipped,
         games_not_found: gameNotFound,
+        unmatched_games_sample: unmatchedGames,
         errors: errors.slice(0, 20),
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
@@ -202,7 +247,7 @@ function mapColumns(headers: string[]): Record<string, number> {
     const h = norm(headers[i]);
     if (["name", "player", "playername"].includes(h)) map.name = i;
     else if (["team", "teamabbr", "tm"].includes(h)) map.team = i;
-    else if (["datetimepst", "datetime", "date", "gamedate"].includes(h)) map.datetime = i;
+    else if (["datetimepst", "dateandtimepst", "datetime", "date", "gamedate"].includes(h)) map.datetime = i;
     else if (["hometeam", "home"].includes(h)) map.home_team = i;
     else if (["awayteam", "away", "visitor"].includes(h)) map.away_team = i;
     else if (h === "targets" || h === "tgt") map.targets = i;
@@ -229,8 +274,8 @@ function mapRow(colMap: Record<string, number>, vals: string[]): Record<string, 
 
 function parseDate(raw: string | undefined): string {
   if (!raw) return "";
-  // Handle "MM/DD/YYYY HH:MM" or "YYYY-MM-DD" or "MM/DD/YYYY"
-  const cleaned = raw.split(" ")[0]; // drop time portion
+  // Handle "9/4/2025 5:20PM" or "MM/DD/YYYY HH:MM" or "YYYY-MM-DD"
+  const cleaned = raw.replace(/\s*\d{1,2}:\d{2}\s*(AM|PM|am|pm)?\s*$/i, "").trim();
   if (cleaned.includes("/")) {
     const [m, d, y] = cleaned.split("/");
     if (y && m && d) return `${y.padStart(4, "20")}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
