@@ -79,9 +79,23 @@ function parseHtmlTable(html: string): Record<string, string>[] {
     return map;
   };
 
-  // Basic stats table: id="team_game_log_reg.X"
-  const basicRegex = /<tr\s+id="team_game_log_reg\.\d+"[^>]*>([\s\S]*?)<\/tr>/g;
+  // Log all tr IDs found in the HTML for debugging
+  const allTrIds = [...html.matchAll(/<tr\s+id="([^"]+)"/g)].map(m => m[1]);
+  const uniquePrefixes = [...new Set(allTrIds.map(id => id.replace(/\.\d+$/, "")))];
+  console.log(`[parseHtmlTable] Found tr id prefixes: ${uniquePrefixes.join(", ")}`);
+
+  // Basic stats table — try multiple possible ID patterns
+  const basicRegex = /<tr\s+id="(?:team_game_log_reg|tgl_basic|team_and_opponent)\.\d+"[^>]*>([\s\S]*?)<\/tr>/g;
   const basicMap = parseRows(basicRegex);
+
+  // If basic didn't match, try matching ALL non-advanced game log rows
+  if (basicMap.size === 0) {
+    // Try any tr with an id containing a dot and number that ISN'T the advanced table
+    const fallbackRegex = /<tr\s+id="(?!team_game_log_adv)[a-z_]+\.\d+"[^>]*>([\s\S]*?)<\/tr>/g;
+    const fallbackMap = parseRows(fallbackRegex);
+    console.log(`[parseHtmlTable] fallback basic parse found ${fallbackMap.size} rows`);
+    for (const [k, v] of fallbackMap) basicMap.set(k, v);
+  }
 
   // Advanced stats table: id="team_game_log_adv_reg.X"
   const advRegex = /<tr\s+id="team_game_log_adv[^"]*"[^>]*>([\s\S]*?)<\/tr>/g;
