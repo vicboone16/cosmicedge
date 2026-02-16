@@ -512,57 +512,56 @@ export default function HistoricalPage() {
               const awayWon = g.away_score != null && g.home_score != null && g.away_score > g.home_score;
               const homeWon = g.away_score != null && g.home_score != null && g.home_score > g.away_score;
               return (
-                <button key={g.id} onClick={() => navigate(`/game/${g.id}`)} className="cosmic-card rounded-lg w-full text-left transition-all hover:border-primary/30 active:scale-[0.98] overflow-hidden">
-                  {/* Away row */}
-                  <div className="flex items-center justify-between px-3 py-2.5 border-b border-border/30">
-                    <div className="flex items-center gap-2 flex-1 min-w-0">
-                      <span className="text-xs font-bold text-primary w-8">{g.away_abbr}</span>
-                      <span className={cn("text-sm font-medium truncate", awayWon ? "text-foreground" : "text-muted-foreground")}>
-                        {g.away_team.split(" ").pop()}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {g.away_score != null && (
-                        <div className="flex items-center gap-1">
-                          <span className={cn("text-lg font-bold tabular-nums font-display", awayWon ? "text-foreground" : "text-muted-foreground")}>
-                            {g.away_score}
-                          </span>
-                          {awayWon && <span className="text-cosmic-gold text-[10px]">◀</span>}
-                        </div>
-                      )}
-                      {g.status === "final" && g.away_score == null && (
-                        <span className="text-xs text-muted-foreground">—</span>
-                      )}
-                    </div>
-                    {/* Status badge - only on top row */}
-                    <span className={cn(
-                      "text-[9px] font-semibold ml-3 w-10 text-right",
-                      g.status === "final" ? "text-muted-foreground" : "text-cosmic-green"
-                    )}>
-                      {g.status === "final" ? "Final" : g.status?.toUpperCase()}
-                    </span>
-                  </div>
-                  {/* Home row */}
-                  <div className="flex items-center justify-between px-3 py-2.5">
-                    <div className="flex items-center gap-2 flex-1 min-w-0">
-                      <span className="text-xs font-bold text-primary w-8">{g.home_abbr}</span>
-                      <span className={cn("text-sm font-medium truncate", homeWon ? "text-foreground" : "text-muted-foreground")}>
-                        {g.home_team.split(" ").pop()}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      {g.home_score != null && (
-                        <div className="flex items-center gap-1">
-                          <span className={cn("text-lg font-bold tabular-nums font-display", homeWon ? "text-foreground" : "text-muted-foreground")}>
-                            {g.home_score}
-                          </span>
-                          {homeWon && <span className="text-cosmic-gold text-[10px]">◀</span>}
-                        </div>
-                      )}
-                    </div>
-                    <span className="w-10 ml-3" />
-                  </div>
-                </button>
+                <button key={g.id} onClick={() => navigate(`/game/${g.id}`)} className="cosmic-card rounded-xl p-3 w-full text-left transition-all hover:border-primary/30 active:scale-[0.98]">
+                   {/* Away row */}
+                   <div className="flex items-center justify-between mb-1.5">
+                     <div className="flex items-center gap-2 flex-1 min-w-0">
+                       <span className="text-[10px] font-bold text-primary w-7">{g.away_abbr}</span>
+                       <span className={cn("text-xs font-medium truncate", awayWon ? "text-foreground" : "text-muted-foreground")}>
+                         {g.away_team.split(" ").pop()}
+                       </span>
+                     </div>
+                     <div className="flex items-center gap-2">
+                       {g.away_score != null && (
+                         <div className="flex items-center gap-1">
+                           <span className={cn("text-sm font-semibold tabular-nums", awayWon ? "text-foreground" : "text-muted-foreground")}>
+                             {g.away_score}
+                           </span>
+                           {awayWon && <span className="text-cosmic-gold text-[8px]">◀</span>}
+                         </div>
+                       )}
+                       {g.status === "final" && g.away_score == null && (
+                         <span className="text-[10px] text-muted-foreground">—</span>
+                       )}
+                       <span className={cn(
+                         "text-[8px] font-semibold w-8 text-right",
+                         g.status === "final" ? "text-muted-foreground" : "text-cosmic-green"
+                       )}>
+                         {g.status === "final" ? "Final" : g.status?.toUpperCase()}
+                       </span>
+                     </div>
+                   </div>
+                   {/* Home row */}
+                   <div className="flex items-center justify-between">
+                     <div className="flex items-center gap-2 flex-1 min-w-0">
+                       <span className="text-[10px] font-bold text-primary w-7">{g.home_abbr}</span>
+                       <span className={cn("text-xs font-medium truncate", homeWon ? "text-foreground" : "text-muted-foreground")}>
+                         {g.home_team.split(" ").pop()}
+                       </span>
+                     </div>
+                     <div className="flex items-center gap-2">
+                       {g.home_score != null && (
+                         <div className="flex items-center gap-1">
+                           <span className={cn("text-sm font-semibold tabular-nums", homeWon ? "text-foreground" : "text-muted-foreground")}>
+                             {g.home_score}
+                           </span>
+                           {homeWon && <span className="text-cosmic-gold text-[8px]">◀</span>}
+                         </div>
+                       )}
+                       <span className="w-8" />
+                     </div>
+                   </div>
+                 </button>
               );
             }) : closingLines.length > 0 ? closingLines.map(cl => (
               <div key={cl.key} className="cosmic-card rounded-lg p-3">
