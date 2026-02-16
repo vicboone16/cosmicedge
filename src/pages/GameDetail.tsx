@@ -472,7 +472,7 @@ const GameDetail = () => {
           {/* Away team */}
           <button onClick={() => navigate(`/team/${game.league}/${game.away_abbr}`)} className="text-center hover:opacity-80 transition-opacity">
             <p className="text-xl font-bold font-display">{game.away_abbr}</p>
-            <p className="text-[10px] text-muted-foreground mt-0.5">{game.away_abbr}</p>
+            <p className="text-[10px] text-muted-foreground mt-0.5">{game.away_team}</p>
           </button>
 
           {/* Scores + status */}
@@ -530,7 +530,7 @@ const GameDetail = () => {
           {/* Home team */}
           <button onClick={() => navigate(`/team/${game.league}/${game.home_abbr}`)} className="text-center hover:opacity-80 transition-opacity">
             <p className="text-xl font-bold font-display">{game.home_abbr}</p>
-            <p className="text-[10px] text-muted-foreground mt-0.5">{game.home_abbr}</p>
+            <p className="text-[10px] text-muted-foreground mt-0.5">{game.home_team}</p>
           </button>
         </div>
 

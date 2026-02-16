@@ -37,15 +37,18 @@ export function PlayByPlayTab({ gameId, homeAbbr, awayAbbr, league }: PlayByPlay
 
       if (!gameData) return [];
 
-      // 3. Try external_id
+      // 3. Try external_id (and with leading zeros for NBA format)
       if (gameData.external_id) {
-        const { data: eventsById } = await supabase
-          .from("nba_play_by_play_events")
-          .select("*")
-          .eq("game_id", gameData.external_id)
-          .order("play_id", { ascending: true })
-          .limit(1000);
-        if (eventsById && eventsById.length > 0) return eventsById;
+        const extIds = [gameData.external_id, "00" + gameData.external_id];
+        for (const extId of extIds) {
+          const { data: eventsById } = await supabase
+            .from("nba_play_by_play_events")
+            .select("*")
+            .eq("game_id", extId)
+            .order("play_id", { ascending: true })
+            .limit(1000);
+          if (eventsById && eventsById.length > 0) return eventsById;
+        }
       }
 
       // 4. Fallback: match by home_team + away_team + date
