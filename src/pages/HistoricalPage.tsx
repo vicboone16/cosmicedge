@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { cn } from "@/lib/utils";
 import { History, TrendingUp, TrendingDown, ChevronLeft, ChevronRight, RefreshCw, Trophy, Star, Users, Target, FlaskConical, Save, Trash2 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useIsAdmin } from "@/hooks/use-admin";
@@ -506,52 +507,65 @@ export default function HistoricalPage() {
           </TabsList>
 
           {/* Tab 1: Game Results */}
-          <TabsContent value="results" className="space-y-2 mt-3">
-            {pastGames?.length ? pastGames.map(g => (
-              <button key={g.id} onClick={() => navigate(`/game/${g.id}`)} className="cosmic-card rounded-xl p-3 w-full text-left transition-all hover:border-primary/30 hover:cosmic-glow active:scale-[0.98]">
-                <div className="flex items-center justify-between mb-1">
-                  <p className="text-xs font-semibold text-foreground">{g.away_team} @ {g.home_team}</p>
-                  <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${
-                    g.status === "final" ? "bg-cosmic-green/20 text-cosmic-green" : "bg-secondary text-muted-foreground"
-                  }`}>{g.status?.toUpperCase()}</span>
-                </div>
-                {g.home_score != null && g.away_score != null ? (
-                  <div className="mt-2 space-y-2">
-                    <div className="flex items-center gap-4">
-                      <div className="flex items-center gap-2">
-                        <span className="text-lg font-bold tabular-nums">{g.away_score}</span>
-                        <span className="text-xs text-muted-foreground">-</span>
-                        <span className="text-lg font-bold tabular-nums">{g.home_score}</span>
-                      </div>
-                      <span className={`text-[10px] font-bold ${g.home_score > g.away_score ? "text-cosmic-green" : "text-cosmic-red"}`}>
-                        {g.home_score > g.away_score ? `${g.home_abbr} WIN` : `${g.away_abbr} WIN`}
+          <TabsContent value="results" className="space-y-1 mt-3">
+            {pastGames?.length ? pastGames.map(g => {
+              const awayWon = g.away_score != null && g.home_score != null && g.away_score > g.home_score;
+              const homeWon = g.away_score != null && g.home_score != null && g.home_score > g.away_score;
+              return (
+                <button key={g.id} onClick={() => navigate(`/game/${g.id}`)} className="cosmic-card rounded-lg w-full text-left transition-all hover:border-primary/30 active:scale-[0.98] overflow-hidden">
+                  {/* Away row */}
+                  <div className="flex items-center justify-between px-3 py-2.5 border-b border-border/30">
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                      <span className="text-xs font-bold text-primary w-8">{g.away_abbr}</span>
+                      <span className={cn("text-sm font-medium truncate", awayWon ? "text-foreground" : "text-muted-foreground")}>
+                        {g.away_team.split(" ").pop()}
                       </span>
                     </div>
-                    {/* Period/Quarter scores */}
-                    {gameQuarters?.[g.id] && gameQuarters[g.id].length > 0 && (
-                      <div className="flex gap-1 items-center flex-wrap">
-                        {gameQuarters[g.id].map((q) => {
-                          const periodLabel = g.league === "NHL"
-                            ? (q.quarter <= 3 ? `P${q.quarter}` : "OT")
-                            : g.league === "MLB"
-                              ? `${q.quarter}`
-                              : (q.quarter <= 4 ? `Q${q.quarter}` : "OT");
-                          return (
-                            <div key={q.quarter} className="text-center px-1.5 py-0.5 rounded bg-secondary/50">
-                              <p className="text-[8px] text-muted-foreground uppercase">{periodLabel}</p>
-                              <p className="text-[10px] font-semibold tabular-nums">{q.away_score ?? "–"}-{q.home_score ?? "–"}</p>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {g.away_score != null && (
+                        <div className="flex items-center gap-1">
+                          <span className={cn("text-lg font-bold tabular-nums font-display", awayWon ? "text-foreground" : "text-muted-foreground")}>
+                            {g.away_score}
+                          </span>
+                          {awayWon && <span className="text-cosmic-gold text-[10px]">◀</span>}
+                        </div>
+                      )}
+                      {g.status === "final" && g.away_score == null && (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
+                    </div>
+                    {/* Status badge - only on top row */}
+                    <span className={cn(
+                      "text-[9px] font-semibold ml-3 w-10 text-right",
+                      g.status === "final" ? "text-muted-foreground" : "text-cosmic-green"
+                    )}>
+                      {g.status === "final" ? "Final" : g.status?.toUpperCase()}
+                    </span>
                   </div>
-                ) : (
-                  <p className="text-xs text-muted-foreground mt-1">Score not yet available</p>
-                )}
-              </button>
-            )) : closingLines.length > 0 ? closingLines.map(cl => (
-              <div key={cl.key} className="cosmic-card rounded-xl p-3">
+                  {/* Home row */}
+                  <div className="flex items-center justify-between px-3 py-2.5">
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                      <span className="text-xs font-bold text-primary w-8">{g.home_abbr}</span>
+                      <span className={cn("text-sm font-medium truncate", homeWon ? "text-foreground" : "text-muted-foreground")}>
+                        {g.home_team.split(" ").pop()}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      {g.home_score != null && (
+                        <div className="flex items-center gap-1">
+                          <span className={cn("text-lg font-bold tabular-nums font-display", homeWon ? "text-foreground" : "text-muted-foreground")}>
+                            {g.home_score}
+                          </span>
+                          {homeWon && <span className="text-cosmic-gold text-[10px]">◀</span>}
+                        </div>
+                      )}
+                    </div>
+                    <span className="w-10 ml-3" />
+                  </div>
+                </button>
+              );
+            }) : closingLines.length > 0 ? closingLines.map(cl => (
+              <div key={cl.key} className="cosmic-card rounded-lg p-3">
                 <div className="flex items-center justify-between mb-1">
                   <p className="text-xs font-semibold text-foreground">{cl.awayTeam} @ {cl.homeTeam}</p>
                   <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-secondary text-muted-foreground">ODDS ONLY</span>
