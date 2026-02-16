@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Star, MapPin, Orbit, Moon, Zap, Users, ChevronDown, ChevronUp, TrendingUp, TrendingDown, BarChart3, Lightbulb, Swords, Flame, AlertTriangle, Shield, ListOrdered } from "lucide-react";
+import { ArrowLeft, Star, MapPin, Orbit, Moon, Zap, Users, ChevronDown, ChevronUp, TrendingUp, TrendingDown, BarChart3, Lightbulb, Swords, Flame, AlertTriangle, Shield, ListOrdered, TableProperties } from "lucide-react";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { useQuery } from "@tanstack/react-query";
@@ -20,6 +20,7 @@ import { AstraInsightsSection } from "@/components/game/AstraInsightsSection";
 import { GameChartRulers } from "@/components/game/GameChartRulers";
 import { GameMatchupTab } from "@/components/game/GameMatchupTab";
 import { PlayByPlayTab } from "@/components/game/PlayByPlayTab";
+import { GameStatsTab } from "@/components/game/GameStatsTab";
 import { TrackedPropsWidget } from "@/components/tracking/TrackedProps";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { AlertSetupDialog } from "@/components/live/AlertSetupDialog";
@@ -317,7 +318,7 @@ const GameDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { formatInUserTZ, getTZAbbrev } = useTimezone();
-  const [activeTab, setActiveTab] = useState<"odds" | "insights" | "matchup" | "pbp">("odds");
+  const [activeTab, setActiveTab] = useState<"odds" | "insights" | "matchup" | "pbp" | "stats">("odds");
   const [gameSubTab, setGameSubTab] = useState<"gamelines" | "player_props" | "team_props" | "game_props">("gamelines");
 
   const { data: game, isLoading } = useQuery({
@@ -460,42 +461,81 @@ const GameDetail = () => {
 
   return (
     <div className="min-h-screen">
-      <header className="px-4 pt-12 pb-4 bg-background/80 backdrop-blur-xl border-b border-border/50">
-        <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-muted-foreground hover:text-foreground mb-4 transition-colors">
+      <header className="px-4 pt-12 pb-3 bg-background/80 backdrop-blur-xl border-b border-border/50">
+        <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-muted-foreground hover:text-foreground mb-3 transition-colors">
           <ArrowLeft className="h-4 w-4" />
           <span className="text-sm">Back</span>
         </button>
 
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-xs font-semibold text-primary uppercase tracking-wider">{game.league}</span>
-          <span className="text-xs text-muted-foreground">
-            {formatInUserTZ(game.start_time)} {getTZAbbrev()}
-            {gameStartPH && <span className="ml-1 text-cosmic-indigo">{gameStartPH.symbol} {gameStartPH.planet}</span>}
-          </span>
-        </div>
-
-        <div className="flex items-center justify-between py-4">
-          <button onClick={() => navigate(`/team/${game.league}/${game.away_abbr}`)} className="text-center flex-1 hover:opacity-80 transition-opacity">
-            <p className="text-2xl font-bold font-display">{game.away_abbr}</p>
-            <p className="text-xs text-muted-foreground mt-1">{game.away_team}</p>
-            {game.away_score !== null && (
-              <p className="text-3xl font-bold font-display mt-2 tabular-nums">{game.away_score}</p>
-            )}
+        {/* ESPN-style scoreboard */}
+        <div className="flex items-center justify-center gap-4 py-3">
+          {/* Away team */}
+          <button onClick={() => navigate(`/team/${game.league}/${game.away_abbr}`)} className="text-center hover:opacity-80 transition-opacity">
+            <p className="text-3xl font-bold font-display">{game.away_abbr}</p>
+            <p className="text-[10px] text-muted-foreground mt-0.5">{game.away_team}</p>
           </button>
-          <div className="px-4">
-            <span className="text-xs font-bold text-muted-foreground">VS</span>
-          </div>
-          <button onClick={() => navigate(`/team/${game.league}/${game.home_abbr}`)} className="text-center flex-1 hover:opacity-80 transition-opacity">
-            <p className="text-2xl font-bold font-display">{game.home_abbr}</p>
-            <p className="text-xs text-muted-foreground mt-1">{game.home_team}</p>
-            {game.home_score !== null && (
-              <p className="text-3xl font-bold font-display mt-2 tabular-nums">{game.home_score}</p>
+
+          {/* Scores + status */}
+          <div className="flex items-center gap-3">
+            {game.away_score != null && (
+              <div className="flex items-center gap-1">
+                <span className={cn(
+                  "text-3xl font-bold font-display tabular-nums",
+                  game.status === "final" && (game.away_score ?? 0) > (game.home_score ?? 0) ? "text-foreground" : "text-muted-foreground"
+                )}>
+                  {game.away_score}
+                </span>
+                {game.status === "final" && (game.away_score ?? 0) > (game.home_score ?? 0) && (
+                  <span className="text-cosmic-gold text-xs">◀</span>
+                )}
+              </div>
             )}
+            <div className="text-center px-2">
+              {game.status === "final" ? (
+                <>
+                  <p className="text-[10px] font-bold text-muted-foreground uppercase">Final</p>
+                  <p className="text-[9px] text-muted-foreground">
+                    {new Date(game.start_time).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+                  </p>
+                </>
+              ) : game.status === "live" ? (
+                <span className="flex items-center gap-1">
+                  <span className="h-2 w-2 rounded-full bg-cosmic-green animate-pulse-glow" />
+                  <span className="text-[10px] font-bold text-cosmic-green uppercase">Live</span>
+                </span>
+              ) : (
+                <p className="text-[10px] text-muted-foreground">
+                  {formatInUserTZ(game.start_time)} {getTZAbbrev()}
+                </p>
+              )}
+              {gameStartPH && (
+                <p className="text-[8px] text-cosmic-indigo mt-0.5">{gameStartPH.symbol} {gameStartPH.planet}</p>
+              )}
+            </div>
+            {game.home_score != null && (
+              <div className="flex items-center gap-1">
+                {game.status === "final" && (game.home_score ?? 0) > (game.away_score ?? 0) && (
+                  <span className="text-cosmic-gold text-xs">▶</span>
+                )}
+                <span className={cn(
+                  "text-3xl font-bold font-display tabular-nums",
+                  game.status === "final" && (game.home_score ?? 0) > (game.away_score ?? 0) ? "text-foreground" : "text-muted-foreground"
+                )}>
+                  {game.home_score}
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* Home team */}
+          <button onClick={() => navigate(`/team/${game.league}/${game.home_abbr}`)} className="text-center hover:opacity-80 transition-opacity">
+            <p className="text-3xl font-bold font-display">{game.home_abbr}</p>
+            <p className="text-[10px] text-muted-foreground mt-0.5">{game.home_team}</p>
           </button>
         </div>
 
         {game.venue && (
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground justify-center mb-2">
+          <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground justify-center mb-2">
             <MapPin className="h-3 w-3" />
             <span>{game.venue}</span>
           </div>
@@ -504,38 +544,28 @@ const GameDetail = () => {
           <AlertSetupDialog gameId={game.id} homeTeam={game.home_abbr} awayTeam={game.away_abbr} />
         </div>
 
-        {/* Top tabs: Odds / Insights / Matchup */}
-        <div className="flex gap-2 justify-center">
+        {/* Tab bar - ESPN style underline tabs */}
+        <div className="flex gap-1 justify-center border-b border-border/50 -mx-4 px-4 overflow-x-auto no-scrollbar">
           {([
-            { val: "odds" as const, icon: BarChart3, label: "Odds" },
-            { val: "insights" as const, icon: Lightbulb, label: "Insights" },
-            { val: "matchup" as const, icon: Swords, label: "Matchup" },
-            { val: "pbp" as const, icon: ListOrdered, label: "PBP" },
+            { val: "odds" as const, label: "Odds" },
+            { val: "insights" as const, label: "Insights" },
+            { val: "matchup" as const, label: "Matchup" },
+            { val: "pbp" as const, label: "Plays" },
+            { val: "stats" as const, label: "Stats" },
           ]).map(t => (
             <button
               key={t.val}
               onClick={() => setActiveTab(t.val)}
               className={cn(
-                "flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-semibold transition-colors border",
+                "px-4 py-2.5 text-xs font-semibold transition-colors whitespace-nowrap border-b-2",
                 activeTab === t.val
-                  ? "bg-secondary border-border text-foreground"
-                  : "border-transparent text-muted-foreground hover:text-foreground"
+                  ? "text-primary border-primary"
+                  : "text-muted-foreground border-transparent hover:text-foreground"
               )}
             >
-              <t.icon className="h-3.5 w-3.5" />
               {t.label}
             </button>
           ))}
-        </div>
-        {/* View Trends link */}
-        <div className="flex justify-center mt-2">
-          <button
-            onClick={() => navigate("/props")}
-            className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <Flame className="h-3 w-3" />
-            View Trends
-          </button>
         </div>
       </header>
 
@@ -936,6 +966,19 @@ const GameDetail = () => {
             gameId={game.id}
             homeAbbr={game.home_abbr}
             awayAbbr={game.away_abbr}
+            league={game.league}
+          />
+        )}
+
+        {activeTab === "stats" && (
+          <GameStatsTab
+            gameId={game.id}
+            homeAbbr={game.home_abbr}
+            awayAbbr={game.away_abbr}
+            homeTeam={game.home_team}
+            awayTeam={game.away_team}
+            homeScore={game.home_score ?? null}
+            awayScore={game.away_score ?? null}
             league={game.league}
           />
         )}
