@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Star, MapPin, Orbit, Moon, Zap, Users, ChevronDown, ChevronUp, TrendingUp, TrendingDown, BarChart3, Lightbulb, Swords, Flame, AlertTriangle, Shield } from "lucide-react";
+import { ArrowLeft, Star, MapPin, Orbit, Moon, Zap, Users, ChevronDown, ChevronUp, TrendingUp, TrendingDown, BarChart3, Lightbulb, Swords, Flame, AlertTriangle, Shield, ListOrdered } from "lucide-react";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { useQuery } from "@tanstack/react-query";
@@ -19,6 +19,7 @@ import { TransitScrubber } from "@/components/game/TransitScrubber";
 import { AstraInsightsSection } from "@/components/game/AstraInsightsSection";
 import { GameChartRulers } from "@/components/game/GameChartRulers";
 import { GameMatchupTab } from "@/components/game/GameMatchupTab";
+import { PlayByPlayTab } from "@/components/game/PlayByPlayTab";
 import { TrackedPropsWidget } from "@/components/tracking/TrackedProps";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { AlertSetupDialog } from "@/components/live/AlertSetupDialog";
@@ -316,7 +317,7 @@ const GameDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { formatInUserTZ, getTZAbbrev } = useTimezone();
-  const [activeTab, setActiveTab] = useState<"odds" | "insights" | "matchup">("odds");
+  const [activeTab, setActiveTab] = useState<"odds" | "insights" | "matchup" | "pbp">("odds");
   const [gameSubTab, setGameSubTab] = useState<"gamelines" | "player_props" | "team_props" | "game_props">("gamelines");
 
   const { data: game, isLoading } = useQuery({
@@ -509,6 +510,7 @@ const GameDetail = () => {
             { val: "odds" as const, icon: BarChart3, label: "Odds" },
             { val: "insights" as const, icon: Lightbulb, label: "Insights" },
             { val: "matchup" as const, icon: Swords, label: "Matchup" },
+            { val: "pbp" as const, icon: ListOrdered, label: "PBP" },
           ]).map(t => (
             <button
               key={t.val}
@@ -927,6 +929,15 @@ const GameDetail = () => {
               </section>
             )}
           </>
+        )}
+
+        {activeTab === "pbp" && (
+          <PlayByPlayTab
+            gameId={game.id}
+            homeAbbr={game.home_abbr}
+            awayAbbr={game.away_abbr}
+            league={game.league}
+          />
         )}
       </div>
     </div>
