@@ -14,6 +14,8 @@ import { toast } from "@/hooks/use-toast";
 import { ChevronLeft, ChevronRight, Search, Save, CalendarIcon, TrendingUp } from "lucide-react";
 import { format, addDays, subDays } from "date-fns";
 import { cn } from "@/lib/utils";
+import { useTimezone } from "@/hooks/use-timezone";
+import PeriodScoresEditor from "@/components/admin/PeriodScoresEditor";
 
 interface GameRow {
   id: string;
@@ -49,6 +51,7 @@ const EMPTY_ODDS: OddsFormState = {
 
 export default function AdminGameManager() {
   const queryClient = useQueryClient();
+  const { userTimezone, formatInUserTZ, getTZAbbrev } = useTimezone();
   const [date, setDate] = useState(new Date());
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [league, setLeague] = useState("ALL");
@@ -65,15 +68,33 @@ export default function AdminGameManager() {
   const dateStr = format(date, "yyyy-MM-dd");
 
   const { data: games = [], isLoading } = useQuery({
-    queryKey: ["admin-games", dateStr, league],
+    queryKey: ["admin-games", dateStr, league, userTimezone],
     queryFn: async () => {
-      const start = `${dateStr}T00:00:00Z`;
-      const end = `${dateStr}T23:59:59Z`;
+      // Timezone-aware day boundaries
+      const y = date.getFullYear();
+      const m = date.getMonth();
+      const d = date.getDate();
+      let offsetHours = 0;
+      try {
+        const formatter = new Intl.DateTimeFormat("en-US", { timeZone: userTimezone, timeZoneName: "shortOffset" });
+        const parts = formatter.formatToParts(date);
+        const tzPart = parts.find((p) => p.type === "timeZoneName")?.value || "";
+        const match = tzPart.match(/GMT([+-]?)(\d+)?(?::(\d+))?/);
+        if (match) {
+          const sign = match[1] === "-" ? -1 : 1;
+          const hrs = parseInt(match[2] || "0", 10);
+          const mins = parseInt(match[3] || "0", 10);
+          offsetHours = sign * (hrs + mins / 60);
+        }
+      } catch {}
+      const startOfDay = new Date(Date.UTC(y, m, d, -offsetHours, 0, 0, 0));
+      const endOfDay = new Date(startOfDay.getTime() + 24 * 60 * 60 * 1000);
+
       let q = supabase
         .from("games")
         .select("id, league, home_team, away_team, home_abbr, away_abbr, home_score, away_score, status, start_time")
-        .gte("start_time", start)
-        .lte("start_time", end)
+        .gte("start_time", startOfDay.toISOString())
+        .lt("start_time", endOfDay.toISOString())
         .order("start_time", { ascending: true });
       if (league !== "ALL") q = q.eq("league", league);
       const { data, error } = await q;
@@ -317,7 +338,7 @@ export default function AdminGameManager() {
                   ) : (
                     <span className="text-xs text-muted-foreground">No score</span>
                   )}
-                  <span className="text-[10px] text-muted-foreground">{format(new Date(g.start_time), "h:mm a")}</span>
+                  <span className="text-[10px] text-muted-foreground">{formatInUserTZ(g.start_time)} {getTZAbbrev()}</span>
                 </div>
               </div>
               <Badge variant={g.status === "final" ? "default" : g.status === "scheduled" ? "secondary" : "outline"} className="text-[10px] uppercase">
@@ -333,11 +354,19 @@ export default function AdminGameManager() {
         <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-sm">Edit: {editGame?.away_abbr} @ {editGame?.home_abbr}</DialogTitle>
+            {editGame && (
+              <p className="text-[11px] text-muted-foreground">
+                {new Date(editGame.start_time).toLocaleDateString("en-US", { timeZone: userTimezone, month: "short", day: "numeric", year: "numeric" })}
+                {" · "}
+                {formatInUserTZ(editGame.start_time)} {getTZAbbrev()}
+              </p>
+            )}
           </DialogHeader>
 
           <Tabs defaultValue="game" className="w-full">
-            <TabsList className="w-full grid grid-cols-2 h-8">
+            <TabsList className="w-full grid grid-cols-3 h-8">
               <TabsTrigger value="game" className="text-[10px]">Game Info</TabsTrigger>
+              <TabsTrigger value="periods" className="text-[10px]">Periods</TabsTrigger>
               <TabsTrigger value="odds" className="text-[10px]">Odds</TabsTrigger>
             </TabsList>
 
@@ -392,6 +421,18 @@ export default function AdminGameManager() {
               <Button onClick={handleSave} disabled={updateMutation.isPending} size="sm" className="gap-1 w-full">
                 <Save className="h-3 w-3" /> Save Game
               </Button>
+            </TabsContent>
+
+            {/* Periods Tab */}
+            <TabsContent value="periods" className="mt-3">
+              {editGame && (
+                <PeriodScoresEditor
+                  gameId={editGame.id}
+                  league={editGame.league}
+                  homeAbbr={editGame.home_abbr}
+                  awayAbbr={editGame.away_abbr}
+                />
+              )}
             </TabsContent>
 
             {/* Odds Tab */}
