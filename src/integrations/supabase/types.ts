@@ -964,6 +964,177 @@ export type Database = {
           },
         ]
       }
+      nba_play_by_play_events: {
+        Row: {
+          a1: string | null
+          a2: string | null
+          a3: string | null
+          a4: string | null
+          a5: string | null
+          area: string | null
+          area_detail: string | null
+          assist: string | null
+          away: string | null
+          away_score: number | null
+          away_team: string | null
+          block: string | null
+          created_at: string
+          data_set: string | null
+          date: string | null
+          description: string | null
+          elapsed: string | null
+          entered: string | null
+          event_type: string | null
+          game_id: string
+          h1: string | null
+          h2: string | null
+          h3: string | null
+          h4: string | null
+          h5: string | null
+          home: string | null
+          home_score: number | null
+          home_team: string | null
+          left_player: string | null
+          num: string | null
+          official: string | null
+          opponent: string | null
+          original_x: number | null
+          original_y: number | null
+          outof: string | null
+          period: number | null
+          play_id: number
+          play_length: string | null
+          player: string | null
+          points: number | null
+          possession: string | null
+          qualifiers1: string | null
+          qualifiers2: string | null
+          qualifiers3: string | null
+          qualifiers4: string | null
+          reason: string | null
+          remaining_time: string | null
+          result: string | null
+          shot_distance: number | null
+          steal: string | null
+          team: string | null
+          team_possession: string | null
+          time_actual: string | null
+          type: string | null
+        }
+        Insert: {
+          a1?: string | null
+          a2?: string | null
+          a3?: string | null
+          a4?: string | null
+          a5?: string | null
+          area?: string | null
+          area_detail?: string | null
+          assist?: string | null
+          away?: string | null
+          away_score?: number | null
+          away_team?: string | null
+          block?: string | null
+          created_at?: string
+          data_set?: string | null
+          date?: string | null
+          description?: string | null
+          elapsed?: string | null
+          entered?: string | null
+          event_type?: string | null
+          game_id: string
+          h1?: string | null
+          h2?: string | null
+          h3?: string | null
+          h4?: string | null
+          h5?: string | null
+          home?: string | null
+          home_score?: number | null
+          home_team?: string | null
+          left_player?: string | null
+          num?: string | null
+          official?: string | null
+          opponent?: string | null
+          original_x?: number | null
+          original_y?: number | null
+          outof?: string | null
+          period?: number | null
+          play_id: number
+          play_length?: string | null
+          player?: string | null
+          points?: number | null
+          possession?: string | null
+          qualifiers1?: string | null
+          qualifiers2?: string | null
+          qualifiers3?: string | null
+          qualifiers4?: string | null
+          reason?: string | null
+          remaining_time?: string | null
+          result?: string | null
+          shot_distance?: number | null
+          steal?: string | null
+          team?: string | null
+          team_possession?: string | null
+          time_actual?: string | null
+          type?: string | null
+        }
+        Update: {
+          a1?: string | null
+          a2?: string | null
+          a3?: string | null
+          a4?: string | null
+          a5?: string | null
+          area?: string | null
+          area_detail?: string | null
+          assist?: string | null
+          away?: string | null
+          away_score?: number | null
+          away_team?: string | null
+          block?: string | null
+          created_at?: string
+          data_set?: string | null
+          date?: string | null
+          description?: string | null
+          elapsed?: string | null
+          entered?: string | null
+          event_type?: string | null
+          game_id?: string
+          h1?: string | null
+          h2?: string | null
+          h3?: string | null
+          h4?: string | null
+          h5?: string | null
+          home?: string | null
+          home_score?: number | null
+          home_team?: string | null
+          left_player?: string | null
+          num?: string | null
+          official?: string | null
+          opponent?: string | null
+          original_x?: number | null
+          original_y?: number | null
+          outof?: string | null
+          period?: number | null
+          play_id?: number
+          play_length?: string | null
+          player?: string | null
+          points?: number | null
+          possession?: string | null
+          qualifiers1?: string | null
+          qualifiers2?: string | null
+          qualifiers3?: string | null
+          qualifiers4?: string | null
+          reason?: string | null
+          remaining_time?: string | null
+          result?: string | null
+          shot_distance?: number | null
+          steal?: string | null
+          team?: string | null
+          team_possession?: string | null
+          time_actual?: string | null
+          type?: string | null
+        }
+        Relationships: []
+      }
       nba_standings: {
         Row: {
           conference: string | null
