@@ -521,10 +521,10 @@ export default function HistoricalPage() {
                          {g.away_team.split(" ").pop()}
                        </span>
                      </div>
-                     <div className="flex items-center gap-2">
+                     <div className="flex items-center gap-1.5">
                        {g.away_score != null && (
                          <div className="flex items-center gap-1">
-                           <span className={cn("text-sm font-semibold tabular-nums", awayWon ? "text-foreground" : "text-muted-foreground")}>
+                           <span className={cn("text-xs font-semibold tabular-nums", awayWon ? "text-cosmic-green" : "text-cosmic-red")}>
                              {g.away_score}
                            </span>
                            {awayWon && <span className="text-cosmic-gold text-[8px]">◀</span>}
@@ -534,7 +534,7 @@ export default function HistoricalPage() {
                          <span className="text-[10px] text-muted-foreground">—</span>
                        )}
                        <span className={cn(
-                         "text-[8px] font-semibold w-8 text-right",
+                         "text-[8px] font-semibold uppercase shrink-0",
                          g.status === "final" ? "text-muted-foreground" : "text-cosmic-green"
                        )}>
                          {g.status === "final" ? "Final" : g.status?.toUpperCase()}
@@ -549,16 +549,16 @@ export default function HistoricalPage() {
                          {g.home_team.split(" ").pop()}
                        </span>
                      </div>
-                     <div className="flex items-center gap-2">
+                     <div className="flex items-center gap-1.5">
                        {g.home_score != null && (
                          <div className="flex items-center gap-1">
-                           <span className={cn("text-sm font-semibold tabular-nums", homeWon ? "text-foreground" : "text-muted-foreground")}>
+                           <span className={cn("text-xs font-semibold tabular-nums", homeWon ? "text-cosmic-green" : "text-cosmic-red")}>
                              {g.home_score}
                            </span>
                            {homeWon && <span className="text-cosmic-gold text-[8px]">◀</span>}
                          </div>
                        )}
-                       <span className="w-8" />
+                       <span className="w-6" />
                      </div>
                    </div>
                  </button>

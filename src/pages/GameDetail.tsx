@@ -471,8 +471,8 @@ const GameDetail = () => {
         <div className="flex items-center justify-center gap-4 py-3">
           {/* Away team */}
           <button onClick={() => navigate(`/team/${game.league}/${game.away_abbr}`)} className="text-center hover:opacity-80 transition-opacity">
-            <p className="text-3xl font-bold font-display">{game.away_abbr}</p>
-            <p className="text-[10px] text-muted-foreground mt-0.5">{game.away_team}</p>
+            <p className="text-xl font-bold font-display">{game.away_abbr}</p>
+            <p className="text-[10px] text-muted-foreground mt-0.5">{game.away_abbr}</p>
           </button>
 
           {/* Scores + status */}
@@ -480,7 +480,7 @@ const GameDetail = () => {
             {game.away_score != null && (
               <div className="flex items-center gap-1">
                 <span className={cn(
-                  "text-3xl font-bold font-display tabular-nums",
+                  "text-xl font-bold font-display tabular-nums",
                   game.status === "final" && (game.away_score ?? 0) > (game.home_score ?? 0) ? "text-foreground" : "text-muted-foreground"
                 )}>
                   {game.away_score}
@@ -518,7 +518,7 @@ const GameDetail = () => {
                   <span className="text-cosmic-gold text-xs">▶</span>
                 )}
                 <span className={cn(
-                  "text-3xl font-bold font-display tabular-nums",
+                  "text-xl font-bold font-display tabular-nums",
                   game.status === "final" && (game.home_score ?? 0) > (game.away_score ?? 0) ? "text-foreground" : "text-muted-foreground"
                 )}>
                   {game.home_score}
@@ -529,8 +529,8 @@ const GameDetail = () => {
 
           {/* Home team */}
           <button onClick={() => navigate(`/team/${game.league}/${game.home_abbr}`)} className="text-center hover:opacity-80 transition-opacity">
-            <p className="text-3xl font-bold font-display">{game.home_abbr}</p>
-            <p className="text-[10px] text-muted-foreground mt-0.5">{game.home_team}</p>
+            <p className="text-xl font-bold font-display">{game.home_abbr}</p>
+            <p className="text-[10px] text-muted-foreground mt-0.5">{game.home_abbr}</p>
           </button>
         </div>
 
