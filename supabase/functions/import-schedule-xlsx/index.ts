@@ -175,18 +175,40 @@ Deno.serve(async (req) => {
       for (const [league, games] of Object.entries(leagueRows)) {
         log.push(`${league}: ${games.length} games to process`);
 
-        // Check existing
+        // Check existing by external_id OR by team+date window (18h)
         const existingSet = new Set<string>();
-        for (let i = 0; i < games.length; i += 500) {
-          const batch = games.slice(i, i + 500).map(g => g.external_id);
-          const { data: existing } = await supabase
-            .from("games")
-            .select("external_id")
-            .in("external_id", batch);
-          (existing || []).forEach((e: any) => existingSet.add(e.external_id));
+        const existingByMatchup = new Map<string, any[]>();
+
+        // Fetch existing games in the date range
+        const times = games.map(g => new Date(g.start_time).getTime());
+        const minTime = new Date(Math.min(...times) - 24 * 60 * 60 * 1000).toISOString();
+        const maxTime = new Date(Math.max(...times) + 24 * 60 * 60 * 1000).toISOString();
+        const { data: existingGames } = await supabase
+          .from("games")
+          .select("id, external_id, home_abbr, away_abbr, start_time")
+          .eq("league", league)
+          .gte("start_time", minTime)
+          .lte("start_time", maxTime);
+
+        for (const eg of existingGames || []) {
+          if (eg.external_id) existingSet.add(eg.external_id);
+          const mKey = `${eg.home_abbr}_${eg.away_abbr}`;
+          if (!existingByMatchup.has(mKey)) existingByMatchup.set(mKey, []);
+          existingByMatchup.get(mKey)!.push(eg);
         }
 
-        const newGames = games.filter(g => !existingSet.has(g.external_id));
+        const newGames = games.filter(g => {
+          // Skip if external_id already exists
+          if (existingSet.has(g.external_id)) return false;
+          // Skip if same teams within 18-hour window
+          const mKey = `${g.home_abbr}_${g.away_abbr}`;
+          const candidates = existingByMatchup.get(mKey) || [];
+          const t = new Date(g.start_time).getTime();
+          for (const c of candidates) {
+            if (Math.abs(new Date(c.start_time).getTime() - t) < 18 * 60 * 60 * 1000) return false;
+          }
+          return true;
+        });
         const skipped = games.length - newGames.length;
         totalSkipped += skipped;
         log.push(`${league}: ${newGames.length} new, ${skipped} already exist`);

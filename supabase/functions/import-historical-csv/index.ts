@@ -361,12 +361,23 @@ Deno.serve(async (req) => {
       }
       console.log(`Found ${existingGames.length} existing ${league} games in date range`);
 
-      // Build lookup: match by home_abbr + away_abbr + same calendar date (UTC)
-      const existingMap = new Map<string, any>();
+      // Build lookup: match by home_abbr + away_abbr, storing all existing games per matchup
+      const existingByMatchup = new Map<string, any[]>();
       for (const g of existingGames) {
-        const d = g.start_time.split("T")[0];
-        const key = `${g.home_abbr}_${g.away_abbr}_${d}`;
-        existingMap.set(key, g);
+        const mKey = `${g.home_abbr}_${g.away_abbr}`;
+        if (!existingByMatchup.has(mKey)) existingByMatchup.set(mKey, []);
+        existingByMatchup.get(mKey)!.push(g);
+      }
+
+      // Helper: find existing game within 18-hour window (handles UTC date boundary issues)
+      function findExisting(homeAbbr: string, awayAbbr: string, startTime: string) {
+        const mKey = `${homeAbbr}_${awayAbbr}`;
+        const candidates = existingByMatchup.get(mKey) || [];
+        const t = new Date(startTime).getTime();
+        for (const c of candidates) {
+          if (Math.abs(new Date(c.start_time).getTime() - t) < 18 * 60 * 60 * 1000) return c;
+        }
+        return null;
       }
 
       // Separate into updates vs inserts
@@ -374,9 +385,7 @@ Deno.serve(async (req) => {
       const toInsert: any[] = [];
 
       for (const rec of allParsed) {
-        const d = rec.start_time.split("T")[0];
-        const key = `${rec.home_abbr}_${rec.away_abbr}_${d}`;
-        const existing = existingMap.get(key);
+        const existing = findExisting(rec.home_abbr, rec.away_abbr, rec.start_time);
 
         if (existing) {
           if (rec.home_score !== null || rec.away_score !== null) {
