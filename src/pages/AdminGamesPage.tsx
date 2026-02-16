@@ -12,6 +12,7 @@ import { toast } from "@/hooks/use-toast";
 import { ChevronLeft, ChevronRight, Search, Save, Shield } from "lucide-react";
 import PeriodScoresEditor from "@/components/admin/PeriodScoresEditor";
 import { format, addDays, subDays } from "date-fns";
+import { useTimezone } from "@/hooks/use-timezone";
 
 interface GameRow {
   id: string;
@@ -28,6 +29,7 @@ interface GameRow {
 
 export default function AdminGamesPage() {
   const { isAdmin, isLoading: adminLoading } = useIsAdmin();
+  const { userTimezone } = useTimezone();
   const queryClient = useQueryClient();
 
   const [date, setDate] = useState(new Date());
@@ -41,15 +43,38 @@ export default function AdminGamesPage() {
   const dateStr = format(date, "yyyy-MM-dd");
 
   const { data: games = [], isLoading } = useQuery({
-    queryKey: ["admin-games", dateStr, league],
+    queryKey: ["admin-games", dateStr, league, userTimezone],
     queryFn: async () => {
-      const start = `${dateStr}T00:00:00Z`;
-      const end = `${dateStr}T23:59:59Z`;
+      // Use timezone-aware day boundaries (same logic as use-games.ts)
+      const y = date.getFullYear();
+      const m = date.getMonth();
+      const d = date.getDate();
+
+      let offsetHours = 0;
+      try {
+        const formatter = new Intl.DateTimeFormat("en-US", {
+          timeZone: userTimezone,
+          timeZoneName: "shortOffset",
+        });
+        const parts = formatter.formatToParts(date);
+        const tzPart = parts.find((p) => p.type === "timeZoneName")?.value || "";
+        const match = tzPart.match(/GMT([+-]?)(\d+)?(?::(\d+))?/);
+        if (match) {
+          const sign = match[1] === "-" ? -1 : 1;
+          const hrs = parseInt(match[2] || "0", 10);
+          const mins = parseInt(match[3] || "0", 10);
+          offsetHours = sign * (hrs + mins / 60);
+        }
+      } catch {}
+
+      const startOfDay = new Date(Date.UTC(y, m, d, -offsetHours, 0, 0, 0));
+      const endOfDay = new Date(startOfDay.getTime() + 24 * 60 * 60 * 1000);
+
       let q = supabase
         .from("games")
         .select("id, league, home_team, away_team, home_abbr, away_abbr, home_score, away_score, status, start_time")
-        .gte("start_time", start)
-        .lte("start_time", end)
+        .gte("start_time", startOfDay.toISOString())
+        .lt("start_time", endOfDay.toISOString())
         .order("start_time", { ascending: true });
       if (league !== "ALL") q = q.eq("league", league);
       const { data, error } = await q;
