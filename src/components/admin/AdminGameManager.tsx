@@ -233,21 +233,41 @@ export default function AdminGameManager() {
     setEditStatus(game.status);
     setEditHomeScore(game.home_score?.toString() ?? "");
     setEditAwayScore(game.away_score?.toString() ?? "");
+    // Format in user's local timezone so the editor matches what they see on the card
     const dt = new Date(game.start_time);
-    // Format in UTC so save (which constructs UTC) round-trips correctly
-    const utcY = dt.getUTCFullYear();
-    const utcM = String(dt.getUTCMonth() + 1).padStart(2, "0");
-    const utcD = String(dt.getUTCDate()).padStart(2, "0");
-    const utcH = String(dt.getUTCHours()).padStart(2, "0");
-    const utcMin = String(dt.getUTCMinutes()).padStart(2, "0");
-    setEditDate(`${utcY}-${utcM}-${utcD}`);
-    setEditTime(`${utcH}:${utcMin}`);
+    const localDateStr = dt.toLocaleDateString("en-CA", { timeZone: userTimezone }); // yyyy-MM-dd
+    const localTimeStr = dt.toLocaleTimeString("en-GB", { timeZone: userTimezone, hour: "2-digit", minute: "2-digit", hour12: false }); // HH:mm
+    setEditDate(localDateStr);
+    setEditTime(localTimeStr);
     setOddsForm({ ...EMPTY_ODDS });
-  }, []);
+  }, [userTimezone]);
 
   const handleSave = () => {
     if (!editGame) return;
-    const newStartTime = editDate && editTime ? new Date(`${editDate}T${editTime}:00Z`).toISOString() : undefined;
+    // Convert local timezone date+time to UTC for storage
+    let newStartTime: string | undefined;
+    if (editDate && editTime) {
+      // Build a date string in the user's timezone, then convert to UTC
+      const localDateTimeStr = `${editDate}T${editTime}:00`;
+      // Use Intl to find the offset for this specific date/time in user's timezone
+      const tempDate = new Date(localDateTimeStr); // parsed as local browser time initially
+      const formatter = new Intl.DateTimeFormat("en-US", { timeZone: userTimezone, timeZoneName: "shortOffset" });
+      const parts = formatter.formatToParts(tempDate);
+      const tzPart = parts.find(p => p.type === "timeZoneName")?.value || "";
+      const match = tzPart.match(/GMT([+-]?)(\d+)?(?::(\d+))?/);
+      let offsetHours = 0;
+      if (match) {
+        const sign = match[1] === "-" ? -1 : 1;
+        const hrs = parseInt(match[2] || "0", 10);
+        const mins = parseInt(match[3] || "0", 10);
+        offsetHours = sign * (hrs + mins / 60);
+      }
+      // Parse date/time parts and subtract offset to get UTC
+      const [year, month, day] = editDate.split("-").map(Number);
+      const [hour, minute] = editTime.split(":").map(Number);
+      const utcDate = new Date(Date.UTC(year, month - 1, day, hour - offsetHours, minute));
+      newStartTime = utcDate.toISOString();
+    }
     updateMutation.mutate({
       id: editGame.id,
       status: editStatus,
@@ -379,7 +399,7 @@ export default function AdminGameManager() {
             {/* Game Info Tab */}
             <TabsContent value="game" className="mt-3 space-y-3">
               <div>
-                <label className="text-xs font-medium text-foreground">Date & Time (UTC)</label>
+                <label className="text-xs font-medium text-foreground">Date & Time ({getTZAbbrev()})</label>
                 <div className="grid grid-cols-2 gap-2 mt-1">
                   <Popover open={editDateCalOpen} onOpenChange={setEditDateCalOpen}>
                     <PopoverTrigger asChild>

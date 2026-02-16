@@ -269,6 +269,28 @@ export default function HistoricalPage() {
     },
   });
 
+  // Fetch quarter/period scores for past games
+  const { data: gameQuarters } = useQuery({
+    queryKey: ["hist-game-quarters", pastGames?.map(g => g.id).join(",")],
+    queryFn: async () => {
+      const gameIds = pastGames?.map(g => g.id) || [];
+      if (gameIds.length === 0) return {};
+      const { data } = await supabase
+        .from("game_quarters")
+        .select("game_id, quarter, home_score, away_score")
+        .in("game_id", gameIds)
+        .order("quarter", { ascending: true });
+      // Group by game_id
+      const map: Record<string, { quarter: number; home_score: number | null; away_score: number | null }[]> = {};
+      for (const row of data || []) {
+        if (!map[row.game_id]) map[row.game_id] = [];
+        map[row.game_id].push(row);
+      }
+      return map;
+    },
+    enabled: (pastGames?.length || 0) > 0,
+  });
+
   // ── Tab 2: Historical odds ──
   const { data: historicalOdds, refetch, isFetching } = useQuery({
     queryKey: ["historical-odds", league, dateStr],
@@ -492,15 +514,35 @@ export default function HistoricalPage() {
                   }`}>{g.status?.toUpperCase()}</span>
                 </div>
                 {g.home_score != null && g.away_score != null ? (
-                  <div className="flex items-center gap-4 mt-2">
-                    <div className="flex items-center gap-2">
-                      <span className="text-lg font-bold tabular-nums">{g.away_score}</span>
-                      <span className="text-xs text-muted-foreground">-</span>
-                      <span className="text-lg font-bold tabular-nums">{g.home_score}</span>
+                  <div className="mt-2 space-y-2">
+                    <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg font-bold tabular-nums">{g.away_score}</span>
+                        <span className="text-xs text-muted-foreground">-</span>
+                        <span className="text-lg font-bold tabular-nums">{g.home_score}</span>
+                      </div>
+                      <span className={`text-[10px] font-bold ${g.home_score > g.away_score ? "text-cosmic-green" : "text-cosmic-red"}`}>
+                        {g.home_score > g.away_score ? `${g.home_abbr} WIN` : `${g.away_abbr} WIN`}
+                      </span>
                     </div>
-                    <span className={`text-[10px] font-bold ${g.home_score > g.away_score ? "text-cosmic-green" : "text-cosmic-red"}`}>
-                      {g.home_score > g.away_score ? `${g.home_abbr} WIN` : `${g.away_abbr} WIN`}
-                    </span>
+                    {/* Period/Quarter scores */}
+                    {gameQuarters?.[g.id] && gameQuarters[g.id].length > 0 && (
+                      <div className="flex gap-1 items-center flex-wrap">
+                        {gameQuarters[g.id].map((q) => {
+                          const periodLabel = g.league === "NHL"
+                            ? (q.quarter <= 3 ? `P${q.quarter}` : "OT")
+                            : g.league === "MLB"
+                              ? `${q.quarter}`
+                              : (q.quarter <= 4 ? `Q${q.quarter}` : "OT");
+                          return (
+                            <div key={q.quarter} className="text-center px-1.5 py-0.5 rounded bg-secondary/50">
+                              <p className="text-[8px] text-muted-foreground uppercase">{periodLabel}</p>
+                              <p className="text-[10px] font-semibold tabular-nums">{q.away_score ?? "–"}-{q.home_score ?? "–"}</p>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <p className="text-xs text-muted-foreground mt-1">Score not yet available</p>
