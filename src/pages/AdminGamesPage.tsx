@@ -29,7 +29,7 @@ interface GameRow {
 
 export default function AdminGamesPage() {
   const { isAdmin, isLoading: adminLoading } = useIsAdmin();
-  const { userTimezone } = useTimezone();
+  const { userTimezone, formatInUserTZ, getTZAbbrev } = useTimezone();
   const queryClient = useQueryClient();
 
   const [date, setDate] = useState(new Date());
@@ -226,7 +226,7 @@ export default function AdminGamesPage() {
                     <span className="text-xs text-muted-foreground">No score</span>
                   )}
                   <span className="text-[10px] text-muted-foreground">
-                    {format(new Date(g.start_time), "h:mm a")}
+                    {formatInUserTZ(g.start_time)} {getTZAbbrev()}
                   </span>
                 </div>
               </div>
@@ -248,6 +248,13 @@ export default function AdminGamesPage() {
             <DialogTitle className="text-sm">
               Edit: {editGame?.away_abbr} @ {editGame?.home_abbr}
             </DialogTitle>
+            {editGame && (
+              <p className="text-[11px] text-muted-foreground">
+                {new Date(editGame.start_time).toLocaleDateString("en-US", { timeZone: userTimezone, month: "short", day: "numeric", year: "numeric" })}
+                {" · "}
+                {formatInUserTZ(editGame.start_time)} {getTZAbbrev()}
+              </p>
+            )}
           </DialogHeader>
           <div className="space-y-3">
             <div>
