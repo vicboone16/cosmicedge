@@ -98,11 +98,26 @@ export default function PeriodScoresEditor({ gameId, league, homeAbbr, awayAbbr 
         const { error } = await supabase.from("game_quarters").insert(rows);
         if (error) throw error;
       }
+
+      // Auto-calculate total scores from period scores
+      const totalHome = rows.reduce((sum, r) => sum + (r.home_score ?? 0), 0);
+      const totalAway = rows.reduce((sum, r) => sum + (r.away_score ?? 0), 0);
+      if (rows.length > 0) {
+        const { error: updateErr } = await supabase
+          .from("games")
+          .update({ home_score: totalHome, away_score: totalAway, updated_at: new Date().toISOString() })
+          .eq("id", gameId);
+        if (updateErr) throw updateErr;
+      }
+
       return rows.length;
     },
     onSuccess: (count) => {
       queryClient.invalidateQueries({ queryKey: ["game-quarters", gameId] });
-      toast({ title: `${count} period scores saved` });
+      queryClient.invalidateQueries({ queryKey: ["admin-games"] });
+      queryClient.invalidateQueries({ queryKey: ["games"] });
+      queryClient.invalidateQueries({ queryKey: ["game-detail"] });
+      toast({ title: `${count} period scores saved, total scores updated` });
     },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });

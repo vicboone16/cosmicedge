@@ -11,7 +11,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { toast } from "@/hooks/use-toast";
-import { ChevronLeft, ChevronRight, Search, Save, CalendarIcon, TrendingUp } from "lucide-react";
+import { ChevronLeft, ChevronRight, Search, Save, CalendarIcon, TrendingUp, Trash2, ListOrdered, TableProperties } from "lucide-react";
 import { format, addDays, subDays } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useTimezone } from "@/hooks/use-timezone";
@@ -228,6 +228,106 @@ export default function AdminGameManager() {
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
+  // Delete game mutation with cascade
+  const deleteMutation = useMutation({
+    mutationFn: async (gameId: string) => {
+      // Cascade delete related data
+      await supabase.from("bets").delete().eq("game_id", gameId);
+      await supabase.from("odds_snapshots").delete().eq("game_id", gameId);
+      await supabase.from("game_quarters").delete().eq("game_id", gameId);
+      await supabase.from("play_by_play").delete().eq("game_id", gameId);
+      await supabase.from("player_game_stats").delete().eq("game_id", gameId);
+      await supabase.from("game_state_snapshots").delete().eq("game_id", gameId);
+      await supabase.from("game_referees").delete().eq("game_id", gameId);
+      await supabase.from("astro_calculations").delete().eq("entity_id", gameId);
+      await supabase.from("alerts").delete().eq("game_id", gameId);
+      await supabase.from("intel_notes").delete().eq("game_id", gameId);
+      // Also delete NBA PBP if external_id matches
+      const { data: gameData } = await supabase.from("games").select("external_id").eq("id", gameId).maybeSingle();
+      if (gameData?.external_id) {
+        await supabase.from("nba_play_by_play_events").delete().eq("game_id", gameData.external_id);
+        // Also try with leading zeros
+        await supabase.from("nba_play_by_play_events").delete().eq("game_id", "00" + gameData.external_id);
+      }
+      const { error } = await supabase.from("games").delete().eq("id", gameId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-games"] });
+      queryClient.invalidateQueries({ queryKey: ["games"] });
+      toast({ title: "Game deleted" });
+      setEditGame(null);
+    },
+    onError: (e: any) => toast({ title: "Delete failed", description: e.message, variant: "destructive" }),
+  });
+
+  // Fetch PBP & quarter indicators for all games on this date
+  const gameIds = games.map(g => g.id);
+  const { data: quarterCounts } = useQuery({
+    queryKey: ["admin-quarter-counts", dateStr, league],
+    queryFn: async () => {
+      if (gameIds.length === 0) return {};
+      const { data } = await supabase
+        .from("game_quarters")
+        .select("game_id")
+        .in("game_id", gameIds);
+      const counts: Record<string, boolean> = {};
+      (data || []).forEach(r => { counts[r.game_id] = true; });
+      return counts;
+    },
+    enabled: gameIds.length > 0,
+  });
+
+  const { data: pbpCounts } = useQuery({
+    queryKey: ["admin-pbp-counts", dateStr, league],
+    queryFn: async () => {
+      if (gameIds.length === 0) return {};
+      // Check generic play_by_play
+      const { data: generic } = await supabase
+        .from("play_by_play")
+        .select("game_id")
+        .in("game_id", gameIds);
+      const counts: Record<string, boolean> = {};
+      (generic || []).forEach(r => { counts[r.game_id] = true; });
+
+      // Check NBA PBP via external_id matching
+      const gamesWithExtId = games.filter(g => g.id && !counts[g.id]);
+      if (gamesWithExtId.length > 0) {
+        // Get external_ids for these games
+        const { data: gamesData } = await supabase
+          .from("games")
+          .select("id, external_id")
+          .in("id", gamesWithExtId.map(g => g.id));
+        if (gamesData) {
+          const extIds = gamesData.filter(g => g.external_id).flatMap(g => [g.external_id!, "00" + g.external_id!]);
+          if (extIds.length > 0) {
+            const { data: nbaPbp } = await supabase
+              .from("nba_play_by_play_events")
+              .select("game_id")
+              .in("game_id", extIds)
+              .limit(1);
+            if (nbaPbp && nbaPbp.length > 0) {
+              // Map back to game UUIDs
+              const extToId: Record<string, string> = {};
+              gamesData.forEach(g => {
+                if (g.external_id) {
+                  extToId[g.external_id] = g.id;
+                  extToId["00" + g.external_id] = g.id;
+                }
+              });
+              nbaPbp.forEach(r => {
+                const uuid = extToId[r.game_id];
+                if (uuid) counts[uuid] = true;
+              });
+            }
+          }
+        }
+      }
+      return counts;
+    },
+    enabled: gameIds.length > 0,
+  });
+
   const openEdit = useCallback((game: GameRow) => {
     setEditGame(game);
     setEditStatus(game.status);
@@ -357,6 +457,16 @@ export default function AdminGameManager() {
                 <div className="flex items-center gap-2">
                   <Badge variant="outline" className="text-[10px]">{g.league}</Badge>
                   <span className="text-sm font-medium text-foreground">{g.away_abbr} @ {g.home_abbr}</span>
+                  {quarterCounts?.[g.id] && (
+                    <Badge variant="secondary" className="text-[8px] px-1 py-0 h-4 gap-0.5">
+                      <TableProperties className="h-2.5 w-2.5" /> QTR
+                    </Badge>
+                  )}
+                  {pbpCounts?.[g.id] && (
+                    <Badge variant="secondary" className="text-[8px] px-1 py-0 h-4 gap-0.5">
+                      <ListOrdered className="h-2.5 w-2.5" /> PBP
+                    </Badge>
+                  )}
                 </div>
                 <div className="flex items-center gap-2 mt-1">
                   {(g.away_score != null && g.home_score != null) ? (
@@ -444,9 +554,24 @@ export default function AdminGameManager() {
                   <Input type="number" value={editHomeScore} onChange={e => setEditHomeScore(e.target.value)} className="h-9 text-xs" />
                 </div>
               </div>
-              <Button onClick={handleSave} disabled={updateMutation.isPending} size="sm" className="gap-1 w-full">
-                <Save className="h-3 w-3" /> Save Game
-              </Button>
+              <div className="flex gap-2">
+                <Button onClick={handleSave} disabled={updateMutation.isPending} size="sm" className="gap-1 flex-1">
+                  <Save className="h-3 w-3" /> Save Game
+                </Button>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  className="gap-1"
+                  disabled={deleteMutation.isPending}
+                  onClick={() => {
+                    if (confirm(`Delete ${editGame?.away_abbr} @ ${editGame?.home_abbr}? This cascades to all related data.`)) {
+                      deleteMutation.mutate(editGame!.id);
+                    }
+                  }}
+                >
+                  <Trash2 className="h-3 w-3" /> Delete
+                </Button>
+              </div>
             </TabsContent>
 
             {/* Periods Tab */}
