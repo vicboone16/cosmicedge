@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "@/hooks/use-toast";
-import { ChevronLeft, ChevronRight, Search, Save, Shield } from "lucide-react";
+import { ChevronLeft, ChevronRight, Search, Save, Shield, Trash2 } from "lucide-react";
 import PeriodScoresEditor from "@/components/admin/PeriodScoresEditor";
 import { format, addDays, subDays } from "date-fns";
 import { useTimezone } from "@/hooks/use-timezone";
@@ -98,6 +98,32 @@ export default function AdminGamesPage() {
       setEditGame(null);
     },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (gameId: string) => {
+      // Delete related records first
+      await supabase.from("odds_snapshots").delete().eq("game_id", gameId);
+      await supabase.from("game_quarters").delete().eq("game_id", gameId);
+      await supabase.from("play_by_play").delete().eq("game_id", gameId);
+      await supabase.from("game_state_snapshots").delete().eq("game_id", gameId);
+      await supabase.from("game_referees").delete().eq("game_id", gameId);
+      await supabase.from("player_game_stats").delete().eq("game_id", gameId);
+      await supabase.from("player_props").delete().eq("game_id", gameId);
+      await supabase.from("historical_odds").delete().eq("game_id", gameId);
+      await supabase.from("player_projections").delete().eq("game_id", gameId);
+      await supabase.from("alerts").delete().eq("game_id", gameId);
+      await supabase.from("intel_notes").delete().eq("game_id", gameId);
+      await supabase.from("bets").delete().eq("game_id", gameId);
+      const { error } = await supabase.from("games").delete().eq("id", gameId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-games"] });
+      toast({ title: "Game deleted" });
+      setEditGame(null);
+    },
+    onError: (e: any) => toast({ title: "Delete failed", description: e.message, variant: "destructive" }),
   });
 
   const bulkFinalize = useMutation({
@@ -289,7 +315,20 @@ export default function AdminGamesPage() {
             )}
           </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="flex justify-between sm:justify-between">
+            <Button
+              variant="destructive"
+              size="sm"
+              className="gap-1"
+              disabled={deleteMutation.isPending}
+              onClick={() => {
+                if (editGame && confirm(`Delete ${editGame.away_abbr} @ ${editGame.home_abbr}? This cannot be undone.`)) {
+                  deleteMutation.mutate(editGame.id);
+                }
+              }}
+            >
+              <Trash2 className="h-3 w-3" /> Delete
+            </Button>
             <Button onClick={handleSave} disabled={updateMutation.isPending} size="sm" className="gap-1">
               <Save className="h-3 w-3" /> Save
             </Button>
