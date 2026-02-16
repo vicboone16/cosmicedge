@@ -234,8 +234,14 @@ export default function AdminGameManager() {
     setEditHomeScore(game.home_score?.toString() ?? "");
     setEditAwayScore(game.away_score?.toString() ?? "");
     const dt = new Date(game.start_time);
-    setEditDate(format(dt, "yyyy-MM-dd"));
-    setEditTime(format(dt, "HH:mm"));
+    // Format in UTC so save (which constructs UTC) round-trips correctly
+    const utcY = dt.getUTCFullYear();
+    const utcM = String(dt.getUTCMonth() + 1).padStart(2, "0");
+    const utcD = String(dt.getUTCDate()).padStart(2, "0");
+    const utcH = String(dt.getUTCHours()).padStart(2, "0");
+    const utcMin = String(dt.getUTCMinutes()).padStart(2, "0");
+    setEditDate(`${utcY}-${utcM}-${utcD}`);
+    setEditTime(`${utcH}:${utcMin}`);
     setOddsForm({ ...EMPTY_ODDS });
   }, []);
 
