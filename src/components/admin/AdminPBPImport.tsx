@@ -130,8 +130,10 @@ export default function AdminPBPImport() {
         },
       });
 
-      if (resp.error) throw new Error(resp.error.message);
-      return resp.data as ImportResult;
+      if (resp.error) throw new Error(resp.error.message || JSON.stringify(resp.error));
+      const data = resp.data as ImportResult;
+      if (data?.error) throw new Error(data.error);
+      return data;
     },
     onSuccess: (data) => {
       if (data.status === "multiple_matches") {
