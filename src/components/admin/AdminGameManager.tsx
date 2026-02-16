@@ -477,7 +477,7 @@ export default function AdminGameManager() {
                   <span className="text-[10px] text-muted-foreground">{formatInUserTZ(g.start_time)} {getTZAbbrev()}</span>
                 </div>
               </div>
-              <Badge variant={g.status === "final" ? "default" : g.status === "scheduled" ? "secondary" : "outline"} className="text-[10px] uppercase">
+              <Badge variant={g.status.toLowerCase().startsWith("final") ? "default" : g.status === "scheduled" ? "secondary" : "outline"} className="text-[10px] uppercase">
                 {g.status}
               </Badge>
             </Card>
