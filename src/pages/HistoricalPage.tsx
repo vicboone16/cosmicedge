@@ -426,8 +426,11 @@ export default function HistoricalPage() {
 
   const filteredPlayerStats = useMemo(() => {
     if (!playerSearch) return playerStats || [];
-    const q = playerSearch.toLowerCase();
-    return (playerStats || []).filter((s: any) => s.players?.name?.toLowerCase().includes(q) || s.team_abbr?.toLowerCase().includes(q));
+    const q = playerSearch.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    return (playerStats || []).filter((s: any) => {
+      const name = (s.players?.name || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      return name.includes(q) || s.team_abbr?.toLowerCase().includes(q);
+    });
   }, [playerStats, playerSearch]);
 
   return (
