@@ -356,37 +356,13 @@ Deno.serve(async (req) => {
       .eq("id", resolvedGameId);
 
     // Delete existing PBP + quarters for this game
-    if (league === "NFL") {
-      await supabase.from("nfl_play_by_play").delete().eq("game_id", resolvedGameId);
-    } else {
-      await supabase.from("play_by_play").delete().eq("game_id", resolvedGameId);
-    }
+    // All leagues use the generic play_by_play table (nfl_play_by_play references nfl_games, not games)
+    await supabase.from("play_by_play").delete().eq("game_id", resolvedGameId);
     await supabase.from("game_quarters").delete().eq("game_id", resolvedGameId);
 
-    // Insert plays in batches
+    // Insert plays in batches into generic play_by_play table
     const BATCH = 200;
-    if (league === "NFL") {
-      const nflRows = parsed.plays.map((p) => ({
-        game_id: resolvedGameId!,
-        sequence: p.sequence,
-        quarter: p.quarter || null,
-        game_clock: p.clock || null,
-        down: p.down,
-        yards_to_go: p.yards_to_go,
-        yard_line: p.location || null,
-        event: p.detail || null,
-        is_scoring_play: p.is_scoring,
-        is_touchdown: p.is_touchdown,
-        possession_abbr: null,
-        details_json: { epb: p.epb, epa: p.epa, away_score: p.away_score, home_score: p.home_score },
-      }));
-
-      for (let i = 0; i < nflRows.length; i += BATCH) {
-        const batch = nflRows.slice(i, i + BATCH);
-        const { error } = await supabase.from("nfl_play_by_play").insert(batch);
-        if (error) throw new Error(`PBP insert error: ${error.message}`);
-      }
-    } else {
+    {
       const genericRows = parsed.plays.map((p) => ({
         game_id: resolvedGameId!,
         sequence: p.sequence,
