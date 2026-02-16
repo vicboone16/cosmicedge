@@ -18,6 +18,7 @@ export function PlayByPlayTab({ gameId, homeAbbr, awayAbbr, league }: PlayByPlay
   const { data: nbaEvents, isLoading: nbaLoading } = useQuery({
     queryKey: ["nba-pbp", gameId],
     queryFn: async () => {
+      // 1. Try UUID game_id directly
       const { data } = await supabase
         .from("nba_play_by_play_events")
         .select("*")
@@ -27,21 +28,40 @@ export function PlayByPlayTab({ gameId, homeAbbr, awayAbbr, league }: PlayByPlay
 
       if (data && data.length > 0) return data;
 
+      // 2. Look up game details for fallback matching
       const { data: gameData } = await supabase
         .from("games")
-        .select("external_id")
+        .select("external_id, home_abbr, away_abbr, start_time")
         .eq("id", gameId)
         .maybeSingle();
 
-      if (gameData?.external_id) {
+      if (!gameData) return [];
+
+      // 3. Try external_id
+      if (gameData.external_id) {
         const { data: eventsById } = await supabase
           .from("nba_play_by_play_events")
           .select("*")
           .eq("game_id", gameData.external_id)
           .order("play_id", { ascending: true })
           .limit(1000);
-        return eventsById || [];
+        if (eventsById && eventsById.length > 0) return eventsById;
       }
+
+      // 4. Fallback: match by home_team + away_team + date
+      const gameDate = gameData.start_time ? gameData.start_time.split("T")[0] : null;
+      if (gameDate && gameData.home_abbr && gameData.away_abbr) {
+        const { data: eventsByTeam } = await supabase
+          .from("nba_play_by_play_events")
+          .select("*")
+          .eq("home_team", gameData.home_abbr)
+          .eq("away_team", gameData.away_abbr)
+          .eq("date", gameDate)
+          .order("play_id", { ascending: true })
+          .limit(1000);
+        if (eventsByTeam && eventsByTeam.length > 0) return eventsByTeam;
+      }
+
       return [];
     },
     enabled: isNBA,
