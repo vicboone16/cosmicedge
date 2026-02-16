@@ -69,13 +69,18 @@ function EntitySearch({ navigate }: { navigate: (path: string) => void }) {
     queryKey: ["search-players", query],
     queryFn: async () => {
       if (query.length < 2) return [];
-      const { data } = await supabase
-        .from("players")
-        .select("id, name, team, position, league, headshot_url")
-        .ilike("name", `%${query}%`)
-        .order("name")
-        .limit(10);
-      return data || [];
+      const { data } = await supabase.rpc("search_players_unaccent", {
+        search_query: query,
+        max_results: 10,
+      });
+      return (data || []).map((p: any) => ({
+        id: p.player_id,
+        name: p.player_name,
+        team: p.player_team,
+        position: p.player_position,
+        league: p.player_league,
+        headshot_url: p.player_headshot_url,
+      }));
     },
     enabled: query.length >= 2,
   });

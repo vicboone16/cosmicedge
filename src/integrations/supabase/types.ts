@@ -3290,6 +3290,7 @@ export type Database = {
         Args: { p_game_id?: string }
         Returns: undefined
       }
+      f_unaccent: { Args: { "": string }; Returns: string }
       get_public_profiles: {
         Args: { user_ids: string[] }
         Returns: {
@@ -3331,6 +3332,17 @@ export type Database = {
         Args: { _conversation_id: string; _user_id: string }
         Returns: boolean
       }
+      search_players_unaccent: {
+        Args: { max_results?: number; search_query: string }
+        Returns: {
+          player_headshot_url: string
+          player_id: string
+          player_league: string
+          player_name: string
+          player_position: string
+          player_team: string
+        }[]
+      }
       search_public_profiles: {
         Args: { max_results?: number; search_query: string }
         Returns: {
@@ -3347,6 +3359,7 @@ export type Database = {
         }[]
       }
       settle_bets_on_game: { Args: { p_game_id: string }; Returns: undefined }
+      unaccent: { Args: { "": string }; Returns: string }
     }
     Enums: {
       app_role: "admin" | "moderator" | "user"
