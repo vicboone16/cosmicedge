@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { History, TrendingUp, TrendingDown, ChevronLeft, ChevronRight, RefreshCw, Trophy, Star, Users, Target, FlaskConical, Save, Trash2 } from "lucide-react";
@@ -73,6 +74,7 @@ const DEFAULT_WEIGHTS: Record<string, number> = Object.fromEntries(
 );
 
 export default function HistoricalPage() {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const { isAdmin } = useIsAdmin();
   const qc = useQueryClient();
@@ -506,7 +508,7 @@ export default function HistoricalPage() {
           {/* Tab 1: Game Results */}
           <TabsContent value="results" className="space-y-2 mt-3">
             {pastGames?.length ? pastGames.map(g => (
-              <div key={g.id} className="cosmic-card rounded-xl p-3">
+              <button key={g.id} onClick={() => navigate(`/game/${g.id}`)} className="cosmic-card rounded-xl p-3 w-full text-left transition-all hover:border-primary/30 hover:cosmic-glow active:scale-[0.98]">
                 <div className="flex items-center justify-between mb-1">
                   <p className="text-xs font-semibold text-foreground">{g.away_team} @ {g.home_team}</p>
                   <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${
@@ -547,7 +549,7 @@ export default function HistoricalPage() {
                 ) : (
                   <p className="text-xs text-muted-foreground mt-1">Score not yet available</p>
                 )}
-              </div>
+              </button>
             )) : closingLines.length > 0 ? closingLines.map(cl => (
               <div key={cl.key} className="cosmic-card rounded-xl p-3">
                 <div className="flex items-center justify-between mb-1">
