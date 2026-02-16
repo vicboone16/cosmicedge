@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "@/hooks/use-toast";
 import { ChevronLeft, ChevronRight, Search, Save, Shield } from "lucide-react";
+import PeriodScoresEditor from "@/components/admin/PeriodScoresEditor";
 import { format, addDays, subDays } from "date-fns";
 
 interface GameRow {
@@ -245,8 +246,16 @@ export default function AdminGamesPage() {
               <div>
                 <label className="text-xs font-medium text-foreground">{editGame?.home_abbr} Score</label>
                 <Input type="number" value={editHomeScore} onChange={e => setEditHomeScore(e.target.value)} className="h-9 text-xs" />
-              </div>
             </div>
+            {editGame && (
+              <PeriodScoresEditor
+                gameId={editGame.id}
+                league={editGame.league}
+                homeAbbr={editGame.home_abbr}
+                awayAbbr={editGame.away_abbr}
+              />
+            )}
+          </div>
           </div>
           <DialogFooter>
             <Button onClick={handleSave} disabled={updateMutation.isPending} size="sm" className="gap-1">
