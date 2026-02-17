@@ -1,6 +1,6 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { Star, Filter, ArrowUpDown, CheckSquare, Square, Zap, TrendingUp, AlertTriangle, ChevronDown, ChevronUp, Pin, PinOff, Trash2, CheckCircle, RefreshCw, Wallet } from "lucide-react";
+import { Star, Filter, ArrowUpDown, CheckSquare, Square, Zap, TrendingUp, AlertTriangle, ChevronDown, ChevronUp, Pin, PinOff, Trash2, CheckCircle, RefreshCw, Wallet, DollarSign } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
@@ -16,6 +16,7 @@ import { toast } from "@/hooks/use-toast";
 type BetRow = Tables<"bets">;
 type LiveBoardItem = Tables<"live_board_items">;
 type SnapshotRow = Tables<"game_state_snapshots">;
+type GameRow = Tables<"games">;
 
 interface LiveBetItem extends LiveBoardItem {
   bet: BetRow;
@@ -189,8 +190,9 @@ const SkySpreadPage = () => {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [showLive, setShowLive] = useState(true);
+  const settledRef = useRef<Set<string>>(new Set());
 
-  // Subscribe to realtime score updates
+  // Subscribe to realtime score updates + auto-settle notifications
   useEffect(() => {
     if (!userId) return;
     const channel = supabase
@@ -200,6 +202,23 @@ const SkySpreadPage = () => {
         { event: "*", schema: "public", table: "game_state_snapshots" },
         () => {
           queryClient.invalidateQueries({ queryKey: ["live-board"] });
+          queryClient.invalidateQueries({ queryKey: ["bet-games"] });
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "bets", filter: `user_id=eq.${userId}` },
+        (payload) => {
+          const updated = payload.new as BetRow;
+          if (updated.status === "settled" && updated.result && !settledRef.current.has(updated.id)) {
+            settledRef.current.add(updated.id);
+            const isWin = updated.result === "win";
+            toast({
+              title: isWin ? "🎉 Bet Won!" : updated.result === "push" ? "↔️ Bet Pushed" : "❌ Bet Lost",
+              description: `${updated.selection} — ${updated.market_type}${updated.payout ? ` · Payout: $${Number(updated.payout).toFixed(2)}` : ""}`,
+            });
+            queryClient.invalidateQueries({ queryKey: ["skyspread-bets"] });
+          }
         }
       )
       .subscribe();
@@ -279,6 +298,25 @@ const SkySpreadPage = () => {
       return (data || []) as BetRow[];
     },
     enabled: !!userId,
+  });
+
+  // Fetch live game data for all bet game_ids
+  const betGameIds = [...new Set(bets?.map(b => b.game_id).filter(Boolean) || [])];
+  const { data: betGames } = useQuery({
+    queryKey: ["bet-games", betGameIds.sort().join(",")],
+    queryFn: async () => {
+      if (!betGameIds.length) return {};
+      const { data } = await supabase
+        .from("games")
+        .select("id, home_score, away_score, status, home_abbr, away_abbr, home_team, away_team")
+        .in("id", betGameIds);
+      const map: Record<string, any> = {};
+      data?.forEach(g => { map[g.id] = g; });
+      return map;
+    },
+    enabled: betGameIds.length > 0,
+    staleTime: 15_000,
+    refetchInterval: 15_000,
   });
 
   const sortedBets = [...(bets || [])].sort((a, b) => {
@@ -498,6 +536,52 @@ const SkySpreadPage = () => {
             const volNum = typeof bet.volatility === "string"
               ? (bet.volatility === "High" ? 85 : bet.volatility === "Med" ? 55 : 25)
               : 50;
+            const gameData = betGames?.[bet.game_id];
+            const gameLive = gameData?.status === "live";
+            const gameFinal = gameData?.status === "final";
+
+            // Real-time P&L estimate
+            let livePnl: { label: string; value: number; color: string } | null = null;
+            if (gameLive && gameData && bet.stake_amount && bet.odds) {
+              const homeScore = gameData.home_score ?? 0;
+              const awayScore = gameData.away_score ?? 0;
+              const totalScore = homeScore + awayScore;
+              const stakeAmt = Number(bet.stake_amount);
+              const potentialWin = bet.odds > 0
+                ? stakeAmt * (bet.odds / 100)
+                : stakeAmt * (100 / Math.abs(bet.odds));
+
+              if (bet.market_type === "total" && bet.line) {
+                const side = bet.side?.toLowerCase();
+                if (side === "over") {
+                  livePnl = totalScore > bet.line
+                    ? { label: "Covering", value: potentialWin, color: "text-cosmic-green" }
+                    : { label: "Behind", value: -stakeAmt, color: "text-cosmic-red" };
+                } else if (side === "under") {
+                  livePnl = totalScore < bet.line
+                    ? { label: "Covering", value: potentialWin, color: "text-cosmic-green" }
+                    : { label: "Behind", value: -stakeAmt, color: "text-cosmic-red" };
+                }
+              } else if (bet.market_type === "spread" && bet.line != null) {
+                const betOnHome = bet.side?.toLowerCase() === "home" || (bet.selection && gameData.home_team?.toLowerCase().includes(bet.selection.toLowerCase().split(" ")[0]));
+                const adjustedDiff = betOnHome
+                  ? (homeScore + bet.line) - awayScore
+                  : (awayScore - bet.line) - homeScore;
+                livePnl = adjustedDiff > 0
+                  ? { label: "Covering", value: potentialWin, color: "text-cosmic-green" }
+                  : adjustedDiff === 0
+                    ? { label: "Push", value: 0, color: "text-cosmic-gold" }
+                    : { label: "Behind", value: -stakeAmt, color: "text-cosmic-red" };
+              } else if (bet.market_type === "moneyline") {
+                const betOnHome = bet.side?.toLowerCase() === "home" || (bet.selection && gameData.home_team?.toLowerCase().includes(bet.selection.toLowerCase().split(" ")[0]));
+                const teamLeading = betOnHome ? homeScore > awayScore : awayScore > homeScore;
+                livePnl = teamLeading
+                  ? { label: "Leading", value: potentialWin, color: "text-cosmic-green" }
+                  : homeScore === awayScore
+                    ? { label: "Tied", value: 0, color: "text-cosmic-gold" }
+                    : { label: "Trailing", value: -stakeAmt, color: "text-cosmic-red" };
+              }
+            }
 
             return (
               <div key={bet.id} className={cn(
@@ -519,6 +603,29 @@ const SkySpreadPage = () => {
                           {bet.status || "open"}
                         </span>
                       </div>
+
+                      {/* Live Score Banner on Bet Card */}
+                      {gameLive && gameData && (
+                        <div className="bg-secondary/50 rounded-lg p-2 mb-2 flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="h-1.5 w-1.5 rounded-full bg-cosmic-green animate-pulse" />
+                            <span className="text-[10px] text-cosmic-green font-semibold uppercase">Live</span>
+                          </div>
+                          <div className="flex items-center gap-3 text-xs tabular-nums">
+                            <span className="text-muted-foreground">{gameData.away_abbr}</span>
+                            <span className="font-bold text-foreground">{gameData.away_score ?? 0}</span>
+                            <span className="text-muted-foreground">-</span>
+                            <span className="font-bold text-foreground">{gameData.home_score ?? 0}</span>
+                            <span className="text-muted-foreground">{gameData.home_abbr}</span>
+                          </div>
+                          {livePnl && (
+                            <div className={cn("text-[10px] font-semibold flex items-center gap-1", livePnl.color)}>
+                              <DollarSign className="h-3 w-3" />
+                              {livePnl.label} {livePnl.value > 0 ? `+$${livePnl.value.toFixed(0)}` : livePnl.value < 0 ? `-$${Math.abs(livePnl.value).toFixed(0)}` : "$0"}
+                            </div>
+                          )}
+                        </div>
+                      )}
 
                       <div className="flex items-center gap-2 mb-2">
                         <span className="text-[10px] text-cosmic-indigo font-medium">{bet.market_type}</span>

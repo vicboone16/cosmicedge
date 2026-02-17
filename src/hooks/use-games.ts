@@ -121,6 +121,11 @@ export function useGames(league?: string, date?: Date, userTimezone?: string) {
     queryKey: ["games", league, date?.toDateString(), userTimezone],
     queryFn: () => refreshOddsAndFetch(date, userTimezone),
     staleTime: 5 * 60 * 1000,
+    refetchInterval: (query) => {
+      const games = query.state.data;
+      const hasLive = games?.some((g) => g.status === "live");
+      return hasLive ? 30_000 : false;
+    },
     select: (games) =>
       league && league !== "ALL"
         ? games.filter((g) => g.league === league)
