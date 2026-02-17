@@ -10,7 +10,7 @@ import { corsHeaders } from "../_shared/cors.ts";
 const NBA_ABBR_MAP: Record<string, string> = {
   "GS": "GSW", "SA": "SAS", "NO": "NOP", "NY": "NYK",
   "PHO": "PHX", "LA-L": "LAL", "LA-C": "LAC",
-  "WSH": "WAS", "UTAH": "UTA", "PHO": "PHX",
+  "WSH": "WAS", "UTAH": "UTA",
 };
 
 function normAbbr(raw: string): string {
@@ -44,6 +44,29 @@ function toInt(v: any): number | null {
   return isNaN(n) ? null : n;
 }
 
+/** Parse a date value that may be an ISO string, a US date string, or an Excel serial number */
+function parseDate(raw: any): string {
+  if (raw == null || raw === "") return "";
+  // Excel serial number (number like 45962)
+  if (typeof raw === "number" && raw > 10000 && raw < 100000) {
+    const d = new Date((raw - 25569) * 86400000);
+    return d.toISOString().split("T")[0];
+  }
+  const s = String(raw).trim();
+  // Already ISO-ish: "2025-11-01" or "2025-11-01T..."
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.split("T")[0];
+  // US format: "11/1/2025" or "11/01/2025"
+  const usParts = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+  if (usParts) {
+    const y = usParts[3].length === 2 ? `20${usParts[3]}` : usParts[3];
+    return `${y}-${usParts[1].padStart(2, "0")}-${usParts[2].padStart(2, "0")}`;
+  }
+  // Fallback: try Date parse
+  const d = new Date(s);
+  if (!isNaN(d.getTime())) return d.toISOString().split("T")[0];
+  return s;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -68,19 +91,34 @@ Deno.serve(async (req) => {
       .select("id, home_abbr, away_abbr, start_time, league")
       .eq("league", "NBA");
 
+    // Primary index: home|away|date -> game_id (with ±1 day tolerance)
     const gameIndex = new Map<string, string>();
+    // Fallback index: team|date -> game_id (for single-team matching)
+    const teamDateIndex = new Map<string, string[]>();
+
+    const addTeamDate = (team: string, date: string, id: string) => {
+      const key = `${team}|${date}`;
+      if (!teamDateIndex.has(key)) teamDateIndex.set(key, []);
+      const arr = teamDateIndex.get(key)!;
+      if (!arr.includes(id)) arr.push(id);
+    };
+
     for (const g of games || []) {
       const d = g.start_time?.split("T")[0] || "";
+      if (!d) continue;
       gameIndex.set(`${g.home_abbr}|${g.away_abbr}|${d}`, g.id);
-      if (d) {
-        const dt = new Date(d);
-        const prev = new Date(dt); prev.setDate(prev.getDate() - 1);
-        const next = new Date(dt); next.setDate(next.getDate() + 1);
-        const fmt = (dd: Date) => dd.toISOString().split("T")[0];
-        if (!gameIndex.has(`${g.home_abbr}|${g.away_abbr}|${fmt(prev)}`))
-          gameIndex.set(`${g.home_abbr}|${g.away_abbr}|${fmt(prev)}`, g.id);
-        if (!gameIndex.has(`${g.home_abbr}|${g.away_abbr}|${fmt(next)}`))
-          gameIndex.set(`${g.home_abbr}|${g.away_abbr}|${fmt(next)}`, g.id);
+      addTeamDate(g.home_abbr, d, g.id);
+      addTeamDate(g.away_abbr, d, g.id);
+
+      const dt = new Date(d);
+      const prev = new Date(dt); prev.setDate(prev.getDate() - 1);
+      const next = new Date(dt); next.setDate(next.getDate() + 1);
+      const fmt = (dd: Date) => dd.toISOString().split("T")[0];
+      for (const fd of [fmt(prev), fmt(next)]) {
+        if (!gameIndex.has(`${g.home_abbr}|${g.away_abbr}|${fd}`))
+          gameIndex.set(`${g.home_abbr}|${g.away_abbr}|${fd}`, g.id);
+        addTeamDate(g.home_abbr, fd, g.id);
+        addTeamDate(g.away_abbr, fd, g.id);
       }
     }
 
@@ -108,10 +146,16 @@ Deno.serve(async (req) => {
     const eventTeams = new Map<string, { teams: string[]; date: string }>();
     for (const [eid, eRows] of eventGroups) {
       const teams = [...new Set(eRows.map((r: any) => normAbbr(r.team_abbr)))];
-      // Parse date from game_date (ISO format like "2025-11-01T21:00Z")
       const rawDate = eRows[0].game_date || "";
-      const date = rawDate.split("T")[0];
+      const date = parseDate(rawDate);
       eventTeams.set(eid, { teams, date });
+    }
+
+    // Log first few event dates for debugging
+    let debugCount = 0;
+    for (const [eid, info] of eventTeams) {
+      if (debugCount++ >= 3) break;
+      console.log(`[debug] event=${eid} teams=${info.teams.join(",")} date=${info.date} raw=${JSON.stringify(eventGroups.get(eid)?.[0]?.game_date)}`);
     }
 
     let statsInserted = 0;
@@ -158,6 +202,24 @@ Deno.serve(async (req) => {
         // Try both orientations
         gameId = gameIndex.get(`${t1}|${t2}|${d}`)
           || gameIndex.get(`${t2}|${t1}|${d}`);
+      }
+
+      // Fallback: single-team + date matching
+      if (!gameId && eventInfo?.date) {
+        const d = eventInfo.date;
+        const otherTeam = eventInfo.teams.find(t => t !== team);
+        if (otherTeam) {
+          // Find games where both teams play on that date
+          const myGames = teamDateIndex.get(`${team}|${d}`) || [];
+          const theirGames = teamDateIndex.get(`${otherTeam}|${d}`) || [];
+          const common = myGames.filter(id => theirGames.includes(id));
+          if (common.length === 1) gameId = common[0];
+        }
+        // Last resort: just find any game for this team on this date (if only 1)
+        if (!gameId) {
+          const candidates = teamDateIndex.get(`${team}|${d}`) || [];
+          if (candidates.length === 1) gameId = candidates[0];
+        }
       }
 
       if (!gameId) {

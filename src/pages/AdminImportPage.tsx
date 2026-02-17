@@ -712,7 +712,7 @@ export default function AdminImportPage() {
               addLog(`Reading ESPN box score XLSX: ${file.name}`);
               try {
                 const buffer = await file.arrayBuffer();
-                const workbook = XLSX.read(buffer, { type: "array" });
+                const workbook = XLSX.read(buffer, { type: "array", cellDates: true });
                 const sheet = workbook.Sheets[workbook.SheetNames[0]];
                 const rows: any[] = XLSX.utils.sheet_to_json(sheet);
                 addLog(`Parsed ${rows.length} rows from sheet "${workbook.SheetNames[0]}"`);
