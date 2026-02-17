@@ -45,6 +45,7 @@ function parseNBAstufferRow(
     season,
     league: "NBA",
     stat_type: statType,
+    period: "full",
     games_played: num(col("GP")),
     games_started: null,
     minutes_per_game: num(col("MpG")),
@@ -90,6 +91,7 @@ function parseBBRefRow(
     season,
     league: "NBA",
     stat_type: statType,
+    period: "full",
     games_played: num(col("G")),
     games_started: num(col("GS")),
     minutes_per_game: num(col("MP")),
@@ -240,7 +242,7 @@ Deno.serve(async (req) => {
 
       const { error: uErr } = await supabase
         .from("player_season_stats")
-        .upsert(row, { onConflict: "player_id,season,league,stat_type" });
+        .upsert(row, { onConflict: "player_id,season,league,stat_type,period" });
 
       if (uErr) {
         errors.push(`${name}: ${uErr.message}`);
