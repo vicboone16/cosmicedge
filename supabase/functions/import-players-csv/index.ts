@@ -86,8 +86,12 @@ Deno.serve(async (req) => {
       const records: any[] = [];
       for (let i = headerIdx + 1; i < lines.length; i++) {
         const vals = parseRow(lines[i]);
-        const name = vals[nameIdx];
+        let name = vals[nameIdx];
         if (!name) continue;
+        // Normalize "Last, First" → "First Last"
+        if (name.includes(",")) {
+          name = name.split(",").map((s: string) => s.trim()).reverse().join(" ");
+        }
 
         const league = leagueOverride || (leagueIdx !== -1 ? vals[leagueIdx]?.toUpperCase() : "") || "NBA";
         const record: any = {
@@ -166,9 +170,13 @@ Deno.serve(async (req) => {
 
       for (let i = headerIdx + 1; i < lines.length; i++) {
         const vals = parseRow(lines[i]);
-        const name = vals[nameIdx];
+        let name = vals[nameIdx];
         const birthTime = vals[btIdx];
         if (!name || !birthTime) { skipped++; continue; }
+        // Normalize "Last, First" → "First Last"
+        if (name.includes(",")) {
+          name = name.split(",").map((s: string) => s.trim()).reverse().join(" ");
+        }
 
         const league = leagueOverride || (leagueIdx !== -1 ? vals[leagueIdx]?.toUpperCase() : "") || "NBA";
         

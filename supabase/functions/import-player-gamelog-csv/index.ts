@@ -129,9 +129,13 @@ Deno.serve(async (req) => {
       if (vals.length < 3) continue;
 
       const row = mapRow(colMap, vals);
-      const name = row.name?.trim();
+      let name = row.name?.trim() || "";
       const rawTeam = row.team?.trim();
       if (!name || !rawTeam) continue;
+      // Normalize "Last, First" → "First Last"
+      if (name.includes(",")) {
+        name = name.split(",").map(s => s.trim()).reverse().join(" ");
+      }
 
       const team = toAbbr(rawTeam);
 
