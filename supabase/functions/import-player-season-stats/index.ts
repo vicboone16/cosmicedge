@@ -9,11 +9,115 @@ const TEAM_MAP: Record<string, string> = {
   "PHO": "PHX", "BRK": "BKN", "CHO": "CHA", "NJN": "BKN", "NOH": "NOP",
   "GS": "GSW", "SA": "SAS", "NY": "NYK", "NO": "NOP", "LA-L": "LAL", "LA-C": "LAC",
   "2TM": "", "3TM": "",
+  // NBAstuffer 3-letter abbreviations
+  "GOL": "GSW", "SAN": "SAS", "UTH": "UTA", "UTA": "UTA",
+  "NOR": "NOP", "BRO": "BKN", "PHE": "PHX",
 };
 
 function normalizeTeam(raw: string): string {
   const t = raw.trim().toUpperCase();
   return TEAM_MAP[t] ?? t;
+}
+
+/** Detect if headers match NBAstuffer format */
+function isNBAstufferFormat(headers: string[]): boolean {
+  return headers.includes("NAME") && headers.includes("PpG") && headers.includes("MpG");
+}
+
+/** Parse NBAstuffer row into a stat record */
+function parseNBAstufferRow(
+  vals: string[],
+  headers: string[],
+  playerId: string,
+  season: number,
+  effectiveTeam: string,
+  statType: string,
+) {
+  const col = (name: string) => headers.indexOf(name);
+  const num = (idx: number) => idx >= 0 && vals[idx] ? parseFloat(vals[idx]) : null;
+  const pct100 = (idx: number) => {
+    const v = num(idx);
+    return v != null ? +(v * 100).toFixed(1) : null;
+  };
+
+  return {
+    player_id: playerId,
+    season,
+    league: "NBA",
+    stat_type: statType,
+    games_played: num(col("GP")),
+    games_started: null,
+    minutes_per_game: num(col("MpG")),
+    points_per_game: num(col("PpG")),
+    rebounds_per_game: num(col("RpG")),
+    assists_per_game: num(col("ApG")),
+    steals_per_game: num(col("SpG")),
+    blocks_per_game: num(col("BpG")),
+    turnovers_per_game: num(col("TOpG")),
+    // Totals (NBAstuffer gives season totals for attempts)
+    ft_attempted: num(col("FTA")),
+    two_attempted: num(col("2PA")),
+    three_attempted: num(col("3PA")),
+    // Percentages (stored as decimals like 0.781 → 78.1)
+    ft_pct: pct100(col("FT%")),
+    two_pct: pct100(col("2P%")),
+    three_pct: pct100(col("3P%")),
+    effective_fg_pct: pct100(col("eFG%")),
+    true_shooting_pct: pct100(col("TS%")),
+    // Already percentage values (37.9 = 37.9%)
+    usage_rate: num(col("USG%")),
+    updated_at: new Date().toISOString(),
+  };
+}
+
+/** Parse Basketball Reference row into a stat record */
+function parseBBRefRow(
+  vals: string[],
+  headers: string[],
+  playerId: string,
+  season: number,
+  statType: string,
+) {
+  const col = (name: string) => headers.indexOf(name);
+  const num = (idx: number) => idx >= 0 && vals[idx] ? parseFloat(vals[idx]) : null;
+  const pct100 = (idx: number) => {
+    const v = num(idx);
+    return v != null ? +(v * 100).toFixed(1) : null;
+  };
+
+  return {
+    player_id: playerId,
+    season,
+    league: "NBA",
+    stat_type: statType,
+    games_played: num(col("G")),
+    games_started: num(col("GS")),
+    minutes_per_game: num(col("MP")),
+    fg_made: num(col("FG")),
+    fg_attempted: num(col("FGA")),
+    fg_pct: pct100(col("FG%")),
+    three_made: num(col("3P")),
+    three_attempted: num(col("3PA")),
+    three_pct: pct100(col("3P%")),
+    two_made: num(col("2P")),
+    two_attempted: num(col("2PA")),
+    two_pct: pct100(col("2P%")),
+    effective_fg_pct: pct100(col("eFG%")),
+    ft_made: num(col("FT")),
+    ft_attempted: num(col("FTA")),
+    ft_pct: pct100(col("FT%")),
+    off_rebounds: num(col("ORB")),
+    def_rebounds: num(col("DRB")),
+    rebounds_per_game: num(col("TRB")),
+    assists_per_game: num(col("AST")),
+    steals_per_game: num(col("STL")),
+    blocks_per_game: num(col("BLK")),
+    turnovers_per_game: num(col("TOV")),
+    personal_fouls: num(col("PF")),
+    points_per_game: num(col("PTS")),
+    triple_doubles: col("Trp-Dbl") >= 0 ? num(col("Trp-Dbl")) : null,
+    updated_at: new Date().toISOString(),
+  };
 }
 
 Deno.serve(async (req) => {
@@ -32,21 +136,26 @@ Deno.serve(async (req) => {
     if (lines.length < 2) throw new Error("File too short");
 
     const headers = lines[0].split(",").map(h => h.trim().replace(/['"]/g, ""));
+    const isStuffer = isNBAstufferFormat(headers);
 
-    // Auto-detect: if first data row has decimals in FG column, it's averages
+    // Auto-detect stat type
     let detectedType = statType;
     if (statType === "auto") {
-      const firstRow = lines[1].split(",");
-      const fgIdx = headers.findIndex(h => h === "FG");
-      if (fgIdx >= 0) {
-        const fgVal = parseFloat(firstRow[fgIdx]);
-        detectedType = fgVal < 50 ? "averages" : "totals"; // season totals would be 50+
+      if (isStuffer) {
+        detectedType = "averages"; // NBAstuffer is always per-game averages
       } else {
-        detectedType = "averages";
+        const firstRow = lines[1].split(",");
+        const fgIdx = headers.findIndex(h => h === "FG");
+        if (fgIdx >= 0) {
+          const fgVal = parseFloat(firstRow[fgIdx]);
+          detectedType = fgVal < 50 ? "averages" : "totals";
+        } else {
+          detectedType = "averages";
+        }
       }
     }
 
-    // Detect season from filename or default
+    // Detect season
     let season = 2026;
     if (seasonOverride) season = parseInt(seasonOverride);
     else {
@@ -69,37 +178,10 @@ Deno.serve(async (req) => {
       playerMap.set(p.name.toLowerCase(), p.id);
     }
 
-    const col = (name: string) => headers.indexOf(name);
-    const playerCol = col("Player") >= 0 ? col("Player") : col("Name");
-    const ageCol = col("Age");
-    const teamCol = col("Team");
-    const posCol = col("Pos");
-    const gCol = col("G");
-    const gsCol = col("GS");
-    const mpCol = col("MP");
-    const fgCol = col("FG");
-    const fgaCol = col("FGA");
-    const fgPctCol = col("FG%");
-    const threePCol = col("3P");
-    const threePACol = col("3PA");
-    const threePctCol = col("3P%");
-    const twoPCol = col("2P");
-    const twoPACol = col("2PA");
-    const twoPctCol = col("2P%");
-    const efgCol = col("eFG%");
-    const ftCol = col("FT");
-    const ftaCol = col("FTA");
-    const ftPctCol = col("FT%");
-    const orbCol = col("ORB");
-    const drbCol = col("DRB");
-    const trbCol = col("TRB");
-    const astCol = col("AST");
-    const stlCol = col("STL");
-    const blkCol = col("BLK");
-    const tovCol = col("TOV");
-    const pfCol = col("PF");
-    const ptsCol = col("PTS");
-    const trpDblCol = col("Trp-Dbl");
+    // Column indices for name/team/pos differ by format
+    const nameCol = isStuffer ? headers.indexOf("NAME") : (headers.indexOf("Player") >= 0 ? headers.indexOf("Player") : headers.indexOf("Name"));
+    const teamCol = isStuffer ? headers.indexOf("TEAM") : headers.indexOf("Team");
+    const posCol = isStuffer ? headers.indexOf("POS") : headers.indexOf("Pos");
 
     let upserted = 0;
     let playersCreated = 0;
@@ -107,17 +189,14 @@ Deno.serve(async (req) => {
     const errors: string[] = [];
 
     for (let i = 1; i < lines.length; i++) {
-      const vals = lines[i].split(",").map(v => v.trim());
-      const name = vals[playerCol]?.replace(/['"]/g, "");
+      const vals = lines[i].split(",").map(v => v.trim().replace(/['"]/g, ""));
+      const name = vals[nameCol];
       if (!name) continue;
 
       const teamRaw = vals[teamCol] || "";
       const team = normalizeTeam(teamRaw);
       const isTot = teamRaw.trim().toUpperCase() === "TOT";
-      // Skip 2TM/3TM rows but keep TOT
       if (!team && !isTot) { skipped++; continue; }
-
-      const num = (idx: number) => idx >= 0 && vals[idx] ? parseFloat(vals[idx]) : null;
 
       // Find or create player
       let playerId = playerMap.get(name.toLowerCase());
@@ -128,7 +207,6 @@ Deno.serve(async (req) => {
           .select("id")
           .single();
         if (pErr) {
-          // Try lookup again (race condition)
           const { data: existing } = await supabase
             .from("players")
             .select("id")
@@ -144,52 +222,21 @@ Deno.serve(async (req) => {
         playerMap.set(name.toLowerCase(), playerId!);
       }
 
-      // For TOT rows, resolve the player's current team from DB and use combined stat_type
+      // For TOT rows, resolve current team
       let effectiveTeam = team;
       let effectiveStatType = detectedType;
       if (isTot) {
         effectiveStatType = detectedType === "averages" ? "averages_combined" : "totals_combined";
-        // Look up the player's current team
         const { data: pRow } = await supabase.from("players").select("team").eq("id", playerId!).single();
         effectiveTeam = pRow?.team || "UNK";
       } else {
-        // Update player team/position for non-TOT rows
         await supabase.from("players").update({ team, position: vals[posCol] || null }).eq("id", playerId!);
       }
 
-      const row: Record<string, any> = {
-        player_id: playerId,
-        season,
-        league: "NBA",
-        stat_type: effectiveStatType,
-        games_played: num(gCol),
-        games_started: num(gsCol),
-        minutes_per_game: num(mpCol),
-        fg_made: num(fgCol),
-        fg_attempted: num(fgaCol),
-        fg_pct: num(fgPctCol) != null ? num(fgPctCol)! * 100 : null,
-        three_made: num(threePCol),
-        three_attempted: num(threePACol),
-        three_pct: num(threePctCol) != null ? num(threePctCol)! * 100 : null,
-        two_made: num(twoPCol),
-        two_attempted: num(twoPACol),
-        two_pct: num(twoPctCol) != null ? num(twoPctCol)! * 100 : null,
-        effective_fg_pct: num(efgCol) != null ? num(efgCol)! * 100 : null,
-        ft_made: num(ftCol),
-        ft_attempted: num(ftaCol),
-        ft_pct: num(ftPctCol) != null ? num(ftPctCol)! * 100 : null,
-        off_rebounds: num(orbCol),
-        def_rebounds: num(drbCol),
-        rebounds_per_game: num(trbCol),
-        assists_per_game: num(astCol),
-        steals_per_game: num(stlCol),
-        blocks_per_game: num(blkCol),
-        turnovers_per_game: num(tovCol),
-        personal_fouls: num(pfCol),
-        points_per_game: num(ptsCol),
-        triple_doubles: trpDblCol >= 0 ? num(trpDblCol) : null,
-        updated_at: new Date().toISOString(),
-      };
+      // Build the row based on format
+      const row = isStuffer
+        ? parseNBAstufferRow(vals, headers, playerId!, season, effectiveTeam, effectiveStatType)
+        : parseBBRefRow(vals, headers, playerId!, season, effectiveStatType);
 
       const { error: uErr } = await supabase
         .from("player_season_stats")
@@ -203,6 +250,7 @@ Deno.serve(async (req) => {
     }
 
     return new Response(JSON.stringify({
+      format: isStuffer ? "nbastuffer" : "bbref",
       stat_type: detectedType,
       season,
       rows_parsed: lines.length - 1,
