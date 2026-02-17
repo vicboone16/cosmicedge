@@ -1,5 +1,6 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { DataHealthDashboard } from "@/components/admin/DataHealthDashboard";
+import { PlayerBirthDateEditor } from "@/components/admin/PlayerBirthDateEditor";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { ManualStatsEntry } from "@/components/admin/ManualStatsEntry";
@@ -63,6 +64,31 @@ export default function AdminImportPage() {
   const nbaTxtRef = useRef<HTMLInputElement>(null);
   const [nbaTxtType, setNbaTxtType] = useState<string>("auto");
   const nbaSeasonRef = useRef<HTMLInputElement>(null);
+
+  // Game log coverage: which NBA teams have stats imported
+  const [gameLogCoverage, setGameLogCoverage] = useState<Record<string, number>>({});
+  useEffect(() => {
+    async function fetchCoverage() {
+      // Get distinct team_abbr + game count from player_game_stats for NBA
+      const { data } = await supabase
+        .from("player_game_stats")
+        .select("team_abbr, game_id")
+        .eq("league", "NBA");
+      if (data) {
+        const coverage: Record<string, Set<string>> = {};
+        for (const row of data) {
+          if (!coverage[row.team_abbr]) coverage[row.team_abbr] = new Set();
+          coverage[row.team_abbr].add(row.game_id);
+        }
+        const result: Record<string, number> = {};
+        for (const [team, games] of Object.entries(coverage)) {
+          result[team] = games.size;
+        }
+        setGameLogCoverage(result);
+      }
+    }
+    fetchCoverage();
+  }, []);
 
   const addLog = useCallback((msg: string) => setLog((prev) => [...prev, `${new Date().toLocaleTimeString()} — ${msg}`]), []);
 
@@ -330,6 +356,7 @@ export default function AdminImportPage() {
         <a href="/admin/games" className="text-xs text-primary underline">Game Manager →</a>
       </div>
       <DataHealthDashboard />
+      <PlayerBirthDateEditor />
       <div className="space-y-4">
         {/* CSV Schedule + Scores — all leagues */}
         <Card className="p-4 space-y-3">
@@ -396,33 +423,51 @@ export default function AdminImportPage() {
         </Card>
 
         <Card className="p-4 space-y-3">
-          <h2 className="text-sm font-semibold text-foreground">Basketball Reference Download Links</h2>
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-foreground">Basketball Reference Download Links</h2>
+            <span className="text-[10px] text-muted-foreground">
+              {Object.keys(gameLogCoverage).length}/30 teams imported
+            </span>
+          </div>
           <p className="text-xs text-muted-foreground">
-            Click to open game log pages. Use "Share & Export" → download as .xls, then upload above.
+            Click to open game log pages. Use "Share &amp; Export" → download as .xls, then upload above.
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 max-h-[400px] overflow-y-auto">
-            {BREF_TEAMS.map((t) => (
-              <div key={t.abbr} className="flex items-center gap-2 py-1">
-                <span className="text-xs font-medium text-foreground w-8">{t.abbr}</span>
-                <span className="text-xs text-muted-foreground truncate flex-1">{t.name}</span>
-                <a
-                  href={`https://www.basketball-reference.com/teams/${t.bref}/2026/gamelog/`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-[10px] text-primary hover:underline flex items-center gap-0.5"
-                >
-                  Basic <ExternalLink className="h-2.5 w-2.5" />
-                </a>
-                <a
-                  href={`https://www.basketball-reference.com/teams/${t.bref}/2026/gamelog-advanced/`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-[10px] text-primary hover:underline flex items-center gap-0.5"
-                >
-                  Advanced <ExternalLink className="h-2.5 w-2.5" />
-                </a>
-              </div>
-            ))}
+            {BREF_TEAMS.map((t) => {
+              const gamesImported = gameLogCoverage[t.abbr] || 0;
+              const hasData = gamesImported > 0;
+              return (
+                <div key={t.abbr} className={`flex items-center gap-2 py-1 ${hasData ? "opacity-60" : ""}`}>
+                  <span className="text-xs font-medium text-foreground w-8">{t.abbr}</span>
+                  <span className="text-xs text-muted-foreground truncate flex-1">{t.name}</span>
+                  {hasData ? (
+                    <span className="text-[10px] text-green-500 font-medium w-14 text-right shrink-0">
+                      ✓ {gamesImported}g
+                    </span>
+                  ) : (
+                    <span className="text-[10px] text-destructive font-medium w-14 text-right shrink-0">
+                      needed
+                    </span>
+                  )}
+                  <a
+                    href={`https://www.basketball-reference.com/teams/${t.bref}/2026/gamelog/`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[10px] text-primary hover:underline flex items-center gap-0.5"
+                  >
+                    Basic <ExternalLink className="h-2.5 w-2.5" />
+                  </a>
+                  <a
+                    href={`https://www.basketball-reference.com/teams/${t.bref}/2026/gamelog-advanced/`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[10px] text-primary hover:underline flex items-center gap-0.5"
+                  >
+                    Advanced <ExternalLink className="h-2.5 w-2.5" />
+                  </a>
+                </div>
+              );
+            })}
           </div>
         </Card>
 
