@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { PeriodScoresTicker } from "@/components/game/PeriodScoresTicker";
+import { TeamOddsSection } from "@/components/team/TeamOddsSection";
 
 const ZODIAC_RANGES = [
   { sign: "Capricorn", symbol: "♑", m1: 1, d1: 1, m2: 1, d2: 19 },
@@ -274,7 +275,9 @@ const TeamPage = () => {
           </section>
         )}
 
-        {/* Recent Games */}
+        {/* Odds & Records */}
+        <TeamOddsSection abbr={abbr!} league={standings?.league || leagueParam?.toUpperCase() || "NBA"} />
+
         {/* Upcoming Games */}
         {upcomingGames && upcomingGames.length > 0 && (
           <section>

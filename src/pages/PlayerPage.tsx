@@ -6,6 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
+import { PlayerPropsSection } from "@/components/player/PlayerPropsSection";
 
 function getZodiacFromDate(dateStr: string): { sign: string; symbol: string; element: string; quality: string } {
   const d = new Date(dateStr + "T12:00:00");
@@ -373,6 +374,11 @@ const PlayerPage = () => {
               ))}
             </div>
           </section>
+        )}
+
+        {/* Props & Odds */}
+        {player.team && (
+          <PlayerPropsSection playerId={id!} playerName={player.name} teamAbbr={player.team} />
         )}
 
         {/* ====== Stats Section with Tabs & Filters ====== */}
