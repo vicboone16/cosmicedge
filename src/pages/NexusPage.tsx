@@ -166,37 +166,19 @@ function TeamsTab() {
     },
   });
 
-  // Fetch last 5 games for each team
-  const { data: recentGames } = useQuery({
-    queryKey: ["nexus-teams-recent", league],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("games")
-        .select("id, home_abbr, away_abbr, home_score, away_score, status")
-        .eq("league", league)
-        .eq("status", "final")
-        .order("start_time", { ascending: false })
-        .limit(300);
-      return data || [];
-    },
-  });
-
+  // Derive recent form from standings streak field
   const teamRecent = useMemo(() => {
     const map = new Map<string, ("W" | "L")[]>();
-    for (const g of recentGames || []) {
-      if (g.home_score == null || g.away_score == null) continue;
-      for (const abbr of [g.home_abbr, g.away_abbr]) {
-        const arr = map.get(abbr) || [];
-        if (arr.length >= 5) continue;
-        const isHome = abbr === g.home_abbr;
-        const teamScore = isHome ? g.home_score : g.away_score;
-        const oppScore = isHome ? g.away_score : g.home_score;
-        arr.push(teamScore > oppScore ? "W" : "L");
-        map.set(abbr, arr);
-      }
+    for (const t of teams || []) {
+      if (!t.streak) continue;
+      const match = t.streak.match(/^([WL])(\d+)$/i);
+      if (!match) continue;
+      const result = match[1].toUpperCase() as "W" | "L";
+      const count = Math.min(parseInt(match[2], 10), 5);
+      map.set(t.team_abbr, Array(count).fill(result));
     }
     return map;
-  }, [recentGames]);
+  }, [teams]);
 
   return (
     <div className="space-y-4">
