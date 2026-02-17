@@ -23,6 +23,7 @@ import LiveBoardPage from "./pages/LiveBoardPage";
 import PlayerPropsPage from "./pages/PlayerPropsPage";
 import TrendsPage from "./pages/TrendsPage";
 import HistoricalPage from "./pages/HistoricalPage";
+import NexusPage from "./pages/NexusPage";
 import CLVCalculatorPage from "./pages/CLVCalculatorPage";
 import AstraPage from "./pages/AstraPage";
 import ProfilePage from "./pages/ProfilePage";
@@ -75,7 +76,8 @@ const App = () => {
                 <Route path="/live-board" element={<Navigate to="/skyspread" replace />} />
                 <Route path="/trends" element={<RequireAuth><TrendsPage /></RequireAuth>} />
                 <Route path="/props" element={<RequireAuth><PlayerPropsPage /></RequireAuth>} />
-                <Route path="/historical" element={<RequireAuth><HistoricalPage /></RequireAuth>} />
+                <Route path="/historical" element={<Navigate to="/nexus" replace />} />
+                <Route path="/nexus" element={<RequireAuth><NexusPage /></RequireAuth>} />
                 <Route path="/clv" element={<RequireAuth><CLVCalculatorPage /></RequireAuth>} />
                 <Route path="/astra" element={<RequireAuth><AstraPage /></RequireAuth>} />
                 <Route path="/profile" element={<RequireAuth><ProfilePage /></RequireAuth>} />

@@ -2,7 +2,7 @@ import { useState, useMemo, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { TrendingUp, TrendingDown, RefreshCw, ArrowUpDown, Search, ChevronLeft, ChevronRight, ToggleLeft, ToggleRight, Flame, Users, User, X } from "lucide-react";
+import { TrendingUp, TrendingDown, RefreshCw, ArrowUpDown, Search, ChevronLeft, ChevronRight, ToggleLeft, ToggleRight, Flame, Users, User, X, Plus } from "lucide-react";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { format, addDays, isToday } from "date-fns";
 import { Input } from "@/components/ui/input";
@@ -39,6 +39,7 @@ interface GameInfo {
 type SortKey = "player" | "market" | "line" | "over" | "under";
 type MarketCategory = "all" | "standard" | "alternate" | "period";
 type PropsView = "odds" | "trends";
+type PropsMode = "player" | "team";
 
 function formatPrice(price: number | null): string {
   if (price == null) return "—";
@@ -203,6 +204,10 @@ export default function PlayerPropsPage() {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [includeAlternates, setIncludeAlternates] = useState(false);
   const [view, setView] = useState<PropsView>("odds");
+  const [propsMode, setPropsMode] = useState<PropsMode>("player");
+
+  // Player name -> ID lookup cache
+  const [playerIdCache, setPlayerIdCache] = useState<Map<string, string>>(new Map());
 
   const canGoForward = selectedDate < addDays(new Date(), 7);
   const goBack = () => setSelectedDate((d) => addDays(d, -1));
@@ -382,6 +387,32 @@ export default function PlayerPropsPage() {
           </button>
         </div>
 
+        {/* Player / Team Props toggle */}
+        {view === "odds" && (
+          <div className="flex bg-secondary rounded-lg p-0.5 mb-3 w-fit">
+            <button
+              onClick={() => setPropsMode("player")}
+              className={cn(
+                "px-3 py-1.5 rounded-md text-[11px] font-semibold transition-colors flex items-center gap-1",
+                propsMode === "player" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <User className="h-3 w-3" />
+              Player Props
+            </button>
+            <button
+              onClick={() => setPropsMode("team")}
+              className={cn(
+                "px-3 py-1.5 rounded-md text-[11px] font-semibold transition-colors flex items-center gap-1",
+                propsMode === "team" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <Users className="h-3 w-3" />
+              Team Props
+            </button>
+          </div>
+        )}
+
         {/* Global player/team search */}
         <div className="mb-3">
           <EntitySearch navigate={navigate} />
@@ -511,105 +542,137 @@ export default function PlayerPropsPage() {
               </div>
             )}
 
-            {isLoading ? (
-              <div className="cosmic-card rounded-xl p-8 text-center">
-                <p className="text-xs text-muted-foreground">Loading props...</p>
-              </div>
-            ) : filtered.length === 0 ? (
-              <div className="cosmic-card rounded-xl p-8 text-center space-y-3">
-                <TrendingUp className="h-8 w-8 text-muted-foreground/30 mx-auto" />
-                <p className="text-sm font-medium text-foreground">
-                  {gameIds.length === 0 ? "No games found for this date" : "Player props haven't populated yet"}
-                </p>
-                <p className="text-xs text-muted-foreground max-w-xs mx-auto">
-                  {gameIds.length === 0
-                    ? "Try selecting a different date or league — games may not be scheduled yet."
-                    : "Props typically populate closer to game time. Tap \"Refresh\" to check, or check back later."}
-                </p>
-                {gameIds.length > 0 && (
-                  <button
-                    onClick={handleRefreshAll}
-                    disabled={isFetching}
-                    className="text-xs text-primary hover:underline"
-                  >
-                    {isFetching ? "Fetching..." : "Fetch props now"}
-                  </button>
-                )}
-              </div>
-            ) : (
-              <div className="cosmic-card rounded-xl overflow-hidden">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="hover:bg-transparent">
-                      <TableHead className="text-[10px] uppercase tracking-wider h-9 px-3">
-                        <SortHeader label="Player" field="player" />
-                      </TableHead>
-                      <TableHead className="text-[10px] uppercase tracking-wider h-9 px-2">Game</TableHead>
-                      <TableHead className="text-[10px] uppercase tracking-wider h-9 px-2">
-                        <SortHeader label="Market" field="market" />
-                      </TableHead>
-                      <TableHead className="text-[10px] uppercase tracking-wider h-9 px-2 text-right">
-                        <SortHeader label="Line" field="line" />
-                      </TableHead>
-                      <TableHead className="text-[10px] uppercase tracking-wider h-9 px-2 text-right">
-                        <SortHeader label="Over" field="over" />
-                      </TableHead>
-                      <TableHead className="text-[10px] uppercase tracking-wider h-9 px-2 text-right">
-                        <SortHeader label="Under" field="under" />
-                      </TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filtered.map((prop) => {
-                      const game = prop.game_id ? gameMap.get(prop.game_id) : null;
-                      const cat = classifyMarket(prop.market_key);
-                      return (
-                        <TableRow key={prop.id} className="text-xs">
-                          <TableCell className="px-3 py-2 font-medium">{prop.player_name}</TableCell>
-                          <TableCell className="px-2 py-2 text-muted-foreground">
-                            {game ? (
-                              <button
-                                onClick={() => navigate(`/game/${game.id}`)}
-                                className="text-primary hover:underline"
-                              >
-                                {game.away_abbr}@{game.home_abbr}
-                              </button>
-                            ) : "—"}
-                          </TableCell>
-                          <TableCell className="px-2 py-2">
-                            <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${
-                              cat === "alternate" ? "bg-accent/20 text-accent-foreground" :
-                              cat === "period" ? "bg-primary/10 text-primary" :
-                              "astro-badge"
-                            }`}>
-                              {getMarketShort(prop.market_key)}
-                            </span>
-                          </TableCell>
-                          <TableCell className="px-2 py-2 text-right font-bold tabular-nums">
-                            {prop.line != null ? prop.line : "—"}
-                          </TableCell>
-                          <TableCell className="px-2 py-2 text-right tabular-nums">
-                            {prop.over_price != null && (
-                              <span className="text-cosmic-green flex items-center justify-end gap-0.5">
-                                <TrendingUp className="h-2.5 w-2.5" />
-                                {formatPrice(prop.over_price)}
-                              </span>
-                            )}
-                          </TableCell>
-                          <TableCell className="px-2 py-2 text-right tabular-nums">
-                            {prop.under_price != null && (
-                              <span className="text-cosmic-red flex items-center justify-end gap-0.5">
-                                <TrendingDown className="h-2.5 w-2.5" />
-                                {formatPrice(prop.under_price)}
-                              </span>
-                            )}
-                          </TableCell>
+            {propsMode === "player" ? (
+              /* ── Player Props Table ── */
+              <>
+                {isLoading ? (
+                  <div className="cosmic-card rounded-xl p-8 text-center">
+                    <p className="text-xs text-muted-foreground">Loading props...</p>
+                  </div>
+                ) : filtered.length === 0 ? (
+                  <div className="cosmic-card rounded-xl p-8 text-center space-y-3">
+                    <TrendingUp className="h-8 w-8 text-muted-foreground/30 mx-auto" />
+                    <p className="text-sm font-medium text-foreground">
+                      {gameIds.length === 0 ? "No games found for this date" : "Player props haven't populated yet"}
+                    </p>
+                    <p className="text-xs text-muted-foreground max-w-xs mx-auto">
+                      {gameIds.length === 0
+                        ? "Try selecting a different date or league — games may not be scheduled yet."
+                        : "Props typically populate closer to game time. Tap \"Refresh\" to check, or check back later."}
+                    </p>
+                    {gameIds.length > 0 && (
+                      <button onClick={handleRefreshAll} disabled={isFetching} className="text-xs text-primary hover:underline">
+                        {isFetching ? "Fetching..." : "Fetch props now"}
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <div className="cosmic-card rounded-xl overflow-hidden">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="hover:bg-transparent">
+                          <TableHead className="text-[10px] uppercase tracking-wider h-9 px-3">
+                            <SortHeader label="Player" field="player" />
+                          </TableHead>
+                          <TableHead className="text-[10px] uppercase tracking-wider h-9 px-2">Game</TableHead>
+                          <TableHead className="text-[10px] uppercase tracking-wider h-9 px-2">
+                            <SortHeader label="Market" field="market" />
+                          </TableHead>
+                          <TableHead className="text-[10px] uppercase tracking-wider h-9 px-2 text-right">
+                            <SortHeader label="Line" field="line" />
+                          </TableHead>
+                          <TableHead className="text-[10px] uppercase tracking-wider h-9 px-2 text-right">
+                            <SortHeader label="Over" field="over" />
+                          </TableHead>
+                          <TableHead className="text-[10px] uppercase tracking-wider h-9 px-2 text-right">
+                            <SortHeader label="Under" field="under" />
+                          </TableHead>
+                          <TableHead className="text-[10px] uppercase tracking-wider h-9 px-1 w-8"></TableHead>
                         </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              </div>
+                      </TableHeader>
+                      <TableBody>
+                        {filtered.map((prop) => {
+                          const game = prop.game_id ? gameMap.get(prop.game_id) : null;
+                          const cat = classifyMarket(prop.market_key);
+                          const handlePlayerClick = async () => {
+                            // Check cache first
+                            const cached = playerIdCache.get(prop.player_name);
+                            if (cached) { navigate(`/player/${cached}`); return; }
+                            // Lookup by name
+                            const { data } = await supabase.rpc("search_players_unaccent", {
+                              search_query: prop.player_name, max_results: 1,
+                            });
+                            if (data && data.length > 0) {
+                              const pid = (data[0] as any).player_id;
+                              setPlayerIdCache(prev => new Map(prev).set(prop.player_name, pid));
+                              navigate(`/player/${pid}`);
+                            }
+                          };
+                          const handleAddToSkySpread = () => {
+                            navigate(`/skyspread?prefill=true&player=${encodeURIComponent(prop.player_name)}&market=${encodeURIComponent(prop.market_key)}&line=${prop.line ?? ""}&odds=${prop.over_price ?? ""}&game_id=${prop.game_id ?? ""}`);
+                          };
+                          return (
+                            <TableRow key={prop.id} className="text-xs">
+                              <TableCell className="px-3 py-2 font-medium">
+                                <button onClick={handlePlayerClick} className="text-primary hover:underline text-left">
+                                  {prop.player_name}
+                                </button>
+                              </TableCell>
+                              <TableCell className="px-2 py-2 text-muted-foreground">
+                                {game ? (
+                                  <button onClick={() => navigate(`/game/${game.id}`)} className="text-primary hover:underline">
+                                    {game.away_abbr}@{game.home_abbr}
+                                  </button>
+                                ) : "—"}
+                              </TableCell>
+                              <TableCell className="px-2 py-2">
+                                <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${
+                                  cat === "alternate" ? "bg-accent/20 text-accent-foreground" :
+                                  cat === "period" ? "bg-primary/10 text-primary" :
+                                  "astro-badge"
+                                }`}>
+                                  {getMarketShort(prop.market_key)}
+                                </span>
+                              </TableCell>
+                              <TableCell className="px-2 py-2 text-right font-bold tabular-nums">
+                                {prop.line != null ? prop.line : "—"}
+                              </TableCell>
+                              <TableCell className="px-2 py-2 text-right tabular-nums">
+                                {prop.over_price != null && (
+                                  <span className="text-cosmic-green flex items-center justify-end gap-0.5">
+                                    <TrendingUp className="h-2.5 w-2.5" />
+                                    {formatPrice(prop.over_price)}
+                                  </span>
+                                )}
+                              </TableCell>
+                              <TableCell className="px-2 py-2 text-right tabular-nums">
+                                {prop.under_price != null && (
+                                  <span className="text-cosmic-red flex items-center justify-end gap-0.5">
+                                    <TrendingDown className="h-2.5 w-2.5" />
+                                    {formatPrice(prop.under_price)}
+                                  </span>
+                                )}
+                              </TableCell>
+                              <TableCell className="px-1 py-2">
+                                <button
+                                  onClick={handleAddToSkySpread}
+                                  className="p-1 rounded-md hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors"
+                                  title="Add to SkySpread"
+                                >
+                                  <Plus className="h-3.5 w-3.5" />
+                                </button>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </>
+            ) : (
+              /* ── Team Props View ── */
+              <TeamPropsView gameIds={gameIds} gameMap={gameMap} leagueFilter={leagueFilter} navigate={navigate} />
             )}
           </>
         ) : (
@@ -617,6 +680,99 @@ export default function PlayerPropsPage() {
           <TrendsEmbed leagueFilter={leagueFilter === "ALL" ? "NBA" : leagueFilter} />
         )}
       </div>
+    </div>
+  );
+}
+
+// ── Team Props Component ──
+function TeamPropsView({ gameIds, gameMap, leagueFilter, navigate }: {
+  gameIds: string[];
+  gameMap: Map<string, GameInfo>;
+  leagueFilter: string;
+  navigate: (path: string) => void;
+}) {
+  const { data: odds, isLoading } = useQuery({
+    queryKey: ["team-odds-snapshots", gameIds],
+    queryFn: async () => {
+      if (gameIds.length === 0) return [];
+      const { data } = await supabase
+        .from("odds_snapshots")
+        .select("*")
+        .in("game_id", gameIds)
+        .in("market_type", ["moneyline", "spread", "total"])
+        .order("captured_at", { ascending: false });
+      // Dedupe: keep latest per game_id + market_type + bookmaker
+      const seen = new Set<string>();
+      return (data || []).filter(o => {
+        const key = `${o.game_id}::${o.market_type}::${o.bookmaker}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+    },
+    enabled: gameIds.length > 0,
+  });
+
+  // Group by game
+  const grouped = useMemo(() => {
+    const map = new Map<string, typeof odds>();
+    for (const o of odds || []) {
+      const arr = map.get(o.game_id) || [];
+      arr.push(o);
+      map.set(o.game_id, arr);
+    }
+    return map;
+  }, [odds]);
+
+  if (isLoading) return <p className="text-xs text-muted-foreground text-center py-8">Loading team odds...</p>;
+  if (grouped.size === 0) return <p className="text-xs text-muted-foreground text-center py-8">No team odds available for this date.</p>;
+
+  return (
+    <div className="space-y-3">
+      {Array.from(grouped.entries()).map(([gameId, oddsArr]) => {
+        const game = gameMap.get(gameId);
+        if (!game) return null;
+        const ml = oddsArr?.filter(o => o.market_type === "moneyline") || [];
+        const sp = oddsArr?.filter(o => o.market_type === "spread") || [];
+        const tot = oddsArr?.filter(o => o.market_type === "total") || [];
+        const avgPrice = (arr: (number | null)[]) => {
+          const valid = arr.filter((v): v is number => v != null);
+          return valid.length ? Math.round(valid.reduce((a, b) => a + b, 0) / valid.length) : null;
+        };
+
+        return (
+          <div key={gameId} className="cosmic-card rounded-xl overflow-hidden">
+            <div className="flex items-center justify-between px-3 py-2.5 border-b border-border/50">
+              <div className="flex items-center gap-2">
+                <button onClick={() => navigate(`/team/${game.league}/${game.away_abbr}`)} className="text-xs font-bold text-primary hover:underline">{game.away_abbr}</button>
+                <span className="text-[10px] text-muted-foreground">@</span>
+                <button onClick={() => navigate(`/team/${game.league}/${game.home_abbr}`)} className="text-xs font-bold text-primary hover:underline">{game.home_abbr}</button>
+              </div>
+              <span className="text-[10px] text-muted-foreground">{format(new Date(game.start_time), "h:mm a")}</span>
+            </div>
+            <div className="grid grid-cols-3 divide-x divide-border">
+              {/* Moneyline */}
+              <div className="p-2.5 text-center">
+                <p className="text-[9px] text-muted-foreground uppercase mb-1">ML</p>
+                <p className="text-xs font-semibold tabular-nums">{formatPrice(avgPrice(ml.map(o => o.away_price)))}</p>
+                <p className="text-xs font-semibold tabular-nums">{formatPrice(avgPrice(ml.map(o => o.home_price)))}</p>
+              </div>
+              {/* Spread */}
+              <div className="p-2.5 text-center">
+                <p className="text-[9px] text-muted-foreground uppercase mb-1">Spread</p>
+                <p className="text-xs font-semibold tabular-nums">{avgPrice(sp.map(o => o.line)) != null ? `${(avgPrice(sp.map(o => o.line))! * -1) > 0 ? "+" : ""}${(avgPrice(sp.map(o => o.line))! * -1)}` : "—"}</p>
+                <p className="text-xs font-semibold tabular-nums">{avgPrice(sp.map(o => o.line)) != null ? `${avgPrice(sp.map(o => o.line))! > 0 ? "+" : ""}${avgPrice(sp.map(o => o.line))}` : "—"}</p>
+              </div>
+              {/* Total */}
+              <div className="p-2.5 text-center">
+                <p className="text-[9px] text-muted-foreground uppercase mb-1">Total</p>
+                <p className="text-xs font-semibold tabular-nums">O {avgPrice(tot.map(o => o.line)) ?? "—"}</p>
+                <p className="text-xs font-semibold tabular-nums">U {avgPrice(tot.map(o => o.line)) ?? "—"}</p>
+              </div>
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
