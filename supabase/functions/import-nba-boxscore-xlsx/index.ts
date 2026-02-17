@@ -1,12 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
 
-/**
- * Import ESPN-format NBA box scores from client-side parsed XLSX JSON.
- * Expects JSON body: { rows: [ { event_id, game_date, team_abbr, player_name, ... } ] }
- * Split stats like FG "8-13" are parsed client-side into fg_made/fg_attempted.
- */
-
 const NBA_ABBR_MAP: Record<string, string> = {
   "GS": "GSW", "SA": "SAS", "NO": "NOP", "NY": "NYK",
   "PHO": "PHX", "LA-L": "LAL", "LA-C": "LAC",
@@ -44,27 +38,33 @@ function toInt(v: any): number | null {
   return isNaN(n) ? null : n;
 }
 
-/** Parse a date value that may be an ISO string, a US date string, or an Excel serial number */
 function parseDate(raw: any): string {
   if (raw == null || raw === "") return "";
-  // Excel serial number (number like 45962)
   if (typeof raw === "number" && raw > 10000 && raw < 100000) {
     const d = new Date((raw - 25569) * 86400000);
     return d.toISOString().split("T")[0];
   }
+  // Date object (from cellDates: true)
+  if (raw instanceof Date || (typeof raw === "object" && raw.getTime)) {
+    return raw.toISOString().split("T")[0];
+  }
   const s = String(raw).trim();
-  // Already ISO-ish: "2025-11-01" or "2025-11-01T..."
   if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.split("T")[0];
-  // US format: "11/1/2025" or "11/01/2025"
   const usParts = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
   if (usParts) {
     const y = usParts[3].length === 2 ? `20${usParts[3]}` : usParts[3];
     return `${y}-${usParts[1].padStart(2, "0")}-${usParts[2].padStart(2, "0")}`;
   }
-  // Fallback: try Date parse
   const d = new Date(s);
   if (!isNaN(d.getTime())) return d.toISOString().split("T")[0];
   return s;
+}
+
+/** Shift a date string by N days */
+function shiftDate(dateStr: string, days: number): string {
+  const d = new Date(dateStr + "T12:00:00Z");
+  d.setDate(d.getDate() + days);
+  return d.toISOString().split("T")[0];
 }
 
 Deno.serve(async (req) => {
@@ -75,7 +75,7 @@ Deno.serve(async (req) => {
   try {
     const { rows } = await req.json();
     if (!rows || !Array.isArray(rows) || rows.length === 0) {
-      throw new Error("No rows provided. Expected JSON body with { rows: [...] }");
+      throw new Error("No rows provided");
     }
 
     const sb = createClient(
@@ -85,43 +85,67 @@ Deno.serve(async (req) => {
 
     console.log(`[import-nba-boxscore-xlsx] Processing ${rows.length} rows`);
 
-    // Pre-fetch games and players
-    const { data: games } = await sb
-      .from("games")
-      .select("id, home_abbr, away_abbr, start_time, league")
-      .eq("league", "NBA");
+    // Fetch ALL NBA games (default limit is 1000, we need all)
+    const allGames: any[] = [];
+    let from = 0;
+    const pageSize = 1000;
+    while (true) {
+      const { data: page } = await sb
+        .from("games")
+        .select("id, home_abbr, away_abbr, start_time, league")
+        .eq("league", "NBA")
+        .range(from, from + pageSize - 1);
+      if (!page || page.length === 0) break;
+      allGames.push(...page);
+      if (page.length < pageSize) break;
+      from += pageSize;
+    }
+    const games = allGames;
+    console.log(`[import-nba-boxscore-xlsx] Loaded ${games.length} NBA games from DB`);
 
-    // Primary index: home|away|date -> game_id (with ±1 day tolerance)
-    const gameIndex = new Map<string, string>();
-    // Fallback index: team|date -> game_id (for single-team matching)
-    const teamDateIndex = new Map<string, string[]>();
+    // Build EXACT-date indexes only (no ±1 day pollution)
+    // matchup index: "home|away|date" -> game_id
+    const matchupIndex = new Map<string, string>();
+    // team-date index: "team|date" -> game_id[]
+    const teamDateExact = new Map<string, string[]>();
 
-    const addTeamDate = (team: string, date: string, id: string) => {
+    const addTD = (team: string, date: string, id: string) => {
       const key = `${team}|${date}`;
-      if (!teamDateIndex.has(key)) teamDateIndex.set(key, []);
-      const arr = teamDateIndex.get(key)!;
+      if (!teamDateExact.has(key)) teamDateExact.set(key, []);
+      const arr = teamDateExact.get(key)!;
       if (!arr.includes(id)) arr.push(id);
     };
 
-    for (const g of games || []) {
+    for (const g of games) {
       const d = g.start_time?.split("T")[0] || "";
       if (!d) continue;
-      gameIndex.set(`${g.home_abbr}|${g.away_abbr}|${d}`, g.id);
-      addTeamDate(g.home_abbr, d, g.id);
-      addTeamDate(g.away_abbr, d, g.id);
-
-      const dt = new Date(d);
-      const prev = new Date(dt); prev.setDate(prev.getDate() - 1);
-      const next = new Date(dt); next.setDate(next.getDate() + 1);
-      const fmt = (dd: Date) => dd.toISOString().split("T")[0];
-      for (const fd of [fmt(prev), fmt(next)]) {
-        if (!gameIndex.has(`${g.home_abbr}|${g.away_abbr}|${fd}`))
-          gameIndex.set(`${g.home_abbr}|${g.away_abbr}|${fd}`, g.id);
-        addTeamDate(g.home_abbr, fd, g.id);
-        addTeamDate(g.away_abbr, fd, g.id);
-      }
+      matchupIndex.set(`${g.home_abbr}|${g.away_abbr}|${d}`, g.id);
+      addTD(g.home_abbr, d, g.id);
+      addTD(g.away_abbr, d, g.id);
     }
 
+    /** Try to find a game for two teams on a date, with optional ±1 day fallback */
+    function findGameByMatchup(t1: string, t2: string, date: string): string | undefined {
+      // Exact date, both orientations
+      let id = matchupIndex.get(`${t1}|${t2}|${date}`) || matchupIndex.get(`${t2}|${t1}|${date}`);
+      if (id) return id;
+      // ±1 day
+      for (const offset of [-1, 1]) {
+        const d2 = shiftDate(date, offset);
+        id = matchupIndex.get(`${t1}|${t2}|${d2}`) || matchupIndex.get(`${t2}|${t1}|${d2}`);
+        if (id) return id;
+      }
+      return undefined;
+    }
+
+    /** Find a game for a single team on a date (exact only, must be unique) */
+    function findGameBySingleTeam(team: string, date: string): string | undefined {
+      const candidates = teamDateExact.get(`${team}|${date}`) || [];
+      if (candidates.length === 1) return candidates[0];
+      return undefined;
+    }
+
+    // Pre-fetch players
     const { data: existingPlayers } = await sb
       .from("players")
       .select("id, name, team, league")
@@ -133,7 +157,7 @@ Deno.serve(async (req) => {
       playerIndex.set(p.name, p.id);
     }
 
-    // Group rows by event_id to determine home/away
+    // Group rows by event_id to determine opponents
     const eventGroups = new Map<string, any[]>();
     for (const row of rows) {
       const eid = String(row.event_id || "");
@@ -142,20 +166,11 @@ Deno.serve(async (req) => {
       eventGroups.get(eid)!.push(row);
     }
 
-    // Build a map: event_id -> { teams: [team1, team2], date }
     const eventTeams = new Map<string, { teams: string[]; date: string }>();
     for (const [eid, eRows] of eventGroups) {
       const teams = [...new Set(eRows.map((r: any) => normAbbr(r.team_abbr)))];
-      const rawDate = eRows[0].game_date || "";
-      const date = parseDate(rawDate);
+      const date = parseDate(eRows[0].game_date);
       eventTeams.set(eid, { teams, date });
-    }
-
-    // Log first few event dates for debugging
-    let debugCount = 0;
-    for (const [eid, info] of eventTeams) {
-      if (debugCount++ >= 3) break;
-      console.log(`[debug] event=${eid} teams=${info.teams.join(",")} date=${info.date} raw=${JSON.stringify(eventGroups.get(eid)?.[0]?.game_date)}`);
     }
 
     let statsInserted = 0;
@@ -165,6 +180,8 @@ Deno.serve(async (req) => {
     const errors: string[] = [];
     const unmatchedGames: string[] = [];
     const statsBatch: any[] = [];
+    // Track keys to prevent duplicates within a batch
+    const seenKeys = new Set<string>();
 
     for (const row of rows) {
       const dnp = row.did_not_play === true || row.did_not_play === "TRUE" || row.did_not_play === "true";
@@ -191,40 +208,36 @@ Deno.serve(async (req) => {
         playersCreated++;
       }
 
-      // Match game using event_id grouping
+      // Match game
       const eid = String(row.event_id || "");
       const eventInfo = eventTeams.get(eid);
+      const rowDate = parseDate(row.game_date);
+      const matchDate = eventInfo?.date || rowDate;
       let gameId: string | undefined;
 
-      if (eventInfo && eventInfo.teams.length >= 2) {
-        const [t1, t2] = eventInfo.teams;
-        const d = eventInfo.date;
-        // Try both orientations
-        gameId = gameIndex.get(`${t1}|${t2}|${d}`)
-          || gameIndex.get(`${t2}|${t1}|${d}`);
+      // Strategy 1: Use event grouping if we have exactly 2 teams
+      if (eventInfo && eventInfo.teams.length === 2) {
+        gameId = findGameByMatchup(eventInfo.teams[0], eventInfo.teams[1], matchDate);
       }
 
-      // Fallback: single-team + date matching
-      if (!gameId && eventInfo?.date) {
-        const d = eventInfo.date;
-        const otherTeam = eventInfo.teams.find(t => t !== team);
-        if (otherTeam) {
-          // Find games where both teams play on that date
-          const myGames = teamDateIndex.get(`${team}|${d}`) || [];
-          const theirGames = teamDateIndex.get(`${otherTeam}|${d}`) || [];
-          const common = myGames.filter(id => theirGames.includes(id));
-          if (common.length === 1) gameId = common[0];
+      // Strategy 2: If event has >2 teams (bad grouping) or no event, try to find opponent from event
+      if (!gameId && eventInfo && eventInfo.teams.length > 2) {
+        // Try each other team as potential opponent
+        for (const otherTeam of eventInfo.teams) {
+          if (otherTeam === team) continue;
+          gameId = findGameByMatchup(team, otherTeam, matchDate);
+          if (gameId) break;
         }
-        // Last resort: just find any game for this team on this date (if only 1)
-        if (!gameId) {
-          const candidates = teamDateIndex.get(`${team}|${d}`) || [];
-          if (candidates.length === 1) gameId = candidates[0];
-        }
+      }
+
+      // Strategy 3: Single-team exact-date (only if unique game for that team on that date)
+      if (!gameId && matchDate) {
+        gameId = findGameBySingleTeam(team, matchDate);
       }
 
       if (!gameId) {
         gamesNotFound++;
-        const key = `${team} ${eventInfo?.date || "?"}`;
+        const key = `${team} ${matchDate || "?"}`;
         if (!unmatchedGames.includes(key) && unmatchedGames.length < 20) {
           unmatchedGames.push(key);
         }
@@ -232,11 +245,17 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      // Parse split stats
+      // Deduplicate within batch
+      const batchKey = `${gameId}|${playerId}|full`;
+      if (seenKeys.has(batchKey)) {
+        statsSkipped++;
+        continue;
+      }
+      seenKeys.add(batchKey);
+
       const fg = splitStat(row.FG);
       const three = splitStat(row["3PT"]);
       const ft = splitStat(row.FT);
-
       const starter = row.starter === true || row.starter === "TRUE" || row.starter === "true";
 
       statsBatch.push({
