@@ -7,6 +7,7 @@ import AdminBacktest from "@/components/admin/AdminBacktest";
 import AdminBackend from "@/components/admin/AdminBackend";
 import AdminPBPImport from "@/components/admin/AdminPBPImport";
 import AdminNbaPbpImport from "@/components/admin/AdminNbaPbpImport";
+import AdminPlayerManager from "@/components/admin/AdminPlayerManager";
 export default function AdminPage() {
   const { isAdmin, isLoading } = useIsAdmin();
 
@@ -24,9 +25,10 @@ export default function AdminPage() {
 
       <div className="px-4 py-4">
         <Tabs defaultValue="imports" className="w-full">
-          <TabsList className="w-full grid grid-cols-6 h-9">
+          <TabsList className="w-full grid grid-cols-7 h-9">
             <TabsTrigger value="imports" className="text-[10px]">Imports</TabsTrigger>
             <TabsTrigger value="games" className="text-[10px]">Games</TabsTrigger>
+            <TabsTrigger value="players" className="text-[10px]">Players</TabsTrigger>
             <TabsTrigger value="pbp" className="text-[10px]">PBP</TabsTrigger>
             <TabsTrigger value="nba-pbp" className="text-[10px]">NBA PBP</TabsTrigger>
             <TabsTrigger value="backtest" className="text-[10px]">Backtest</TabsTrigger>
@@ -39,6 +41,10 @@ export default function AdminPage() {
 
           <TabsContent value="games" className="mt-4">
             <AdminGameManager />
+          </TabsContent>
+
+          <TabsContent value="players" className="mt-4">
+            <AdminPlayerManager />
           </TabsContent>
 
           <TabsContent value="pbp" className="mt-4">
