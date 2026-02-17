@@ -11,14 +11,6 @@ const LEAGUE_IDS: Record<string, string> = {
   MLB: "4424",
 };
 
-const LEAGUE_NAMES: Record<string, string> = {
-  NBA: "NBA",
-  NFL: "NFL",
-  NHL: "NHL",
-  MLB: "MLB",
-};
-
-// TheSportsDB uses league display names for team search
 const LEAGUE_SEARCH_NAMES: Record<string, string> = {
   NBA: "NBA",
   NFL: "NFL",
@@ -54,13 +46,11 @@ async function syncTeams(
   supabase: any,
   league: string,
 ) {
-  const leagueId = LEAGUE_IDS[league];
-  // Use search_all_teams with league name
   const data = await apiFetch(apiKey, `search_all_teams.php?l=${LEAGUE_SEARCH_NAMES[league]}`);
   const teams = data.teams || [];
   
   let upserted = 0;
-  const teamMap: Record<string, string> = {}; // idTeam → abbr
+  const teamMap: Record<string, string> = {};
   
   for (const t of teams) {
     const name = t.strTeam;
@@ -83,7 +73,6 @@ async function syncRosters(
   supabase: any,
   league: string,
 ) {
-  // First get teams to get team IDs
   const teamResult = await syncTeams(apiKey, supabase, league);
   const teamMap = teamResult.team_map;
   
@@ -91,7 +80,6 @@ async function syncRosters(
   let teamsProcessed = 0;
   
   for (const [idTeam, abbr] of Object.entries(teamMap)) {
-    // Rate limit: 30 req/min for free, be conservative
     if (teamsProcessed > 0 && teamsProcessed % 5 === 0) {
       await delay(2000);
     }
@@ -112,17 +100,14 @@ async function syncRosters(
           headshot_url: p.strThumb || p.strCutout || null,
         };
         
-        // Parse birth date
         if (p.dateBorn && p.dateBorn !== "0000-00-00") {
           record.birth_date = p.dateBorn;
         }
         
-        // Parse birth location for geocoding later
         if (p.strBirthLocation) {
           record.birth_place = p.strBirthLocation;
         }
         
-        // Check if player exists
         const { data: existing } = await supabase
           .from("players")
           .select("id")
@@ -157,13 +142,11 @@ async function syncRosters(
   };
 }
 
-// ─── MODE: scores ───────────────────────────────────────────────────────────
+// ─── MODE: scores (optimized batch) ─────────────────────────────────────────
 
-function parseQuarterScores(strResult: string | null, homeTeam: string, awayTeam: string) {
+function parseQuarterScores(strResult: string | null) {
   if (!strResult) return [];
   
-  // Format: "Los Angeles Lakers Quarters:36 28 32 28 Dallas Mavericks Quarters:31 32 19 22"
-  // Or for NHL: "... Periods:2 1 0 ..."
   const periodLabels = strResult.includes("Periods:") ? "Periods:" : 
                        strResult.includes("Quarters:") ? "Quarters:" :
                        strResult.includes("Innings:") ? "Innings:" : null;
@@ -173,14 +156,8 @@ function parseQuarterScores(strResult: string | null, homeTeam: string, awayTeam
   const parts = strResult.split(periodLabels);
   if (parts.length < 3) return [];
   
-  // Extract home scores (between first label and second team name)
-  const homeScoresStr = parts[1].trim();
-  // Extract away scores (after second label)
-  const awayScoresStr = parts[2].trim();
-  
-  // Parse numbers from each section
-  const homeScores = homeScoresStr.split(/\s+/).filter(s => /^\d+$/.test(s)).map(Number);
-  const awayScoresRaw = awayScoresStr.split(/\s+/).filter(s => /^\d+$/.test(s)).map(Number);
+  const homeScores = parts[1].trim().split(/\s+/).filter(s => /^\d+$/.test(s)).map(Number);
+  const awayScoresRaw = parts[2].trim().split(/\s+/).filter(s => /^\d+$/.test(s)).map(Number);
   
   const periods: { quarter: number; home_score: number; away_score: number }[] = [];
   const count = Math.min(homeScores.length, awayScoresRaw.length);
@@ -201,132 +178,147 @@ async function syncScores(
   supabase: any,
   league: string,
   season?: string,
+  round?: string,
+  updateOffset = 0,
+  updateLimit = 200,
 ) {
-  const leagueId = LEAGUE_IDS[league];
   let events: any[] = [];
   
-  if (season) {
-    // Full season
-    const data = await apiFetch(apiKey, `eventsseason.php?id=${leagueId}&s=${season}`);
+  if (round && season) {
+    // Fetch a specific round
+    const data = await apiFetch(apiKey, `eventsround.php?id=${LEAGUE_IDS[league]}&r=${round}&s=${season}`);
+    events = data.events || [];
+  } else if (season) {
+    const data = await apiFetch(apiKey, `eventsseason.php?id=${LEAGUE_IDS[league]}&s=${season}`);
     events = data.events || [];
   } else {
-    // Recent past events
-    const data = await apiFetch(apiKey, `eventspastleague.php?id=${leagueId}`);
+    const data = await apiFetch(apiKey, `eventspastleague.php?id=${LEAGUE_IDS[league]}`);
     events = data.events || [];
   }
   
-  let gamesUpserted = 0;
-  let periodsUpserted = 0;
+  // Pre-fetch ALL games for this league from DB to match in memory
+  const allGames: any[] = [];
+  let page = 0;
+  const PAGE_SIZE = 1000;
+  while (true) {
+    const { data: batch } = await supabase
+      .from("games")
+      .select("id, home_abbr, away_abbr, start_time, status")
+      .eq("league", league)
+      .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+    if (!batch || batch.length === 0) break;
+    allGames.push(...batch);
+    if (batch.length < PAGE_SIZE) break;
+    page++;
+  }
+  console.log(`Pre-fetched ${allGames.length} ${league} games from DB`);
+  
+  // Build lookup: "homeAbbr|awayAbbr|YYYY-MM-DD" → game
+  const gameIndex = new Map<string, any>();
+  for (const g of allGames) {
+    const d = g.start_time.split("T")[0];
+    const dt = new Date(d);
+    const dayBefore = new Date(dt.getTime() - 86400000).toISOString().split("T")[0];
+    const dayAfter = new Date(dt.getTime() + 86400000).toISOString().split("T")[0];
+    for (const date of [d, dayBefore, dayAfter]) {
+      const key = `${g.home_abbr}|${g.away_abbr}|${date}`;
+      if (!gameIndex.has(key)) gameIndex.set(key, g);
+    }
+  }
+  
+  let gamesUpdated = 0;
   let skipped = 0;
   
+  // Collect updates first (in-memory matching)
+  const pendingUpdates: { id: string; home_score: number; away_score: number }[] = [];
+  
   for (const ev of events) {
-    const homeTeam = ev.strHomeTeam;
-    const awayTeam = ev.strAwayTeam;
-    const homeAbbr = getAbbr(league, homeTeam);
-    const awayAbbr = getAbbr(league, awayTeam);
+    const homeAbbr = getAbbr(league, ev.strHomeTeam);
+    const awayAbbr = getAbbr(league, ev.strAwayTeam);
     
-    if (!homeAbbr || !awayAbbr) {
-      console.warn(`Skipping event: can't map ${homeTeam} or ${awayTeam}`);
-      skipped++;
-      continue;
-    }
+    if (!homeAbbr || !awayAbbr) { skipped++; continue; }
     
     const homeScore = ev.intHomeScore != null ? parseInt(ev.intHomeScore) : null;
     const awayScore = ev.intAwayScore != null ? parseInt(ev.intAwayScore) : null;
     const isFinal = ev.strStatus === "FT" || ev.strStatus === "AOT" || ev.strStatus === "AP";
     
-    // Parse start time
-    const startTime = ev.strTimestamp ? new Date(ev.strTimestamp + "+00:00").toISOString()
-      : `${ev.dateEvent}T${ev.strTime || "00:00:00"}Z`;
+    if (homeScore == null || awayScore == null || !isFinal) { skipped++; continue; }
     
-    const gameRecord: Record<string, any> = {
-      home_team: homeTeam,
-      away_team: awayTeam,
-      home_abbr: homeAbbr,
-      away_abbr: awayAbbr,
-      league,
-      start_time: startTime,
-      source: "thesportsdb",
-      external_id: `tsdb_${ev.idEvent}`,
-      venue: ev.strVenue || null,
-    };
+    const key = `${homeAbbr}|${awayAbbr}|${ev.dateEvent}`;
+    const existing = gameIndex.get(key);
     
-    if (homeScore != null) gameRecord.home_score = homeScore;
-    if (awayScore != null) gameRecord.away_score = awayScore;
-    if (isFinal) gameRecord.status = "final";
-    else if (ev.strStatus === "NS" || ev.strStatus === "Not Started") gameRecord.status = "scheduled";
-    
-    // Try to match existing game by teams + date (±1 day)
-    const eventDate = ev.dateEvent;
-    const dayBefore = new Date(new Date(eventDate).getTime() - 86400000).toISOString().split("T")[0];
-    const dayAfter = new Date(new Date(eventDate).getTime() + 86400000).toISOString().split("T")[0];
-    
-    const { data: existing } = await supabase
-      .from("games")
-      .select("id")
-      .eq("home_abbr", homeAbbr)
-      .eq("away_abbr", awayAbbr)
-      .eq("league", league)
-      .gte("start_time", `${dayBefore}T00:00:00Z`)
-      .lte("start_time", `${dayAfter}T23:59:59Z`)
-      .maybeSingle();
-    
-    let gameId: string;
-    
-    if (existing) {
-      // Update with scores
-      const updateData: Record<string, any> = {};
-      if (homeScore != null) updateData.home_score = homeScore;
-      if (awayScore != null) updateData.away_score = awayScore;
-      if (isFinal) updateData.status = "final";
-      if (ev.strVenue) updateData.venue = ev.strVenue;
-      if (Object.keys(updateData).length > 0) {
-        await supabase.from("games").update(updateData).eq("id", existing.id);
-      }
-      gameId = existing.id;
-    } else {
-      const { data: inserted, error } = await supabase
-        .from("games")
-        .insert(gameRecord)
-        .select("id")
-        .single();
-      if (error) {
-        console.error(`Insert game error:`, error.message);
-        skipped++;
-        continue;
-      }
-      gameId = inserted.id;
+    if (existing && (existing.home_score !== homeScore || existing.away_score !== awayScore || existing.status !== "final")) {
+      pendingUpdates.push({ id: existing.id, home_score: homeScore, away_score: awayScore });
+    } else if (!existing) {
+      skipped++;
     }
-    
-    gamesUpserted++;
-    
-    // Parse and insert period scores
-    const periods = parseQuarterScores(ev.strResult, homeTeam, awayTeam);
-    if (periods.length > 0) {
-      for (const p of periods) {
-        const { error } = await supabase
-          .from("game_quarters")
-          .upsert({
-            game_id: gameId,
-            quarter: p.quarter,
-            home_score: p.home_score,
-            away_score: p.away_score,
-          }, { onConflict: "game_id,quarter" });
-        
-        if (error) {
-          console.error(`Period insert error:`, error.message);
-        } else {
-          periodsUpserted++;
-        }
-      }
-    }
+  }
+  
+  const totalNeedUpdate = pendingUpdates.length;
+  console.log(`${totalNeedUpdate} games need score corrections (processing offset=${updateOffset}, limit=${updateLimit})`);
+  
+  // Slice to the requested chunk
+  const chunk = pendingUpdates.slice(updateOffset, updateOffset + updateLimit);
+  
+  // Execute updates in parallel batches of 50
+  const BATCH = 50;
+  for (let i = 0; i < chunk.length; i += BATCH) {
+    const batch = chunk.slice(i, i + BATCH);
+    const results = await Promise.all(
+      batch.map(u =>
+        supabase
+          .from("games")
+          .update({ home_score: u.home_score, away_score: u.away_score, status: "final" })
+          .eq("id", u.id)
+      )
+    );
+    gamesUpdated += results.filter(r => !r.error).length;
   }
   
   return {
     events_fetched: events.length,
-    games_upserted: gamesUpserted,
-    periods_upserted: periodsUpserted,
+    total_need_update: totalNeedUpdate,
+    games_updated: gamesUpdated,
     skipped,
+    next_offset: updateOffset + updateLimit < totalNeedUpdate ? updateOffset + updateLimit : null,
+  };
+}
+
+// ─── MODE: scores_all — loop through rounds ─────────────────────────────────
+
+async function syncScoresAll(
+  apiKey: string,
+  supabase: any,
+  league: string,
+  season: string,
+  startRound: number,
+  endRound: number,
+) {
+  let totalUpdated = 0;
+  let totalPeriods = 0;
+  let totalEvents = 0;
+  let totalSkipped = 0;
+  const roundResults: any[] = [];
+  
+  for (let r = startRound; r <= endRound; r++) {
+    const result = await syncScores(apiKey, supabase, league, season, String(r));
+    totalUpdated += result.games_updated;
+    totalPeriods += result.periods_upserted;
+    totalEvents += result.events_fetched;
+    totalSkipped += result.skipped;
+    roundResults.push({ round: r, ...result });
+    console.log(`Round ${r}: ${result.games_updated} updated, ${result.skipped} skipped`);
+    
+    // Check if we're running low on time (50s budget)
+    if (r < endRound) await delay(200);
+  }
+  
+  return {
+    rounds_processed: endRound - startRound + 1,
+    total_events: totalEvents,
+    total_updated: totalUpdated,
+    total_periods: totalPeriods,
+    total_skipped: totalSkipped,
   };
 }
 
@@ -337,8 +329,7 @@ async function syncSchedule(
   supabase: any,
   league: string,
 ) {
-  const leagueId = LEAGUE_IDS[league];
-  const data = await apiFetch(apiKey, `eventsnextleague.php?id=${leagueId}`);
+  const data = await apiFetch(apiKey, `eventsnextleague.php?id=${LEAGUE_IDS[league]}`);
   const events = data.events || [];
   
   let gamesUpserted = 0;
@@ -351,7 +342,6 @@ async function syncSchedule(
     const awayAbbr = getAbbr(league, awayTeam);
     
     if (!homeAbbr || !awayAbbr) {
-      console.warn(`Schedule: can't map ${homeTeam} or ${awayTeam}`);
       skipped++;
       continue;
     }
@@ -373,10 +363,7 @@ async function syncSchedule(
       .lte("start_time", `${dayAfter}T23:59:59Z`)
       .maybeSingle();
     
-    if (existing) {
-      // Already exists, skip
-      continue;
-    }
+    if (existing) continue;
     
     const { error } = await supabase.from("games").insert({
       home_team: homeTeam,
@@ -392,7 +379,6 @@ async function syncSchedule(
     });
     
     if (error) {
-      console.error(`Schedule insert error:`, error.message);
       skipped++;
     } else {
       gamesUpserted++;
@@ -429,7 +415,6 @@ Deno.serve(async (req) => {
     
     const url = new URL(req.url);
     
-    // Support both query params (GET) and JSON body (POST via supabase.functions.invoke)
     let bodyParams: Record<string, string> = {};
     if (req.method === "POST") {
       try {
@@ -440,6 +425,9 @@ Deno.serve(async (req) => {
     const mode = bodyParams.mode || url.searchParams.get("mode") || "teams";
     const league = (bodyParams.league || url.searchParams.get("league") || "NBA").toUpperCase();
     const season = bodyParams.season || url.searchParams.get("season") || undefined;
+    const round = bodyParams.round || url.searchParams.get("round") || undefined;
+    const startRound = parseInt(bodyParams.start_round || url.searchParams.get("start_round") || "1");
+    const endRound = parseInt(bodyParams.end_round || url.searchParams.get("end_round") || "10");
     
     if (!LEAGUE_IDS[league]) {
       return new Response(
@@ -457,15 +445,28 @@ Deno.serve(async (req) => {
       case "rosters":
         result = await syncRosters(apiKey, supabase, league);
         break;
-      case "scores":
-        result = await syncScores(apiKey, supabase, league, season);
+      case "scores": {
+        const offset = parseInt(bodyParams.offset || url.searchParams.get("offset") || "0");
+        const limit = parseInt(bodyParams.limit || url.searchParams.get("limit") || "200");
+        result = await syncScores(apiKey, supabase, league, season, round, offset, limit);
+        break;
+      }
+        break;
+      case "scores_all":
+        if (!season) {
+          return new Response(
+            JSON.stringify({ error: "season required for scores_all mode" }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+          );
+        }
+        result = await syncScoresAll(apiKey, supabase, league, season, startRound, endRound);
         break;
       case "schedule":
         result = await syncSchedule(apiKey, supabase, league);
         break;
       default:
         return new Response(
-          JSON.stringify({ error: `Unknown mode: ${mode}. Use: teams, rosters, scores, schedule` }),
+          JSON.stringify({ error: `Unknown mode: ${mode}. Use: teams, rosters, scores, scores_all, schedule` }),
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
         );
     }
