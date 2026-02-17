@@ -73,14 +73,24 @@ function EntitySearch({ navigate }: { navigate: (path: string) => void }) {
         search_query: query,
         max_results: 10,
       });
-      return (data || []).map((p: any) => ({
+      const raw = (data || []).map((p: any) => ({
         id: p.player_id,
-        name: p.player_name,
+        name: p.player_name?.includes(",")
+          ? p.player_name.split(",").map((s: string) => s.trim()).reverse().join(" ")
+          : p.player_name,
         team: p.player_team,
         position: p.player_position,
         league: p.player_league,
         headshot_url: p.player_headshot_url,
       }));
+      // Deduplicate by normalized name + league
+      const seen = new Set<string>();
+      return raw.filter((p: any) => {
+        const key = `${p.name?.toLowerCase()}|${p.league}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
     },
     enabled: query.length >= 2,
   });

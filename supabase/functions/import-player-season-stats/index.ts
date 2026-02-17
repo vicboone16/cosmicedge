@@ -192,8 +192,12 @@ Deno.serve(async (req) => {
 
     for (let i = 1; i < lines.length; i++) {
       const vals = lines[i].split(",").map(v => v.trim().replace(/['"]/g, ""));
-      const name = vals[nameCol];
+      let name = vals[nameCol];
       if (!name) continue;
+      // Normalize "Last, First" → "First Last"
+      if (name.includes(",")) {
+        name = name.split(",").map(s => s.trim()).reverse().join(" ");
+      }
 
       const teamRaw = vals[teamCol] || "";
       const team = normalizeTeam(teamRaw);
