@@ -63,7 +63,8 @@ export default function AdminImportPage() {
   const [manualLeague, setManualLeague] = useState<string>("NFL");
   const nbaTxtRef = useRef<HTMLInputElement>(null);
   const [nbaTxtType, setNbaTxtType] = useState<string>("auto");
-  const nbaSeasonRef = useRef<HTMLInputElement>(null);
+   const nbaSeasonRef = useRef<HTMLInputElement>(null);
+   const nbaBoxscoreXlsxRef = useRef<HTMLInputElement>(null);
 
   // Game log coverage: which NBA teams have stats imported
   const [gameLogCoverage, setGameLogCoverage] = useState<Record<string, number>>({});
@@ -688,6 +689,58 @@ export default function AdminImportPage() {
               setLoading(false);
             }} disabled={loading} variant="default">
               {loading ? "Importing..." : "Import NBA Box Scores"}
+            </Button>
+          </div>
+        </Card>
+
+        {/* NBA Box Score XLSX Import (ESPN Format) */}
+        <Card className="p-4 space-y-3">
+          <h2 className="text-sm font-semibold text-foreground">🏀 NBA Box Score XLSX Import (ESPN Format)</h2>
+          <p className="text-xs text-muted-foreground">
+            Upload an ESPN-format .xlsx with per-game player box scores. Split stats like FG "8-13" are auto-parsed.
+            Skips DNP rows. Matches games by team + opponent + date.
+          </p>
+          <p className="text-xs text-muted-foreground italic">
+            Columns: event_id, game_date, team_abbr, player_name, pos, starter, did_not_play, MIN, FG, 3PT, FT, OREB, DREB, REB, AST, STL, BLK, TO, PF, Plus-Minus, PTS
+          </p>
+          <div className="flex gap-3 items-center flex-wrap">
+            <input ref={nbaBoxscoreXlsxRef} type="file" accept=".xlsx,.xls" className="text-xs" />
+            <Button onClick={async () => {
+              const file = nbaBoxscoreXlsxRef.current?.files?.[0];
+              if (!file) { addLog("No XLSX file selected"); return; }
+              setLoading(true);
+              addLog(`Reading ESPN box score XLSX: ${file.name}`);
+              try {
+                const buffer = await file.arrayBuffer();
+                const workbook = XLSX.read(buffer, { type: "array" });
+                const sheet = workbook.Sheets[workbook.SheetNames[0]];
+                const rows: any[] = XLSX.utils.sheet_to_json(sheet);
+                addLog(`Parsed ${rows.length} rows from sheet "${workbook.SheetNames[0]}"`);
+
+                const { data: { session } } = await supabase.auth.getSession();
+                const res = await fetch(
+                  `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/import-nba-boxscore-xlsx`,
+                  {
+                    method: "POST",
+                    headers: {
+                      Authorization: `Bearer ${session?.access_token}`,
+                      apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+                      "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({ rows }),
+                  }
+                );
+                const result = await res.json();
+                if (!res.ok || result.error) addLog(`❌ ${result.error || "Upload failed"}`);
+                else {
+                  addLog(`✅ ${result.rows_parsed} rows → ${result.stats_inserted} stats inserted, ${result.players_created} players created, ${result.games_not_found} games unmatched, ${result.stats_skipped} skipped`);
+                  if (result.unmatched_games_sample?.length) addLog(`  Unmatched: ${result.unmatched_games_sample.join(", ")}`);
+                  if (result.errors?.length) result.errors.slice(0, 5).forEach((e: string) => addLog(`  ⚠️ ${e}`));
+                }
+              } catch (e: any) { addLog(`❌ ${e.message}`); }
+              setLoading(false);
+            }} disabled={loading} variant="default">
+              {loading ? "Importing..." : "Import ESPN Box Scores"}
             </Button>
           </div>
         </Card>
