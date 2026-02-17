@@ -1,10 +1,9 @@
 import { useState, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/hooks/use-toast";
-import { Upload, FileText, CheckCircle2, Loader2, XCircle, Trash2 } from "lucide-react";
+import { Upload, FileText, CheckCircle2, Loader2, XCircle, Trash2, RotateCcw } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 
 interface ImportResult {
@@ -27,6 +26,8 @@ interface FileEntry {
   result?: ImportResult;
   error?: string;
 }
+
+const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 
 export default function AdminNbaPbpImport() {
   const [files, setFiles] = useState<FileEntry[]>([]);
@@ -77,7 +78,6 @@ export default function AdminNbaPbpImport() {
       setFiles((prev) => [...prev, ...entries]);
     });
 
-    // Reset input so same files can be re-selected
     if (inputRef.current) inputRef.current.value = "";
   }, []);
 
@@ -89,39 +89,69 @@ export default function AdminNbaPbpImport() {
     setFiles((prev) => prev.filter((f) => f.status !== "done"));
   };
 
+  const retryFailed = () => {
+    setFiles((prev) =>
+      prev.map((f) => (f.status === "error" ? { ...f, status: "pending" as const, error: undefined } : f))
+    );
+  };
+
+  const importFile = async (entry: FileEntry, idx: number) => {
+    setFiles((prev) =>
+      prev.map((f, i) => (i === idx ? { ...f, status: "importing" } : f))
+    );
+
+    try {
+      const resp = await supabase.functions.invoke("import-nba-pbp-csv", {
+        body: { csv: entry.content },
+      });
+
+      if (resp.error) {
+        // Try to extract the actual error body
+        let errMsg = resp.error.message;
+        try {
+          const ctx = resp.error as any;
+          if (ctx.context?.body) {
+            const bodyText = await new Response(ctx.context.body).text();
+            const parsed = JSON.parse(bodyText);
+            if (parsed.error) errMsg = parsed.error;
+          }
+        } catch { /* use default message */ }
+        throw new Error(errMsg);
+      }
+
+      const data = resp.data as ImportResult;
+      if (data?.error) throw new Error(data.error);
+
+      setFiles((prev) =>
+        prev.map((f, i) =>
+          i === idx ? { ...f, status: "done", result: data } : f
+        )
+      );
+    } catch (err: any) {
+      setFiles((prev) =>
+        prev.map((f, i) =>
+          i === idx ? { ...f, status: "error", error: err.message } : f
+        )
+      );
+    }
+  };
+
   const importAll = async () => {
     setImporting(true);
-    const pending = files.map((f, i) => ({ ...f, idx: i })).filter((f) => f.status === "pending");
+    const pending = files
+      .map((f, i) => ({ ...f, idx: i }))
+      .filter((f) => f.status === "pending");
 
-    for (const entry of pending) {
-      setFiles((prev) =>
-        prev.map((f, i) => (i === entry.idx ? { ...f, status: "importing" } : f))
-      );
-
-      try {
-        const resp = await supabase.functions.invoke("import-nba-pbp-csv", {
-          body: { csv: entry.content },
-        });
-        if (resp.error) throw new Error(resp.error.message || JSON.stringify(resp.error));
-        const data = resp.data as ImportResult;
-        if (data?.error) throw new Error(data.error);
-
-        setFiles((prev) =>
-          prev.map((f, i) =>
-            i === entry.idx ? { ...f, status: "done", result: data } : f
-          )
-        );
-      } catch (err: any) {
-        setFiles((prev) =>
-          prev.map((f, i) =>
-            i === entry.idx ? { ...f, status: "error", error: err.message } : f
-          )
-        );
-      }
+    for (let j = 0; j < pending.length; j++) {
+      const entry = pending[j];
+      await importFile(entry, entry.idx);
+      // Add 500ms delay between requests to avoid rate limiting
+      if (j < pending.length - 1) await sleep(500);
     }
 
     setImporting(false);
-    toast({ title: "Batch import complete", description: `${pending.length} files processed` });
+    const done = files.filter((f) => f.status === "done").length;
+    toast({ title: "Batch import complete", description: `${pending.length} processed` });
   };
 
   const doneCount = files.filter((f) => f.status === "done").length;
@@ -162,11 +192,18 @@ export default function AdminNbaPbpImport() {
               {doneCount > 0 && ` · ${doneCount} done`}
               {errorCount > 0 && ` · ${errorCount} failed`}
             </span>
-            {doneCount > 0 && (
-              <Button variant="ghost" size="sm" className="h-6 text-[10px] gap-1" onClick={clearDone}>
-                <Trash2 className="h-3 w-3" /> Clear done
-              </Button>
-            )}
+            <div className="flex gap-1">
+              {errorCount > 0 && (
+                <Button variant="ghost" size="sm" className="h-6 text-[10px] gap-1" onClick={retryFailed}>
+                  <RotateCcw className="h-3 w-3" /> Retry failed
+                </Button>
+              )}
+              {doneCount > 0 && (
+                <Button variant="ghost" size="sm" className="h-6 text-[10px] gap-1" onClick={clearDone}>
+                  <Trash2 className="h-3 w-3" /> Clear done
+                </Button>
+              )}
+            </div>
           </div>
 
           {importing && <Progress value={progress} className="h-1.5" />}
