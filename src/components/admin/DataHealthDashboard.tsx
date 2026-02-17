@@ -2,6 +2,9 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { Button } from "@/components/ui/button";
+import { RefreshCw } from "lucide-react";
+import { toast } from "sonner";
 
 interface LeagueGameStats {
   league: string;
@@ -21,9 +24,34 @@ export function DataHealthDashboard() {
   const [games, setGames] = useState<LeagueGameStats[]>([]);
   const [players, setPlayers] = useState<LeaguePlayerStats[]>([]);
   const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState<string | null>(null);
 
-  useEffect(() => {
-    async function fetchData() {
+  const syncRoster = async (league: string) => {
+    setSyncing(league);
+    try {
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/fetch-players?mode=roster&league=${league}`,
+        {
+          headers: {
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          },
+        }
+      );
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error || "Sync failed");
+      toast.success(`${league} roster synced: ${result.meta?.players_upserted || 0} players updated`);
+      // Refresh data
+      setLoading(true);
+      fetchData();
+    } catch (e: any) {
+      toast.error(`Sync failed: ${e.message}`);
+    } finally {
+      setSyncing(null);
+    }
+  };
+
+  const fetchData = async () => {
       // Use RPC-style counting to avoid the 1000-row limit
       const leagues = ["NBA", "NFL", "NHL", "MLB"];
       
@@ -63,9 +91,9 @@ export function DataHealthDashboard() {
       setGames(gameResults);
       setPlayers(playerResults);
       setLoading(false);
-    }
-    fetchData();
-  }, []);
+  };
+
+  useEffect(() => { fetchData(); }, []);
 
   if (loading) {
     return (
@@ -115,9 +143,20 @@ export function DataHealthDashboard() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {players.map((p) => (
               <div key={p.league} className="border border-border rounded-md p-3 space-y-1.5">
-                <div className="flex items-baseline justify-between">
+                <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-foreground">{p.league}</span>
-                  <span className="text-[10px] text-muted-foreground">{p.total} players</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] text-muted-foreground">{p.total} players</span>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-5 px-1.5 text-[10px]"
+                      disabled={syncing !== null}
+                      onClick={() => syncRoster(p.league)}
+                    >
+                      <RefreshCw className={`h-3 w-3 ${syncing === p.league ? "animate-spin" : ""}`} />
+                    </Button>
+                  </div>
                 </div>
                 <StatRow label="Birth date" value={p.withBirthDate} total={p.total} />
                 <StatRow label="Birth time" value={p.withBirthTime} total={p.total} />
