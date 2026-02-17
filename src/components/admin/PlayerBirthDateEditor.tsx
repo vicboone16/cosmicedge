@@ -60,7 +60,7 @@ export function PlayerBirthDateEditor() {
   const handleEdit = (id: string, field: string, value: string) => {
     setEdits((prev) => ({
       ...prev,
-      [id]: { ...prev[id], [field]: value || null },
+      [id]: { ...prev[id], [field]: value },
     }));
   };
 
@@ -68,19 +68,30 @@ export function PlayerBirthDateEditor() {
     const changes = edits[player.id];
     if (!changes) return;
 
+    // Convert empty strings to null for the DB
+    const dbChanges: Record<string, string | null> = {};
+    for (const [k, v] of Object.entries(changes)) {
+      dbChanges[k] = (v as string) || null;
+    }
+
     setSaving(player.id);
     const { error } = await supabase
       .from("players")
-      .update(changes)
+      .update(dbChanges)
       .eq("id", player.id);
 
     if (error) {
       toast.error(`Failed to save ${player.name}: ${error.message}`);
     } else {
       toast.success(`${player.name} updated`);
-      // Update local state
+      // Convert empty strings to null for DB but keep display values
+      const displayChanges: Partial<Player> = {};
+      for (const [k, v] of Object.entries(changes)) {
+        (displayChanges as any)[k] = v || null;
+      }
+      // Update local state with saved values
       setPlayers((prev) =>
-        prev.map((p) => (p.id === player.id ? { ...p, ...changes } : p))
+        prev.map((p) => (p.id === player.id ? { ...p, ...displayChanges } : p))
       );
       // Clear edits for this player
       setEdits((prev) => {
