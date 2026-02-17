@@ -3,15 +3,82 @@ import { cn } from "@/lib/utils";
 import type { GameWithOdds } from "@/hooks/use-games";
 import { useTimezone } from "@/hooks/use-timezone";
 import { getPlanetaryHourAt } from "@/lib/planetary-hours";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
 function formatOdds(odds: number): string {
   if (!odds) return "—";
   return odds > 0 ? `+${odds}` : `${odds}`;
 }
 
+function PeriodScoresTicker({ gameId, league, isLive }: { gameId: string; league: string; isLive: boolean }) {
+  const { data: quarters } = useQuery({
+    queryKey: ["game-quarters", gameId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("game_quarters")
+        .select("quarter, home_score, away_score")
+        .eq("game_id", gameId)
+        .order("quarter", { ascending: true });
+      return data || [];
+    },
+    staleTime: isLive ? 15_000 : 5 * 60_000,
+    refetchInterval: isLive ? 15_000 : false,
+  });
+
+  if (!quarters?.length) return null;
+
+  const periodLabel = league === "NHL" ? "P" : league === "MLB" ? "" : "Q";
+
+  return (
+    <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
+      {quarters.map((q) => (
+        <div key={q.quarter} className="flex flex-col items-center min-w-[28px]">
+          <span className="text-[8px] text-muted-foreground uppercase">
+            {periodLabel}{q.quarter}
+          </span>
+          <span className="text-[10px] font-semibold tabular-nums text-muted-foreground">
+            {q.away_score ?? "-"}
+          </span>
+          <span className="text-[10px] font-semibold tabular-nums text-foreground">
+            {q.home_score ?? "-"}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function LiveSnapshot({ gameId }: { gameId: string }) {
+  const { data: snapshot } = useQuery({
+    queryKey: ["game-snapshot", gameId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("game_state_snapshots")
+        .select("quarter, clock, status")
+        .eq("game_id", gameId)
+        .order("captured_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      return data;
+    },
+    staleTime: 10_000,
+    refetchInterval: 15_000,
+  });
+
+  if (!snapshot) return null;
+
+  return (
+    <span className="text-[10px] text-cosmic-green font-medium tabular-nums">
+      {snapshot.quarter && <>{snapshot.quarter}</>}
+      {snapshot.clock && snapshot.clock !== snapshot.quarter && <> · {snapshot.clock}</>}
+    </span>
+  );
+}
+
 export function GameCard({ game }: { game: GameWithOdds }) {
   const navigate = useNavigate();
-  const { formatInUserTZ, getTZAbbrev, getHoursInUserTZ } = useTimezone();
+  const { formatInUserTZ, getTZAbbrev } = useTimezone();
   const isLive = game.status === "live";
   const isFinal = game.status === "final";
 
@@ -28,7 +95,10 @@ export function GameCard({ game }: { game: GameWithOdds }) {
   return (
     <button
       onClick={() => navigate(`/game/${game.id}`)}
-      className="w-full text-left cosmic-card rounded-xl p-4 transition-all duration-200 hover:border-primary/30 hover:cosmic-glow active:scale-[0.98]"
+      className={cn(
+        "w-full text-left cosmic-card rounded-xl p-4 transition-all duration-200 hover:border-primary/30 hover:cosmic-glow active:scale-[0.98]",
+        isLive && "border-l-2 border-l-cosmic-green"
+      )}
     >
       {/* Status bar */}
       <div className="flex items-center justify-between mb-3">
@@ -37,6 +107,7 @@ export function GameCard({ game }: { game: GameWithOdds }) {
             <span className="flex items-center gap-1.5">
               <span className="h-2 w-2 rounded-full bg-cosmic-green animate-pulse-glow" />
               <span className="text-xs font-semibold text-cosmic-green uppercase tracking-wider">Live</span>
+              <LiveSnapshot gameId={game.id} />
             </span>
           )}
           {isFinal && (
@@ -69,7 +140,7 @@ export function GameCard({ game }: { game: GameWithOdds }) {
           </div>
           <div className="flex items-center gap-4">
             {(isLive || isFinal) && (
-              <span className={cn("text-lg font-bold font-display tabular-nums", isFinal && (game.away_score ?? 0) > (game.home_score ?? 0) ? "text-foreground" : "text-muted-foreground")}>
+              <span className={cn("text-lg font-bold font-display tabular-nums", isLive ? "text-cosmic-green" : isFinal && (game.away_score ?? 0) > (game.home_score ?? 0) ? "text-foreground" : "text-muted-foreground")}>
                 {game.away_score}
               </span>
             )}
@@ -93,7 +164,7 @@ export function GameCard({ game }: { game: GameWithOdds }) {
           </div>
           <div className="flex items-center gap-4">
             {(isLive || isFinal) && (
-              <span className={cn("text-lg font-bold font-display tabular-nums", isFinal && (game.home_score ?? 0) > (game.away_score ?? 0) ? "text-foreground" : "text-muted-foreground")}>
+              <span className={cn("text-lg font-bold font-display tabular-nums", isLive ? "text-cosmic-green" : isFinal && (game.home_score ?? 0) > (game.away_score ?? 0) ? "text-foreground" : "text-muted-foreground")}>
                 {game.home_score}
               </span>
             )}
@@ -103,6 +174,13 @@ export function GameCard({ game }: { game: GameWithOdds }) {
           </div>
         </div>
       </div>
+
+      {/* Period Scores Ticker */}
+      {(isLive || isFinal) && (
+        <div className="mt-2 pt-2 border-t border-border/30">
+          <PeriodScoresTicker gameId={game.id} league={game.league} isLive={isLive} />
+        </div>
+      )}
 
       {/* Astro + Spread & Total */}
       <div className="mt-3 pt-3 border-t border-border/50 space-y-2">

@@ -1,14 +1,24 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { corsHeaders } from "../_shared/cors.ts";
+import { CANONICAL } from "../_shared/team-mappings.ts";
 
 /* ══════════════════════════════════════════════════════════
-   LEAGUE-SPECIFIC SCORE FETCHERS (SportsData.io)
+   TheSportsDB V2 Live Scores
    ══════════════════════════════════════════════════════════ */
+
+const SPORT_MAP: Record<string, string> = {
+  NBA: "basketball",
+  NFL: "americanfootball",
+  NHL: "icehockey",
+  MLB: "baseball",
+};
+
+const LEAGUE_IDS: Record<string, string> = {
+  NBA: "4387",
+  NFL: "4391",
+  NHL: "4380",
+  MLB: "4424",
+};
 
 interface ScoreUpdate {
   homeScore: number | null;
@@ -16,117 +26,109 @@ interface ScoreUpdate {
   status: string;
   quarter: string | null;
   clock: string | null;
+  homeTeam: string;
+  awayTeam: string;
+  idEvent: string;
 }
 
-function mapSdioStatus(status: string): string {
-  const s = status?.toLowerCase() || "";
-  if (["inprogress", "in progress"].includes(s)) return "live";
-  if (["final", "f/ot", "closed", "complete"].includes(s)) return "final";
-  if (["scheduled", "pregame", "created"].includes(s)) return "scheduled";
-  if (["postponed", "suspended", "canceled", "cancelled"].includes(s)) return "postponed";
+function getAbbr(league: string, teamName: string): string | null {
+  const dict = CANONICAL[league];
+  if (!dict) return null;
+  return dict[teamName] || null;
+}
+
+function mapTsdbStatus(strStatus: string | null, strProgress: string | null): string {
+  if (!strStatus) return "scheduled";
+  const s = strStatus.toLowerCase();
+  // Match is ongoing if strProgress has time/period info
+  if (["match on", "in progress", "live"].some(v => s.includes(v))) return "live";
+  if (s === "ft" || s === "aot" || s === "ap" || s === "aet" || s === "finished") return "final";
+  if (s === "ns" || s === "not started") return "scheduled";
+  if (s === "postponed" || s === "cancelled" || s === "suspended") return "postponed";
+  // If there's a progress indicator with time, it's likely live
+  if (strProgress && strProgress !== "0'" && strProgress !== "") return "live";
   return "scheduled";
 }
 
-async function fetchNBABoxScore(externalId: string, apiKey: string): Promise<ScoreUpdate | null> {
-  const url = `https://api.sportsdata.io/v3/nba/scores/json/BoxScore/${externalId}?key=${apiKey}`;
-  const resp = await fetch(url);
-  if (!resp.ok) { await resp.text(); return null; }
-  const box = await resp.json();
-  const g = box?.Game;
-  if (!g) return null;
-  return {
-    homeScore: g.HomeTeamScore ?? null,
-    awayScore: g.AwayTeamScore ?? null,
-    status: mapSdioStatus(g.Status),
-    quarter: g.Quarter ? String(g.Quarter) : null,
-    clock: g.TimeRemainingMinutes != null && g.TimeRemainingSeconds != null
-      ? `${g.TimeRemainingMinutes}:${String(g.TimeRemainingSeconds).padStart(2, "0")}` : null,
-  };
-}
-
-async function fetchNHLBoxScore(externalId: string, apiKey: string): Promise<ScoreUpdate | null> {
-  const url = `https://api.sportsdata.io/v3/nhl/scores/json/BoxScore/${externalId}?key=${apiKey}`;
-  const resp = await fetch(url);
-  if (!resp.ok) { await resp.text(); return null; }
-  const box = await resp.json();
-  const g = box?.Game;
-  if (!g) return null;
-  return {
-    homeScore: g.HomeTeamScore ?? null,
-    awayScore: g.AwayTeamScore ?? null,
-    status: mapSdioStatus(g.Status),
-    quarter: g.Period ? `P${g.Period}` : null,
-    clock: g.TimeRemainingMinutes != null && g.TimeRemainingSeconds != null
-      ? `${g.TimeRemainingMinutes}:${String(g.TimeRemainingSeconds).padStart(2, "0")}` : null,
-  };
-}
-
-async function fetchNFLBoxScore(externalId: string, apiKey: string): Promise<ScoreUpdate | null> {
-  const url = `https://api.sportsdata.io/v3/nfl/scores/json/BoxScoreByScoreIDV3/${externalId}?key=${apiKey}`;
-  const resp = await fetch(url);
-  if (!resp.ok) { await resp.text(); return null; }
-  const box = await resp.json();
-  const g = box?.Score;
-  if (!g) return null;
-  return {
-    homeScore: g.HomeScore ?? null,
-    awayScore: g.AwayScore ?? null,
-    status: mapSdioStatus(g.Status),
-    quarter: g.Quarter ? `Q${g.Quarter}` : null,
-    clock: g.TimeRemaining || null,
-  };
-}
-
-async function fetchMLBBoxScore(externalId: string, apiKey: string): Promise<ScoreUpdate | null> {
-  const url = `https://api.sportsdata.io/v3/mlb/scores/json/BoxScore/${externalId}?key=${apiKey}`;
-  const resp = await fetch(url);
-  if (!resp.ok) { await resp.text(); return null; }
-  const box = await resp.json();
-  const g = box?.Game;
-  if (!g) return null;
-  return {
-    homeScore: g.HomeTeamRuns ?? null,
-    awayScore: g.AwayTeamRuns ?? null,
-    status: mapSdioStatus(g.Status),
-    quarter: g.Inning ? `${g.Inning}` : null,
-    clock: g.InningHalf || null,
-  };
-}
-
-function getLeagueFetcher(league: string): (id: string, key: string) => Promise<ScoreUpdate | null> {
-  switch (league) {
-    case "NHL": return fetchNHLBoxScore;
-    case "NFL": return fetchNFLBoxScore;
-    case "MLB": return fetchMLBBoxScore;
-    default: return fetchNBABoxScore;
+function parseQuarter(strProgress: string | null, strStatus: string | null, league: string): string | null {
+  if (!strProgress && !strStatus) return null;
+  
+  const prog = strProgress || "";
+  const status = strStatus || "";
+  
+  // NBA: "Q1", "Q2", "Q3", "Q4", "OT", "2OT"
+  // NHL: "P1", "P2", "P3", "OT"
+  // NFL: "Q1", "Q2", "Q3", "Q4", "OT"
+  // MLB: "Top 1st", "Bot 3rd", etc.
+  
+  if (status === "FT" || status === "AOT" || status === "AP") {
+    return league === "NHL" ? "Final" : league === "MLB" ? "Final" : "Final";
   }
+  
+  // Check for explicit quarter/period indicators
+  const qMatch = prog.match(/(\d+)(?:st|nd|rd|th)?\s*(Q|Quarter|Period|Inning|Half)/i);
+  if (qMatch) return qMatch[0];
+  
+  // If progress contains time like "12:34", extract it
+  if (/^\d+[':]/.test(prog)) return prog;
+  
+  return prog || null;
 }
 
-/* ══════════════════════════════════════════════════════════
-   SGO FALLBACK
-   ══════════════════════════════════════════════════════════ */
-
-async function fetchSGOFallback(gameId: string, sgoKey: string): Promise<ScoreUpdate | null> {
-  if (!sgoKey) return null;
-  try {
-    const url = `https://api.sportsgameodds.com/v2/events/${gameId}?apiKey=${sgoKey}`;
-    const resp = await fetch(url);
-    if (!resp.ok) { await resp.text(); return null; }
-    const data = await resp.json();
-    const event = data?.event;
-    if (!event) return null;
-    const scores = event.scores;
-    if (!scores) return null;
-    return {
-      homeScore: scores.home?.total ?? null,
-      awayScore: scores.away?.total ?? null,
-      status: event.status === "in_progress" ? "live" : event.status === "final" ? "final" : "scheduled",
-      quarter: scores.period ? String(scores.period) : null,
-      clock: scores.clock || null,
-    };
-  } catch {
-    return null;
+async function fetchLiveScoresForLeague(
+  apiKey: string,
+  league: string,
+): Promise<ScoreUpdate[]> {
+  const sport = SPORT_MAP[league];
+  if (!sport) return [];
+  
+  const url = `https://www.thesportsdb.com/api/v2/json/livescore/${sport}`;
+  console.log(`Fetching live scores for ${league} (${sport})`);
+  
+  const resp = await fetch(url, {
+    headers: { "X-API-KEY": apiKey },
+  });
+  
+  if (!resp.ok) {
+    const body = await resp.text();
+    console.error(`TheSportsDB livescore ${league} error ${resp.status}: ${body.slice(0, 200)}`);
+    return [];
   }
+  
+  const data = await resp.json();
+  const events = data?.livescores?.events || data?.events || data?.livescore || [];
+  
+  if (!Array.isArray(events)) {
+    // Sometimes it comes as an object
+    console.log(`No live events for ${league}, type: ${typeof events}`);
+    return [];
+  }
+  
+  const leagueId = LEAGUE_IDS[league];
+  const results: ScoreUpdate[] = [];
+  
+  for (const ev of events) {
+    // Filter to our league
+    if (ev.idLeague && String(ev.idLeague) !== leagueId) continue;
+    
+    const homeScore = ev.intHomeScore != null ? parseInt(ev.intHomeScore) : null;
+    const awayScore = ev.intAwayScore != null ? parseInt(ev.intAwayScore) : null;
+    const status = mapTsdbStatus(ev.strStatus, ev.strProgress);
+    const quarter = parseQuarter(ev.strProgress, ev.strStatus, league);
+    
+    results.push({
+      homeScore,
+      awayScore,
+      status,
+      quarter,
+      clock: ev.strProgress || null,
+      homeTeam: ev.strHomeTeam || "",
+      awayTeam: ev.strAwayTeam || "",
+      idEvent: ev.idEvent || "",
+    });
+  }
+  
+  return results;
 }
 
 /* ══════════════════════════════════════════════════════════
@@ -139,98 +141,102 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const sportsDataKey = Deno.env.get("SPORTSDATAIO_API_KEY");
-    const sgoKey = Deno.env.get("SPORTSGAMEODDS_API_KEY") || "";
-
-    if (!sportsDataKey && !sgoKey) {
-      return new Response(JSON.stringify({ error: "No score API keys configured" }), {
+    const apiKey = Deno.env.get("THESPORTSDB_API_KEY");
+    if (!apiKey) {
+      return new Response(JSON.stringify({ error: "THESPORTSDB_API_KEY not configured" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const supabase = createClient(supabaseUrl, serviceKey);
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    );
 
     const now = new Date();
     const todayISO = now.toISOString().slice(0, 10);
 
-    // Fetch games that are live or scheduled for today across ALL leagues
+    // Fetch games that are live or scheduled for today
     const { data: games, error: gamesError } = await supabase
       .from("games")
-      .select("id, external_id, status, home_team, away_team, league")
-      .or(`status.eq.live,and(status.eq.scheduled,start_time.gte.${todayISO}T00:00:00Z,start_time.lte.${todayISO}T23:59:59Z)`)
-      .not("external_id", "is", null);
+      .select("id, external_id, status, home_team, away_team, home_abbr, away_abbr, league, start_time")
+      .or(`status.eq.live,and(status.eq.scheduled,start_time.gte.${todayISO}T00:00:00Z,start_time.lte.${todayISO}T23:59:59Z)`);
 
-    if (gamesError) {
-      throw new Error("Failed to fetch games: " + gamesError.message);
-    }
-
-    if (!games || games.length === 0) {
+    if (gamesError) throw new Error("Failed to fetch games: " + gamesError.message);
+    if (!games?.length) {
       return new Response(JSON.stringify({ message: "No active games to update", updated: 0 }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
+    // Group games by league
+    const byLeague: Record<string, typeof games> = {};
+    for (const g of games) {
+      (byLeague[g.league] ??= []).push(g);
+    }
+
     let updatedCount = 0;
     const leagueCounts: Record<string, number> = {};
 
-    for (const game of games) {
-      try {
-        let scoreUpdate: ScoreUpdate | null = null;
+    for (const [league, leagueGames] of Object.entries(byLeague)) {
+      const liveScores = await fetchLiveScoresForLeague(apiKey, league);
+      if (!liveScores.length) {
+        console.log(`No live data for ${league}`);
+        continue;
+      }
 
-        // Try SportsData.io first (league-specific)
-        if (sportsDataKey) {
-          const fetcher = getLeagueFetcher(game.league);
-          scoreUpdate = await fetcher(game.external_id!, sportsDataKey);
-        }
-
-        // Fallback to SGO if SportsData.io failed
-        if (!scoreUpdate && sgoKey) {
-          scoreUpdate = await fetchSGOFallback(game.external_id!, sgoKey);
-        }
-
-        if (!scoreUpdate) {
-          console.error(`No score data for game ${game.external_id} (${game.league})`);
-          continue;
-        }
-
-        // Upsert snapshot
-        await supabase.from("game_state_snapshots").insert({
-          game_id: game.id,
-          status: scoreUpdate.status,
-          home_score: scoreUpdate.homeScore,
-          away_score: scoreUpdate.awayScore,
-          quarter: scoreUpdate.quarter,
-          clock: scoreUpdate.clock,
+      for (const game of leagueGames) {
+        // Match by team abbreviation/name
+        const match = liveScores.find((ls) => {
+          const homeAbbr = getAbbr(league, ls.homeTeam);
+          const awayAbbr = getAbbr(league, ls.awayTeam);
+          return (
+            (homeAbbr === game.home_abbr && awayAbbr === game.away_abbr) ||
+            (ls.homeTeam === game.home_team && ls.awayTeam === game.away_team) ||
+            (game.external_id && game.external_id === `tsdb_${ls.idEvent}`)
+          );
         });
 
+        if (!match) continue;
+        // Only update if we have actual score data or status change
+        if (match.homeScore == null && match.awayScore == null && match.status === "scheduled") continue;
+
+        // Upsert snapshot for live tracking
+        if (match.status === "live" || match.status === "final") {
+          await supabase.from("game_state_snapshots").insert({
+            game_id: game.id,
+            status: match.status,
+            home_score: match.homeScore,
+            away_score: match.awayScore,
+            quarter: match.quarter,
+            clock: match.clock,
+          });
+        }
+
         // Update games table
-        await supabase
-          .from("games")
-          .update({
-            home_score: scoreUpdate.homeScore,
-            away_score: scoreUpdate.awayScore,
-            status: scoreUpdate.status,
-          })
-          .eq("id", game.id);
+        const updateData: Record<string, any> = {};
+        if (match.homeScore != null) updateData.home_score = match.homeScore;
+        if (match.awayScore != null) updateData.away_score = match.awayScore;
+        if (match.status === "live" || match.status === "final") updateData.status = match.status;
+
+        if (Object.keys(updateData).length > 0) {
+          await supabase.from("games").update(updateData).eq("id", game.id);
+        }
 
         updatedCount++;
-        leagueCounts[game.league] = (leagueCounts[game.league] || 0) + 1;
-      } catch (e) {
-        console.error(`Error processing game ${game.external_id} (${game.league}):`, e);
+        leagueCounts[league] = (leagueCounts[league] || 0) + 1;
       }
     }
 
     return new Response(JSON.stringify({
-      message: "Live scores updated",
+      message: "Live scores updated via TheSportsDB",
       updated: updatedCount,
       by_league: leagueCounts,
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (e) {
+  } catch (e: any) {
     console.error("fetch-live-scores error:", e);
     return new Response(JSON.stringify({ error: e.message }), {
       status: 500,
