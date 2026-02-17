@@ -115,10 +115,16 @@ export function PlayerBirthDateEditor() {
       for (const [k, v] of Object.entries(changes)) {
         (displayChanges as any)[k] = v || null;
       }
-      // Update local state with saved values
-      setPlayers((prev) =>
-        prev.map((p) => (p.id === player.id ? { ...p, ...displayChanges } : p))
-      );
+      // Update local state — remove from list if in "missing" mode and DOB was filled
+      setPlayers((prev) => {
+        const updated = prev.map((p) =>
+          p.id === player.id ? { ...p, ...displayChanges } : p
+        );
+        if (filterMode === "missing" && displayChanges.birth_date) {
+          return updated.filter((p) => p.id !== player.id);
+        }
+        return updated;
+      });
       // Clear edits for this player
       setEdits((prev) => {
         const copy = { ...prev };
