@@ -38,7 +38,7 @@ export function PlayerBirthDateEditor() {
       .select("id, name, team, position, league, birth_date, birth_time, birth_place")
       .eq("league", league)
       .order("name")
-      .limit(100);
+      .limit(200);
 
     if (filterMode === "missing") {
       q = q.is("birth_date", null);
@@ -52,7 +52,22 @@ export function PlayerBirthDateEditor() {
     if (error) {
       toast.error(error.message);
     } else {
-      setPlayers(data || []);
+      // Deduplicate by normalized name (handle accented duplicates like Şengün vs Sengun)
+      const seen = new Map<string, Player>();
+      for (const p of (data || []) as Player[]) {
+        const norm = p.name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+        // Keep the one with more data (position filled, or accented original)
+        if (!seen.has(norm) || (!seen.get(norm)!.position && p.position)) {
+          seen.set(norm, p);
+        }
+      }
+      // Sort by normalized name (always first-name order)
+      const deduped = Array.from(seen.values()).sort((a, b) => {
+        const na = a.name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+        const nb = b.name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+        return na.localeCompare(nb);
+      });
+      setPlayers(deduped);
     }
     setLoading(false);
   }, [league, filterMode, search]);
