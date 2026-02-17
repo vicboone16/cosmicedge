@@ -126,7 +126,7 @@ Deno.serve(async (req) => {
     let inserted = 0;
     for (let i = 0; i < rows.length; i += BATCH) {
       const batch = rows.slice(i, i + BATCH);
-      const { error } = await sb.from("nba_play_by_play_events").insert(batch);
+      const { error } = await sb.from("nba_play_by_play_events").upsert(batch, { onConflict: "game_id,play_id" });
       if (error) throw new Error(`Batch insert error: ${error.message}`);
       inserted += batch.length;
     }
