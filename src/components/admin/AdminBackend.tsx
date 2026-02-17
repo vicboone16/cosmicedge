@@ -1,10 +1,33 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Database, Server, HardDrive } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Database, Server, HardDrive, Wrench, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 
 export default function AdminBackend() {
+  const [normalizing, setNormalizing] = useState(false);
+  const [normLog, setNormLog] = useState<string[] | null>(null);
+
+  const runNormalize = async (dryRun: boolean) => {
+    setNormalizing(true);
+    setNormLog(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("normalize-data", {
+        body: { dry_run: dryRun },
+      });
+      if (error) throw error;
+      setNormLog(data.changes || []);
+      toast.success(`${dryRun ? "Dry run" : "Applied"}: ${data.total_updates} updates${data.changes?.length ? "" : " (all clean!)"}`);
+    } catch (e: any) {
+      toast.error(e.message || "Normalization failed");
+    } finally {
+      setNormalizing(false);
+    }
+  };
+
   const { data: tableStats } = useQuery({
     queryKey: ["admin-table-stats"],
     queryFn: async () => {
@@ -77,6 +100,36 @@ export default function AdminBackend() {
             <Badge variant="outline" className="text-[10px]">Public</Badge>
           </div>
         </div>
+      </Card>
+      <Card className="p-4">
+        <h2 className="text-sm font-semibold text-foreground flex items-center gap-2 mb-3">
+          <Wrench className="h-4 w-4 text-primary" />
+          Data Normalization
+        </h2>
+        <p className="text-xs text-muted-foreground mb-3">
+          Normalize team abbreviations across all tables (games, players, stats, injuries, etc.)
+        </p>
+        <div className="flex gap-2 mb-3">
+          <Button size="sm" variant="outline" onClick={() => runNormalize(true)} disabled={normalizing}>
+            {normalizing ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
+            Dry Run
+          </Button>
+          <Button size="sm" variant="destructive" onClick={() => runNormalize(false)} disabled={normalizing}>
+            {normalizing ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
+            Apply Fixes
+          </Button>
+        </div>
+        {normLog && (
+          <div className="bg-secondary/30 rounded-lg p-3 max-h-48 overflow-y-auto">
+            {normLog.length === 0 ? (
+              <p className="text-xs text-muted-foreground">✅ All abbreviations are canonical — nothing to fix.</p>
+            ) : (
+              normLog.map((line, i) => (
+                <p key={i} className="text-[10px] text-foreground font-mono">{line}</p>
+              ))
+            )}
+          </div>
+        )}
       </Card>
     </div>
   );
