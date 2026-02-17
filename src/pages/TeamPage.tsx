@@ -92,11 +92,15 @@ const TeamPage = () => {
         .eq("league", lg)
         .or(`home_abbr.eq.${abbr},away_abbr.eq.${abbr}`)
         .order("start_time", { ascending: false })
-        .limit(10);
+        .limit(20);
       return data || [];
     },
     enabled: !!abbr,
   });
+
+  const now = new Date().toISOString();
+  const recentGames = teamGames?.filter(g => g.status === "final" || g.status === "live") || [];
+  const upcomingGames = teamGames?.filter(g => g.status !== "final" && g.status !== "live")?.sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime()) || [];
 
   // Fetch advanced game stats (Four Factors, ORtg/DRtg, etc.)
   const { data: advancedStats } = useQuery({
@@ -256,14 +260,49 @@ const TeamPage = () => {
         )}
 
         {/* Recent Games */}
-        {teamGames && teamGames.length > 0 && (
+        {/* Upcoming Games */}
+        {upcomingGames.length > 0 && (
+          <section>
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-3 flex items-center gap-1.5">
+              <Calendar className="h-3.5 w-3.5" />
+              Upcoming Games
+            </h3>
+            <div className="space-y-1.5">
+              {upcomingGames.map(g => {
+                const isHome = g.home_abbr === abbr;
+                const opp = isHome ? g.away_abbr : g.home_abbr;
+                const dateStr = new Date(g.start_time).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+                const timeStr = new Date(g.start_time).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+                return (
+                  <button
+                    key={g.id}
+                    onClick={() => navigate(`/game/${g.id}`)}
+                    className="w-full cosmic-card rounded-lg p-2.5 text-left hover:border-primary/30 transition-colors"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] text-muted-foreground w-12">{dateStr}</span>
+                        <span className="text-[10px] text-muted-foreground">{isHome ? "vs" : "@"}</span>
+                        <span className="text-xs font-semibold text-primary">{opp}</span>
+                      </div>
+                      <span className="text-[10px] text-muted-foreground">{timeStr}</span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+        )}
+
+        {/* Recent Games */}
+        {recentGames.length > 0 && (
           <section>
             <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-3 flex items-center gap-1.5">
               <Calendar className="h-3.5 w-3.5" />
               Recent Games
             </h3>
             <div className="space-y-1.5">
-              {teamGames.map(g => {
+              {recentGames.map(g => {
                 const isHome = g.home_abbr === abbr;
                 const opp = isHome ? g.away_abbr : g.home_abbr;
                 const teamScore = isHome ? g.home_score : g.away_score;
