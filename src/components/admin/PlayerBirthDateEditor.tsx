@@ -52,21 +52,32 @@ export function PlayerBirthDateEditor() {
     if (error) {
       toast.error(error.message);
     } else {
-      // Deduplicate by normalized name (handle accented duplicates like Şengün vs Sengun)
+      // Normalize: strip accents + convert "Last, First" → "first last"
+      const normName = (n: string) => {
+        let s = n.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+        // Handle "Last, First" format
+        if (s.includes(",")) {
+          const parts = s.split(",").map((p) => p.trim());
+          s = parts.reverse().join(" ");
+        }
+        // Collapse multiple spaces
+        return s.replace(/\s+/g, " ");
+      };
+
+      // Deduplicate by normalized name
       const seen = new Map<string, Player>();
       for (const p of (data || []) as Player[]) {
-        const norm = p.name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-        // Keep the one with more data (position filled, or accented original)
-        if (!seen.has(norm) || (!seen.get(norm)!.position && p.position)) {
+        const norm = normName(p.name);
+        // Keep the one with more data (birth_date filled > position filled > first seen)
+        const existing = seen.get(norm);
+        if (!existing || (!existing.birth_date && p.birth_date) || (!existing.position && p.position)) {
           seen.set(norm, p);
         }
       }
       // Sort by normalized name (always first-name order)
-      const deduped = Array.from(seen.values()).sort((a, b) => {
-        const na = a.name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-        const nb = b.name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-        return na.localeCompare(nb);
-      });
+      const deduped = Array.from(seen.values()).sort((a, b) =>
+        normName(a.name).localeCompare(normName(b.name))
+      );
       setPlayers(deduped);
     }
     setLoading(false);
