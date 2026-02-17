@@ -52,15 +52,15 @@ export function PlayerBirthDateEditor() {
     if (error) {
       toast.error(error.message);
     } else {
-      // Normalize: strip accents + convert "Last, First" → "first last"
-      const normName = (n: string) => {
-        let s = n.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
-        // Handle "Last, First" format
-        if (s.includes(",")) {
-          const parts = s.split(",").map((p) => p.trim());
-          s = parts.reverse().join(" ");
+      // Convert "Last, First" → "First Last" for display and normalize for dedup
+      const flipName = (n: string) => {
+        if (n.includes(",")) {
+          return n.split(",").map((p) => p.trim()).reverse().join(" ");
         }
-        // Collapse multiple spaces
+        return n;
+      };
+      const normName = (n: string) => {
+        let s = flipName(n).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
         return s.replace(/\s+/g, " ");
       };
 
@@ -211,7 +211,7 @@ export function PlayerBirthDateEditor() {
                 return (
                   <div key={p.id} className="flex items-center gap-2 py-1.5 border-b border-border last:border-0">
                     <div className="flex-shrink-0 w-28">
-                      <span className="text-xs font-medium text-foreground truncate block">{p.name}</span>
+                      <span className="text-xs font-medium text-foreground truncate block">{p.name.includes(",") ? p.name.split(",").map(s => s.trim()).reverse().join(" ") : p.name}</span>
                       <span className="text-[10px] text-muted-foreground">{p.team} · {p.position}</span>
                     </div>
 
