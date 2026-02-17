@@ -118,23 +118,36 @@ Deno.serve(async (req) => {
 
     if (!rows.length) throw new Error("No rows parsed from CSV");
 
+    // Deduplicate by (game_id, play_id) — keep last occurrence
+    const seen = new Map<string, number>();
+    const deduped: any[] = [];
+    for (const r of rows) {
+      const key = `${r.game_id}::${r.play_id}`;
+      if (seen.has(key)) {
+        deduped[seen.get(key)!] = r; // overwrite earlier
+      } else {
+        seen.set(key, deduped.length);
+        deduped.push(r);
+      }
+    }
+
     // Delete existing data for this game first
     await sb.from("nba_play_by_play_events").delete().eq("game_id", gameId);
 
     // Insert in batches of 200
     const BATCH = 200;
     let inserted = 0;
-    for (let i = 0; i < rows.length; i += BATCH) {
-      const batch = rows.slice(i, i + BATCH);
+    for (let i = 0; i < deduped.length; i += BATCH) {
+      const batch = deduped.slice(i, i + BATCH);
       const { error } = await sb.from("nba_play_by_play_events").upsert(batch, { onConflict: "game_id,play_id" });
       if (error) throw new Error(`Batch insert error: ${error.message}`);
       inserted += batch.length;
     }
 
     // Get final score from last row
-    const lastRow = rows[rows.length - 1];
+    const lastRow = deduped[deduped.length - 1];
     const finalScore = `${lastRow.away_score ?? "?"}-${lastRow.home_score ?? "?"}`;
-    const periods = new Set(rows.map(r => r.period).filter(Boolean));
+    const periods = new Set(deduped.map(r => r.period).filter(Boolean));
 
     return new Response(JSON.stringify({
       status: "success",
