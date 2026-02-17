@@ -81,9 +81,9 @@ const TeamPage = () => {
     enabled: !!abbr,
   });
 
-  // Recent & upcoming games for this team
-  const { data: teamGames } = useQuery({
-    queryKey: ["team-games", abbr, standings?.league],
+  // Recent completed games
+  const { data: recentGames } = useQuery({
+    queryKey: ["team-recent-games", abbr, standings?.league],
     queryFn: async () => {
       const lg = standings?.league || leagueParam?.toUpperCase() || "NBA";
       const { data } = await supabase
@@ -91,16 +91,31 @@ const TeamPage = () => {
         .select("id, home_abbr, away_abbr, home_team, away_team, home_score, away_score, status, start_time, league")
         .eq("league", lg)
         .or(`home_abbr.eq.${abbr},away_abbr.eq.${abbr}`)
+        .in("status", ["final", "live", "Final", "Final/OT"])
         .order("start_time", { ascending: false })
-        .limit(20);
+        .limit(10);
       return data || [];
     },
     enabled: !!abbr,
   });
 
-  const now = new Date().toISOString();
-  const recentGames = teamGames?.filter(g => g.status === "final" || g.status === "live") || [];
-  const upcomingGames = teamGames?.filter(g => g.status !== "final" && g.status !== "live")?.sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime()) || [];
+  // Upcoming scheduled games
+  const { data: upcomingGames } = useQuery({
+    queryKey: ["team-upcoming-games", abbr, standings?.league],
+    queryFn: async () => {
+      const lg = standings?.league || leagueParam?.toUpperCase() || "NBA";
+      const { data } = await supabase
+        .from("games")
+        .select("id, home_abbr, away_abbr, home_team, away_team, home_score, away_score, status, start_time, league")
+        .eq("league", lg)
+        .or(`home_abbr.eq.${abbr},away_abbr.eq.${abbr}`)
+        .eq("status", "scheduled")
+        .order("start_time", { ascending: true })
+        .limit(10);
+      return data || [];
+    },
+    enabled: !!abbr,
+  });
 
   // Fetch advanced game stats (Four Factors, ORtg/DRtg, etc.)
   const { data: advancedStats } = useQuery({
@@ -261,7 +276,7 @@ const TeamPage = () => {
 
         {/* Recent Games */}
         {/* Upcoming Games */}
-        {upcomingGames.length > 0 && (
+        {upcomingGames && upcomingGames.length > 0 && (
           <section>
             <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-3 flex items-center gap-1.5">
               <Calendar className="h-3.5 w-3.5" />
@@ -295,7 +310,7 @@ const TeamPage = () => {
         )}
 
         {/* Recent Games */}
-        {recentGames.length > 0 && (
+        {recentGames && recentGames.length > 0 && (
           <section>
             <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-3 flex items-center gap-1.5">
               <Calendar className="h-3.5 w-3.5" />
