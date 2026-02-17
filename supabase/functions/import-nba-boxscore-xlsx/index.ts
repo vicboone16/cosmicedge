@@ -10,6 +10,7 @@ import { corsHeaders } from "../_shared/cors.ts";
 const NBA_ABBR_MAP: Record<string, string> = {
   "GS": "GSW", "SA": "SAS", "NO": "NOP", "NY": "NYK",
   "PHO": "PHX", "LA-L": "LAL", "LA-C": "LAC",
+  "WSH": "WAS", "UTAH": "UTA", "PHO": "PHX",
 };
 
 function normAbbr(raw: string): string {
@@ -206,7 +207,7 @@ Deno.serve(async (req) => {
     const batchSize = 100;
     for (let i = 0; i < statsBatch.length; i += batchSize) {
       const batch = statsBatch.slice(i, i + batchSize);
-      const { error } = await sb.from("player_game_stats").upsert(batch, { onConflict: "game_id,player_id" });
+      const { error } = await sb.from("player_game_stats").upsert(batch, { onConflict: "game_id,player_id,period" });
       if (error) {
         errors.push(`Stats batch at ${i}: ${error.message}`);
       } else {
