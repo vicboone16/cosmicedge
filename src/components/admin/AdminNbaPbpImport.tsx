@@ -95,44 +95,57 @@ export default function AdminNbaPbpImport() {
     );
   };
 
+  const importFileOnce = async (entry: FileEntry): Promise<ImportResult> => {
+    const resp = await supabase.functions.invoke("import-nba-pbp-csv", {
+      body: { csv: entry.content },
+    });
+
+    if (resp.error) {
+      let errMsg = resp.error.message;
+      try {
+        const ctx = resp.error as any;
+        if (ctx.context?.body) {
+          const bodyText = await new Response(ctx.context.body).text();
+          const parsed = JSON.parse(bodyText);
+          if (parsed.error) errMsg = parsed.error;
+        }
+      } catch { /* use default message */ }
+      throw new Error(errMsg);
+    }
+
+    const data = resp.data as ImportResult;
+    if (data?.error) throw new Error(data.error);
+    return data;
+  };
+
   const importFile = async (entry: FileEntry, idx: number) => {
     setFiles((prev) =>
       prev.map((f, i) => (i === idx ? { ...f, status: "importing" } : f))
     );
 
-    try {
-      const resp = await supabase.functions.invoke("import-nba-pbp-csv", {
-        body: { csv: entry.content },
-      });
-
-      if (resp.error) {
-        // Try to extract the actual error body
-        let errMsg = resp.error.message;
-        try {
-          const ctx = resp.error as any;
-          if (ctx.context?.body) {
-            const bodyText = await new Response(ctx.context.body).text();
-            const parsed = JSON.parse(bodyText);
-            if (parsed.error) errMsg = parsed.error;
-          }
-        } catch { /* use default message */ }
-        throw new Error(errMsg);
+    const MAX_RETRIES = 2;
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        const data = await importFileOnce(entry);
+        setFiles((prev) =>
+          prev.map((f, i) =>
+            i === idx ? { ...f, status: "done", result: data } : f
+          )
+        );
+        return;
+      } catch (err: any) {
+        const isNetworkError = err.message?.includes("non-2xx") || err.message?.includes("Failed to fetch") || err.message?.includes("NetworkError");
+        if (isNetworkError && attempt < MAX_RETRIES) {
+          await sleep(2000 * (attempt + 1)); // 2s, then 4s backoff
+          continue;
+        }
+        setFiles((prev) =>
+          prev.map((f, i) =>
+            i === idx ? { ...f, status: "error", error: err.message } : f
+          )
+        );
+        return;
       }
-
-      const data = resp.data as ImportResult;
-      if (data?.error) throw new Error(data.error);
-
-      setFiles((prev) =>
-        prev.map((f, i) =>
-          i === idx ? { ...f, status: "done", result: data } : f
-        )
-      );
-    } catch (err: any) {
-      setFiles((prev) =>
-        prev.map((f, i) =>
-          i === idx ? { ...f, status: "error", error: err.message } : f
-        )
-      );
     }
   };
 
@@ -146,7 +159,7 @@ export default function AdminNbaPbpImport() {
       const entry = pending[j];
       await importFile(entry, entry.idx);
       // Add 500ms delay between requests to avoid rate limiting
-      if (j < pending.length - 1) await sleep(500);
+      if (j < pending.length - 1) await sleep(1500);
     }
 
     setImporting(false);
