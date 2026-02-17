@@ -3332,6 +3332,10 @@ export type Database = {
         Args: { _conversation_id: string; _user_id: string }
         Returns: boolean
       }
+      merge_players: {
+        Args: { source_id: string; target_id: string }
+        Returns: undefined
+      }
       search_players_unaccent: {
         Args: { max_results?: number; search_query: string }
         Returns: {
