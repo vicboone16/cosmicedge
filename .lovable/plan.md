@@ -1,84 +1,107 @@
 
-
-# Import ESPN-Format NBA Box Score XLSX
+# Props + Nexus: Two Connected Hubs
 
 ## Overview
+Keep **Props** as its own bottom nav tab AND add **Nexus** as a new tab. To avoid 7 cramped icons, **History** gets absorbed into Nexus (since Nexus is the deep research/historical data hub). Final bottom nav becomes:
 
-Your spreadsheet contains per-game NBA player box scores in ESPN format (e.g., FG = "8-13", 3PT = "3-5"). Once imported, these stats will appear on each player's profile page under their game log, and also power the Game Detail stats tab showing who played and how they performed.
+**Slate | Celestial | Props | SkySpread | Nexus | Astra** (6 tabs)
 
-## What Will Be Built
+## What Changes
 
-### 1. New Backend Function: `import-nba-boxscore-xlsx`
+### 1. Bottom Nav Update
+- Replace **History** with **Nexus** (using a `Compass` or `Database` icon)
+- Route: `/nexus`
+- The existing `/historical` page content moves into a "History" tab inside Nexus
 
-A new backend function that:
-- Accepts the XLSX file upload
-- Parses each row, splitting compound stat columns ("8-13" into made=8, attempted=13)
-- Matches players by name (creating new player records if needed, with "Last, First" normalization)
-- Matches games by team abbreviation + opponent + date (with +/-1 day tolerance for timezone)
-- Inserts records into `player_game_stats` with upsert on (game_id, player_id)
-- Skips DNP rows (where `did_not_play = TRUE`)
+### 2. Props Page Enhancements
+The existing Props page (`/props`) stays as-is with these additions:
 
-**Columns mapped from the spreadsheet:**
-- `player_name` -> player lookup/create
-- `team_abbr` -> team
-- `game_date` -> game matching
-- `MIN`, `PTS`, `REB`, `AST`, `STL`, `BLK`, `TO`, `PF`, `Plus-Minus` -> direct integer fields
-- `FG` ("8-13") -> `fg_made`, `fg_attempted`
-- `3PT` ("3-5") -> `three_made`, `three_attempted`
-- `FT` ("2-3") -> `ft_made`, `ft_attempted`
-- `OREB`, `DREB` -> `off_rebounds`, `def_rebounds`
-- `starter` -> `starter` boolean
+**a) Player names become clickable links**
+- Tapping a player name in the props table navigates to `/player/:id` (their Nexus profile)
+- A back button on the player page returns to `/props`
 
-**Game matching logic:**
-- For each row, determine the opponent by finding the other team in the same `event_id`
-- Look up game by home/away abbreviation + date in the games table
-- Use the same +/-1 day fuzzy matching as the existing importers
+**b) "Add to SkySpread" action on each prop row**
+- A small `+` or crosshair icon on each row
+- Tapping it opens the existing `CreateBetForm` / `PropBuilderDialog` pre-filled with that prop's data (player, market, line, odds)
+- The bet is created in SkySpread automatically
 
-### 2. Admin UI Upload Button
+**c) Team props sub-view**
+- Add a toggle at the top: **Player Props | Team Props**
+- Team Props shows game-level markets (spreads, totals, moneylines) from `odds_snapshots`
+- Tapping a team name navigates to `/team/:league/:abbr` (Nexus team profile)
 
-Add a new card to the Admin Import page:
-- Title: "NBA Box Score XLSX Import (ESPN Format)"
-- Description explaining the expected format
-- File input accepting `.xlsx` files
-- Import button that sends the file to the new function
-- Result logging showing rows parsed, stats inserted, players created, games unmatched
+### 3. New Nexus Page (`/nexus`)
+A tabbed hub with four sections:
 
-### 3. Where Stats Appear
+**Tab: "Players"**
+- Reuses the `EntitySearch` component for finding players
+- Shows trending players (those with most prop activity)
+- Tapping a player goes to `/player/:id`
 
-Once imported, the data automatically shows up in:
-- **Player Page** - Game log table (last 82 games with PTS, REB, AST, etc.)
-- **Game Detail > Stats Tab** - Full box score for each team
-- **Trends Page** - Player stat trends over time
-- **Historical Page** - Historical box score lookups
+**Tab: "Teams"**
+- League filter pills (NBA, NHL, NFL, MLB)
+- Grid of team cards with W/L record and last-5 results
+- Tapping a team goes to `/team/:league/:abbr`
 
-No changes needed to these pages since they already read from `player_game_stats`.
+**Tab: "Trends"**
+- Moves the existing `TrendsPage` content here
+- Same filters, league toggle, hit-rate cards
+
+**Tab: "History"**
+- Moves the existing `HistoricalPage` content here
+- Historical odds, past results, ATS/O-U records
+
+### 4. Enhanced Player Profile (`/player/:id`)
+Add new sections below existing content:
+- **H2H vs Upcoming Opponent** -- stats from past games against that team
+- **Situational Splits** -- Home vs Away averages
+- **Archetype Comparison** -- players with similar stat profiles
+- **Astro Overlay** -- transit modifiers if birth data available
+
+### 5. Enhanced Team Profile (`/team/:league/:abbr`)
+Add new sections:
+- **L5 / L10 Performance Trends** -- computed from `team_game_stats`
+- **H2H History** -- selectable opponent, past matchup results
+- **ATS / O-U Record** -- from `historical_odds`
+- **Astro Overlay** -- current transit influences
+
+### 6. Cross-Navigation Flow
+
+```text
+Props Page                         Nexus Page
++------------------+               +------------------+
+| Player Props     |               | Players | Teams  |
+| [LeBron - PTS]---|--click------->| Player Profile   |
+|   [+] Add to SS--|--tap--------->| SkySpread (bet)  |
+|                  |               |                  |
+| Team Props       |               | Trends | History |
+| [LAL spread]-----|--click------->| Team Profile     |
++------------------+               +------------------+
+```
+
+- From Props: click player name -> Player profile in Nexus
+- From Props: click team name -> Team profile in Nexus  
+- From Props: click `+` icon -> Creates bet in SkySpread
+- From Nexus profiles: "View Props" link -> back to Props filtered for that player/team
 
 ---
 
 ## Technical Details
 
-### New file: `supabase/functions/import-nba-boxscore-xlsx/index.ts`
+### Files to Create
+- `src/pages/NexusPage.tsx` -- Main hub with Players / Teams / Trends / History tabs
 
-Key parsing logic for split stats:
-```text
-"8-13" -> { made: 8, attempted: 13 }
-```
+### Files to Modify
+- `src/components/layout/BottomNav.tsx` -- Replace History with Nexus, keep Props
+- `src/App.tsx` -- Add `/nexus` route, keep `/historical` as redirect to `/nexus`
+- `src/pages/PlayerPropsPage.tsx` -- Make player names clickable, add "Add to SkySpread" button, add Team Props toggle
+- `src/pages/PlayerPage.tsx` -- Add H2H, splits, archetype sections
+- `src/pages/TeamPage.tsx` -- Add L5/L10, H2H history, ATS record sections
 
-Game matching strategy:
-- Group rows by `event_id` to identify both teams in each game
-- Determine home vs away from the two team entries per event
-- Match against the `games` table using `home_abbr|away_abbr|date`
-
-### Modified file: `src/pages/AdminImportPage.tsx`
-
-Add a new Card section with:
-- File input for `.xlsx`
-- Uses the `xlsx` library (already installed) to convert to JSON client-side, then sends as JSON to the edge function
-- OR sends the raw file as FormData (edge function handles XLSX parsing via a Deno-compatible library)
-
-Since the `xlsx` library is already installed on the frontend, the most reliable approach is to parse the XLSX client-side into JSON rows, then POST the JSON to a simpler edge function. This avoids Deno XLSX compatibility issues.
-
-### Files to create/modify:
-1. **Create** `supabase/functions/import-nba-boxscore-xlsx/index.ts` - New edge function accepting JSON rows
-2. **Modify** `src/pages/AdminImportPage.tsx` - Add upload card with client-side XLSX parsing
-
+### No Database Changes Needed
+All data already exists in the database:
+- `player_game_stats` for H2H and splits
+- `player_season_stats` for archetype comparison
+- `historical_odds` + `games` for ATS/O-U records
+- `odds_snapshots` for team-level props
+- `standings` for team records
