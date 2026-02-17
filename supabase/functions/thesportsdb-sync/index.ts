@@ -119,7 +119,7 @@ async function syncRosters(
         
         // Parse birth location for geocoding later
         if (p.strBirthLocation) {
-          record.birth_location = p.strBirthLocation;
+          record.birth_place = p.strBirthLocation;
         }
         
         // Check if player exists
@@ -428,9 +428,18 @@ Deno.serve(async (req) => {
     );
     
     const url = new URL(req.url);
-    const mode = url.searchParams.get("mode") || "teams";
-    const league = (url.searchParams.get("league") || "NBA").toUpperCase();
-    const season = url.searchParams.get("season") || undefined;
+    
+    // Support both query params (GET) and JSON body (POST via supabase.functions.invoke)
+    let bodyParams: Record<string, string> = {};
+    if (req.method === "POST") {
+      try {
+        bodyParams = await req.json();
+      } catch { /* no body */ }
+    }
+    
+    const mode = bodyParams.mode || url.searchParams.get("mode") || "teams";
+    const league = (bodyParams.league || url.searchParams.get("league") || "NBA").toUpperCase();
+    const season = bodyParams.season || url.searchParams.get("season") || undefined;
     
     if (!LEAGUE_IDS[league]) {
       return new Response(
