@@ -22,6 +22,7 @@ import { GameMatchupTab } from "@/components/game/GameMatchupTab";
 import { PlayByPlayTab } from "@/components/game/PlayByPlayTab";
 import { GameStatsTab } from "@/components/game/GameStatsTab";
 import { TrackedPropsWidget } from "@/components/tracking/TrackedProps";
+import { PeriodScoresTicker } from "@/components/game/PeriodScoresTicker";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { AlertSetupDialog } from "@/components/live/AlertSetupDialog";
 
@@ -533,6 +534,13 @@ const GameDetail = () => {
             <p className="text-[10px] text-muted-foreground mt-0.5">{game.home_team}</p>
           </button>
         </div>
+
+        {/* Period Scores */}
+        {(game.status === "final" || game.status === "live") && (
+          <div className="flex justify-center mt-2">
+            <PeriodScoresTicker gameId={game.id} league={game.league} isLive={game.status === "live"} />
+          </div>
+        )}
 
         {game.venue && (
           <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground justify-center mb-2">

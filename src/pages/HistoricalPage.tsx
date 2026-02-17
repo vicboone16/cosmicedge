@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { History, TrendingUp, TrendingDown, ChevronLeft, ChevronRight, RefreshCw, Trophy, Star, Users, Target, FlaskConical, Save, Trash2 } from "lucide-react";
+import { PeriodScoresTicker } from "@/components/game/PeriodScoresTicker";
 import { useAuth } from "@/hooks/use-auth";
 import { useIsAdmin } from "@/hooks/use-admin";
 import { toast } from "@/hooks/use-toast";
@@ -561,10 +562,16 @@ export default function HistoricalPage() {
                            {homeWon && <span className="text-cosmic-gold text-[8px]">◀</span>}
                          </div>
                        )}
-                       <span className="w-6" />
-                     </div>
-                   </div>
-                 </button>
+                        <span className="w-6" />
+                      </div>
+                    </div>
+                    {/* Period Scores */}
+                    {g.status === "final" && (
+                      <div className="mt-1.5 pt-1.5 border-t border-border/30">
+                        <PeriodScoresTicker gameId={g.id} league={league} isLive={false} />
+                      </div>
+                    )}
+                  </button>
               );
             }) : closingLines.length > 0 ? closingLines.map(cl => (
               <div key={cl.key} className="cosmic-card rounded-lg p-3">

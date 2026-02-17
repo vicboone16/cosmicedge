@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Users, TrendingUp, ChevronDown, ChevronUp, BarChart3 } from "lucide-react";
+import { ArrowLeft, Users, TrendingUp, ChevronDown, ChevronUp, BarChart3, Calendar } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { cn } from "@/lib/utils";
+import { PeriodScoresTicker } from "@/components/game/PeriodScoresTicker";
 
 const ZODIAC_RANGES = [
   { sign: "Capricorn", symbol: "♑", m1: 1, d1: 1, m2: 1, d2: 19 },
@@ -74,6 +76,23 @@ const TeamPage = () => {
         query = query.eq("league", standings.league);
       }
       const { data } = await query;
+      return data || [];
+    },
+    enabled: !!abbr,
+  });
+
+  // Recent & upcoming games for this team
+  const { data: teamGames } = useQuery({
+    queryKey: ["team-games", abbr, standings?.league],
+    queryFn: async () => {
+      const lg = standings?.league || leagueParam?.toUpperCase() || "NBA";
+      const { data } = await supabase
+        .from("games")
+        .select("id, home_abbr, away_abbr, home_team, away_team, home_score, away_score, status, start_time, league")
+        .eq("league", lg)
+        .or(`home_abbr.eq.${abbr},away_abbr.eq.${abbr}`)
+        .order("start_time", { ascending: false })
+        .limit(10);
       return data || [];
     },
     enabled: !!abbr,
@@ -233,6 +252,65 @@ const TeamPage = () => {
                 </div>
               </div>
             )}
+          </section>
+        )}
+
+        {/* Recent Games */}
+        {teamGames && teamGames.length > 0 && (
+          <section>
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-3 flex items-center gap-1.5">
+              <Calendar className="h-3.5 w-3.5" />
+              Recent Games
+            </h3>
+            <div className="space-y-1.5">
+              {teamGames.map(g => {
+                const isHome = g.home_abbr === abbr;
+                const opp = isHome ? g.away_abbr : g.home_abbr;
+                const teamScore = isHome ? g.home_score : g.away_score;
+                const oppScore = isHome ? g.away_score : g.home_score;
+                const won = teamScore != null && oppScore != null && teamScore > oppScore;
+                const isLive = g.status === "live";
+                const isFinal = g.status === "final";
+                const dateStr = new Date(g.start_time).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+
+                return (
+                  <button
+                    key={g.id}
+                    onClick={() => navigate(`/game/${g.id}`)}
+                    className={cn(
+                      "w-full cosmic-card rounded-lg p-2.5 text-left hover:border-primary/30 transition-colors",
+                      isLive && "border-l-2 border-l-cosmic-green"
+                    )}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] text-muted-foreground w-12">{dateStr}</span>
+                        <span className="text-[10px] text-muted-foreground">{isHome ? "vs" : "@"}</span>
+                        <span className="text-xs font-semibold text-primary">{opp}</span>
+                        {isLive && <span className="h-1.5 w-1.5 rounded-full bg-cosmic-green animate-pulse" />}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {(isFinal || isLive) && teamScore != null && oppScore != null && (
+                          <span className={cn("text-xs font-bold tabular-nums", won ? "text-cosmic-green" : isFinal ? "text-cosmic-red" : "text-foreground")}>
+                            {teamScore}-{oppScore}
+                          </span>
+                        )}
+                        {isFinal && (
+                          <span className={cn("text-[9px] font-bold", won ? "text-cosmic-green" : "text-cosmic-red")}>
+                            {won ? "W" : "L"}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    {(isFinal || isLive) && (
+                      <div className="mt-1">
+                        <PeriodScoresTicker gameId={g.id} league={g.league} isLive={isLive} />
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
           </section>
         )}
 

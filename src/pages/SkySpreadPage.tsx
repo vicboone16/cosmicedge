@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import type { Tables } from "@/integrations/supabase/types";
+import { PeriodScoresTicker } from "@/components/game/PeriodScoresTicker";
 import { useAuth } from "@/hooks/use-auth";
 import CreateBetForm from "@/components/skyspread/CreateBetForm";
 import PropBuilderDialog from "@/components/skyspread/PropBuilderDialog";
@@ -135,6 +136,10 @@ function LiveCard({ item, onRemove, onTogglePin }: {
               <p className="text-[9px] text-muted-foreground">{bet.home_team || "Home"}</p>
               <p className="text-sm font-bold text-foreground tabular-nums">{snapshot.home_score ?? "–"}</p>
             </div>
+          </div>
+          {/* Period scores in live board card */}
+          <div className="mt-1">
+            <PeriodScoresTicker gameId={bet.game_id} league={bet.sport || "NBA"} isLive={true} />
           </div>
         </div>
       )}
@@ -606,6 +611,7 @@ const SkySpreadPage = () => {
 
                       {/* Live Score Banner on Bet Card */}
                       {gameLive && gameData && (
+                        <>
                         <div className="bg-secondary/50 rounded-lg p-2 mb-2 flex items-center justify-between">
                           <div className="flex items-center gap-2">
                             <span className="h-1.5 w-1.5 rounded-full bg-cosmic-green animate-pulse" />
@@ -624,6 +630,15 @@ const SkySpreadPage = () => {
                               {livePnl.label} {livePnl.value > 0 ? `+$${livePnl.value.toFixed(0)}` : livePnl.value < 0 ? `-$${Math.abs(livePnl.value).toFixed(0)}` : "$0"}
                             </div>
                           )}
+                        </div>
+                        <div className="mb-1">
+                          <PeriodScoresTicker gameId={bet.game_id} league={bet.sport || "NBA"} isLive={true} />
+                        </div>
+                        </>
+                      )}
+                      {gameFinal && (
+                        <div className="mb-2">
+                          <PeriodScoresTicker gameId={bet.game_id} league={bet.sport || "NBA"} isLive={false} />
                         </div>
                       )}
 
