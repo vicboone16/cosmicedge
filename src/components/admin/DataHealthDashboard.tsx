@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, Download, Users, CalendarDays, Trophy } from "lucide-react";
 import { toast } from "sonner";
 
 interface LeagueGameStats {
@@ -25,6 +25,7 @@ export function DataHealthDashboard() {
   const [players, setPlayers] = useState<LeaguePlayerStats[]>([]);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState<string | null>(null);
+  const [tsdbSyncing, setTsdbSyncing] = useState<string | null>(null);
 
   const syncRoster = async (league: string) => {
     setSyncing(league);
@@ -48,6 +49,45 @@ export function DataHealthDashboard() {
       toast.error(`Sync failed: ${e.message}`);
     } finally {
       setSyncing(null);
+    }
+  };
+
+  const tsdbSync = async (mode: string, league: string) => {
+    const key = `${mode}_${league}`;
+    setTsdbSyncing(key);
+    try {
+      const { data, error } = await supabase.functions.invoke("thesportsdb-sync", {
+        body: null,
+        headers: { "Content-Type": "application/json" },
+      });
+      // Use query params via direct fetch since invoke doesn't support them
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/thesportsdb-sync?mode=${mode}&league=${league}`,
+        {
+          headers: {
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          },
+        }
+      );
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error || "Sync failed");
+      
+      const summary = mode === "rosters"
+        ? `${result.players_upserted} players across ${result.teams_processed} teams`
+        : mode === "scores"
+        ? `${result.games_upserted} games, ${result.periods_upserted} periods`
+        : mode === "schedule"
+        ? `${result.games_inserted} upcoming games added`
+        : `${result.mapped} teams mapped`;
+      
+      toast.success(`${league} ${mode}: ${summary}`);
+      setLoading(true);
+      fetchData();
+    } catch (e: any) {
+      toast.error(`${league} ${mode} failed: ${e.message}`);
+    } finally {
+      setTsdbSyncing(null);
     }
   };
 
@@ -165,6 +205,44 @@ export function DataHealthDashboard() {
             ))}
           </div>
         )}
+      </div>
+
+      {/* TheSportsDB Sync */}
+      <div className="space-y-2">
+        <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">TheSportsDB Sync</h3>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          {["NBA", "NFL", "NHL", "MLB"].map((lg) => (
+            <div key={lg} className="border border-border rounded-md p-2 space-y-1.5">
+              <span className="text-xs font-bold text-foreground">{lg}</span>
+              <div className="flex flex-wrap gap-1">
+                {[
+                  { mode: "scores", icon: Trophy, label: "Scores" },
+                  { mode: "rosters", icon: Users, label: "Rosters" },
+                  { mode: "schedule", icon: CalendarDays, label: "Sched" },
+                ].map(({ mode, icon: Icon, label }) => {
+                  const key = `${mode}_${lg}`;
+                  return (
+                    <Button
+                      key={key}
+                      size="sm"
+                      variant="outline"
+                      className="h-6 px-1.5 text-[10px] gap-1"
+                      disabled={tsdbSyncing !== null}
+                      onClick={() => tsdbSync(mode, lg)}
+                    >
+                      {tsdbSyncing === key ? (
+                        <RefreshCw className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <Icon className="h-3 w-3" />
+                      )}
+                      {label}
+                    </Button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     </Card>
   );
