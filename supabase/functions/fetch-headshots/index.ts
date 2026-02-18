@@ -1,4 +1,4 @@
-// SportsDataIO Player Headshots
+// TheSportsDB Player Headshots (replaces SportsDataIO)
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
@@ -7,103 +7,115 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const SDIO_API_BASE = "https://api.sportsdata.io/v3";
-const LEAGUE_SLUGS: Record<string, string> = { NBA: "nba", NFL: "nfl", MLB: "mlb", NHL: "nhl" };
+const BASE = "https://www.thesportsdb.com/api/v1/json";
+
+const LEAGUE_SEARCH_NAMES: Record<string, string> = {
+  NBA: "NBA", NFL: "NFL", NHL: "NHL", MLB: "MLB",
+};
+
+function delay(ms: number) {
+  return new Promise((r) => setTimeout(r, ms));
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const url = new URL(req.url);
-    const league = (url.searchParams.get("league") || "NBA").toUpperCase();
-
-    const sdioKey = Deno.env.get("SPORTSDATAIO_API_KEY");
-    if (!sdioKey) throw new Error("SPORTSDATAIO_API_KEY not configured");
+    const apiKey = Deno.env.get("THESPORTSDB_API_KEY");
+    if (!apiKey) throw new Error("THESPORTSDB_API_KEY not configured");
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    const slug = LEAGUE_SLUGS[league] || "nba";
+    let bodyParams: Record<string, any> = {};
+    if (req.method === "POST") {
+      try { bodyParams = await req.json(); } catch { /* no body */ }
+    }
+    const url = new URL(req.url);
+    const league = ((bodyParams.league || url.searchParams.get("league") || "NBA") as string).toUpperCase();
+    const startTeam = parseInt(bodyParams.start_team || url.searchParams.get("start_team") || "0");
+    const maxTeams = parseInt(bodyParams.max_teams || url.searchParams.get("max_teams") || "8");
 
-    // SportsDataIO Headshots endpoint — try multiple known paths
-    const paths = [
-      `${SDIO_API_BASE}/${slug}/scores/json/Headshots?key=${sdioKey}`,
-      `${SDIO_API_BASE}/${slug}/headshots/json/Headshots?key=${sdioKey}`,
-    ];
-
-    let headshots: any[] = [];
-    let usedPath = "";
-    for (const p of paths) {
-      const resp = await fetch(p);
-      if (resp.ok) {
-        headshots = await resp.json();
-        usedPath = p;
-        break;
-      }
+    if (!LEAGUE_SEARCH_NAMES[league]) {
+      return new Response(JSON.stringify({ error: `Unsupported league: ${league}` }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
-    if (headshots.length === 0) {
-      // Fallback: extract PhotoUrl from Players endpoint
-      const resp = await fetch(`${SDIO_API_BASE}/${slug}/scores/json/Players?key=${sdioKey}`);
-      if (resp.ok) {
-        const players = await resp.json();
-        headshots = players
-          .filter((p: any) => p.PhotoUrl)
-          .map((p: any) => ({
-            PlayerID: p.PlayerID,
-            Name: `${p.FirstName || ""} ${p.LastName || ""}`.trim(),
-            PreferredHostedHeadshotUrl: p.PhotoUrl,
-          }));
-        usedPath = "Players fallback";
-      }
-    }
+    // Step 1: get all teams
+    const teamsResp = await fetch(`${BASE}/${apiKey}/search_all_teams.php?l=${LEAGUE_SEARCH_NAMES[league]}`);
+    if (!teamsResp.ok) throw new Error(`Teams fetch failed: ${teamsResp.status}`);
+    const teamsData = await teamsResp.json();
+    const teams: any[] = teamsData.teams || [];
+    const totalTeams = teams.length;
 
-    // Pre-fetch all players for this league
-    const { data: players } = await supabase
+    // Step 2: Pre-fetch all players for this league by name
+    const { data: dbPlayers } = await supabase
       .from("players")
-      .select("id, external_id, name")
+      .select("id, name, team, league")
       .eq("league", league);
 
-    const playerByExtId = new Map<string, string>();
-    const playerByName = new Map<string, string>();
-    for (const p of players || []) {
-      if (p.external_id) playerByExtId.set(p.external_id, p.id);
-      playerByName.set(p.name.toLowerCase(), p.id);
+    const playerByName = new Map<string, string>(); // normalized name → id
+    for (const p of dbPlayers || []) {
+      playerByName.set(p.name.toLowerCase().trim(), p.id);
     }
 
-    let updated = 0;
+    // Step 3: Loop through team chunk
+    const chunk = teams.slice(startTeam, startTeam + maxTeams);
+    let totalUpdated = 0;
+    let teamsProcessed = 0;
 
-    for (const hs of headshots) {
-      const photoUrl = hs.PreferredHostedHeadshotUrl || hs.HostedUrl || hs.Url || hs.PhotoUrl || null;
-      if (!photoUrl) continue;
+    for (const team of chunk) {
+      if (teamsProcessed > 0 && teamsProcessed % 4 === 0) await delay(300);
 
-      const name = hs.Name || `${hs.FirstName || ""} ${hs.LastName || ""}`.trim();
-      const extId = hs.PlayerID ? String(hs.PlayerID) : null;
+      try {
+        const rosterResp = await fetch(`${BASE}/${apiKey}/lookup_all_players.php?id=${team.idTeam}`);
+        if (!rosterResp.ok) continue;
+        const rosterData = await rosterResp.json();
+        const players: any[] = rosterData.player || [];
 
-      let playerId: string | null = null;
-      if (extId) playerId = playerByExtId.get(extId) || null;
-      if (!playerId && name) playerId = playerByName.get(name.toLowerCase()) || null;
+        const updates: { id: string; headshot_url: string }[] = [];
+        for (const p of players) {
+          const photoUrl = p.strThumb || p.strCutout || null;
+          if (!photoUrl) continue;
+          const pid = playerByName.get((p.strPlayer || "").toLowerCase().trim());
+          if (pid) updates.push({ id: pid, headshot_url: photoUrl });
+        }
 
-      if (playerId) {
-        const { error } = await supabase
-          .from("players")
-          .update({ headshot_url: photoUrl } as any)
-          .eq("id", playerId);
-        if (!error) updated++;
+        // Batch update in parallel
+        if (updates.length > 0) {
+          const results = await Promise.all(
+            updates.map(u =>
+              supabase.from("players").update({ headshot_url: u.headshot_url } as any).eq("id", u.id)
+            )
+          );
+          totalUpdated += results.filter((r: any) => !r.error).length;
+        }
+
+        teamsProcessed++;
+        console.log(`${league} ${team.strTeam}: ${updates.length} headshots updated`);
+      } catch (err: any) {
+        console.error(`Error for team ${team.strTeam}:`, err.message);
       }
     }
+
+    const nextStartTeam = startTeam + maxTeams;
 
     return new Response(
       JSON.stringify({
         success: true,
-        meta: { league, used_path: usedPath, total_headshots: headshots.length, players_updated: updated },
+        league,
+        teams_processed: teamsProcessed,
+        total_teams: totalTeams,
+        players_updated: totalUpdated,
+        next_start_team: nextStartTeam < totalTeams ? nextStartTeam : null,
         fetched_at: new Date().toISOString(),
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
-  } catch (error) {
+  } catch (error: any) {
     console.error("fetch-headshots error:", error);
     return new Response(
       JSON.stringify({ error: error.message }),

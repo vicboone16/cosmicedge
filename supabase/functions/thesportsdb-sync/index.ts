@@ -72,26 +72,48 @@ async function syncRosters(
   apiKey: string,
   supabase: any,
   league: string,
+  startTeam = 0,
+  maxTeams = 8,
 ) {
   const teamResult = await syncTeams(apiKey, supabase, league);
   const teamMap = teamResult.team_map;
+  const allEntries = Object.entries(teamMap);
+  const totalTeams = allEntries.length;
+  
+  // Slice to the requested chunk
+  const chunk = allEntries.slice(startTeam, startTeam + maxTeams);
   
   let playersUpserted = 0;
   let teamsProcessed = 0;
   
-  for (const [idTeam, abbr] of Object.entries(teamMap)) {
-    if (teamsProcessed > 0 && teamsProcessed % 5 === 0) {
-      await delay(2000);
+  for (const [idTeam, abbr] of chunk) {
+    if (teamsProcessed > 0 && teamsProcessed % 4 === 0) {
+      await delay(500);
     }
     
     try {
       const data = await apiFetch(apiKey, `lookup_all_players.php?id=${idTeam}`);
       const players = data.player || [];
-      
+      if (players.length === 0) { teamsProcessed++; continue; }
+
+      // Bulk fetch existing players for this team in one query
+      const names = players.map((p: any) => p.strPlayer).filter(Boolean);
+      const { data: existing } = await supabase
+        .from("players")
+        .select("id, name")
+        .eq("league", league)
+        .in("name", names);
+
+      const existingMap = new Map<string, string>();
+      for (const e of existing || []) existingMap.set(e.name, e.id);
+
+      const toUpdate: { id: string; record: Record<string, any> }[] = [];
+      const toInsert: Record<string, any>[] = [];
+
       for (const p of players) {
         const playerName = p.strPlayer;
         if (!playerName) continue;
-        
+
         const record: Record<string, any> = {
           name: playerName,
           team: abbr,
@@ -99,34 +121,38 @@ async function syncRosters(
           position: p.strPosition || null,
           headshot_url: p.strThumb || p.strCutout || null,
         };
-        
+
         if (p.dateBorn && p.dateBorn !== "0000-00-00") {
           record.birth_date = p.dateBorn;
         }
-        
         if (p.strBirthLocation) {
           record.birth_place = p.strBirthLocation;
         }
-        
-        const { data: existing } = await supabase
-          .from("players")
-          .select("id")
-          .eq("name", playerName)
-          .eq("league", league)
-          .maybeSingle();
-        
-        if (existing) {
-          await supabase
-            .from("players")
-            .update(record)
-            .eq("id", existing.id);
+
+        const existingId = existingMap.get(playerName);
+        if (existingId) {
+          toUpdate.push({ id: existingId, record });
         } else {
-          const { error } = await supabase.from("players").insert(record);
-          if (error && !error.message?.includes("duplicate")) {
-            console.error(`Insert error for ${playerName}:`, error.message);
-          }
+          toInsert.push(record);
         }
         playersUpserted++;
+      }
+
+      // Execute updates in parallel batches of 20
+      const BATCH = 20;
+      for (let i = 0; i < toUpdate.length; i += BATCH) {
+        await Promise.all(
+          toUpdate.slice(i, i + BATCH).map(({ id, record }) =>
+            supabase.from("players").update(record).eq("id", id)
+          )
+        );
+      }
+      // Insert new players in batches of 50
+      for (let i = 0; i < toInsert.length; i += 50) {
+        const { error } = await supabase.from("players").insert(toInsert.slice(i, i + 50));
+        if (error && !error.message?.includes("duplicate")) {
+          console.error(`Insert batch error:`, error.message);
+        }
       }
       
       teamsProcessed++;
@@ -136,9 +162,12 @@ async function syncRosters(
     }
   }
   
+  const nextTeam = startTeam + maxTeams;
   return {
     teams_processed: teamsProcessed,
     players_upserted: playersUpserted,
+    total_teams: totalTeams,
+    next_start_team: nextTeam < totalTeams ? nextTeam : null,
   };
 }
 
@@ -442,9 +471,12 @@ Deno.serve(async (req) => {
       case "teams":
         result = await syncTeams(apiKey, supabase, league);
         break;
-      case "rosters":
-        result = await syncRosters(apiKey, supabase, league);
+      case "rosters": {
+        const startTeam = parseInt(bodyParams.start_team || url.searchParams.get("start_team") || "0");
+        const maxTeams = parseInt(bodyParams.max_teams || url.searchParams.get("max_teams") || "8");
+        result = await syncRosters(apiKey, supabase, league, startTeam, maxTeams);
         break;
+      }
       case "scores": {
         const offset = parseInt(bodyParams.offset || url.searchParams.get("offset") || "0");
         const limit = parseInt(bodyParams.limit || url.searchParams.get("limit") || "200");
