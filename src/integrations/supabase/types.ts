@@ -130,6 +130,45 @@ export type Database = {
         }
         Relationships: []
       }
+      audit_log: {
+        Row: {
+          action: string
+          after_data: Json | null
+          before_data: Json | null
+          correlation_id: string | null
+          created_at: string
+          entity_id: string | null
+          entity_type: string | null
+          id: string
+          meta: Json | null
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          after_data?: Json | null
+          before_data?: Json | null
+          correlation_id?: string | null
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          id?: string
+          meta?: Json | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          after_data?: Json | null
+          before_data?: Json | null
+          correlation_id?: string | null
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          id?: string
+          meta?: Json | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       backtest_presets: {
         Row: {
           created_at: string
@@ -721,6 +760,30 @@ export type Database = {
           venue?: string | null
           venue_lat?: number | null
           venue_lng?: number | null
+        }
+        Relationships: []
+      }
+      health_checks: {
+        Row: {
+          check_type: string
+          checked_at: string
+          id: string
+          meta: Json | null
+          status: string
+        }
+        Insert: {
+          check_type?: string
+          checked_at?: string
+          id?: string
+          meta?: Json | null
+          status?: string
+        }
+        Update: {
+          check_type?: string
+          checked_at?: string
+          id?: string
+          meta?: Json | null
+          status?: string
         }
         Relationships: []
       }
@@ -2239,6 +2302,30 @@ export type Database = {
           updated_at?: string
           user_id?: string
           username?: string | null
+        }
+        Relationships: []
+      }
+      provider_flags: {
+        Row: {
+          enabled: boolean
+          provider_name: string
+          reason: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          enabled?: boolean
+          provider_name: string
+          reason?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          enabled?: boolean
+          provider_name?: string
+          reason?: string | null
+          updated_at?: string
+          updated_by?: string | null
         }
         Relationships: []
       }
