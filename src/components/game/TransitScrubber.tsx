@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Clock, Eye, EyeOff, ChevronDown, ChevronUp } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
 import { getPlanetaryHourAt, getDayRuler } from "@/lib/planetary-hours";
@@ -20,6 +20,8 @@ interface Props {
   homePlayers?: PlayerData[];
   awayAbbr?: string;
   homeAbbr?: string;
+  selectedPlayer?: PlayerData | null;
+  onSelectPlayer?: (player: PlayerData | null) => void;
 }
 
 const PLANETS = [
@@ -120,12 +122,25 @@ function computeNatalPositions(birthDate: string) {
   return computeTransitPositions(d);
 }
 
-export function TransitScrubber({ startTime, venueLat, awayPlayers, homePlayers, awayAbbr, homeAbbr }: Props) {
+export function TransitScrubber({ startTime, venueLat, awayPlayers, homePlayers, awayAbbr, homeAbbr, selectedPlayer: controlledPlayer, onSelectPlayer }: Props) {
   const [offsetMinutes, setOffsetMinutes] = useState(0);
   const [chartView, setChartView] = useState<ChartView>("transit");
   const [showAspects, setShowAspects] = useState(true);
-  const [selectedPlayer, setSelectedPlayer] = useState<PlayerData | null>(null);
+  const [internalSelectedPlayer, setInternalSelectedPlayer] = useState<PlayerData | null>(null);
   const [expandedView, setExpandedView] = useState(false);
+
+  // Use controlled player if provided, otherwise use internal state
+  const selectedPlayer = controlledPlayer !== undefined ? controlledPlayer : internalSelectedPlayer;
+  const setSelectedPlayer = (p: PlayerData | null) => {
+    if (onSelectPlayer) onSelectPlayer(p);
+    else setInternalSelectedPlayer(p);
+  };
+
+  // Auto-expand player panel when a player is selected externally
+  useEffect(() => {
+    if (controlledPlayer) setExpandedView(true);
+  }, [controlledPlayer]);
+
 
   const gameStart = useMemo(() => new Date(startTime), [startTime]);
   const currentTime = useMemo(() => {

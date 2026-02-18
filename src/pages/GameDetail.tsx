@@ -142,12 +142,16 @@ function PlayerCard({
   navigate,
   injuryStatus,
   injuryNote,
+  onHighlightTransit,
+  isTransitHighlighted,
 }: {
   player: { id: string; name: string; position: string | null; team: string | null; birth_date: string | null; league: string | null; headshot_url?: string | null };
   gameId: string;
   navigate: (path: string) => void;
   injuryStatus?: string | null;
   injuryNote?: string | null;
+  onHighlightTransit?: () => void;
+  isTransitHighlighted?: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
   const pz = player.birth_date ? getZodiacFromDateStr(player.birth_date) : null;
@@ -303,12 +307,27 @@ function PlayerCard({
             </div>
           )}
 
-          <button
-            onClick={(e) => { e.stopPropagation(); navigate(`/player/${player.id}`); }}
-            className="text-[9px] text-primary hover:underline"
-          >
-            View full profile →
-          </button>
+          <div className="flex items-center gap-2">
+            {onHighlightTransit && player.birth_date && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onHighlightTransit(); }}
+                className={cn(
+                  "text-[9px] px-2 py-1 rounded-lg transition-colors",
+                  isTransitHighlighted
+                    ? "bg-primary/20 text-primary font-semibold"
+                    : "bg-secondary/50 text-muted-foreground hover:text-foreground"
+                )}
+              >
+                {isTransitHighlighted ? "✦ Transits" : "Show transits"}
+              </button>
+            )}
+            <button
+              onClick={(e) => { e.stopPropagation(); navigate(`/player/${player.id}`); }}
+              className="text-[9px] text-primary hover:underline"
+            >
+              View full profile →
+            </button>
+          </div>
         </div>
       </CollapsibleContent>
     </Collapsible>
@@ -319,8 +338,9 @@ const GameDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { formatInUserTZ, getTZAbbrev } = useTimezone();
-  const [activeTab, setActiveTab] = useState<"odds" | "insights" | "matchup" | "pbp" | "stats">("odds");
+  const [activeTab, setActiveTab] = useState<"odds" | "insights" | "matchup" | "pbp" | "stats">("insights");
   const [gameSubTab, setGameSubTab] = useState<"gamelines" | "player_props" | "team_props" | "game_props">("gamelines");
+  const [transitSelectedPlayer, setTransitSelectedPlayer] = useState<{ id: string; name: string; position: string | null; team: string | null; birth_date: string | null } | null>(null);
 
   const { data: game, isLoading } = useQuery({
     queryKey: ["game", id],
@@ -554,10 +574,10 @@ const GameDetail = () => {
 
         {/* Tab bar - ESPN style underline tabs */}
         <div className="flex gap-1 justify-center border-b border-border/50 -mx-4 px-4 overflow-x-auto no-scrollbar">
-          {([
-            { val: "odds" as const, label: "Odds" },
+        {([
             { val: "insights" as const, label: "Insights" },
             { val: "matchup" as const, label: "Matchup" },
+            { val: "odds" as const, label: "Odds" },
             { val: "pbp" as const, label: "Plays" },
             { val: "stats" as const, label: "Stats" },
           ]).map(t => (
@@ -772,6 +792,8 @@ const GameDetail = () => {
               homePlayers={homePlayers}
               awayAbbr={game.away_abbr}
               homeAbbr={game.home_abbr}
+              selectedPlayer={transitSelectedPlayer}
+              onSelectPlayer={setTransitSelectedPlayer}
             />
 
             {/* Astrocartography at Venue */}
@@ -948,18 +970,24 @@ const GameDetail = () => {
                   <div>
                     <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">{game.away_abbr}</p>
                     <div className="space-y-1.5">
-                      {awayPlayers.slice(0, 12).map((p) => {
+                    {awayPlayers.slice(0, 12).map((p) => {
                         const inj = injuryMap.get(p.name.toLowerCase());
-                        return <PlayerCard key={p.id} player={p} gameId={game.id} navigate={navigate} injuryStatus={inj?.status} injuryNote={inj?.notes} />;
+                        return <PlayerCard key={p.id} player={p} gameId={game.id} navigate={navigate} injuryStatus={inj?.status} injuryNote={inj?.notes}
+                          onHighlightTransit={() => setTransitSelectedPlayer(transitSelectedPlayer?.id === p.id ? null : p)}
+                          isTransitHighlighted={transitSelectedPlayer?.id === p.id}
+                        />;
                       })}
                     </div>
                   </div>
                   <div>
                     <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">{game.home_abbr}</p>
                     <div className="space-y-1.5">
-                      {homePlayers.slice(0, 12).map((p) => {
+                    {homePlayers.slice(0, 12).map((p) => {
                         const inj = injuryMap.get(p.name.toLowerCase());
-                        return <PlayerCard key={p.id} player={p} gameId={game.id} navigate={navigate} injuryStatus={inj?.status} injuryNote={inj?.notes} />;
+                        return <PlayerCard key={p.id} player={p} gameId={game.id} navigate={navigate} injuryStatus={inj?.status} injuryNote={inj?.notes}
+                          onHighlightTransit={() => setTransitSelectedPlayer(transitSelectedPlayer?.id === p.id ? null : p)}
+                          isTransitHighlighted={transitSelectedPlayer?.id === p.id}
+                        />;
                       })}
                     </div>
                   </div>
