@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Navigate } from "react-router-dom";
@@ -9,6 +9,8 @@ import { AuthProvider } from "@/hooks/use-auth";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { RequireAuth } from "@/components/auth/RequireAuth";
 import SplashScreen from "@/components/SplashScreen";
+import { initErrorCapture } from "@/lib/error-capture";
+import { logger, rotateCorrelationId } from "@/lib/logger";
 import Index from "./pages/Index";
 import GameDetail from "./pages/GameDetail";
 import TeamPage from "./pages/TeamPage";
@@ -36,15 +38,18 @@ import AuthPage from "./pages/AuthPage";
 import AdminImportPage from "./pages/AdminImportPage";
 import AdminGamesPage from "./pages/AdminGamesPage";
 import AdminPage from "./pages/AdminPage";
+import HealthPage from "./pages/HealthPage";
 import NotFound from "./pages/NotFound";
 import PrivacyPage from "./pages/PrivacyPage";
 import AppStorePrivacyScript from "./pages/AppStorePrivacyScript";
+
+// Bootstrap global error capture immediately
+initErrorCapture();
 
 const queryClient = new QueryClient();
 
 const App = () => {
   const [showSplash, setShowSplash] = useState(() => {
-    // Only show splash once per session
     if (sessionStorage.getItem("splash_shown")) return false;
     return true;
   });
@@ -52,6 +57,12 @@ const App = () => {
   const handleSplashComplete = useCallback(() => {
     sessionStorage.setItem("splash_shown", "1");
     setShowSplash(false);
+  }, []);
+
+  // Rotate correlation ID on each app mount (new user session)
+  useEffect(() => {
+    rotateCorrelationId();
+    logger.info("app:mounted", { route: window.location.pathname });
   }, []);
 
   return (
@@ -95,6 +106,7 @@ const App = () => {
               <Route path="/auth" element={<AuthPage />} />
               <Route path="/privacy" element={<PrivacyPage />} />
               <Route path="/app-store-privacy" element={<AppStorePrivacyScript />} />
+              <Route path="/health" element={<HealthPage />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>
