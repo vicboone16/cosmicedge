@@ -5,8 +5,9 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
-import { Search, Pencil, Trash2, Merge, Save, X } from "lucide-react";
+import { Search, Pencil, Trash2, Merge, Save, X, CheckSquare, Square } from "lucide-react";
 
 interface Player {
   id: string;
@@ -25,25 +26,54 @@ interface Player {
 export default function AdminPlayerManager() {
   const qc = useQueryClient();
   const [search, setSearch] = useState("");
+  const [teamSearch, setTeamSearch] = useState("");
   const [leagueFilter, setLeagueFilter] = useState("ALL");
   const [editPlayer, setEditPlayer] = useState<Player | null>(null);
   const [mergeSource, setMergeSource] = useState<Player | null>(null);
   const [mergeTarget, setMergeTarget] = useState<Player | null>(null);
   const [mergeOpen, setMergeOpen] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<Player | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [massDeleteOpen, setMassDeleteOpen] = useState(false);
+
+  const canSearch = search.length >= 2 || teamSearch.length >= 2 || leagueFilter !== "ALL";
 
   const { data: players = [], isLoading } = useQuery({
-    queryKey: ["admin-players", search, leagueFilter],
+    queryKey: ["admin-players", search, teamSearch, leagueFilter],
     queryFn: async () => {
-      if (search.length < 2) return [];
-      let q = supabase.from("players").select("*").ilike("name", `%${search}%`).order("name").limit(50);
+      let q = supabase.from("players").select("*").order("name").limit(100);
+      if (search.length >= 2) q = q.ilike("name", `%${search}%`);
+      if (teamSearch.length >= 2) q = q.ilike("team", `%${teamSearch}%`);
       if (leagueFilter !== "ALL") q = q.eq("league", leagueFilter);
       const { data, error } = await q;
       if (error) throw error;
       return (data || []) as Player[];
     },
-    enabled: search.length >= 2,
+    enabled: canSearch,
   });
+
+  // Keep selection in sync when results change
+  const allIds = players.map(p => p.id);
+  const allSelected = allIds.length > 0 && allIds.every(id => selected.has(id));
+  const someSelected = selected.size > 0;
+
+  const toggleSelect = (id: string) => {
+    setSelected(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (allSelected) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(allIds));
+    }
+  };
+
+  const clearSelection = () => setSelected(new Set());
 
   const updateMutation = useMutation({
     mutationFn: async (p: Player) => {
@@ -81,6 +111,20 @@ export default function AdminPlayerManager() {
     onError: (e: any) => toast.error(e.message),
   });
 
+  const massDeleteMutation = useMutation({
+    mutationFn: async (ids: string[]) => {
+      const { error } = await supabase.from("players").delete().in("id", ids);
+      if (error) throw error;
+    },
+    onSuccess: (_, ids) => {
+      toast.success(`${ids.length} player${ids.length !== 1 ? "s" : ""} deleted`);
+      setMassDeleteOpen(false);
+      clearSelection();
+      qc.invalidateQueries({ queryKey: ["admin-players"] });
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
   const mergeMutation = useMutation({
     mutationFn: async ({ sourceId, targetId }: { sourceId: string; targetId: string }) => {
       const { error } = await supabase.rpc("merge_players", { source_id: sourceId, target_id: targetId });
@@ -109,19 +153,30 @@ export default function AdminPlayerManager() {
     }
   };
 
+  const selectedPlayers = players.filter(p => selected.has(p.id));
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
+      {/* Search bar row */}
       <div className="flex items-center gap-2">
         <div className="relative flex-1">
           <Search className="absolute left-2.5 top-2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search players (min 2 chars)..."
+            placeholder="Search name..."
             value={search}
-            onChange={e => setSearch(e.target.value)}
+            onChange={e => { setSearch(e.target.value); clearSelection(); }}
             className="pl-9 h-8 text-xs"
           />
         </div>
-        <Select value={leagueFilter} onValueChange={setLeagueFilter}>
+        <div className="relative w-28">
+          <Input
+            placeholder="Team abbr..."
+            value={teamSearch}
+            onChange={e => { setTeamSearch(e.target.value.toUpperCase()); clearSelection(); }}
+            className="h-8 text-xs uppercase"
+          />
+        </div>
+        <Select value={leagueFilter} onValueChange={v => { setLeagueFilter(v); clearSelection(); }}>
           <SelectTrigger className="w-20 h-8 text-xs">
             <SelectValue />
           </SelectTrigger>
@@ -135,6 +190,7 @@ export default function AdminPlayerManager() {
         </Select>
       </div>
 
+      {/* Merge mode banner */}
       {mergeSource && (
         <div className="bg-primary/10 border border-primary/30 rounded-lg p-2 text-xs flex items-center justify-between">
           <span>Merge source: <strong>{mergeSource.name}</strong> ({mergeSource.league}/{mergeSource.team}) — click another player to merge into</span>
@@ -144,11 +200,58 @@ export default function AdminPlayerManager() {
         </div>
       )}
 
-      {isLoading && <p className="text-xs text-muted-foreground">Searching...</p>}
+      {/* Multi-select toolbar */}
+      {players.length > 0 && !mergeSource && (
+        <div className="flex items-center gap-2 py-1 border-b border-border/40">
+          <button
+            onClick={toggleSelectAll}
+            className="flex items-center gap-1.5 text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+          >
+            {allSelected
+              ? <CheckSquare className="h-3.5 w-3.5 text-primary" />
+              : <Square className="h-3.5 w-3.5" />
+            }
+            {allSelected ? "Deselect all" : `Select all (${players.length})`}
+          </button>
+          {someSelected && (
+            <>
+              <span className="text-[10px] text-muted-foreground">{selected.size} selected</span>
+              <Button
+                size="sm"
+                variant="destructive"
+                className="h-6 text-[10px] ml-auto"
+                onClick={() => setMassDeleteOpen(true)}
+              >
+                <Trash2 className="h-3 w-3 mr-1" />
+                Delete {selected.size}
+              </Button>
+              <Button size="sm" variant="ghost" className="h-6 text-[10px]" onClick={clearSelection}>
+                <X className="h-3 w-3" />
+              </Button>
+            </>
+          )}
+        </div>
+      )}
 
-      <div className="space-y-1 max-h-[60vh] overflow-y-auto">
+      {isLoading && <p className="text-xs text-muted-foreground">Searching...</p>}
+      {!canSearch && <p className="text-xs text-muted-foreground italic">Enter a name, team abbreviation, or select a league to search.</p>}
+
+      {/* Player list */}
+      <div className="space-y-1 max-h-[58vh] overflow-y-auto">
         {players.map(p => (
-          <div key={p.id} className="flex items-center gap-2 p-2 rounded-lg bg-secondary/40 hover:bg-secondary/70 transition-colors">
+          <div
+            key={p.id}
+            className={`flex items-center gap-2 p-2 rounded-lg transition-colors ${
+              selected.has(p.id) ? "bg-primary/10 border border-primary/20" : "bg-secondary/40 hover:bg-secondary/70"
+            }`}
+          >
+            {!mergeSource && (
+              <Checkbox
+                checked={selected.has(p.id)}
+                onCheckedChange={() => toggleSelect(p.id)}
+                className="h-3.5 w-3.5 shrink-0"
+              />
+            )}
             <div className="flex-1 min-w-0">
               <p className="text-xs font-semibold truncate">{p.name}</p>
               <p className="text-[10px] text-muted-foreground">
@@ -167,7 +270,7 @@ export default function AdminPlayerManager() {
             </Button>
           </div>
         ))}
-        {search.length >= 2 && players.length === 0 && !isLoading && (
+        {canSearch && players.length === 0 && !isLoading && (
           <p className="text-xs text-muted-foreground italic">No players found.</p>
         )}
       </div>
@@ -210,7 +313,7 @@ export default function AdminPlayerManager() {
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation */}
+      {/* Single Delete Confirmation */}
       <Dialog open={!!deleteConfirm} onOpenChange={open => !open && setDeleteConfirm(null)}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
@@ -224,6 +327,39 @@ export default function AdminPlayerManager() {
             <Button size="sm" variant="outline" className="text-xs" onClick={() => setDeleteConfirm(null)}>Cancel</Button>
             <Button size="sm" variant="destructive" className="text-xs" onClick={() => deleteConfirm && deleteMutation.mutate(deleteConfirm.id)} disabled={deleteMutation.isPending}>
               Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Mass Delete Confirmation */}
+      <Dialog open={massDeleteOpen} onOpenChange={open => !open && setMassDeleteOpen(false)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-sm">Delete {selected.size} Players?</DialogTitle>
+          </DialogHeader>
+          <div className="text-xs space-y-2">
+            <p className="text-muted-foreground">The following players will be permanently deleted:</p>
+            <div className="max-h-40 overflow-y-auto space-y-1 bg-secondary/30 rounded-md p-2">
+              {selectedPlayers.map(p => (
+                <p key={p.id} className="truncate">
+                  <strong>{p.name}</strong> <span className="text-muted-foreground">({p.league}/{p.team})</span>
+                </p>
+              ))}
+            </div>
+            <p className="text-destructive font-medium">All associated stats and references will be orphaned. This cannot be undone.</p>
+          </div>
+          <DialogFooter>
+            <Button size="sm" variant="outline" className="text-xs" onClick={() => setMassDeleteOpen(false)}>Cancel</Button>
+            <Button
+              size="sm"
+              variant="destructive"
+              className="text-xs"
+              onClick={() => massDeleteMutation.mutate(Array.from(selected))}
+              disabled={massDeleteMutation.isPending}
+            >
+              <Trash2 className="h-3.5 w-3.5 mr-1" />
+              Delete {selected.size}
             </Button>
           </DialogFooter>
         </DialogContent>
