@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type FC } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -16,14 +16,14 @@ interface CheckResult {
   timestamp?: string;
 }
 
-const StatusIcon = ({ status }: { status: CheckResult["status"] }) => {
+const StatusIcon: FC<{ status: CheckResult["status"] }> = ({ status }) => {
   if (status === "pass") return <CheckCircle2 className="h-4 w-4 text-primary" />;
   if (status === "fail") return <XCircle className="h-4 w-4 text-destructive" />;
   if (status === "warn") return <AlertTriangle className="h-4 w-4 text-accent-foreground" />;
   return <RefreshCw className="h-4 w-4 text-muted-foreground animate-spin" />;
 };
 
-const StatusBadge = ({ status }: { status: CheckResult["status"] }) => {
+const StatusBadge: FC<{ status: CheckResult["status"] }> = ({ status }) => {
   const variants: Record<CheckResult["status"], string> = {
     pass:    "bg-primary/10 text-primary border-primary/20",
     fail:    "bg-destructive/10 text-destructive border-destructive/20",
@@ -99,15 +99,18 @@ function HealthPageContent() {
     // ── 4. Edge function reachability (write-pick health ping) ─────────────
     const t4 = performance.now();
     try {
-      const { error } = await supabase.functions.invoke("write-pick", {
+      const { data: fnData, error: fnError } = await supabase.functions.invoke("write-pick", {
         body: { action: "__health__" },
       });
-      // We expect an UNKNOWN_ACTION error back — that means it's reachable
-      const reachable = !error || error.message?.includes("UNKNOWN_ACTION") || error.message?.includes("400");
+      // A 400 UNKNOWN_ACTION response means the function is alive and auth is working
+      const isReachable = fnData?.code === "UNKNOWN_ACTION" || fnData?.ok === false;
+      const isFnError = fnError && !isReachable;
       results.push({
         name: "Edge Fn: write-pick",
-        status: reachable ? "pass" : "fail",
-        message: reachable ? "Reachable (auth gate active)" : error?.message ?? "Unreachable",
+        status: isFnError ? "fail" : "pass",
+        message: isFnError
+          ? fnError?.message ?? "Unreachable"
+          : `Reachable — responded: ${fnData?.code ?? "ok"}`,
         latency_ms: Math.round(performance.now() - t4),
       });
     } catch (e: any) {
