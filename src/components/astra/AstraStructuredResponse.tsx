@@ -252,6 +252,7 @@ function getLevel(val: any): string {
 
 export default function AstraStructuredResponse({ data, compact, onFollowUpClick }: { data: AstraResponse | CosmicEdgeResponse; compact?: boolean; onFollowUpClick?: (question: string) => void }) {
   const [activeTag, setActiveTag] = useState<string | null>(null);
+  const [narrativeExpanded, setNarrativeExpanded] = useState(false);
 
   const handleTagClick = (tag: string) => {
     setActiveTag(prev => prev === tag ? null : tag);
@@ -297,9 +298,29 @@ export default function AstraStructuredResponse({ data, compact, onFollowUpClick
 
       {/* Narrative */}
       <div className="cosmic-card rounded-xl p-4">
-        <p className={cn("leading-relaxed text-foreground/90", compact ? "text-[10px]" : "text-xs")}>
-          {narrative}
-        </p>
+        {(() => {
+          const sentences = narrative.split(/(?<=[.!?])\s+/);
+          const SHORT_LIMIT = 3;
+          const isLong = sentences.length > SHORT_LIMIT;
+          const displayText = isLong && !narrativeExpanded
+            ? sentences.slice(0, SHORT_LIMIT).join(" ") + "…"
+            : narrative;
+          return (
+            <>
+              <p className={cn("leading-relaxed text-foreground/90", compact ? "text-[10px]" : "text-xs")}>
+                {displayText}
+              </p>
+              {isLong && (
+                <button
+                  onClick={() => setNarrativeExpanded(e => !e)}
+                  className="mt-1.5 text-[9px] text-primary hover:underline"
+                >
+                  {narrativeExpanded ? "Show less" : "Read more"}
+                </button>
+              )}
+            </>
+          );
+        })()}
         {summary && (
           <p className="mt-2 text-[10px] italic text-primary/80 border-t border-border/50 pt-2">
             {summary}
@@ -396,17 +417,14 @@ export default function AstraStructuredResponse({ data, compact, onFollowUpClick
         </div>
       )}
 
-      {/* Follow-up questions */}
-      {followUps && followUps.length > 0 && (
+      {/* Follow-up questions — only in chat context where onFollowUpClick is wired up */}
+      {onFollowUpClick && followUps && followUps.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
           {followUps.map((q, i) => (
             <button
               key={i}
-              onClick={() => onFollowUpClick?.(q)}
-              className={cn(
-                "text-[9px] px-2 py-1 rounded-full bg-primary/10 text-primary border border-primary/20 text-left",
-                onFollowUpClick && "hover:bg-primary/20 hover:border-primary/40 cursor-pointer transition-colors"
-              )}
+              onClick={() => onFollowUpClick(q)}
+              className="text-[9px] px-2 py-1 rounded-full bg-primary/10 text-primary border border-primary/20 text-left hover:bg-primary/20 hover:border-primary/40 cursor-pointer transition-colors"
             >
               {q}
             </button>
