@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
 import {
   TrendingUp, TrendingDown, Users, Lightbulb, ShieldAlert, Activity,
@@ -236,6 +236,66 @@ function QuantModelsPanel({ models, verdict }: { models: QuantModel[]; verdict: 
   );
 }
 
+/* ── Narrative Block with staggered sentence reveal ── */
+
+function NarrativeBlock({ narrative, summary, compact }: { narrative: string; summary?: string; compact?: boolean }) {
+  const sentences = narrative.split(/(?<=[.!?])\s+/).filter(Boolean);
+  const PREVIEW = 4; // sentences visible before "Read more"
+  const isLong = sentences.length > PREVIEW;
+  const [expanded, setExpanded] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(0);
+  const prevNarrative = useRef<string>("");
+
+  useEffect(() => {
+    if (narrative === prevNarrative.current) return;
+    prevNarrative.current = narrative;
+    setVisibleCount(0);
+    const shown = expanded ? sentences.length : Math.min(sentences.length, PREVIEW);
+    let i = 0;
+    const interval = setInterval(() => {
+      i += 1;
+      setVisibleCount(i);
+      if (i >= shown) clearInterval(interval);
+    }, 120);
+    return () => clearInterval(interval);
+  }, [narrative, expanded]);
+
+  const displaySentences = (expanded ? sentences : sentences.slice(0, PREVIEW)).slice(0, visibleCount);
+
+  return (
+    <div className="cosmic-card rounded-xl p-4 space-y-1.5">
+      {displaySentences.map((sentence, i) => (
+        <p
+          key={i}
+          style={{ animationDelay: `${i * 80}ms` }}
+          className={cn(
+            "leading-relaxed text-foreground/90 animate-in fade-in slide-in-from-bottom-1 duration-300 fill-mode-both",
+            compact ? "text-xs" : "text-[13px]"
+          )}
+        >
+          {sentence}
+        </p>
+      ))}
+      {isLong && visibleCount >= Math.min(sentences.length, PREVIEW) && (
+        <button
+          onClick={() => {
+            setExpanded(e => !e);
+            setVisibleCount(0);
+          }}
+          className="text-[10px] text-primary hover:underline mt-0.5"
+        >
+          {expanded ? "Show less" : `Read more (${sentences.length - PREVIEW} more)`}
+        </button>
+      )}
+      {summary && (
+        <p className="mt-2 text-[10px] italic text-primary/80 border-t border-border/50 pt-2">
+          {summary}
+        </p>
+      )}
+    </div>
+  );
+}
+
 /* ── Main Component ── */
 
 // Detect if data is v2 CosmicEdge
@@ -252,7 +312,6 @@ function getLevel(val: any): string {
 
 export default function AstraStructuredResponse({ data, compact, onFollowUpClick }: { data: AstraResponse | CosmicEdgeResponse; compact?: boolean; onFollowUpClick?: (question: string) => void }) {
   const [activeTag, setActiveTag] = useState<string | null>(null);
-  const [narrativeExpanded, setNarrativeExpanded] = useState(false);
 
   const handleTagClick = (tag: string) => {
     setActiveTag(prev => prev === tag ? null : tag);
@@ -296,37 +355,9 @@ export default function AstraStructuredResponse({ data, compact, onFollowUpClick
         </div>
       )}
 
-      {/* Narrative */}
-      <div className="cosmic-card rounded-xl p-4">
-        {(() => {
-          const sentences = narrative.split(/(?<=[.!?])\s+/);
-          const SHORT_LIMIT = 3;
-          const isLong = sentences.length > SHORT_LIMIT;
-          const displayText = isLong && !narrativeExpanded
-            ? sentences.slice(0, SHORT_LIMIT).join(" ") + "…"
-            : narrative;
-          return (
-            <>
-              <p className={cn("leading-relaxed text-foreground/90", compact ? "text-[10px]" : "text-xs")}>
-                {displayText}
-              </p>
-              {isLong && (
-                <button
-                  onClick={() => setNarrativeExpanded(e => !e)}
-                  className="mt-1.5 text-[9px] text-primary hover:underline"
-                >
-                  {narrativeExpanded ? "Show less" : "Read more"}
-                </button>
-              )}
-            </>
-          );
-        })()}
-        {summary && (
-          <p className="mt-2 text-[10px] italic text-primary/80 border-t border-border/50 pt-2">
-            {summary}
-          </p>
-        )}
-      </div>
+      {/* Narrative — staggered sentence reveal */}
+      <NarrativeBlock narrative={narrative} summary={summary} compact={compact} />
+
 
       {/* Confidence & Volatility badges + Tag filter bar */}
       <div className="flex items-center gap-2 flex-wrap">
