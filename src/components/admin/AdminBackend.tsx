@@ -4,12 +4,40 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Database, Server, HardDrive, Wrench, Loader2 } from "lucide-react";
+import { Database, Server, HardDrive, Wrench, Loader2, Trophy } from "lucide-react";
 import { toast } from "sonner";
 
 export default function AdminBackend() {
   const [normalizing, setNormalizing] = useState(false);
   const [normLog, setNormLog] = useState<string[] | null>(null);
+  const [backfilling, setBackfilling] = useState(false);
+  const [backfillLog, setBackfillLog] = useState<{ log: string[]; total_updated: number; leagues: any[] } | null>(null);
+  const [backfillLeagues, setBackfillLeagues] = useState<string[]>(["NBA", "NFL", "NHL", "MLB"]);
+
+  const toggleLeague = (l: string) =>
+    setBackfillLeagues(prev => prev.includes(l) ? prev.filter(x => x !== l) : [...prev, l]);
+
+  const runBackfill = async () => {
+    setBackfilling(true);
+    setBackfillLog(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("bulk-backfill-scores", {
+        body: { leagues: backfillLeagues },
+      });
+      if (error) throw error;
+      setBackfillLog(data);
+      const total = data?.total_updated ?? 0;
+      if (total > 0) {
+        toast.success(`Backfill complete — ${total} games updated to final`);
+      } else {
+        toast.info("Backfill ran — 0 new updates (scores may already be current)");
+      }
+    } catch (e: any) {
+      toast.error(e.message || "Backfill failed");
+    } finally {
+      setBackfilling(false);
+    }
+  };
 
   const runNormalize = async (dryRun: boolean) => {
     setNormalizing(true);
@@ -128,6 +156,63 @@ export default function AdminBackend() {
                 <p key={i} className="text-[10px] text-foreground font-mono">{line}</p>
               ))
             )}
+          </div>
+        )}
+      </Card>
+
+      {/* ── Season-Wide Score Backfill ── */}
+      <Card className="p-4">
+        <h2 className="text-sm font-semibold text-foreground flex items-center gap-2 mb-1">
+          <Trophy className="h-4 w-4 text-primary" />
+          Season-Wide Score Backfill
+        </h2>
+        <p className="text-xs text-muted-foreground mb-3">
+          Pulls the full season from TheSportsDB and marks all matched past games as <strong>final</strong> with correct scores.
+        </p>
+
+        {/* League toggles */}
+        <div className="flex gap-2 flex-wrap mb-3">
+          {["NBA", "NFL", "NHL", "MLB"].map(l => (
+            <button
+              key={l}
+              onClick={() => toggleLeague(l)}
+              className={`text-[11px] px-2 py-1 rounded border font-medium transition-colors ${
+                backfillLeagues.includes(l)
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "bg-transparent text-muted-foreground border-border"
+              }`}
+            >
+              {l}
+            </button>
+          ))}
+        </div>
+
+        <Button
+          size="sm"
+          variant="default"
+          onClick={runBackfill}
+          disabled={backfilling || backfillLeagues.length === 0}
+          className="mb-3"
+        >
+          {backfilling ? <Loader2 className="h-3 w-3 animate-spin mr-1.5" /> : <Trophy className="h-3 w-3 mr-1.5" />}
+          {backfilling ? "Running backfill…" : "Run Backfill"}
+        </Button>
+
+        {backfillLog && (
+          <div className="space-y-2">
+            <div className="flex gap-3 text-xs">
+              <span className="font-semibold text-green-500">✅ {backfillLog.total_updated} games updated</span>
+              {backfillLog.leagues?.map((r: any) => (
+                <span key={r.league} className="text-muted-foreground">
+                  {r.league}: {r.games_updated} updated
+                </span>
+              ))}
+            </div>
+            <div className="bg-secondary/30 rounded-lg p-3 max-h-56 overflow-y-auto">
+              {backfillLog.log?.map((line, i) => (
+                <p key={i} className="text-[10px] text-foreground font-mono leading-relaxed">{line}</p>
+              ))}
+            </div>
           </div>
         )}
       </Card>
