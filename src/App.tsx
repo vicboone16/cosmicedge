@@ -38,6 +38,7 @@ import AdminGamesPage from "./pages/AdminGamesPage";
 import AdminPage from "./pages/AdminPage";
 import NotFound from "./pages/NotFound";
 import PrivacyPage from "./pages/PrivacyPage";
+import AppStorePrivacyScript from "./pages/AppStorePrivacyScript";
 
 const queryClient = new QueryClient();
 
@@ -93,6 +94,7 @@ const App = () => {
               </Route>
               <Route path="/auth" element={<AuthPage />} />
               <Route path="/privacy" element={<PrivacyPage />} />
+              <Route path="/app-store-privacy" element={<AppStorePrivacyScript />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>
