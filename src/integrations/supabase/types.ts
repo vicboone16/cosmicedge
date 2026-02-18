@@ -3423,6 +3423,8 @@ export type Database = {
         Args: { source_id: string; target_id: string }
         Returns: undefined
       }
+      safe_delete_game: { Args: { p_game_id: string }; Returns: Json }
+      safe_delete_player: { Args: { p_player_id: string }; Returns: Json }
       search_players_unaccent: {
         Args: { max_results?: number; search_query: string }
         Returns: {

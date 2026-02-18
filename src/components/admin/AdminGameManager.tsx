@@ -228,33 +228,18 @@ export default function AdminGameManager() {
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
-  // Delete game mutation with cascade
+  // Delete game — single RPC; DB trigger handles full cascade atomically
   const deleteMutation = useMutation({
     mutationFn: async (gameId: string) => {
-      // Cascade delete related data
-      await supabase.from("bets").delete().eq("game_id", gameId);
-      await supabase.from("odds_snapshots").delete().eq("game_id", gameId);
-      await supabase.from("game_quarters").delete().eq("game_id", gameId);
-      await supabase.from("play_by_play").delete().eq("game_id", gameId);
-      await supabase.from("player_game_stats").delete().eq("game_id", gameId);
-      await supabase.from("game_state_snapshots").delete().eq("game_id", gameId);
-      await supabase.from("game_referees").delete().eq("game_id", gameId);
-      await supabase.from("astro_calculations").delete().eq("entity_id", gameId);
-      await supabase.from("alerts").delete().eq("game_id", gameId);
-      await supabase.from("intel_notes").delete().eq("game_id", gameId);
-      // Also delete NBA PBP if external_id matches
-      const { data: gameData } = await supabase.from("games").select("external_id").eq("id", gameId).maybeSingle();
-      if (gameData?.external_id) {
-        await supabase.from("nba_play_by_play_events").delete().eq("game_id", gameData.external_id);
-        // Also try with leading zeros
-        await supabase.from("nba_play_by_play_events").delete().eq("game_id", "00" + gameData.external_id);
-      }
-      const { error } = await supabase.from("games").delete().eq("id", gameId);
+      const { error } = await supabase.rpc("safe_delete_game", { p_game_id: gameId });
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-games"] });
       queryClient.invalidateQueries({ queryKey: ["games"] });
+      queryClient.invalidateQueries({ queryKey: ["bets"] });
+      queryClient.invalidateQueries({ queryKey: ["odds"] });
+      queryClient.invalidateQueries({ queryKey: ["live-scores"] });
       toast({ title: "Game deleted" });
       setEditGame(null);
     },

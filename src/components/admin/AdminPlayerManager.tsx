@@ -100,7 +100,8 @@ export default function AdminPlayerManager() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("players").delete().eq("id", id);
+      // safe_delete_player RPC fires cascade trigger atomically in DB
+      const { error } = await supabase.rpc("safe_delete_player", { p_player_id: id });
       if (error) throw error;
     },
     onSuccess: () => {
@@ -113,8 +114,12 @@ export default function AdminPlayerManager() {
 
   const massDeleteMutation = useMutation({
     mutationFn: async (ids: string[]) => {
-      const { error } = await supabase.from("players").delete().in("id", ids);
-      if (error) throw error;
+      // Delete in parallel; each triggers the DB cascade individually
+      const results = await Promise.all(
+        ids.map(id => supabase.rpc("safe_delete_player", { p_player_id: id }))
+      );
+      const failed = results.filter(r => !!r.error);
+      if (failed.length > 0) throw new Error(`${failed.length} deletion(s) failed`);
     },
     onSuccess: (_, ids) => {
       toast.success(`${ids.length} player${ids.length !== 1 ? "s" : ""} deleted`);
