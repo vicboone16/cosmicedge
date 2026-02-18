@@ -76,12 +76,14 @@ const Index = () => {
 
       {/* Content */}
       <div className="px-4 py-4 space-y-6">
-        {(selectedLeague === "NCAAB" || selectedLeague === "NCAAF") ? (
+        {(selectedLeague === "NCAAB" || selectedLeague === "NCAAF" || selectedLeague === "MLB") ? (
           <div className="flex flex-col items-center justify-center py-20 gap-4 text-center px-6">
             <span className="text-4xl">🔮✨</span>
             <p className="text-lg font-semibold font-display text-foreground">The Stars Are Still Charting This One…</p>
             <p className="text-sm text-muted-foreground max-w-xs">
-              NCAA coverage is aligning in the cosmos. Stay tuned — the celestial edge is coming to college sports soon.
+              {selectedLeague === "MLB"
+                ? "MLB coverage is aligning — rosters and schedules are still forming. The celestial edge is coming to baseball soon."
+                : "NCAA coverage is aligning in the cosmos. Stay tuned — the celestial edge is coming to college sports soon."}
             </p>
           </div>
         ) : isLoading ? (
@@ -91,7 +93,7 @@ const Index = () => {
           </div>
         ) : null}
 
-        {selectedLeague !== "NCAAB" && selectedLeague !== "NCAAF" && isError && (
+        {selectedLeague !== "NCAAB" && selectedLeague !== "NCAAF" && selectedLeague !== "MLB" && isError && (
           <div className="text-center py-16">
             <p className="text-sm text-destructive mb-2">The cosmos are misaligned</p>
             <button onClick={() => refetch()} className="text-xs text-primary hover:underline">
@@ -100,7 +102,7 @@ const Index = () => {
           </div>
         )}
 
-        {selectedLeague !== "NCAAB" && selectedLeague !== "NCAAF" && !isLoading && !isError && (
+        {selectedLeague !== "NCAAB" && selectedLeague !== "NCAAF" && selectedLeague !== "MLB" && !isLoading && !isError && (
           <>
             {liveGames.length > 0 && (
               <section>
