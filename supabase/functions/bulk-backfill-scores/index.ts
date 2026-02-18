@@ -13,9 +13,9 @@ const LEAGUE_IDS: Record<string, string> = {
 
 // Each league has one or more seasons to backfill
 const LEAGUE_SEASONS: Record<string, string[]> = {
-  NBA: ["2024-2025"],
-  NFL: ["2024-2025", "2023-2024"],
-  NHL: ["2024-2025"],
+  NBA: ["2024-2025", "2025-2026"],
+  NFL: ["2024-2025"],
+  NHL: ["2024-2025", "2025-2026"],
   MLB: ["2024", "2025"],
 };
 
@@ -154,12 +154,12 @@ async function backfillLeague(
       continue;
     }
 
-    // Only update if scores differ OR status isn't already final
-    if (
-      existing.status === "final" &&
+  // Only update if scores differ OR status isn't already normalised "final"
+    const isAlreadyFinal = existing.status === "final" &&
       existing.home_score === homeScore &&
-      existing.away_score === awayScore
-    ) {
+      existing.away_score === awayScore;
+
+    if (isAlreadyFinal) {
       alreadyFinal.count++;
       continue;
     }
@@ -197,20 +197,56 @@ async function backfillLeague(
   };
 }
 
+async function fixStatusCases(supabase: any): Promise<{ fixed_capitalization: number; fixed_has_scores: number; log: string[] }> {
+  const log: string[] = [];
+
+  // 1. Normalize capitalized variants → "final"
+  const { data: capFix, error: capErr } = await supabase.rpc("fix_game_status_cases");
+  if (capErr) {
+    // Fallback: manual update if RPC doesn't exist
+    const badStatuses = ["Final", "Final/OT", "Final/2OT", "Final/3OT", "FT", "AOT"];
+    let fixedCap = 0;
+    for (const s of badStatuses) {
+      const { data: rows } = await supabase.from("games").select("id").eq("status", s).limit(2000);
+      if (rows?.length) {
+        await supabase.from("games").update({ status: "final" }).in("id", rows.map((r: any) => r.id));
+        fixedCap += rows.length;
+        log.push(`  Normalized "${s}" → "final": ${rows.length} games`);
+      }
+    }
+    log.push(`Status capitalization fix: ${fixedCap} games normalized`);
+    return { fixed_capitalization: fixedCap, fixed_has_scores: 0, log };
+  }
+
+  // 2. Any game with scores but status = "scheduled"
+  const { data: scoredRows } = await supabase
+    .from("games")
+    .select("id")
+    .eq("status", "scheduled")
+    .not("home_score", "is", null)
+    .not("away_score", "is", null)
+    .limit(5000);
+
+  let fixedScored = 0;
+  if (scoredRows?.length) {
+    const ids = scoredRows.map((r: any) => r.id);
+    const BATCH = 200;
+    for (let i = 0; i < ids.length; i += BATCH) {
+      await supabase.from("games").update({ status: "final" }).in("id", ids.slice(i, i + BATCH));
+    }
+    fixedScored = scoredRows.length;
+    log.push(`Fixed ${fixedScored} games with scores stuck as "scheduled"`);
+  }
+
+  return { fixed_capitalization: capFix ?? 0, fixed_has_scores: fixedScored, log };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const apiKey = Deno.env.get("THESPORTSDB_API_KEY");
-    if (!apiKey) {
-      return new Response(
-        JSON.stringify({ error: "THESPORTSDB_API_KEY not configured" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
-    }
-
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
@@ -218,6 +254,23 @@ Deno.serve(async (req) => {
 
     let body: Record<string, any> = {};
     try { body = await req.json(); } catch { /* no body */ }
+
+    // Special mode: just fix status casing without hitting TheSportsDB
+    if (body.mode === "fix_statuses") {
+      const result = await fixStatusCases(supabase);
+      return new Response(
+        JSON.stringify({ success: true, ...result }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
+    const apiKey = Deno.env.get("THESPORTSDB_API_KEY");
+    if (!apiKey) {
+      return new Response(
+        JSON.stringify({ error: "THESPORTSDB_API_KEY not configured" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
 
     // Which leagues to backfill — defaults to all four
     const requestedLeagues: string[] = body.leagues
@@ -230,6 +283,11 @@ Deno.serve(async (req) => {
     const results: any[] = [];
     let totalUpdated = 0;
     const fullLog: string[] = [];
+
+    // Always fix status casing first before backfilling
+    const statusFix = await fixStatusCases(supabase);
+    fullLog.push(`Pre-fix: ${statusFix.fixed_capitalization} capitalization fixes, ${statusFix.fixed_has_scores} scored-but-scheduled fixes`);
+    fullLog.push(...statusFix.log);
 
     for (const league of requestedLeagues) {
       if (!LEAGUE_IDS[league]) {
@@ -253,6 +311,7 @@ Deno.serve(async (req) => {
       JSON.stringify({
         success: true,
         total_updated: totalUpdated,
+        status_fixes: statusFix,
         leagues: results,
         log: fullLog,
       }),

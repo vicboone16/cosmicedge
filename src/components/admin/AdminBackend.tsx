@@ -4,18 +4,38 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Database, Server, HardDrive, Wrench, Loader2, Trophy } from "lucide-react";
+import { Database, Server, HardDrive, Wrench, Loader2, Trophy, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 
 export default function AdminBackend() {
   const [normalizing, setNormalizing] = useState(false);
   const [normLog, setNormLog] = useState<string[] | null>(null);
   const [backfilling, setBackfilling] = useState(false);
-  const [backfillLog, setBackfillLog] = useState<{ log: string[]; total_updated: number; leagues: any[] } | null>(null);
+  const [fixingStatuses, setFixingStatuses] = useState(false);
+  const [statusFixLog, setStatusFixLog] = useState<{ fixed_capitalization: number; fixed_has_scores: number; log: string[] } | null>(null);
+  const [backfillLog, setBackfillLog] = useState<{ log: string[]; total_updated: number; leagues: any[]; status_fixes?: any } | null>(null);
   const [backfillLeagues, setBackfillLeagues] = useState<string[]>(["NBA", "NFL", "NHL", "MLB"]);
 
   const toggleLeague = (l: string) =>
     setBackfillLeagues(prev => prev.includes(l) ? prev.filter(x => x !== l) : [...prev, l]);
+
+  const runFixStatuses = async () => {
+    setFixingStatuses(true);
+    setStatusFixLog(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("bulk-backfill-scores", {
+        body: { mode: "fix_statuses" },
+      });
+      if (error) throw error;
+      setStatusFixLog(data);
+      const total = (data?.fixed_capitalization ?? 0) + (data?.fixed_has_scores ?? 0);
+      toast.success(`Status fix complete — ${total} games corrected`);
+    } catch (e: any) {
+      toast.error(e.message || "Status fix failed");
+    } finally {
+      setFixingStatuses(false);
+    }
+  };
 
   const runBackfill = async () => {
     setBackfilling(true);
@@ -27,11 +47,8 @@ export default function AdminBackend() {
       if (error) throw error;
       setBackfillLog(data);
       const total = data?.total_updated ?? 0;
-      if (total > 0) {
-        toast.success(`Backfill complete — ${total} games updated to final`);
-      } else {
-        toast.info("Backfill ran — 0 new updates (scores may already be current)");
-      }
+      const statusTotal = (data?.status_fixes?.fixed_capitalization ?? 0) + (data?.status_fixes?.fixed_has_scores ?? 0);
+      toast.success(`Backfill complete — ${total} scores updated, ${statusTotal} status fixes`);
     } catch (e: any) {
       toast.error(e.message || "Backfill failed");
     } finally {
@@ -160,6 +177,39 @@ export default function AdminBackend() {
         )}
       </Card>
 
+      {/* ── Fix Game Statuses ── */}
+      <Card className="p-4">
+        <h2 className="text-sm font-semibold text-foreground flex items-center gap-2 mb-1">
+          <ShieldCheck className="h-4 w-4 text-primary" />
+          Fix Game Statuses
+        </h2>
+        <p className="text-xs text-muted-foreground mb-3">
+          Normalizes "Final/OT", "Final/2OT" etc. → "final", and marks any game with scores as final. Run this first.
+        </p>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={runFixStatuses}
+          disabled={fixingStatuses}
+          className="mb-3"
+        >
+          {fixingStatuses ? <Loader2 className="h-3 w-3 animate-spin mr-1.5" /> : <ShieldCheck className="h-3 w-3 mr-1.5" />}
+          {fixingStatuses ? "Fixing…" : "Fix Status Cases"}
+        </Button>
+        {statusFixLog && (
+          <div className="space-y-1">
+            <p className="text-xs font-medium text-foreground">
+              ✅ {statusFixLog.fixed_capitalization} capitalization fixes · {statusFixLog.fixed_has_scores} scored→final fixes
+            </p>
+            <div className="bg-secondary/30 rounded-lg p-3 max-h-32 overflow-y-auto">
+              {statusFixLog.log?.map((line, i) => (
+                <p key={i} className="text-[10px] text-foreground font-mono">{line}</p>
+              ))}
+            </div>
+          </div>
+        )}
+      </Card>
+
       {/* ── Season-Wide Score Backfill ── */}
       <Card className="p-4">
         <h2 className="text-sm font-semibold text-foreground flex items-center gap-2 mb-1">
@@ -200,11 +250,16 @@ export default function AdminBackend() {
 
         {backfillLog && (
           <div className="space-y-2">
-            <div className="flex gap-3 text-xs">
-              <span className="font-semibold text-green-500">✅ {backfillLog.total_updated} games updated</span>
+            <div className="flex flex-wrap gap-3 text-xs">
+              <span className="font-semibold text-primary">✅ {backfillLog.total_updated} scores updated</span>
+              {backfillLog.status_fixes && (
+                <span className="text-muted-foreground">
+                  +{(backfillLog.status_fixes.fixed_capitalization ?? 0) + (backfillLog.status_fixes.fixed_has_scores ?? 0)} status fixes
+                </span>
+              )}
               {backfillLog.leagues?.map((r: any) => (
                 <span key={r.league} className="text-muted-foreground">
-                  {r.league}: {r.games_updated} updated
+                  {r.league}: {r.games_updated}↑
                 </span>
               ))}
             </div>
