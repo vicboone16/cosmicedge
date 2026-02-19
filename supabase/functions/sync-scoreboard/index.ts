@@ -91,65 +91,52 @@ Deno.serve(async (req) => {
     const gameUpserts: Record<string, unknown>[] = [];
     const now = new Date().toISOString();
 
-    // ESPN actor output varies; handle common shapes
-    const allEvents: unknown[] = [];
-    for (const item of (items ?? [])) {
-      const events = item?.events ?? item?.games ?? item?.scoreboard?.events ?? item?.items ?? [];
-      if (Array.isArray(events)) {
-        for (const ev of events) allEvents.push({ ...ev, _league: item?.league ?? item?.sport ?? item?.key });
-      }
-    }
+    // The ESPN Scoreboard Monitor actor returns a flat array of event objects
+    // Each has: home, away, league, event_id, state, start_time, matchup, etc.
+    const allEvents: Record<string, any>[] = Array.isArray(items) ? items : [];
 
-    // If items is a flat array of events (no wrapper)
-    if (allEvents.length === 0 && Array.isArray(items)) {
-      for (const ev of items) allEvents.push(ev);
-    }
+    for (const e of allEvents) {
+      // Extract league (actor returns lowercase like "nba")
+      let league = (e.league ?? e._league ?? e.sport ?? "").toString().toUpperCase();
+      if (!league || league === "UNKNOWN") league = "NBA";
 
-    for (const ev of allEvents) {
-      const e = ev as Record<string, any>;
-      
-      // Extract league
-      let league = (e._league ?? e.league ?? e.sport ?? "").toString().toUpperCase();
-      if (!league || league === "UNKNOWN") {
-        // Try to infer from competition or event name
-        league = "NBA";
-      }
+      // The actor provides home/away as top-level objects
+      const home = e.home;
+      const away = e.away;
 
-      // Extract competitors
+      // Also handle nested competitions format as fallback
       const competitors = e.competitions?.[0]?.competitors ?? e.competitors ?? [];
-      const home = competitors.find((c: any) => c.homeAway === "home") ?? competitors[0];
-      const away = competitors.find((c: any) => c.homeAway === "away") ?? competitors[1];
+      const homeComp = competitors.find((c: any) => c.homeAway === "home" || c.home_away === "home") ?? competitors[0];
+      const awayComp = competitors.find((c: any) => c.homeAway === "away" || c.home_away === "away") ?? competitors[1];
 
-      if (!home || !away) continue;
-
-      const homeAbbr = home?.team?.abbreviation ?? home?.abbreviation ?? home?.abbr ?? "";
-      const awayAbbr = away?.team?.abbreviation ?? away?.abbreviation ?? away?.abbr ?? "";
-      const homeName = home?.team?.displayName ?? home?.displayName ?? home?.name ?? homeAbbr;
-      const awayName = away?.team?.displayName ?? away?.displayName ?? away?.name ?? awayAbbr;
+      const homeAbbr = home?.abbreviation ?? homeComp?.team?.abbreviation ?? homeComp?.abbreviation ?? "";
+      const awayAbbr = away?.abbreviation ?? awayComp?.team?.abbreviation ?? awayComp?.abbreviation ?? "";
+      const homeName = home?.name ?? homeComp?.team?.displayName ?? homeComp?.displayName ?? homeAbbr;
+      const awayName = away?.name ?? awayComp?.team?.displayName ?? awayComp?.displayName ?? awayAbbr;
 
       if (!homeAbbr || !awayAbbr) continue;
 
-      // Status mapping
-      const stateStr = (e.status?.type?.state ?? e.status?.type?.name ?? e.status ?? "").toString().toLowerCase();
+      // Status mapping — actor uses "state" field: "pre", "in", "post"
+      const stateStr = (e.state ?? e.state_filter ?? e.status?.type?.state ?? "").toString().toLowerCase();
       const mappedStatus =
         stateStr.includes("post") || stateStr.includes("final") ? "final" :
         stateStr.includes("in") || stateStr.includes("live") || stateStr.includes("progress") ? "live" :
         "scheduled";
 
-      // Scores
-      const homeScore = Number(home?.score ?? 0);
-      const awayScore = Number(away?.score ?? 0);
+      // Scores — actor uses score_value or score
+      const homeScore = Number(home?.score_value ?? home?.score ?? homeComp?.score ?? 0);
+      const awayScore = Number(away?.score_value ?? away?.score ?? awayComp?.score ?? 0);
 
-      // Start time
-      const startTime = e.date ?? e.competitions?.[0]?.date ?? e.startDate ?? null;
+      // Start time — actor uses start_time.utc or start_time.local
+      const startTime = e.start_time?.utc ?? e.start_time?.local ?? e.date ?? e.competitions?.[0]?.date ?? null;
 
-      // External ID
-      const externalId = String(e.id ?? e.uid ?? e.eventId ?? "");
+      // External ID — actor uses event_id
+      const externalId = String(e.event_id ?? e.id ?? e.uid ?? "");
 
       // Venue
-      const venue = e.competitions?.[0]?.venue?.fullName ?? e.venue?.fullName ?? null;
-      const venueLat = e.competitions?.[0]?.venue?.address?.latitude ?? null;
-      const venueLng = e.competitions?.[0]?.venue?.address?.longitude ?? null;
+      const venue = e.venue?.fullName ?? e.competitions?.[0]?.venue?.fullName ?? null;
+      const venueLat = e.venue?.address?.latitude ?? e.competitions?.[0]?.venue?.address?.latitude ?? null;
+      const venueLng = e.venue?.address?.longitude ?? e.competitions?.[0]?.venue?.address?.longitude ?? null;
 
       gameUpserts.push({
         league,
