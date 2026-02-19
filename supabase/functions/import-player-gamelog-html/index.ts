@@ -117,7 +117,11 @@ Deno.serve(async (req) => {
         const dateStart = prev.toISOString().split("T")[0] + "T00:00:00Z";
         const dateEnd = next.toISOString().split("T")[0] + "T23:59:59Z";
 
-        const { data: matchingGames } = await sb
+        // Try both home/away orderings since the ±1 day window may cross date boundaries
+        let matchingGames: { id: string }[] | null = null;
+        
+        // Primary lookup
+        const { data: primary } = await sb
           .from("games")
           .select("id")
           .eq("league", "NBA")
@@ -127,7 +131,40 @@ Deno.serve(async (req) => {
           .lte("start_time", dateEnd)
           .limit(1);
 
+        matchingGames = primary;
+
+        // If not found, try swapped (in case home/away detection was wrong)
         if (!matchingGames || matchingGames.length === 0) {
+          const { data: swapped } = await sb
+            .from("games")
+            .select("id")
+            .eq("league", "NBA")
+            .eq("home_abbr", awayAbbr)
+            .eq("away_abbr", homeAbbr)
+            .gte("start_time", dateStart)
+            .lte("start_time", dateEnd)
+            .limit(1);
+          matchingGames = swapped;
+        }
+
+        // Fallback: search by either team appearing in any position
+        if (!matchingGames || matchingGames.length === 0) {
+          const { data: fallback } = await sb
+            .from("games")
+            .select("id")
+            .eq("league", "NBA")
+            .or(`and(home_abbr.eq.${rowTeam},away_abbr.eq.${oppAbbr}),and(home_abbr.eq.${oppAbbr},away_abbr.eq.${rowTeam})`)
+            .gte("start_time", dateStart)
+            .lte("start_time", dateEnd)
+            .limit(1);
+          matchingGames = fallback;
+          if (matchingGames && matchingGames.length > 0) {
+            console.log(`[import-player-gamelog-html] Fallback match found for ${gameDate}: ${rowTeam} vs ${oppAbbr}`);
+          }
+        }
+
+        if (!matchingGames || matchingGames.length === 0) {
+          console.log(`[import-player-gamelog-html] No game found: ${gameDate} home=${homeAbbr} away=${awayAbbr} range=${dateStart}..${dateEnd}`);
           totalGamesNotFound++;
           skipped++;
           continue;
@@ -211,11 +248,13 @@ function parsePlayerGameLog(html: string): Record<string, string>[] {
     const trContent = trMatch[1];
     const row: Record<string, string> = {};
 
-    // Match <th data-stat="...">value</th> and <td data-stat="...">value</td>
-    const cellRegex = /data-stat="([^"]+)"[^>]*>(?:<[^>]*>)*([^<]*)/g;
+    // Match each <th ...>value</th> or <td ...>value</td> cell individually
+    const cellRegex = /<(?:th|td)\s[^>]*?data-stat="([^"]+)"[^>]*>([\s\S]*?)<\/(?:th|td)>/g;
     let cellMatch;
     while ((cellMatch = cellRegex.exec(trContent)) !== null) {
-      row[cellMatch[1]] = cellMatch[2].trim();
+      // Strip any nested HTML tags from the value
+      const rawValue = cellMatch[2].replace(/<[^>]*>/g, "").trim();
+      row[cellMatch[1]] = rawValue;
     }
 
     if (row.date) rows.push(row);
