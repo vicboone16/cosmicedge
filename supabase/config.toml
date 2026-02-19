@@ -5,3 +5,21 @@ verify_jwt = false
 
 [functions.write-pick]
 verify_jwt = false
+
+[functions.apify-run]
+verify_jwt = false
+
+[functions.sync-scoreboard]
+verify_jwt = false
+
+[functions.sync-nba-boxscores]
+verify_jwt = false
+
+[functions.sync-sportsline-picks]
+verify_jwt = false
+
+[functions.sync-balldontlie]
+verify_jwt = false
+
+[functions.rebuild-trending]
+verify_jwt = false
