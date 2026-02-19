@@ -173,6 +173,23 @@ Deno.serve(async (req) => {
         throw new Error("CSV must have a Name column");
       }
 
+      // Helper: parse long-form date like "September 27, 1999" → "1999-09-27"
+      function parseBirthDate(raw: string | null): string | null {
+        if (!raw) return null;
+        const trimmed = raw.trim();
+        // Already YYYY-MM-DD
+        if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
+        // Try long-form: "Month D, YYYY" or "Month DD, YYYY"
+        const d = new Date(trimmed);
+        if (!isNaN(d.getTime())) {
+          const yyyy = d.getFullYear();
+          const mm = String(d.getMonth() + 1).padStart(2, "0");
+          const dd = String(d.getDate()).padStart(2, "0");
+          return `${yyyy}-${mm}-${dd}`;
+        }
+        return trimmed; // fallback — pass through as-is
+      }
+
       for (let i = headerIdx + 1; i < lines.length; i++) {
         const vals = parseRow(lines[i]);
         let name = vals[nameIdx];
@@ -183,7 +200,7 @@ Deno.serve(async (req) => {
         }
 
         const birthTime = btIdx !== -1 ? (vals[btIdx] || null) : null;
-        const birthDate = bdIdx !== -1 ? (vals[bdIdx] || null) : null;
+        const birthDate = parseBirthDate(bdIdx !== -1 ? (vals[bdIdx] || null) : null);
         const birthPlace = bpIdx !== -1 ? (vals[bpIdx] || null) : null;
 
         // Skip row only if absolutely nothing to update
