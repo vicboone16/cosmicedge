@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
-import { RefreshCw, CalendarDays, Trophy, Wrench } from "lucide-react";
+import { RefreshCw, CalendarDays, Trophy, Wrench, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 interface LeagueGameStats {
@@ -26,6 +26,7 @@ export function DataHealthDashboard() {
   const [loading, setLoading] = useState(true);
   const [tsdbSyncing, setTsdbSyncing] = useState<string | null>(null);
   const [fixingStatuses, setFixingStatuses] = useState(false);
+  const [purgingOrphans, setPurgingOrphans] = useState(false);
 
   const fixStatuses = async () => {
     setFixingStatuses(true);
@@ -42,6 +43,23 @@ export function DataHealthDashboard() {
       toast.error(`Status fix failed: ${e.message}`);
     } finally {
       setFixingStatuses(false);
+    }
+  };
+
+  const purgeOrphans = async () => {
+    setPurgingOrphans(true);
+    try {
+      const { data: result, error } = await supabase.functions.invoke("bulk-backfill-scores", {
+        body: { mode: "purge_orphans" },
+      });
+      if (error) throw new Error(error.message);
+      toast.success(`Purged ${result?.total_deleted ?? 0} orphan games. Log: ${result?.log?.join("; ")}`);
+      setLoading(true);
+      fetchData();
+    } catch (e: any) {
+      toast.error(`Purge failed: ${e.message}`);
+    } finally {
+      setPurgingOrphans(false);
     }
   };
 
@@ -136,16 +154,28 @@ export function DataHealthDashboard() {
       <div className="space-y-2">
         <div className="flex items-center justify-between">
           <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Games & Scores</h3>
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-6 px-2 text-[10px] gap-1"
-            disabled={fixingStatuses || tsdbSyncing !== null}
-            onClick={fixStatuses}
-          >
-            {fixingStatuses ? <RefreshCw className="h-3 w-3 animate-spin" /> : <Wrench className="h-3 w-3" />}
-            Fix Statuses
-          </Button>
+          <div className="flex gap-1">
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-6 px-2 text-[10px] gap-1"
+              disabled={fixingStatuses || purgingOrphans || tsdbSyncing !== null}
+              onClick={fixStatuses}
+            >
+              {fixingStatuses ? <RefreshCw className="h-3 w-3 animate-spin" /> : <Wrench className="h-3 w-3" />}
+              Fix Statuses
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-6 px-2 text-[10px] gap-1 text-destructive border-destructive/40 hover:bg-destructive/10"
+              disabled={fixingStatuses || purgingOrphans || tsdbSyncing !== null}
+              onClick={purgeOrphans}
+            >
+              {purgingOrphans ? <RefreshCw className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
+              Purge Orphans
+            </Button>
+          </div>
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {games.map((g) => {
