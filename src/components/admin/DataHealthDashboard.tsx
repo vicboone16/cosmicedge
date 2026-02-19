@@ -24,6 +24,7 @@ export function DataHealthDashboard() {
   const [games, setGames] = useState<LeagueGameStats[]>([]);
   const [players, setPlayers] = useState<LeaguePlayerStats[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [tsdbSyncing, setTsdbSyncing] = useState<string | null>(null);
   const [fixingStatuses, setFixingStatuses] = useState(false);
   const [purgingOrphans, setPurgingOrphans] = useState(false);
@@ -40,8 +41,7 @@ export function DataHealthDashboard() {
       if (error) throw new Error(error.message);
       const total = (result?.fixed_capitalization ?? 0) + (result?.fixed_has_scores ?? 0);
       toast.success(`Fixed ${total} games → "final" status`);
-      setLoading(true);
-      fetchData();
+      fetchData(true);
     } catch (e: any) {
       toast.error(`Status fix failed: ${e.message}`);
     } finally {
@@ -57,8 +57,7 @@ export function DataHealthDashboard() {
       });
       if (error) throw new Error(error.message);
       toast.success(`Purged ${result?.total_deleted ?? 0} orphan games. Log: ${result?.log?.join("; ")}`);
-      setLoading(true);
-      fetchData();
+      fetchData(true);
     } catch (e: any) {
       toast.error(`Purge failed: ${e.message}`);
     } finally {
@@ -125,8 +124,7 @@ export function DataHealthDashboard() {
         ? `Done: ${totalUpdated} updated, ${totalInserted} inserted`
         : `Done: ${totalUpdated} games scored`;
       toast.success(summary);
-      setLoading(true);
-      fetchData();
+      fetchData(true);
     } catch (e: any) {
       toast.error(`Backfill failed: ${e.message}`);
     } finally {
@@ -181,9 +179,7 @@ export function DataHealthDashboard() {
 
         toast.success(`${league} ${mode}: ${summary}`);
       }
-
-      setLoading(true);
-      fetchData();
+      fetchData(true);
     } catch (e: any) {
       toast.error(`${league} ${mode} failed: ${e.message}`);
     } finally {
@@ -192,14 +188,17 @@ export function DataHealthDashboard() {
   };
 
 
-  const fetchData = async () => {
-      // Use RPC-style counting to avoid the 1000-row limit
+  const fetchData = async (silent = false) => {
+      if (!silent) setLoading(true);
+      else setRefreshing(true);
+
+      // { count: "exact", head: true } bypasses row limits entirely — no .limit() needed
       const leagues = ["NBA", "NFL", "NHL", "MLB"];
       
       const gamePromises = leagues.map(async (league) => {
         const [totalRes, scoredRes] = await Promise.all([
-          supabase.from("games").select("id", { count: "exact", head: true }).eq("league", league).limit(100000),
-          supabase.from("games").select("id", { count: "exact", head: true }).eq("league", league).not("home_score", "is", null).limit(100000),
+          supabase.from("games").select("id", { count: "exact", head: true }).eq("league", league),
+          supabase.from("games").select("id", { count: "exact", head: true }).eq("league", league).not("home_score", "is", null),
         ]);
         return {
           league,
@@ -209,12 +208,11 @@ export function DataHealthDashboard() {
       });
 
       const playerPromises = leagues.map(async (league) => {
-        // Use range(0, 0) with count: "exact" to get true counts beyond the default 1000-row limit
         const [totalRes, bdRes, btRes, hsRes] = await Promise.all([
-          supabase.from("players").select("id", { count: "exact", head: true }).eq("league", league).limit(100000),
-          supabase.from("players").select("id", { count: "exact", head: true }).eq("league", league).not("birth_date", "is", null).limit(100000),
-          supabase.from("players").select("id", { count: "exact", head: true }).eq("league", league).not("birth_time", "is", null).limit(100000),
-          supabase.from("players").select("id", { count: "exact", head: true }).eq("league", league).not("headshot_url", "is", null).limit(100000),
+          supabase.from("players").select("id", { count: "exact", head: true }).eq("league", league),
+          supabase.from("players").select("id", { count: "exact", head: true }).eq("league", league).not("birth_date", "is", null),
+          supabase.from("players").select("id", { count: "exact", head: true }).eq("league", league).not("birth_time", "is", null),
+          supabase.from("players").select("id", { count: "exact", head: true }).eq("league", league).not("headshot_url", "is", null),
         ]);
         return {
           league,
@@ -233,6 +231,7 @@ export function DataHealthDashboard() {
       setGames(gameResults);
       setPlayers(playerResults);
       setLoading(false);
+      setRefreshing(false);
   };
 
   useEffect(() => { fetchData(); }, []);
