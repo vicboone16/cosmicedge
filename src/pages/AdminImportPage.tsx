@@ -553,12 +553,12 @@ export default function AdminImportPage() {
             Columns: Name, League, BirthDate (YYYY-MM-DD), BirthTime (HH:MM 24hr, optional), BirthPlace (optional)
           </p>
           <div className="flex gap-3 items-center flex-wrap">
-            <Select value={birthLeague} onValueChange={setBirthLeague}>
+            <Select value={birthLeague || "auto"} onValueChange={(v) => setBirthLeague(v === "auto" ? "" : v)}>
               <SelectTrigger className="w-36 h-9 text-xs">
                 <SelectValue placeholder="League (from CSV)" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">From CSV column</SelectItem>
+                <SelectItem value="auto">From CSV column</SelectItem>
                 <SelectItem value="NBA">NBA</SelectItem>
                 <SelectItem value="NFL">NFL</SelectItem>
                 <SelectItem value="NHL">NHL</SelectItem>
