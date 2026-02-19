@@ -199,13 +199,14 @@ async function backfillLeague(
 
 async function fixStatusCases(supabase: any): Promise<{ fixed_capitalization: number; fixed_has_scores: number; log: string[] }> {
   const log: string[] = [];
+  let fixedCap = 0;
+  let fixedScored = 0;
 
-  // 1. Normalize capitalized variants → "final"
+  // 1. Try RPC first, fallback to manual
   const { data: capFix, error: capErr } = await supabase.rpc("fix_game_status_cases");
   if (capErr) {
-    // Fallback: manual update if RPC doesn't exist
+    // Fallback: manual update for capitalized variants
     const badStatuses = ["Final", "Final/OT", "Final/2OT", "Final/3OT", "FT", "AOT"];
-    let fixedCap = 0;
     for (const s of badStatuses) {
       const { data: rows } = await supabase.from("games").select("id").eq("status", s).limit(2000);
       if (rows?.length) {
@@ -215,19 +216,21 @@ async function fixStatusCases(supabase: any): Promise<{ fixed_capitalization: nu
       }
     }
     log.push(`Status capitalization fix: ${fixedCap} games normalized`);
-    return { fixed_capitalization: fixedCap, fixed_has_scores: 0, log };
+  } else {
+    fixedCap = capFix ?? 0;
+    log.push(`Status capitalization fix: ${fixedCap} games normalized`);
   }
 
-  // 2. Any game with scores but status = "scheduled"
+  // 2. Any game with scores but status != "final" (always run this regardless of RPC result)
   const { data: scoredRows } = await supabase
     .from("games")
     .select("id")
-    .eq("status", "scheduled")
+    .neq("status", "final")
+    .neq("status", "live")
     .not("home_score", "is", null)
     .not("away_score", "is", null)
     .limit(5000);
 
-  let fixedScored = 0;
   if (scoredRows?.length) {
     const ids = scoredRows.map((r: any) => r.id);
     const BATCH = 200;
@@ -235,10 +238,10 @@ async function fixStatusCases(supabase: any): Promise<{ fixed_capitalization: nu
       await supabase.from("games").update({ status: "final" }).in("id", ids.slice(i, i + BATCH));
     }
     fixedScored = scoredRows.length;
-    log.push(`Fixed ${fixedScored} games with scores stuck as "scheduled"`);
+    log.push(`Fixed ${fixedScored} games with scores stuck as non-final`);
   }
 
-  return { fixed_capitalization: capFix ?? 0, fixed_has_scores: fixedScored, log };
+  return { fixed_capitalization: fixedCap, fixed_has_scores: fixedScored, log };
 }
 
 Deno.serve(async (req) => {

@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
-import { RefreshCw, CalendarDays, Trophy } from "lucide-react";
+import { RefreshCw, CalendarDays, Trophy, Wrench } from "lucide-react";
 import { toast } from "sonner";
 
 interface LeagueGameStats {
@@ -25,6 +25,25 @@ export function DataHealthDashboard() {
   const [players, setPlayers] = useState<LeaguePlayerStats[]>([]);
   const [loading, setLoading] = useState(true);
   const [tsdbSyncing, setTsdbSyncing] = useState<string | null>(null);
+  const [fixingStatuses, setFixingStatuses] = useState(false);
+
+  const fixStatuses = async () => {
+    setFixingStatuses(true);
+    try {
+      const { data: result, error } = await supabase.functions.invoke("bulk-backfill-scores", {
+        body: { mode: "fix_statuses" },
+      });
+      if (error) throw new Error(error.message);
+      const total = (result?.fixed_capitalization ?? 0) + (result?.fixed_has_scores ?? 0);
+      toast.success(`Fixed ${total} games → "final" status`);
+      setLoading(true);
+      fetchData();
+    } catch (e: any) {
+      toast.error(`Status fix failed: ${e.message}`);
+    } finally {
+      setFixingStatuses(false);
+    }
+  };
 
   const tsdbSync = async (mode: string, league: string) => {
     const key = `${mode}_${league}`;
@@ -39,7 +58,7 @@ export function DataHealthDashboard() {
       const summary = mode === "rosters"
         ? `${result.players_upserted} players across ${result.teams_processed} teams`
         : mode === "scores"
-        ? `${result.games_upserted} games, ${result.periods_upserted} periods`
+        ? `${result.games_upserted ?? result.games_updated ?? 0} games updated`
         : mode === "schedule"
         ? `${result.games_inserted} upcoming games added`
         : `${result.mapped} teams mapped`;
@@ -53,6 +72,7 @@ export function DataHealthDashboard() {
       setTsdbSyncing(null);
     }
   };
+
 
   const fetchData = async () => {
       // Use RPC-style counting to avoid the 1000-row limit
@@ -114,7 +134,19 @@ export function DataHealthDashboard() {
 
       {/* Games & Scores */}
       <div className="space-y-2">
-        <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Games & Scores</h3>
+        <div className="flex items-center justify-between">
+          <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Games & Scores</h3>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-6 px-2 text-[10px] gap-1"
+            disabled={fixingStatuses || tsdbSyncing !== null}
+            onClick={fixStatuses}
+          >
+            {fixingStatuses ? <RefreshCw className="h-3 w-3 animate-spin" /> : <Wrench className="h-3 w-3" />}
+            Fix Statuses
+          </Button>
+        </div>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {games.map((g) => {
             const scorePct = pct(g.withScores, g.total);
@@ -133,11 +165,11 @@ export function DataHealthDashboard() {
                     {scorePct}%
                   </span>
                 </div>
-                <div className="flex gap-1">
-                  <Button size="sm" variant="outline" className="h-6 px-1.5 text-[10px] gap-1" disabled={tsdbSyncing !== null} onClick={() => tsdbSync("scores", g.league)}>
+                <div className="flex gap-1 flex-wrap">
+                  <Button size="sm" variant="outline" className="h-6 px-1.5 text-[10px] gap-1" disabled={tsdbSyncing !== null || fixingStatuses} onClick={() => tsdbSync("scores", g.league)}>
                     {tsdbSyncing === scoreKey ? <RefreshCw className="h-3 w-3 animate-spin" /> : <Trophy className="h-3 w-3" />} Scores
                   </Button>
-                  <Button size="sm" variant="outline" className="h-6 px-1.5 text-[10px] gap-1" disabled={tsdbSyncing !== null} onClick={() => tsdbSync("schedule", g.league)}>
+                  <Button size="sm" variant="outline" className="h-6 px-1.5 text-[10px] gap-1" disabled={tsdbSyncing !== null || fixingStatuses} onClick={() => tsdbSync("schedule", g.league)}>
                     {tsdbSyncing === schedKey ? <RefreshCw className="h-3 w-3 animate-spin" /> : <CalendarDays className="h-3 w-3" />} Sched
                   </Button>
                 </div>
