@@ -158,33 +158,47 @@ Deno.serve(async (req) => {
         }
       }
     } else if (mode === "birthtime") {
-      // ── Birth time update mode ──
+      // ── Birth data update mode — BirthTime is optional; BirthDate and BirthPlace are also accepted ──
       const nameIdx = col(["name", "player", "playername"]);
       const leagueIdx = col(["league", "sport"]);
       const btIdx = col(["birthtime", "birth_time"]);
-      const bpIdx = col(["birthplace", "birth_place"]);
+      const bdIdx = col(["birthdate", "birth_date", "dob", "dateofbirth"]);
+      const bpIdx = col(["birthplace", "birth_place", "birthcity", "birth_city"]);
 
-      if (nameIdx === -1 || btIdx === -1) {
-        throw new Error("Birth time CSV must have Name and BirthTime columns");
+      if (nameIdx === -1) {
+        throw new Error("CSV must have a Name column");
       }
 
       for (let i = headerIdx + 1; i < lines.length; i++) {
         const vals = parseRow(lines[i]);
         let name = vals[nameIdx];
-        const birthTime = vals[btIdx];
-        if (!name || !birthTime) { skipped++; continue; }
+        if (!name) { skipped++; continue; }
         // Normalize "Last, First" → "First Last"
         if (name.includes(",")) {
           name = name.split(",").map((s: string) => s.trim()).reverse().join(" ");
         }
 
+        const birthTime = btIdx !== -1 ? (vals[btIdx] || null) : null;
+        const birthDate = bdIdx !== -1 ? (vals[bdIdx] || null) : null;
+        const birthPlace = bpIdx !== -1 ? (vals[bpIdx] || null) : null;
+
+        // Skip row only if absolutely nothing to update
+        if (!birthTime && !birthDate && !birthPlace) { skipped++; continue; }
+
         const league = leagueOverride || (leagueIdx !== -1 ? vals[leagueIdx]?.toUpperCase() : "") || "NBA";
-        
-        const updateData: any = {
-          birth_time: birthTime,
-          natal_data_quality: "A", // Has birth time = highest quality
-        };
-        if (bpIdx !== -1 && vals[bpIdx]) updateData.birth_place = vals[bpIdx];
+
+        const updateData: any = {};
+        if (birthTime) updateData.birth_time = birthTime;
+        if (birthDate) updateData.birth_date = birthDate;
+        if (birthPlace) updateData.birth_place = birthPlace;
+
+        // Compute quality: A = has time, B = has date only, C = no date
+        if (birthTime) {
+          updateData.natal_data_quality = "A";
+        } else if (birthDate) {
+          updateData.natal_data_quality = "B";
+        }
+        // If only birth_place, don't downgrade existing quality — skip quality field
 
         const { data, error } = await supabase
           .from("players")

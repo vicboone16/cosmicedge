@@ -537,14 +537,15 @@ export default function AdminImportPage() {
           </div>
         </Card>
 
-        {/* Birth Time CSV Import */}
+        {/* Birth Data CSV Import */}
         <Card className="p-4 space-y-3">
-          <h2 className="text-sm font-semibold text-foreground">🕐 Birth Time CSV Update</h2>
+          <h2 className="text-sm font-semibold text-foreground">🕐 Birth Data CSV Update</h2>
           <p className="text-xs text-muted-foreground">
-            Upload a .csv to update birth times for existing players. Matches by Name + League.
+            Upload a .csv to update birth data for existing players. Matches by Name + League.
+            BirthTime is optional — you can update BirthDate and/or BirthPlace without it.
           </p>
           <p className="text-xs text-muted-foreground italic">
-            Columns: Name, League, BirthTime (HH:MM 24hr), BirthPlace (optional)
+            Columns: Name, League, BirthDate (YYYY-MM-DD), BirthTime (HH:MM 24hr, optional), BirthPlace (optional)
           </p>
           <div className="flex gap-3 items-center flex-wrap">
             <Button
@@ -552,16 +553,16 @@ export default function AdminImportPage() {
               size="sm"
               className="gap-1.5 text-xs"
               onClick={() => downloadCsvTemplate(
-                "birth_time_template.csv",
-                ["Name", "League", "BirthTime", "BirthPlace"],
-                { Name: "LeBron James", League: "NBA", BirthTime: "18:00", BirthPlace: "Akron, OH, USA" }
+                "birth_data_template.csv",
+                ["Name", "League", "BirthDate", "BirthTime", "BirthPlace"],
+                { Name: "LeBron James", League: "NBA", BirthDate: "1984-12-30", BirthTime: "18:00", BirthPlace: "Akron, OH, USA" }
               )}
             >
               <Download className="h-3 w-3" /> Template
             </Button>
             <input ref={birthTimeCsvRef} type="file" accept=".csv" className="text-xs" />
             <Button onClick={handleBirthTimeCsvUpload} disabled={loading} variant="default">
-              {loading ? "Updating..." : "Update Birth Times"}
+              {loading ? "Updating..." : "Update Birth Data"}
             </Button>
           </div>
         </Card>
