@@ -1,107 +1,98 @@
 
-# Props + Nexus: Two Connected Hubs
+# Bulk Game Status Editor, CSV Template Downloads & Database Export
 
 ## Overview
-Keep **Props** as its own bottom nav tab AND add **Nexus** as a new tab. To avoid 7 cramped icons, **History** gets absorbed into Nexus (since Nexus is the deep research/historical data hub). Final bottom nav becomes:
 
-**Slate | Celestial | Props | SkySpread | Nexus | Astra** (6 tabs)
+Three distinct features to be built:
 
-## What Changes
+1. **Bulk Game Status Editor** — A new tab inside the Games manager that switches to a spreadsheet-style table for mass-updating status and scores across a date range and league filter, with a single "Save All Changes" action.
 
-### 1. Bottom Nav Update
-- Replace **History** with **Nexus** (using a `Compass` or `Database` icon)
-- Route: `/nexus`
-- The existing `/historical` page content moves into a "History" tab inside Nexus
+2. **CSV Template Download Buttons** — Added directly to each import card in the Imports tab so you can download a correctly-formatted template CSV before uploading.
 
-### 2. Props Page Enhancements
-The existing Props page (`/props`) stays as-is with these additions:
-
-**a) Player names become clickable links**
-- Tapping a player name in the props table navigates to `/player/:id` (their Nexus profile)
-- A back button on the player page returns to `/props`
-
-**b) "Add to SkySpread" action on each prop row**
-- A small `+` or crosshair icon on each row
-- Tapping it opens the existing `CreateBetForm` / `PropBuilderDialog` pre-filled with that prop's data (player, market, line, odds)
-- The bet is created in SkySpread automatically
-
-**c) Team props sub-view**
-- Add a toggle at the top: **Player Props | Team Props**
-- Team Props shows game-level markets (spreads, totals, moneylines) from `odds_snapshots`
-- Tapping a team name navigates to `/team/:league/:abbr` (Nexus team profile)
-
-### 3. New Nexus Page (`/nexus`)
-A tabbed hub with four sections:
-
-**Tab: "Players"**
-- Reuses the `EntitySearch` component for finding players
-- Shows trending players (those with most prop activity)
-- Tapping a player goes to `/player/:id`
-
-**Tab: "Teams"**
-- League filter pills (NBA, NHL, NFL, MLB)
-- Grid of team cards with W/L record and last-5 results
-- Tapping a team goes to `/team/:league/:abbr`
-
-**Tab: "Trends"**
-- Moves the existing `TrendsPage` content here
-- Same filters, league toggle, hit-rate cards
-
-**Tab: "History"**
-- Moves the existing `HistoricalPage` content here
-- Historical odds, past results, ATS/O-U records
-
-### 4. Enhanced Player Profile (`/player/:id`)
-Add new sections below existing content:
-- **H2H vs Upcoming Opponent** -- stats from past games against that team
-- **Situational Splits** -- Home vs Away averages
-- **Archetype Comparison** -- players with similar stat profiles
-- **Astro Overlay** -- transit modifiers if birth data available
-
-### 5. Enhanced Team Profile (`/team/:league/:abbr`)
-Add new sections:
-- **L5 / L10 Performance Trends** -- computed from `team_game_stats`
-- **H2H History** -- selectable opponent, past matchup results
-- **ATS / O-U Record** -- from `historical_odds`
-- **Astro Overlay** -- current transit influences
-
-### 6. Cross-Navigation Flow
-
-```text
-Props Page                         Nexus Page
-+------------------+               +------------------+
-| Player Props     |               | Players | Teams  |
-| [LeBron - PTS]---|--click------->| Player Profile   |
-|   [+] Add to SS--|--tap--------->| SkySpread (bet)  |
-|                  |               |                  |
-| Team Props       |               | Trends | History |
-| [LAL spread]-----|--click------->| Team Profile     |
-+------------------+               +------------------+
-```
-
-- From Props: click player name -> Player profile in Nexus
-- From Props: click team name -> Team profile in Nexus  
-- From Props: click `+` icon -> Creates bet in SkySpread
-- From Nexus profiles: "View Props" link -> back to Props filtered for that player/team
+3. **Export to CSV Buttons** — A new Export section in the Admin Hub (inside the Games tab) that downloads the current `games` or `players` table as a CSV file for editing and re-uploading.
 
 ---
 
 ## Technical Details
 
-### Files to Create
-- `src/pages/NexusPage.tsx` -- Main hub with Players / Teams / Trends / History tabs
+### Feature 1: Bulk Game Status Editor (new tab in AdminGameManager.tsx)
 
-### Files to Modify
-- `src/components/layout/BottomNav.tsx` -- Replace History with Nexus, keep Props
-- `src/App.tsx` -- Add `/nexus` route, keep `/historical` as redirect to `/nexus`
-- `src/pages/PlayerPropsPage.tsx` -- Make player names clickable, add "Add to SkySpread" button, add Team Props toggle
-- `src/pages/PlayerPage.tsx` -- Add H2H, splits, archetype sections
-- `src/pages/TeamPage.tsx` -- Add L5/L10, H2H history, ATS record sections
+The existing `AdminGameManager` already has date navigation and league filtering. A second view mode ("Bulk Edit") will be added as a toggle alongside the current card-based "Card View".
 
-### No Database Changes Needed
-All data already exists in the database:
-- `player_game_stats` for H2H and splits
-- `player_season_stats` for archetype comparison
-- `historical_odds` + `games` for ATS/O-U records
-- `odds_snapshots` for team-level props
-- `standings` for team records
+**How it works:**
+- Toggling to "Bulk Edit" mode shows an editable table with columns: Away @ Home, Time, Status (dropdown), Away Score, Home Score.
+- All visible rows are loaded into a local editable state (a `Record<id, edits>` object).
+- Only rows with changes are highlighted (dirty rows shown with a subtle background color).
+- A "Save X Changes" button at the top commits all dirty rows in a single batch `UPDATE` call using `.in("id", dirtyIds)` — but since each row may have different values, it loops through dirty rows and fires parallel individual updates (Promise.all) with a concise toast summary.
+- Date range: adds a second date picker ("End Date") that appears only in bulk edit mode, so you can span multiple days (e.g., an entire week of games).
+- The existing single-day date nav remains unchanged in card view mode.
+
+**New state added to `AdminGameManager.tsx`:**
+```typescript
+const [viewMode, setViewMode] = useState<"card" | "bulk">("card");
+const [bulkEndDate, setBulkEndDate] = useState<Date | null>(null);
+const [bulkEdits, setBulkEdits] = useState<Record<string, { status: string; home_score: string; away_score: string }>>({});
+```
+
+**Bulk query** (only active in bulk mode): fetches games between `startDate` and `bulkEndDate` (up to 7 days max enforced in UI) for the selected league.
+
+**Bulk save mutation:** loops through dirty `bulkEdits` entries, fires parallel `supabase.from("games").update(...)eq("id", id)` calls, then invalidates queries and toasts summary.
+
+### Feature 2: CSV Template Download Buttons
+
+A pure client-side utility function `downloadCsvTemplate(filename, headers, exampleRow)` will be added that constructs a CSV string with a header row and one example row, then triggers a browser download via `URL.createObjectURL`.
+
+Templates to add (one button per import card in `AdminImportPage.tsx`):
+
+| Card | Template filename | Headers |
+|---|---|---|
+| Schedule/Scores CSV | `schedule_scores_template.csv` | Date, HomeTeam, AwayTeam, HomeScore, AwayScore, Venue, Status |
+| Roster CSV | `roster_template.csv` | Name, Team, Position, League, BirthDate, BirthPlace, BirthTime, ExternalId |
+| Birth Time CSV | `birth_time_template.csv` | Name, League, BirthTime, BirthPlace |
+
+Each button uses a `Download` icon from lucide-react and sits inline with the existing upload controls.
+
+### Feature 3: Export to CSV Buttons
+
+A new `AdminExportPanel` component will be created at `src/components/admin/AdminExportPanel.tsx`.
+
+**Export options:**
+- **Games Export** — with league filter + status filter (all / scheduled / final / postponed) + date range (optional). Queries `games` table with pagination to bypass the 1,000-row Supabase default limit (fetches in chunks of 1,000 using `.range(offset, offset+999)` until no more rows).
+- **Players Export** — with league filter. Queries `players` table (id, name, team, position, league, birth_date, birth_time, birth_place, natal_data_quality).
+
+Both exports:
+- Show a loading state while fetching
+- Use the same `downloadCsvTemplate` utility to serialize and trigger download
+- File is named `games_NBA_2026-02-19.csv` or `players_NFL_2026-02-19.csv` etc.
+
+This panel is added to the **Games tab** of `AdminPage.tsx` below the existing `AdminGameManager`, or as a collapsible card section.
+
+---
+
+## Files To Create / Modify
+
+1. **`src/components/admin/AdminExportPanel.tsx`** — New component (Export section).
+2. **`src/components/admin/AdminGameManager.tsx`** — Add bulk edit toggle, bulk end date picker, editable table view, bulk save mutation.
+3. **`src/pages/AdminImportPage.tsx`** — Add template download buttons to three import cards.
+4. **`src/pages/AdminPage.tsx`** — Add `AdminExportPanel` under the Games tab content.
+5. **`src/lib/csv-utils.ts`** — New shared utility: `downloadCsvTemplate`, `arrayToCsv`, `downloadCsv`.
+
+---
+
+## Implementation Sequence
+
+1. Create `src/lib/csv-utils.ts` with shared CSV helpers.
+2. Create `src/components/admin/AdminExportPanel.tsx`.
+3. Modify `src/pages/AdminImportPage.tsx` to add template download buttons.
+4. Modify `src/components/admin/AdminGameManager.tsx` to add bulk edit mode.
+5. Modify `src/pages/AdminPage.tsx` to wire in the export panel.
+
+---
+
+## Edge Cases & Notes
+
+- Bulk edit date range is capped at 14 days to prevent loading thousands of rows into the browser.
+- The export uses chunked pagination (`.range()`) to exceed the default 1,000-row API limit for large leagues like NBA/MLB.
+- Template downloads are fully client-side — no network call needed.
+- The bulk save will skip games where status, home_score, and away_score are all unchanged from the originally loaded values (true dirty checking).
+- Export columns for games: `id, league, home_team, away_team, home_abbr, away_abbr, start_time, status, home_score, away_score` — exactly what the schedule CSV importer expects for re-upload.
