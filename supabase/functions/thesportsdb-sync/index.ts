@@ -73,10 +73,18 @@ async function syncRosters(
   supabase: any,
   league: string,
   startTeam = 0,
-  maxTeams = 8,
+  maxTeams = 4,
+  providedTeamMap: Record<string, string> | null = null,
 ) {
-  const teamResult = await syncTeams(apiKey, supabase, league);
-  const teamMap = teamResult.team_map;
+  // Reuse a provided team map to avoid redundant API calls on each paginated batch
+  let teamMap: Record<string, string>;
+  if (providedTeamMap && Object.keys(providedTeamMap).length > 0) {
+    teamMap = providedTeamMap;
+  } else {
+    const teamResult = await syncTeams(apiKey, supabase, league);
+    teamMap = teamResult.team_map;
+  }
+
   const allEntries = Object.entries(teamMap);
   const totalTeams = allEntries.length;
 
@@ -87,8 +95,8 @@ async function syncRosters(
   let teamsProcessed = 0;
 
   for (const [idTeam, abbr] of chunk) {
-    if (teamsProcessed > 0 && teamsProcessed % 4 === 0) {
-      await delay(500);
+    if (teamsProcessed > 0 && teamsProcessed % 2 === 0) {
+      await delay(300);
     }
 
     try {
@@ -101,9 +109,6 @@ async function syncRosters(
       const names = players.map((p: any) => p.strPlayer).filter(Boolean);
 
       // Fetch existing players matching EITHER external_id OR name (league-scoped)
-      // This covers:
-      //   - Players already synced (matched by external_id — reliable even after name changes)
-      //   - Players imported from other sources (matched by name — fallback)
       const [byExtIdResult, byNameResult] = await Promise.all([
         supabase
           .from("players")
@@ -123,7 +128,6 @@ async function syncRosters(
 
       const nameMap = new Map<string, any>();
       for (const e of byNameResult.data || []) {
-        // Don't overwrite if we already have an external_id match for this name
         if (!extIdMap.has(e.external_id)) nameMap.set(e.name, e);
       }
 
@@ -137,11 +141,11 @@ async function syncRosters(
 
         const record: Record<string, any> = {
           name: playerName,
-          team: abbr,          // canonical abbreviation — always overwrite on sync
+          team: abbr,
           league,
           position: p.strPosition || null,
           headshot_url: p.strThumb || p.strCutout || null,
-          external_id: extId,  // store TheSportsDB player ID for future matching
+          external_id: extId,
         };
 
         if (p.dateBorn && p.dateBorn !== "0000-00-00") {
@@ -151,7 +155,6 @@ async function syncRosters(
           record.birth_place = p.strBirthLocation;
         }
 
-        // Match priority: external_id > name
         const existing =
           (extId && extIdMap.get(extId)) ||
           nameMap.get(playerName);
@@ -193,6 +196,7 @@ async function syncRosters(
     teams_processed: teamsProcessed,
     players_upserted: playersUpserted,
     total_teams: totalTeams,
+    team_map: teamMap,  // Return so dashboard can pass it on the next batch
     next_start_team: nextTeam < totalTeams ? nextTeam : null,
   };
 }
@@ -511,8 +515,10 @@ Deno.serve(async (req) => {
         break;
       case "rosters": {
         const startTeam = parseInt(bodyParams.start_team || url.searchParams.get("start_team") || "0");
-        const maxTeams = parseInt(bodyParams.max_teams || url.searchParams.get("max_teams") || "8");
-        result = await syncRosters(apiKey, supabase, league, startTeam, maxTeams);
+        const maxTeams = parseInt(bodyParams.max_teams || url.searchParams.get("max_teams") || "4");
+        // Accept a pre-built team_map to avoid re-fetching teams on every batch
+        const providedTeamMap: Record<string, string> | null = bodyParams.team_map || null;
+        result = await syncRosters(apiKey, supabase, league, startTeam, maxTeams, providedTeamMap);
         break;
       }
       case "scores": {

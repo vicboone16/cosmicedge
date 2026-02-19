@@ -138,18 +138,24 @@ export function DataHealthDashboard() {
 
     try {
       if (mode === "rosters") {
-        // Auto-paginate through ALL teams in batches of 8
+        // Auto-paginate through ALL teams in batches of 4
+        // Pass team_map forward each iteration to avoid re-fetching teams from the API on every batch
         let startTeam = 0;
         let totalPlayers = 0;
         let totalTeams = 0;
+        let teamMap: Record<string, string> | null = null;
         const batchLogs: string[] = [];
 
         while (true) {
-          const { data: result, error } = await supabase.functions.invoke("thesportsdb-sync", {
-            body: { mode: "rosters", league, start_team: startTeam, max_teams: 8 },
-          });
+          const body: Record<string, any> = { mode: "rosters", league, start_team: startTeam, max_teams: 4 };
+          if (teamMap) body.team_map = teamMap;
+
+          const { data: result, error } = await supabase.functions.invoke("thesportsdb-sync", { body });
           if (error) throw new Error(error.message || "Sync failed");
           if (result?.error) throw new Error(result.error);
+
+          // Cache team map for subsequent batches
+          if (result.team_map) teamMap = result.team_map;
 
           totalPlayers += result.players_upserted ?? 0;
           totalTeams = result.total_teams ?? totalTeams;
