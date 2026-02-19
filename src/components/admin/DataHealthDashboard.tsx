@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
-import { RefreshCw, CalendarDays, Trophy, Wrench, Trash2, Database } from "lucide-react";
+import { RefreshCw, CalendarDays, Trophy, Wrench, Trash2, Database, ChevronDown, ChevronUp } from "lucide-react";
 import { toast } from "sonner";
 
 interface LeagueGameStats {
@@ -28,6 +28,8 @@ export function DataHealthDashboard() {
   const [fixingStatuses, setFixingStatuses] = useState(false);
   const [purgingOrphans, setPurgingOrphans] = useState(false);
   const [backfilling, setBackfilling] = useState(false);
+  const [lastLog, setLastLog] = useState<string[]>([]);
+  const [showLog, setShowLog] = useState(false);
 
   const fixStatuses = async () => {
     setFixingStatuses(true);
@@ -70,6 +72,8 @@ export function DataHealthDashboard() {
    */
   const runBackfill = async (insertMissing = false) => {
     setBackfilling(true);
+    setLastLog([]);
+    setShowLog(true);
 
     // Season lists per league (one at a time to stay under 25s edge fn limit)
     const leagueSeasons: Record<string, string[]> = {
@@ -91,22 +95,28 @@ export function DataHealthDashboard() {
             const { data: result, error } = await supabase.functions.invoke("bulk-backfill-scores", {
               body: {
                 leagues: [league],
-                season,          // single season → keeps payload small
+                season,
                 insert_missing: insertMissing,
               },
             });
             if (error) {
-              allLogs.push(`${league} ${season} error: ${error.message}`);
+              const msg = `${league} ${season} error: ${error.message}`;
+              allLogs.push(msg);
+              setLastLog([...allLogs]);
               continue;
             }
             totalUpdated += result?.total_updated ?? 0;
             totalInserted += result?.total_inserted ?? 0;
-            const successes = (result?.log ?? []).filter((l: string) => l.includes("✅"));
-            allLogs.push(...successes);
+            // Capture all meaningful log lines per league
+            const leagueLogs = (result?.log ?? []).filter((l: string) =>
+              l.includes("✅") || l.includes("to update") || l.includes("unmatched") || l.includes("final with scores") || l.includes("in DB")
+            );
+            allLogs.push(...leagueLogs);
+            setLastLog([...allLogs]);
           } catch (e: any) {
             allLogs.push(`${league} ${season} failed: ${e.message}`);
+            setLastLog([...allLogs]);
           }
-          // Small pause between calls to avoid hammering TheSportsDB
           await new Promise(r => setTimeout(r, 800));
         }
       }
@@ -115,7 +125,6 @@ export function DataHealthDashboard() {
         ? `Done: ${totalUpdated} updated, ${totalInserted} inserted`
         : `Done: ${totalUpdated} games scored`;
       toast.success(summary);
-      if (allLogs.length > 0) console.info("Backfill log:", allLogs);
       setLoading(true);
       fetchData();
     } catch (e: any) {
@@ -327,6 +336,34 @@ export function DataHealthDashboard() {
           </div>
         )}
       </div>
+
+      {/* Backfill Log */}
+      {lastLog.length > 0 && (
+        <div className="space-y-1">
+          <button
+            className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+            onClick={() => setShowLog(v => !v)}
+          >
+            {showLog ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+            {showLog ? "Hide" : "Show"} backfill log ({lastLog.length} lines)
+          </button>
+          {showLog && (
+            <div className="bg-muted/40 rounded p-2 max-h-48 overflow-y-auto space-y-0.5">
+              {lastLog.map((line, i) => (
+                <p key={i} className={`text-[10px] font-mono leading-tight ${
+                  line.includes("✅") ? "text-green-500" :
+                  line.includes("error") || line.includes("failed") ? "text-destructive" :
+                  line.includes("unmatched") ? "text-yellow-500" :
+                  "text-muted-foreground"
+                }`}>{line}</p>
+              ))}
+              {backfilling && (
+                <p className="text-[10px] text-muted-foreground animate-pulse">Processing…</p>
+              )}
+            </div>
+          )}
+        </div>
+      )}
     </Card>
   );
 }
