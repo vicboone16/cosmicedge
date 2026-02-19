@@ -46,31 +46,15 @@ function PlayersTab() {
   const { data: trending } = useQuery({
     queryKey: ["nexus-trending-players"],
     queryFn: async () => {
-      // Tier 1: Read from trending_players table (populated by rebuild-trending edge function)
-      const { data: trendingRows } = await supabase
-        .from("trending_players")
-        .select("player_id, player_name, team, position, headshot_url, trend_score, rank")
-        .eq("league", "NBA")
-        .order("rank", { ascending: true })
-        .limit(15);
-
-      if (trendingRows && trendingRows.length >= 10) {
-        return trendingRows.map((t: any) => ({
-          id: t.player_id,
-          name: t.player_name,
-          team: t.team,
-          position: t.position,
-          league: "NBA",
-          headshot_url: t.headshot_url,
-        }));
-      }
-
-      // Tier 2: recent game stats composite score
+      // Tier 1: Compute trending from recent game stats (works in both Test and Live)
       const { data: statsData } = await supabase
         .from("player_game_stats")
-        .select("player_id, points, rebounds, assists, steals, blocks, turnovers, game_id")
+        .select("player_id, points, rebounds, assists, steals, blocks, turnovers")
+        .eq("league", "NBA")
+        .eq("period", "full")
         .order("created_at", { ascending: false })
         .limit(500);
+
       if (statsData && statsData.length >= 10) {
         const scores = new Map<string, { total: number; count: number }>();
         for (const s of statsData) {
@@ -81,24 +65,28 @@ function PlayersTab() {
         const ranked = Array.from(scores.entries())
           .map(([id, { total, count }]) => ({ id, avg: total / count }))
           .sort((a, b) => b.avg - a.avg)
-          .slice(0, 12);
+          .slice(0, 15);
         const ids = ranked.map((r) => r.id);
         const { data: playerRows } = await supabase
           .from("players")
           .select("id, name, team, position, league, headshot_url")
           .in("id", ids)
-          .limit(12);
-        if (playerRows && playerRows.length >= 10) return playerRows;
+          .limit(15);
+        if (playerRows && playerRows.length > 0) {
+          // Sort by ranked order
+          const idOrder = new Map(ids.map((id, i) => [id, i]));
+          return playerRows.sort((a, b) => (idOrder.get(a.id) ?? 99) - (idOrder.get(b.id) ?? 99));
+        }
       }
 
-      // Tier 3: guaranteed fallback — NBA players with headshots
+      // Tier 2: guaranteed fallback — NBA players with headshots
       const { data: fallback } = await supabase
         .from("players")
         .select("id, name, team, position, league, headshot_url")
         .eq("league", "NBA")
         .not("headshot_url", "is", null)
         .order("name")
-        .limit(12);
+        .limit(15);
       return fallback || [];
     },
     staleTime: 5 * 60_000,
