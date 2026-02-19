@@ -173,7 +173,29 @@ export function useCurrentEphemeris(forDate?: Date) {
         console.warn("global_positions fetch failed:", e);
       }
 
-      // 3. Fallback: try cached astrovisor transits for this date
+      // 3. Fallback: try AstroVisor sky_positions (live API, no quota issues)
+      try {
+        const skyResp = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/astrovisor?mode=sky_positions&transit_date=${dateStr}`,
+          {
+            headers: {
+              Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+              apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+            },
+          }
+        );
+        if (skyResp.ok) {
+          const json = await skyResp.json();
+          if (json?.result) {
+            const extracted = extractFromNatalChart(json.result);
+            if (extracted?.length) return extracted;
+          }
+        }
+      } catch (e) {
+        console.warn("AstroVisor sky_positions fetch failed:", e);
+      }
+
+      // 4. Try cached astrovisor transits for this date
       const { data: cachedTransit } = await supabase
         .from("astro_calculations")
         .select("result")
@@ -188,7 +210,7 @@ export function useCurrentEphemeris(forDate?: Date) {
         if (extracted?.length) return extracted;
       }
 
-      // 4. Final fallback: built-in ephemeris (always works, accurate to ~1°)
+      // 5. Final fallback: built-in ephemeris (always works, accurate to ~1°)
       return getBuiltInEphemeris(dateStr);
     },
     staleTime: 30 * 60 * 1000,
@@ -347,6 +369,25 @@ function extractFromGlobalPositions(result: any): PlanetPosition[] | null {
     }
   }
 
+  return null;
+}
+
+// ── Extract planetary positions from AstroVisor natal/chart response ──
+// AstroVisor natal chart returns planets array with name, sign, degree, retrograde
+function extractFromNatalChart(result: any): PlanetPosition[] | null {
+  if (!result) return null;
+  const KNOWN_PLANETS = new Set(["Sun","Moon","Mercury","Venus","Mars","Jupiter","Saturn","Uranus","Neptune","Pluto","Chiron"]);
+  const planets = result?.planets || result?.bodies || result?.celestial_bodies || (Array.isArray(result) ? result : null);
+  if (Array.isArray(planets)) {
+    return planets
+      .map((p: any) => ({
+        planet: p.name || p.planet || p.body || "",
+        sign: normalizeSign(p.sign || p.zodiac_sign || ""),
+        degree: Math.floor(p.degree ?? p.sign_degree ?? (p.longitude != null ? p.longitude % 30 : 0)),
+        retrograde: p.retrograde ?? p.is_retrograde ?? false,
+      }))
+      .filter((p: PlanetPosition) => p.sign && KNOWN_PLANETS.has(p.planet));
+  }
   return null;
 }
 
