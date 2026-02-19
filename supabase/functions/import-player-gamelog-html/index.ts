@@ -254,27 +254,20 @@ Deno.serve(async (req) => {
 function parsePlayerGameLog(html: string): Record<string, string>[] {
   const rows: Record<string, string>[] = [];
 
-  // Try <tr ...data-row="N"...> first (data-row may not be the first attribute)
-  let trRegex = /<tr\s[^>]*data-row="\d+"[^>]*>([\s\S]*?)<\/tr>/g;
-  let hasDataRows = trRegex.test(html);
-  trRegex.lastIndex = 0; // reset after test
+  // Remove thead to avoid matching header rows
+  const noThead = html.replace(/<thead[^]*?<\/thead>/gi, "");
 
-  if (!hasDataRows) {
-    // Fallback: match any <tr> that isn't in <thead>
-    // Remove thead first to avoid matching header rows
-    const noThead = html.replace(/<thead[\s\S]*?<\/thead>/gi, "");
-    trRegex = /<tr[^>]*>([\s\S]*?)<\/tr>/g;
-    let trMatch;
-    while ((trMatch = trRegex.exec(noThead)) !== null) {
-      const row = extractCells(trMatch[1]);
-      if (row.date) rows.push(row);
-    }
-    return rows;
-  }
+  // Split by </tr> and process each chunk that contains a <tr
+  const chunks = noThead.split(/<\/tr>/i);
+  for (const chunk of chunks) {
+    const trStart = chunk.lastIndexOf("<tr");
+    if (trStart === -1) continue;
+    const trContent = chunk.substring(trStart);
 
-  let trMatch;
-  while ((trMatch = trRegex.exec(html)) !== null) {
-    const row = extractCells(trMatch[1]);
+    // Only process rows with data-stat cells
+    if (!/data-stat=/.test(trContent)) continue;
+
+    const row = extractCells(trContent);
     if (row.date) rows.push(row);
   }
 
@@ -283,7 +276,7 @@ function parsePlayerGameLog(html: string): Record<string, string>[] {
 
 function extractCells(trContent: string): Record<string, string> {
   const row: Record<string, string> = {};
-  const cellRegex = /<(?:th|td)\s[^>]*?data-stat="([^"]+)"[^>]*>([\s\S]*?)<\/(?:th|td)>/g;
+  const cellRegex = /<(?:th|td)\s[^>]*?data-stat="([^"]+)"[^>]*>(.*?)<\/(?:th|td)>/g;
   let cellMatch;
   while ((cellMatch = cellRegex.exec(trContent)) !== null) {
     const rawValue = cellMatch[2].replace(/<[^>]*>/g, "").trim();
