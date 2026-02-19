@@ -6,8 +6,143 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { toast } from "sonner";
-import { Search, Pencil, Trash2, Merge, Save, X, CheckSquare, Square } from "lucide-react";
+import { Search, Pencil, Trash2, Merge, Save, X, CheckSquare, Square, ChevronsUpDown, Check } from "lucide-react";
+import { cn } from "@/lib/utils";
+
+// Canonical team data derived from team-mappings.ts (frontend copy for combobox)
+const TEAM_DATA: Record<string, { abbr: string; name: string }[]> = {
+  NBA: [
+    { abbr: "ATL", name: "Atlanta Hawks" }, { abbr: "BOS", name: "Boston Celtics" },
+    { abbr: "BKN", name: "Brooklyn Nets" }, { abbr: "CHA", name: "Charlotte Hornets" },
+    { abbr: "CHI", name: "Chicago Bulls" }, { abbr: "CLE", name: "Cleveland Cavaliers" },
+    { abbr: "DAL", name: "Dallas Mavericks" }, { abbr: "DEN", name: "Denver Nuggets" },
+    { abbr: "DET", name: "Detroit Pistons" }, { abbr: "GSW", name: "Golden State Warriors" },
+    { abbr: "HOU", name: "Houston Rockets" }, { abbr: "IND", name: "Indiana Pacers" },
+    { abbr: "LAC", name: "LA Clippers" }, { abbr: "LAL", name: "Los Angeles Lakers" },
+    { abbr: "MEM", name: "Memphis Grizzlies" }, { abbr: "MIA", name: "Miami Heat" },
+    { abbr: "MIL", name: "Milwaukee Bucks" }, { abbr: "MIN", name: "Minnesota Timberwolves" },
+    { abbr: "NOP", name: "New Orleans Pelicans" }, { abbr: "NYK", name: "New York Knicks" },
+    { abbr: "OKC", name: "Oklahoma City Thunder" }, { abbr: "ORL", name: "Orlando Magic" },
+    { abbr: "PHI", name: "Philadelphia 76ers" }, { abbr: "PHX", name: "Phoenix Suns" },
+    { abbr: "POR", name: "Portland Trail Blazers" }, { abbr: "SAC", name: "Sacramento Kings" },
+    { abbr: "SAS", name: "San Antonio Spurs" }, { abbr: "TOR", name: "Toronto Raptors" },
+    { abbr: "UTA", name: "Utah Jazz" }, { abbr: "WAS", name: "Washington Wizards" },
+  ],
+  NFL: [
+    { abbr: "ARI", name: "Arizona Cardinals" }, { abbr: "ATL", name: "Atlanta Falcons" },
+    { abbr: "BAL", name: "Baltimore Ravens" }, { abbr: "BUF", name: "Buffalo Bills" },
+    { abbr: "CAR", name: "Carolina Panthers" }, { abbr: "CHI", name: "Chicago Bears" },
+    { abbr: "CIN", name: "Cincinnati Bengals" }, { abbr: "CLE", name: "Cleveland Browns" },
+    { abbr: "DAL", name: "Dallas Cowboys" }, { abbr: "DEN", name: "Denver Broncos" },
+    { abbr: "DET", name: "Detroit Lions" }, { abbr: "GB", name: "Green Bay Packers" },
+    { abbr: "HOU", name: "Houston Texans" }, { abbr: "IND", name: "Indianapolis Colts" },
+    { abbr: "JAX", name: "Jacksonville Jaguars" }, { abbr: "KC", name: "Kansas City Chiefs" },
+    { abbr: "LV", name: "Las Vegas Raiders" }, { abbr: "LAC", name: "Los Angeles Chargers" },
+    { abbr: "LAR", name: "Los Angeles Rams" }, { abbr: "MIA", name: "Miami Dolphins" },
+    { abbr: "MIN", name: "Minnesota Vikings" }, { abbr: "NE", name: "New England Patriots" },
+    { abbr: "NO", name: "New Orleans Saints" }, { abbr: "NYG", name: "New York Giants" },
+    { abbr: "NYJ", name: "New York Jets" }, { abbr: "PHI", name: "Philadelphia Eagles" },
+    { abbr: "PIT", name: "Pittsburgh Steelers" }, { abbr: "SF", name: "San Francisco 49ers" },
+    { abbr: "SEA", name: "Seattle Seahawks" }, { abbr: "TB", name: "Tampa Bay Buccaneers" },
+    { abbr: "TEN", name: "Tennessee Titans" }, { abbr: "WAS", name: "Washington Commanders" },
+  ],
+  NHL: [
+    { abbr: "ANA", name: "Anaheim Ducks" }, { abbr: "BOS", name: "Boston Bruins" },
+    { abbr: "BUF", name: "Buffalo Sabres" }, { abbr: "CGY", name: "Calgary Flames" },
+    { abbr: "CAR", name: "Carolina Hurricanes" }, { abbr: "CHI", name: "Chicago Blackhawks" },
+    { abbr: "COL", name: "Colorado Avalanche" }, { abbr: "CBJ", name: "Columbus Blue Jackets" },
+    { abbr: "DAL", name: "Dallas Stars" }, { abbr: "DET", name: "Detroit Red Wings" },
+    { abbr: "EDM", name: "Edmonton Oilers" }, { abbr: "FLA", name: "Florida Panthers" },
+    { abbr: "LAK", name: "Los Angeles Kings" }, { abbr: "MIN", name: "Minnesota Wild" },
+    { abbr: "MTL", name: "Montreal Canadiens" }, { abbr: "NSH", name: "Nashville Predators" },
+    { abbr: "NJD", name: "New Jersey Devils" }, { abbr: "NYI", name: "New York Islanders" },
+    { abbr: "NYR", name: "New York Rangers" }, { abbr: "OTT", name: "Ottawa Senators" },
+    { abbr: "PHI", name: "Philadelphia Flyers" }, { abbr: "PIT", name: "Pittsburgh Penguins" },
+    { abbr: "SJS", name: "San Jose Sharks" }, { abbr: "SEA", name: "Seattle Kraken" },
+    { abbr: "STL", name: "St. Louis Blues" }, { abbr: "TBL", name: "Tampa Bay Lightning" },
+    { abbr: "TOR", name: "Toronto Maple Leafs" }, { abbr: "UTA", name: "Utah Mammoth" },
+    { abbr: "VAN", name: "Vancouver Canucks" }, { abbr: "VGK", name: "Vegas Golden Knights" },
+    { abbr: "WSH", name: "Washington Capitals" }, { abbr: "WPG", name: "Winnipeg Jets" },
+  ],
+  MLB: [
+    { abbr: "ARI", name: "Arizona Diamondbacks" }, { abbr: "ATL", name: "Atlanta Braves" },
+    { abbr: "BAL", name: "Baltimore Orioles" }, { abbr: "BOS", name: "Boston Red Sox" },
+    { abbr: "CHC", name: "Chicago Cubs" }, { abbr: "CHW", name: "Chicago White Sox" },
+    { abbr: "CIN", name: "Cincinnati Reds" }, { abbr: "CLE", name: "Cleveland Guardians" },
+    { abbr: "COL", name: "Colorado Rockies" }, { abbr: "DET", name: "Detroit Tigers" },
+    { abbr: "HOU", name: "Houston Astros" }, { abbr: "KCR", name: "Kansas City Royals" },
+    { abbr: "LAA", name: "Los Angeles Angels" }, { abbr: "LAD", name: "Los Angeles Dodgers" },
+    { abbr: "MIA", name: "Miami Marlins" }, { abbr: "MIL", name: "Milwaukee Brewers" },
+    { abbr: "MIN", name: "Minnesota Twins" }, { abbr: "NYM", name: "New York Mets" },
+    { abbr: "NYY", name: "New York Yankees" }, { abbr: "OAK", name: "Athletics" },
+    { abbr: "PHI", name: "Philadelphia Phillies" }, { abbr: "PIT", name: "Pittsburgh Pirates" },
+    { abbr: "SDP", name: "San Diego Padres" }, { abbr: "SFG", name: "San Francisco Giants" },
+    { abbr: "SEA", name: "Seattle Mariners" }, { abbr: "STL", name: "St. Louis Cardinals" },
+    { abbr: "TBR", name: "Tampa Bay Rays" }, { abbr: "TEX", name: "Texas Rangers" },
+    { abbr: "TOR", name: "Toronto Blue Jays" }, { abbr: "WSN", name: "Washington Nationals" },
+  ],
+};
+
+function TeamCombobox({
+  value,
+  league,
+  onChange,
+}: {
+  value: string | null;
+  league: string | null;
+  onChange: (abbr: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const teams = TEAM_DATA[league ?? ""] ?? [];
+  const selected = teams.find(t => t.abbr === value);
+  const label = selected ? `${selected.abbr} – ${selected.name}` : value || "Select team…";
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className="h-8 w-full justify-between text-xs font-normal bg-background"
+        >
+          <span className="truncate">{label}</span>
+          <ChevronsUpDown className="ml-1 h-3.5 w-3.5 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-72 p-0 bg-background border border-border shadow-lg z-50" align="start">
+        <Command>
+          <CommandInput placeholder="Search team…" className="h-8 text-xs" />
+          <CommandList>
+            <CommandEmpty className="py-2 text-xs text-center text-muted-foreground">No team found.</CommandEmpty>
+            <CommandGroup>
+              {teams.map(t => (
+                <CommandItem
+                  key={t.abbr}
+                  value={`${t.abbr} ${t.name}`}
+                  onSelect={() => { onChange(t.abbr); setOpen(false); }}
+                  className="text-xs cursor-pointer"
+                >
+                  <Check className={cn("mr-2 h-3.5 w-3.5", value === t.abbr ? "opacity-100" : "opacity-0")} />
+                  <span className="font-mono text-muted-foreground w-8">{t.abbr}</span>
+                  <span className="ml-2">{t.name}</span>
+                </CommandItem>
+              ))}
+              {teams.length === 0 && (
+                <CommandItem disabled className="text-xs text-muted-foreground">
+                  Select a league first to see teams
+                </CommandItem>
+              )}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
 
 interface Player {
   id: string;
@@ -290,7 +425,6 @@ export default function AdminPlayerManager() {
             <div className="space-y-3">
               {([
                 { key: "name", label: "Name" },
-                { key: "team", label: "Team" },
                 { key: "league", label: "League" },
                 { key: "position", label: "Position" },
                 { key: "birth_date", label: "Birth Date" },
@@ -308,6 +442,14 @@ export default function AdminPlayerManager() {
                   />
                 </div>
               ))}
+              <div>
+                <label className="text-[10px] text-muted-foreground uppercase">Team</label>
+                <TeamCombobox
+                  value={editPlayer.team}
+                  league={editPlayer.league}
+                  onChange={abbr => setEditPlayer({ ...editPlayer, team: abbr })}
+                />
+              </div>
               <DialogFooter>
                 <Button size="sm" className="text-xs" onClick={() => updateMutation.mutate(editPlayer)} disabled={updateMutation.isPending}>
                   <Save className="h-3.5 w-3.5 mr-1" /> Save
