@@ -79,47 +79,69 @@ async function syncRosters(
   const teamMap = teamResult.team_map;
   const allEntries = Object.entries(teamMap);
   const totalTeams = allEntries.length;
-  
+
   // Slice to the requested chunk
   const chunk = allEntries.slice(startTeam, startTeam + maxTeams);
-  
+
   let playersUpserted = 0;
   let teamsProcessed = 0;
-  
+
   for (const [idTeam, abbr] of chunk) {
     if (teamsProcessed > 0 && teamsProcessed % 4 === 0) {
       await delay(500);
     }
-    
+
     try {
       const data = await apiFetch(apiKey, `lookup_all_players.php?id=${idTeam}`);
       const players = data.player || [];
       if (players.length === 0) { teamsProcessed++; continue; }
 
-      // Bulk fetch existing players for this team in one query
+      // Collect all external IDs and names from the API response
+      const externalIds = players.map((p: any) => String(p.idPlayer)).filter(Boolean);
       const names = players.map((p: any) => p.strPlayer).filter(Boolean);
-      const { data: existing } = await supabase
-        .from("players")
-        .select("id, name")
-        .eq("league", league)
-        .in("name", names);
 
-      const existingMap = new Map<string, string>();
-      for (const e of existing || []) existingMap.set(e.name, e.id);
+      // Fetch existing players matching EITHER external_id OR name (league-scoped)
+      // This covers:
+      //   - Players already synced (matched by external_id — reliable even after name changes)
+      //   - Players imported from other sources (matched by name — fallback)
+      const [byExtIdResult, byNameResult] = await Promise.all([
+        supabase
+          .from("players")
+          .select("id, name, external_id, team")
+          .eq("league", league)
+          .in("external_id", externalIds),
+        supabase
+          .from("players")
+          .select("id, name, external_id, team")
+          .eq("league", league)
+          .in("name", names),
+      ]);
+
+      // Build lookup maps: external_id → player row, name → player row
+      const extIdMap = new Map<string, any>();
+      for (const e of byExtIdResult.data || []) extIdMap.set(e.external_id, e);
+
+      const nameMap = new Map<string, any>();
+      for (const e of byNameResult.data || []) {
+        // Don't overwrite if we already have an external_id match for this name
+        if (!extIdMap.has(e.external_id)) nameMap.set(e.name, e);
+      }
 
       const toUpdate: { id: string; record: Record<string, any> }[] = [];
       const toInsert: Record<string, any>[] = [];
 
       for (const p of players) {
         const playerName = p.strPlayer;
+        const extId = p.idPlayer ? String(p.idPlayer) : null;
         if (!playerName) continue;
 
         const record: Record<string, any> = {
           name: playerName,
-          team: abbr,
+          team: abbr,          // canonical abbreviation — always overwrite on sync
           league,
           position: p.strPosition || null,
           headshot_url: p.strThumb || p.strCutout || null,
+          external_id: extId,  // store TheSportsDB player ID for future matching
         };
 
         if (p.dateBorn && p.dateBorn !== "0000-00-00") {
@@ -129,9 +151,13 @@ async function syncRosters(
           record.birth_place = p.strBirthLocation;
         }
 
-        const existingId = existingMap.get(playerName);
-        if (existingId) {
-          toUpdate.push({ id: existingId, record });
+        // Match priority: external_id > name
+        const existing =
+          (extId && extIdMap.get(extId)) ||
+          nameMap.get(playerName);
+
+        if (existing) {
+          toUpdate.push({ id: existing.id, record });
         } else {
           toInsert.push(record);
         }
@@ -154,14 +180,14 @@ async function syncRosters(
           console.error(`Insert batch error:`, error.message);
         }
       }
-      
+
       teamsProcessed++;
-      console.log(`${league} ${abbr}: ${players.length} players processed`);
+      console.log(`${league} ${abbr}: ${players.length} players (${toUpdate.length} updated, ${toInsert.length} inserted)`);
     } catch (err: any) {
       console.error(`Error fetching roster for ${abbr} (${idTeam}):`, err.message);
     }
   }
-  
+
   const nextTeam = startTeam + maxTeams;
   return {
     teams_processed: teamsProcessed,
