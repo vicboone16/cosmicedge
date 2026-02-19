@@ -307,15 +307,18 @@ export default function AdminImportPage() {
     setLoading(false);
   };
 
+  const [birthLeague, setBirthLeague] = useState<string>("");
+
   const handleBirthTimeCsvUpload = async () => {
     const file = birthTimeCsvRef.current?.files?.[0];
-    if (!file) { addLog("No birth time CSV selected"); return; }
+    if (!file) { addLog("No birth data CSV selected"); return; }
     setLoading(true);
-    addLog(`Uploading birth time CSV: ${file.name}`);
+    addLog(`Uploading birth data CSV: ${file.name}${birthLeague ? ` (league override: ${birthLeague})` : " (using League column from CSV)"}`);
     try {
       const formData = new FormData();
       formData.append("file", file);
       formData.append("mode", "birthtime");
+      if (birthLeague) formData.append("league", birthLeague);
       const { data: { session } } = await supabase.auth.getSession();
       const res = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/import-players-csv`,
@@ -324,8 +327,11 @@ export default function AdminImportPage() {
       const result = await res.json();
       if (!res.ok || result.error) addLog(`❌ ${result.error || "Upload failed"}`);
       else {
-        addLog(`✅ Updated ${result.updated} birth times, Skipped ${result.skipped}`);
-        if (result.errors?.length) result.errors.slice(0, 5).forEach((e: string) => addLog(`  ⚠️ ${e}`));
+        addLog(`✅ Updated ${result.updated} players, Skipped ${result.skipped} (${result.total} total rows)`);
+        if (result.updated === 0 && result.skipped > 0) {
+          addLog(`⚠️ No players were updated — check that the League column matches (NBA/NFL/NHL/MLB), or set a league override below`);
+        }
+        if (result.errors?.length) result.errors.slice(0, 10).forEach((e: string) => addLog(`  ⚠️ ${e}`));
       }
     } catch (e: any) { addLog(`❌ ${e.message}`); }
     setLoading(false);
@@ -548,6 +554,18 @@ export default function AdminImportPage() {
             Columns: Name, League, BirthDate (YYYY-MM-DD), BirthTime (HH:MM 24hr, optional), BirthPlace (optional)
           </p>
           <div className="flex gap-3 items-center flex-wrap">
+            <Select value={birthLeague} onValueChange={setBirthLeague}>
+              <SelectTrigger className="w-36 h-9 text-xs">
+                <SelectValue placeholder="League (from CSV)" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">From CSV column</SelectItem>
+                <SelectItem value="NBA">NBA</SelectItem>
+                <SelectItem value="NFL">NFL</SelectItem>
+                <SelectItem value="NHL">NHL</SelectItem>
+                <SelectItem value="MLB">MLB</SelectItem>
+              </SelectContent>
+            </Select>
             <Button
               variant="outline"
               size="sm"
@@ -565,6 +583,9 @@ export default function AdminImportPage() {
               {loading ? "Updating..." : "Update Birth Data"}
             </Button>
           </div>
+          <p className="text-xs text-muted-foreground italic">
+            💡 If your CSV has no League column, select a league override above. Players are matched by Name + League.
+          </p>
         </Card>
 
         {/* Geocode Birth Places */}

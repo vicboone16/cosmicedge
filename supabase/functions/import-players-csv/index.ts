@@ -185,7 +185,14 @@ Deno.serve(async (req) => {
         // Skip row only if absolutely nothing to update
         if (!birthTime && !birthDate && !birthPlace) { skipped++; continue; }
 
-        const league = leagueOverride || (leagueIdx !== -1 ? vals[leagueIdx]?.toUpperCase() : "") || "NBA";
+        // Determine league — require explicit source, no silent NBA default
+        const leagueFromCsv = leagueIdx !== -1 ? vals[leagueIdx]?.toUpperCase().trim() : "";
+        const league = leagueOverride || leagueFromCsv;
+        if (!league) {
+          errors.push(`${name}: no League column in CSV and no league override specified`);
+          skipped++;
+          continue;
+        }
 
         const updateData: any = {};
         if (birthTime) updateData.birth_time = birthTime;
