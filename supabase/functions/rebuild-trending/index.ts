@@ -36,7 +36,7 @@ Deno.serve(async (req) => {
       .order("created_at", { ascending: false })
       .limit(1000);
 
-    if (recentStats && recentStats.length >= 10) {
+    if (recentStats && recentStats.length > 0) {
       // Aggregate composite scores per player
       const scores = new Map<string, { total: number; count: number }>();
       for (const s of recentStats) {
@@ -59,7 +59,7 @@ Deno.serve(async (req) => {
         .select("id, name, team, position, headshot_url")
         .in("id", ids);
 
-      if (players && players.length >= 10) {
+      if (players && players.length > 0) {
         const playerMap = new Map(players.map((p) => [p.id, p]));
         trendingPlayers = ranked
           .filter((r) => playerMap.has(r.id))
@@ -78,8 +78,19 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Tier 2: Raw box scores from Apify
+    // Tier 2: Raw box scores from Apify — cross-reference with NBA players only
     if (trendingPlayers.length < 10) {
+      // First get all NBA player names for filtering
+      const { data: nbaPlayers } = await supabase
+        .from("players")
+        .select("id, name, team, position, headshot_url")
+        .eq("league", "NBA");
+
+      const nbaNameMap = new Map<string, typeof nbaPlayers extends (infer T)[] | null ? T : never>();
+      for (const p of nbaPlayers ?? []) {
+        nbaNameMap.set(p.name.toLowerCase(), p);
+      }
+
       const { data: rawBoxes } = await supabase
         .from("player_boxscores_raw")
         .select("payload")
@@ -87,11 +98,16 @@ Deno.serve(async (req) => {
         .limit(500);
 
       if (rawBoxes && rawBoxes.length > 0) {
-        const scoreMap = new Map<string, { score: number; name: string; team: string }>();
+        const scoreMap = new Map<string, { score: number; name: string; team: string; playerId: string; position: string; headshot: string | null }>();
         for (const row of rawBoxes) {
           const p = (row.payload ?? {}) as Record<string, any>;
           const name = String(p.playerName ?? p.player_name ?? p.name ?? "");
           if (!name) continue;
+
+          // Only include if this player exists as NBA
+          const nbaMatch = nbaNameMap.get(name.toLowerCase());
+          if (!nbaMatch) continue;
+
           const pts = Number(p.points ?? p.pts ?? 0);
           const reb = Number(p.rebounds ?? p.reb ?? 0);
           const ast = Number(p.assists ?? p.ast ?? 0);
@@ -101,7 +117,11 @@ Deno.serve(async (req) => {
           const composite = pts + reb + ast + stl + blk - tov;
           const cur = scoreMap.get(name);
           if (!cur || composite > cur.score) {
-            scoreMap.set(name, { score: composite, name, team: p.team_abbr ?? p.team ?? "" });
+            scoreMap.set(name, {
+              score: composite, name, team: nbaMatch.team ?? "",
+              playerId: nbaMatch.id, position: nbaMatch.position ?? "",
+              headshot: nbaMatch.headshot_url,
+            });
           }
         }
 
@@ -113,11 +133,11 @@ Deno.serve(async (req) => {
           if (trendingPlayers.length >= 25) break;
           if (trendingPlayers.some((t) => t.player_name === r.name)) continue;
           trendingPlayers.push({
-            player_id: "",
+            player_id: r.playerId,
             player_name: r.name,
             team: r.team,
-            position: "",
-            headshot_url: null,
+            position: r.position,
+            headshot_url: r.headshot,
             trend_score: r.score,
             reason: { method: "raw_boxscore" },
           });
