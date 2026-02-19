@@ -64,16 +64,31 @@ export function DataHealthDashboard() {
     }
   };
 
-  const runBackfill = async () => {
+  const runBackfill = async (insertMissing = false) => {
     setBackfilling(true);
     try {
+      // For insert_missing (MLB-style large imports), run per-league to avoid timeout
+      const leagues = insertMissing
+        ? ["NBA", "NFL", "NHL", "MLB"]
+        : ["NBA", "NFL", "NHL", "MLB"];
+
       const { data: result, error } = await supabase.functions.invoke("bulk-backfill-scores", {
-        body: { leagues: ["NBA", "NFL", "NHL"] },
+        body: {
+          leagues,
+          insert_missing: insertMissing,
+          // Limit to current+last season only to avoid massive payloads
+          ...(insertMissing && { seasons: ["2024-2025", "2025-2026"] }),
+        },
       });
       if (error) throw new Error(error.message);
-      const total = result?.total_updated ?? 0;
-      const log = (result?.log ?? []).slice(-6).join(" | ");
-      toast.success(`Backfill: ${total} games scored. ${log}`);
+      const totalUpdated = result?.total_updated ?? 0;
+      const totalInserted = result?.total_inserted ?? 0;
+      const summary = (result?.log ?? []).filter((l: string) => l.includes("✅") || l.includes("updated") || l.includes("inserted")).join(" | ");
+      if (insertMissing) {
+        toast.success(`Import+Backfill done: ${totalUpdated} updated, ${totalInserted} inserted. ${summary}`);
+      } else {
+        toast.success(`Backfill done: ${totalUpdated} games scored. ${summary}`);
+      }
       setLoading(true);
       fetchData();
     } catch (e: any) {
@@ -180,10 +195,20 @@ export function DataHealthDashboard() {
               variant="outline"
               className="h-6 px-2 text-[10px] gap-1"
               disabled={fixingStatuses || purgingOrphans || backfilling || tsdbSyncing !== null}
-              onClick={runBackfill}
+              onClick={() => runBackfill(false)}
             >
               {backfilling ? <RefreshCw className="h-3 w-3 animate-spin" /> : <Database className="h-3 w-3" />}
               Run Backfill
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-6 px-2 text-[10px] gap-1 text-warning border-warning/40 hover:bg-warning/10"
+              disabled={fixingStatuses || purgingOrphans || backfilling || tsdbSyncing !== null}
+              onClick={() => runBackfill(true)}
+            >
+              {backfilling ? <RefreshCw className="h-3 w-3 animate-spin" /> : <Database className="h-3 w-3" />}
+              Import Missing
             </Button>
             <Button
               size="sm"
