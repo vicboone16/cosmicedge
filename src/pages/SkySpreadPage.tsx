@@ -255,7 +255,7 @@ const SkySpreadPage = () => {
       if (!items?.length) return [];
 
       const betIds = items.map(i => i.bet_id);
-      const { data: bets } = await supabase.from("bets").select("*").in("id", betIds);
+      const { data: bets } = await supabase.from("bets").select("*").in("id", betIds).limit(1000);
       const gameIds = [...new Set(bets?.map(b => b.game_id).filter(Boolean) || [])];
       let snapshots: SnapshotRow[] = [];
       if (gameIds.length > 0) {
@@ -294,7 +294,7 @@ const SkySpreadPage = () => {
     queryKey: ["skyspread-bets", userId, statusFilter],
     queryFn: async () => {
       if (!userId) return [];
-      let query = supabase.from("bets").select("*").eq("user_id", userId);
+      let query = supabase.from("bets").select("*").eq("user_id", userId).limit(2000);
       if (statusFilter !== "all") {
         query = query.eq("status", statusFilter);
       }

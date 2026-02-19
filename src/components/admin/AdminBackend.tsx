@@ -79,7 +79,7 @@ export default function AdminBackend() {
       const tables = ["games", "players", "odds_snapshots", "bets", "player_game_stats", "player_props", "historical_odds", "injuries", "alerts", "player_news"];
       const results: { table: string; count: number }[] = [];
       for (const t of tables) {
-        const { count } = await supabase.from(t as any).select("*", { count: "exact", head: true });
+        const { count } = await supabase.from(t as any).select("*", { count: "exact", head: true }).limit(1000000);
         results.push({ table: t, count: count || 0 });
       }
       return results;

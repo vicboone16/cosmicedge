@@ -347,7 +347,7 @@ const GameDetail = () => {
     queryFn: async (): Promise<(GameWithOdds & { venue_lat?: number | null; venue_lng?: number | null }) | null> => {
       const { data, error } = await supabase.from("games").select("*").eq("id", id!).maybeSingle();
       if (error || !data) return null;
-      const { data: odds } = await supabase.from("odds_snapshots").select("*").eq("game_id", data.id).order("captured_at", { ascending: false });
+      const { data: odds } = await supabase.from("odds_snapshots").select("*").eq("game_id", data.id).order("captured_at", { ascending: false }).limit(500);
       const ml = odds?.find((o) => o.market_type === "moneyline");
       const spread = odds?.find((o) => o.market_type === "spread");
       const total = odds?.find((o) => o.market_type === "total");

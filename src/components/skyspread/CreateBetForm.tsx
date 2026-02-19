@@ -112,7 +112,8 @@ export default function CreateBetForm({ userId }: CreateBetFormProps) {
         const localEnd = new Date(selectedDate + "T23:59:59");
         query = query
           .gte("start_time", localStart.toISOString())
-          .lte("start_time", localEnd.toISOString());
+          .lte("start_time", localEnd.toISOString())
+          .limit(500);
       }
 
       const { data, error } = await query;

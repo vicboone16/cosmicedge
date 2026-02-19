@@ -59,7 +59,8 @@ async function fetchGamesFromDB(date?: Date, userTimezone?: string): Promise<Gam
     .select("*")
     .gte("start_time", startOfDay.toISOString())
     .lt("start_time", endOfDay.toISOString())
-    .order("start_time", { ascending: true });
+    .order("start_time", { ascending: true })
+    .limit(500);
 
   if (gamesError) throw gamesError;
   if (!games?.length) return [];
@@ -70,7 +71,8 @@ async function fetchGamesFromDB(date?: Date, userTimezone?: string): Promise<Gam
     .from("odds_snapshots")
     .select("*")
     .in("game_id", gameIds)
-    .order("captured_at", { ascending: false });
+    .order("captured_at", { ascending: false })
+    .limit(5000);
 
   return games.map((game) => {
     const gameOdds = odds?.filter((o) => o.game_id === game.id) || [];
