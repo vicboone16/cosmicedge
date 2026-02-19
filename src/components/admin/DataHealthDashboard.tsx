@@ -169,8 +169,8 @@ export function DataHealthDashboard() {
       
       const gamePromises = leagues.map(async (league) => {
         const [totalRes, scoredRes] = await Promise.all([
-          supabase.from("games").select("id", { count: "exact", head: true }).eq("league", league),
-          supabase.from("games").select("id", { count: "exact", head: true }).eq("league", league).not("home_score", "is", null),
+          supabase.from("games").select("id", { count: "exact", head: true }).eq("league", league).limit(100000),
+          supabase.from("games").select("id", { count: "exact", head: true }).eq("league", league).not("home_score", "is", null).limit(100000),
         ]);
         return {
           league,
@@ -180,11 +180,12 @@ export function DataHealthDashboard() {
       });
 
       const playerPromises = leagues.map(async (league) => {
+        // Use range(0, 0) with count: "exact" to get true counts beyond the default 1000-row limit
         const [totalRes, bdRes, btRes, hsRes] = await Promise.all([
-          supabase.from("players").select("id", { count: "exact", head: true }).eq("league", league),
-          supabase.from("players").select("id", { count: "exact", head: true }).eq("league", league).not("birth_date", "is", null),
-          supabase.from("players").select("id", { count: "exact", head: true }).eq("league", league).not("birth_time", "is", null),
-          supabase.from("players").select("id", { count: "exact", head: true }).eq("league", league).not("headshot_url", "is", null),
+          supabase.from("players").select("id", { count: "exact", head: true }).eq("league", league).limit(100000),
+          supabase.from("players").select("id", { count: "exact", head: true }).eq("league", league).not("birth_date", "is", null).limit(100000),
+          supabase.from("players").select("id", { count: "exact", head: true }).eq("league", league).not("birth_time", "is", null).limit(100000),
+          supabase.from("players").select("id", { count: "exact", head: true }).eq("league", league).not("headshot_url", "is", null).limit(100000),
         ]);
         return {
           league,

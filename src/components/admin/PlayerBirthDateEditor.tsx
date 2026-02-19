@@ -38,7 +38,7 @@ export function PlayerBirthDateEditor() {
       .select("id, name, team, position, league, birth_date, birth_time, birth_place")
       .eq("league", league)
       .order("name")
-      .limit(200);
+      .limit(500);
 
     if (filterMode === "missing") {
       q = q.is("birth_date", null);
