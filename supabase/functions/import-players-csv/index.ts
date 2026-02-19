@@ -161,9 +161,13 @@ Deno.serve(async (req) => {
       // ── Birth data update mode — BirthTime is optional; BirthDate and BirthPlace are also accepted ──
       const nameIdx = col(["name", "player", "playername"]);
       const leagueIdx = col(["league", "sport"]);
-      const btIdx = col(["birthtime", "birth_time"]);
-      const bdIdx = col(["birthdate", "birth_date", "dob", "dateofbirth"]);
-      const bpIdx = col(["birthplace", "birth_place", "birthcity", "birth_city"]);
+      const btIdx = col(["birthtime", "birth_time", "time", "time of birth"]);
+      const bdIdx = col(["birthdate", "birth_date", "dob", "dateofbirth", "date of birth", "born", "birthday"]);
+      const bpIdx = col(["birthplace", "birth_place", "birthcity", "birth_city", "city", "place of birth", "hometown"]);
+
+      // Log what columns were detected
+      console.log(`[import-players-csv] birthtime mode — headers: ${JSON.stringify(lowerHeaders)}`);
+      console.log(`[import-players-csv] nameIdx=${nameIdx}, leagueIdx=${leagueIdx}, btIdx=${btIdx}, bdIdx=${bdIdx}, bpIdx=${bpIdx}`);
 
       if (nameIdx === -1) {
         throw new Error("CSV must have a Name column");
