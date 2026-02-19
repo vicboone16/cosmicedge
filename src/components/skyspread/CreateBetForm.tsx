@@ -98,7 +98,23 @@ export default function CreateBetForm({ userId }: CreateBetFormProps) {
       }
       const { data, error } = await query;
       if (error) throw error;
-      return (data || []) as GameRow[];
+      // Deduplicate: keep one game per (home_abbr, away_abbr, date), prefer api/nba_schedule source
+      const seen = new Map<string, GameRow>();
+      for (const g of (data || []) as GameRow[]) {
+        const key = `${g.home_abbr}-${g.away_abbr}-${g.league}-${new Date(g.start_time).toDateString()}`;
+        if (!seen.has(key)) {
+          seen.set(key, g);
+        } else {
+          // Prefer non-thesportsdb source
+          const existing = seen.get(key)!;
+          if (existing.source === "thesportsdb" && g.source !== "thesportsdb") {
+            seen.set(key, g);
+          }
+        }
+      }
+      return Array.from(seen.values()).sort((a, b) =>
+        new Date(a.start_time).getTime() - new Date(b.start_time).getTime()
+      );
     },
   });
 
