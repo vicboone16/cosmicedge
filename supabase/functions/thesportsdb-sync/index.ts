@@ -360,38 +360,48 @@ async function syncSchedule(
   
   let gamesUpserted = 0;
   let skipped = 0;
+
+  // Pre-fetch ALL upcoming games for this league in ONE query (avoid N+1 per event)
+  const minDate = new Date(Date.now() - 2 * 86400000).toISOString().split("T")[0];
+  const maxDate = new Date(Date.now() + 60 * 86400000).toISOString().split("T")[0];
   
+  const { data: existingGames } = await supabase
+    .from("games")
+    .select("id, home_abbr, away_abbr, start_time")
+    .eq("league", league)
+    .gte("start_time", `${minDate}T00:00:00Z`)
+    .lte("start_time", `${maxDate}T23:59:59Z`)
+    .limit(10000);
+
+  // Build lookup index: "homeAbbr|awayAbbr|YYYY-MM-DD" → true
+  const existingIndex = new Set<string>();
+  for (const g of existingGames || []) {
+    const d = g.start_time.split("T")[0];
+    const dt = new Date(d);
+    for (let offset = -1; offset <= 1; offset++) {
+      const day = new Date(dt.getTime() + offset * 86400000).toISOString().split("T")[0];
+      existingIndex.add(`${g.home_abbr}|${g.away_abbr}|${day}`);
+    }
+  }
+
+  // Build inserts (no per-event DB calls)
+  const toInsert: Record<string, any>[] = [];
   for (const ev of events) {
     const homeTeam = ev.strHomeTeam;
     const awayTeam = ev.strAwayTeam;
     const homeAbbr = getAbbr(league, homeTeam);
     const awayAbbr = getAbbr(league, awayTeam);
     
-    if (!homeAbbr || !awayAbbr) {
-      skipped++;
-      continue;
-    }
+    if (!homeAbbr || !awayAbbr) { skipped++; continue; }
+    
+    const eventDate = ev.dateEvent;
+    const key = `${homeAbbr}|${awayAbbr}|${eventDate}`;
+    if (existingIndex.has(key)) { continue; }
     
     const startTime = ev.strTimestamp ? new Date(ev.strTimestamp + "+00:00").toISOString()
       : `${ev.dateEvent}T${ev.strTime || "00:00:00"}Z`;
     
-    const eventDate = ev.dateEvent;
-    const dayBefore = new Date(new Date(eventDate).getTime() - 86400000).toISOString().split("T")[0];
-    const dayAfter = new Date(new Date(eventDate).getTime() + 86400000).toISOString().split("T")[0];
-    
-    const { data: existing } = await supabase
-      .from("games")
-      .select("id")
-      .eq("home_abbr", homeAbbr)
-      .eq("away_abbr", awayAbbr)
-      .eq("league", league)
-      .gte("start_time", `${dayBefore}T00:00:00Z`)
-      .lte("start_time", `${dayAfter}T23:59:59Z`)
-      .maybeSingle();
-    
-    if (existing) continue;
-    
-    const { error } = await supabase.from("games").insert({
+    toInsert.push({
       home_team: homeTeam,
       away_team: awayTeam,
       home_abbr: homeAbbr,
@@ -403,11 +413,16 @@ async function syncSchedule(
       external_id: `tsdb_${ev.idEvent}`,
       venue: ev.strVenue || null,
     });
-    
+  }
+
+  // Batch insert in chunks of 50
+  for (let i = 0; i < toInsert.length; i += 50) {
+    const { error } = await supabase.from("games").insert(toInsert.slice(i, i + 50));
     if (error) {
-      skipped++;
+      console.error("Schedule insert error:", error.message);
+      skipped += Math.min(50, toInsert.length - i);
     } else {
-      gamesUpserted++;
+      gamesUpserted += Math.min(50, toInsert.length - i);
     }
   }
   
