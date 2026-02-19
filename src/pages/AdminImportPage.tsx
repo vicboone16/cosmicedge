@@ -69,6 +69,23 @@ export default function AdminImportPage() {
    const nbaBoxscoreXlsxRef = useRef<HTMLInputElement>(null);
    const playerGamelogHtmlRef = useRef<HTMLInputElement>(null);
    const [playerGamelogName, setPlayerGamelogName] = useState<string>("");
+   const [playerGamelogSearch, setPlayerGamelogSearch] = useState<string>("");
+   const [playerGamelogDropdownOpen, setPlayerGamelogDropdownOpen] = useState(false);
+
+   // Fetch all NBA players for the dropdown
+   const [nbaPlayersList, setNbaPlayersList] = useState<{ id: string; name: string; team: string }[]>([]);
+   useEffect(() => {
+     async function fetchPlayers() {
+       const { data } = await supabase
+         .from("players")
+         .select("id, name, team")
+         .eq("league", "NBA")
+         .order("name")
+         .limit(5000);
+       if (data) setNbaPlayersList(data);
+     }
+     fetchPlayers();
+   }, []);
 
   // Game log coverage: which NBA teams have stats imported
   const [gameLogCoverage, setGameLogCoverage] = useState<Record<string, number>>({});
@@ -918,13 +935,52 @@ export default function AdminImportPage() {
             💡 Go to a player's page → Game Log → "Share &amp; Export" → download as .xls
           </p>
           <div className="flex gap-3 items-center flex-wrap">
-            <input
-              type="text"
-              placeholder="Player name (e.g., LeBron James)"
-              value={playerGamelogName}
-              onChange={(e) => setPlayerGamelogName(e.target.value)}
-              className="h-9 w-56 rounded-md border border-input bg-background px-3 text-xs"
-            />
+            <div className="relative w-64">
+              <input
+                type="text"
+                placeholder="Search or select NBA player..."
+                value={playerGamelogDropdownOpen ? playerGamelogSearch : playerGamelogName || playerGamelogSearch}
+                onChange={(e) => {
+                  setPlayerGamelogSearch(e.target.value);
+                  setPlayerGamelogName("");
+                  setPlayerGamelogDropdownOpen(true);
+                }}
+                onFocus={() => setPlayerGamelogDropdownOpen(true)}
+                onBlur={() => setTimeout(() => setPlayerGamelogDropdownOpen(false), 200)}
+                className="h-9 w-full rounded-md border border-input bg-background px-3 text-xs"
+              />
+              {playerGamelogDropdownOpen && (
+                <div className="absolute z-50 mt-1 w-full max-h-60 overflow-y-auto rounded-md border border-border bg-popover shadow-lg">
+                  {nbaPlayersList
+                    .filter((p) => {
+                      const q = playerGamelogSearch.toLowerCase();
+                      return !q || p.name.toLowerCase().includes(q) || p.team.toLowerCase().includes(q);
+                    })
+                    .slice(0, 50)
+                    .map((p) => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        className="w-full text-left px-3 py-1.5 text-xs hover:bg-accent text-popover-foreground flex justify-between"
+                        onClick={() => {
+                          setPlayerGamelogName(p.name);
+                          setPlayerGamelogSearch(p.name);
+                          setPlayerGamelogDropdownOpen(false);
+                        }}
+                      >
+                        <span>{p.name}</span>
+                        <span className="text-muted-foreground">{p.team}</span>
+                      </button>
+                    ))}
+                  {nbaPlayersList.filter((p) => {
+                    const q = playerGamelogSearch.toLowerCase();
+                    return !q || p.name.toLowerCase().includes(q) || p.team.toLowerCase().includes(q);
+                  }).length === 0 && (
+                    <div className="px-3 py-2 text-xs text-muted-foreground">No players found</div>
+                  )}
+                </div>
+              )}
+            </div>
             <input ref={playerGamelogHtmlRef} type="file" accept=".xls,.xlsx,.html" multiple className="text-xs" />
             <Button onClick={async () => {
               const files = playerGamelogHtmlRef.current?.files;
