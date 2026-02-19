@@ -8,6 +8,7 @@ import AdminBackend from "@/components/admin/AdminBackend";
 import AdminPBPImport from "@/components/admin/AdminPBPImport";
 import AdminNbaPbpImport from "@/components/admin/AdminNbaPbpImport";
 import AdminPlayerManager from "@/components/admin/AdminPlayerManager";
+import AdminExportPanel from "@/components/admin/AdminExportPanel";
 export default function AdminPage() {
   const { isAdmin, isLoading } = useIsAdmin();
 
@@ -39,8 +40,11 @@ export default function AdminPage() {
             <AdminImportContent />
           </TabsContent>
 
-          <TabsContent value="games" className="mt-4">
+          <TabsContent value="games" className="mt-4 space-y-6">
             <AdminGameManager />
+            <div className="border-t border-border/50 pt-4">
+              <AdminExportPanel />
+            </div>
           </TabsContent>
 
           <TabsContent value="players" className="mt-4">

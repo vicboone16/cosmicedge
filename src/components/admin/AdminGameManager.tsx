@@ -10,9 +10,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "@/hooks/use-toast";
-import { ChevronLeft, ChevronRight, Search, Save, CalendarIcon, TrendingUp, Trash2, ListOrdered, TableProperties } from "lucide-react";
-import { format, addDays, subDays } from "date-fns";
+import { ChevronLeft, ChevronRight, Search, Save, CalendarIcon, TrendingUp, Trash2, ListOrdered, TableProperties, LayoutList, TableIcon, Loader2 } from "lucide-react";
+import { format, addDays, subDays, differenceInDays } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useTimezone } from "@/hooks/use-timezone";
 import PeriodScoresEditor from "@/components/admin/PeriodScoresEditor";
@@ -49,6 +50,8 @@ const EMPTY_ODDS: OddsFormState = {
   total_line: "", total_over: "", total_under: "",
 };
 
+type BulkEdit = { status: string; home_score: string; away_score: string };
+
 export default function AdminGameManager() {
   const queryClient = useQueryClient();
   const { userTimezone, formatInUserTZ, getTZAbbrev } = useTimezone();
@@ -64,6 +67,13 @@ export default function AdminGameManager() {
   const [editTime, setEditTime] = useState("");
   const [editDateCalOpen, setEditDateCalOpen] = useState(false);
   const [oddsForm, setOddsForm] = useState<OddsFormState>({ ...EMPTY_ODDS });
+
+  // Bulk edit state
+  const [viewMode, setViewMode] = useState<"card" | "bulk">("card");
+  const [bulkEndDate, setBulkEndDate] = useState<Date | null>(null);
+  const [bulkEndCalOpen, setBulkEndCalOpen] = useState(false);
+  const [bulkEdits, setBulkEdits] = useState<Record<string, BulkEdit>>({});
+  const [bulkOriginals, setBulkOriginals] = useState<Record<string, BulkEdit>>({});
 
   const dateStr = format(date, "yyyy-MM-dd");
 
@@ -101,6 +111,51 @@ export default function AdminGameManager() {
       if (error) throw error;
       return (data || []) as GameRow[];
     },
+  });
+
+  // Bulk edit: fetch games across the full date range
+  const bulkRangeEnd = bulkEndDate ?? date;
+  const bulkDayDiff = Math.min(Math.abs(differenceInDays(bulkRangeEnd, date)), 13); // cap at 14 days
+  const effectiveBulkEnd = addDays(date < bulkRangeEnd ? date : bulkRangeEnd, bulkDayDiff === 0 ? 0 : bulkDayDiff);
+  const bulkStartDate = date < bulkRangeEnd ? date : bulkRangeEnd;
+
+  const { data: bulkGames = [], isLoading: bulkLoading, refetch: refetchBulk } = useQuery({
+    queryKey: ["admin-bulk-games", format(bulkStartDate, "yyyy-MM-dd"), format(effectiveBulkEnd, "yyyy-MM-dd"), league],
+    queryFn: async () => {
+      if (viewMode !== "bulk") return [];
+      const startISO = new Date(
+        Date.UTC(bulkStartDate.getFullYear(), bulkStartDate.getMonth(), bulkStartDate.getDate(), 0, 0, 0)
+      ).toISOString();
+      const endISO = new Date(
+        Date.UTC(effectiveBulkEnd.getFullYear(), effectiveBulkEnd.getMonth(), effectiveBulkEnd.getDate() + 1, 0, 0, 0)
+      ).toISOString();
+      let q = supabase
+        .from("games")
+        .select("id, league, home_team, away_team, home_abbr, away_abbr, home_score, away_score, status, start_time")
+        .gte("start_time", startISO)
+        .lt("start_time", endISO)
+        .order("start_time", { ascending: true });
+      if (league !== "ALL") q = q.eq("league", league);
+      const { data, error } = await q;
+      if (error) throw error;
+      const rows = (data || []) as GameRow[];
+      // Initialise editable state
+      const edits: Record<string, BulkEdit> = {};
+      const originals: Record<string, BulkEdit> = {};
+      rows.forEach(g => {
+        const snap: BulkEdit = {
+          status: g.status,
+          home_score: g.home_score?.toString() ?? "",
+          away_score: g.away_score?.toString() ?? "",
+        };
+        edits[g.id] = { ...snap };
+        originals[g.id] = { ...snap };
+      });
+      setBulkEdits(edits);
+      setBulkOriginals(originals);
+      return rows;
+    },
+    enabled: viewMode === "bulk",
   });
 
   // Fetch existing odds for the selected game
@@ -202,6 +257,39 @@ export default function AdminGameManager() {
       queryClient.invalidateQueries({ queryKey: ["admin-game-odds"] });
       toast({ title: `${count} odds line(s) saved` });
       setOddsForm({ ...EMPTY_ODDS });
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  // Bulk save mutation — fires parallel updates for dirty rows only
+  const bulkSaveMutation = useMutation({
+    mutationFn: async () => {
+      const dirtyIds = Object.keys(bulkEdits).filter(id => {
+        const e = bulkEdits[id];
+        const o = bulkOriginals[id];
+        if (!o) return false;
+        return e.status !== o.status || e.home_score !== o.home_score || e.away_score !== o.away_score;
+      });
+      if (dirtyIds.length === 0) throw new Error("No changes to save");
+      await Promise.all(dirtyIds.map(id => {
+        const e = bulkEdits[id];
+        return supabase.from("games").update({
+          status: e.status,
+          home_score: e.home_score ? Number(e.home_score) : null,
+          away_score: e.away_score ? Number(e.away_score) : null,
+          updated_at: new Date().toISOString(),
+        }).eq("id", id).then(({ error }) => { if (error) throw error; });
+      }));
+      return dirtyIds.length;
+    },
+    onSuccess: (count) => {
+      queryClient.invalidateQueries({ queryKey: ["admin-games"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-bulk-games"] });
+      queryClient.invalidateQueries({ queryKey: ["games"] });
+      queryClient.invalidateQueries({ queryKey: ["bets"] });
+      toast({ title: `${count} game${count !== 1 ? "s" : ""} saved` });
+      // Reset originals to current edits
+      setBulkOriginals({ ...bulkEdits });
     },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
@@ -377,31 +465,71 @@ export default function AdminGameManager() {
 
   return (
     <div className="space-y-4">
-      {/* Date nav with clickable date picker */}
-      <div className="flex items-center gap-2">
-        <Button variant="ghost" size="icon" onClick={() => setDate(d => subDays(d, 1))}>
+      {/* Top controls: view toggle + date nav */}
+      <div className="flex items-center gap-2 flex-wrap">
+        {/* View mode toggle */}
+        <div className="flex items-center rounded-md border border-border overflow-hidden">
+          <button
+            onClick={() => setViewMode("card")}
+            className={cn(
+              "flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors",
+              viewMode === "card" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:text-foreground"
+            )}
+          >
+            <LayoutList className="h-3.5 w-3.5" /> Card View
+          </button>
+          <button
+            onClick={() => { setViewMode("bulk"); refetchBulk(); }}
+            className={cn(
+              "flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors",
+              viewMode === "bulk" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:text-foreground"
+            )}
+          >
+            <TableIcon className="h-3.5 w-3.5" /> Bulk Edit
+          </button>
+        </div>
+
+        {/* Start date picker */}
+        <Button variant="ghost" size="icon" onClick={() => setDate(d => subDays(d, 1))} className={viewMode === "bulk" ? "hidden" : ""}>
           <ChevronLeft className="h-4 w-4" />
         </Button>
         <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
           <PopoverTrigger asChild>
-            <Button variant="outline" className="min-w-[140px] h-9 text-sm font-medium gap-2 justify-center">
-              <CalendarIcon className="h-3.5 w-3.5" />
-              {format(date, "MMM d, yyyy")}
+            <Button variant="outline" className="min-w-[130px] h-9 text-xs font-medium gap-1.5 justify-center">
+              <CalendarIcon className="h-3 w-3" />
+              {viewMode === "bulk" ? "Start: " : ""}{format(date, "MMM d, yyyy")}
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-auto p-0" align="center">
-            <Calendar
-              mode="single"
-              selected={date}
-              onSelect={(d) => { if (d) { setDate(d); setCalendarOpen(false); } }}
-              initialFocus
-              className={cn("p-3 pointer-events-auto")}
-            />
+            <Calendar mode="single" selected={date} onSelect={(d) => { if (d) { setDate(d); setCalendarOpen(false); } }} initialFocus className={cn("p-3 pointer-events-auto")} />
           </PopoverContent>
         </Popover>
-        <Button variant="ghost" size="icon" onClick={() => setDate(d => addDays(d, 1))}>
-          <ChevronRight className="h-4 w-4" />
-        </Button>
+        {viewMode === "card" && (
+          <Button variant="ghost" size="icon" onClick={() => setDate(d => addDays(d, 1))}>
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        )}
+
+        {/* Bulk end date picker */}
+        {viewMode === "bulk" && (
+          <Popover open={bulkEndCalOpen} onOpenChange={setBulkEndCalOpen}>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className="min-w-[130px] h-9 text-xs font-medium gap-1.5 justify-center">
+                <CalendarIcon className="h-3 w-3" />
+                End: {bulkEndDate ? format(bulkEndDate, "MMM d, yyyy") : "same day"}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="center">
+              <Calendar
+                mode="single"
+                selected={bulkEndDate ?? date}
+                onSelect={(d) => { if (d) { setBulkEndDate(d); setBulkEndCalOpen(false); } }}
+                initialFocus
+                className={cn("p-3 pointer-events-auto")}
+              />
+            </PopoverContent>
+          </Popover>
+        )}
       </div>
 
       {/* Filters */}
@@ -416,58 +544,183 @@ export default function AdminGameManager() {
             <SelectItem value="MLB">MLB</SelectItem>
           </SelectContent>
         </Select>
-        <div className="relative flex-1 min-w-[150px]">
-          <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search teams..." className="pl-8 h-9 text-xs" />
-        </div>
+        {viewMode === "card" && (
+          <div className="relative flex-1 min-w-[150px]">
+            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search teams..." className="pl-8 h-9 text-xs" />
+          </div>
+        )}
+        {viewMode === "bulk" && (
+          <Button
+            onClick={() => refetchBulk()}
+            size="sm"
+            variant="secondary"
+            className="text-xs gap-1.5"
+          >
+            Load Games
+          </Button>
+        )}
       </div>
 
-      {/* Bulk fix */}
-      {scheduledWithScores.length > 0 && (
-        <Button variant="destructive" size="sm" onClick={() => bulkFinalize.mutate()} disabled={bulkFinalize.isPending} className="text-xs">
-          Finalize {scheduledWithScores.length} scored games still marked "scheduled"
-        </Button>
-      )}
+      {/* ── BULK EDIT TABLE ── */}
+      {viewMode === "bulk" && (() => {
+        const dirtyCount = Object.keys(bulkEdits).filter(id => {
+          const e = bulkEdits[id];
+          const o = bulkOriginals[id];
+          return o && (e.status !== o.status || e.home_score !== o.home_score || e.away_score !== o.away_score);
+        }).length;
 
-      {/* Game list */}
-      {isLoading ? (
-        <p className="text-sm text-muted-foreground">Loading games...</p>
-      ) : filtered.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No games found for this date.</p>
-      ) : (
-        <div className="space-y-2">
-          {filtered.map(g => (
-            <Card key={g.id} className="p-3 flex items-center justify-between cursor-pointer active:bg-accent/50 transition-colors" onClick={() => openEdit(g)}>
-              <div className="flex-1">
-                <div className="flex items-center gap-2">
-                  <Badge variant="outline" className="text-[10px]">{g.league}</Badge>
-                  <span className="text-sm font-medium text-foreground">{g.away_abbr} @ {g.home_abbr}</span>
-                  {quarterCounts?.[g.id] && (
-                    <Badge variant="secondary" className="text-[8px] px-1 py-0 h-4 gap-0.5">
-                      <TableProperties className="h-2.5 w-2.5" /> QTR
-                    </Badge>
-                  )}
-                  {pbpCounts?.[g.id] && (
-                    <Badge variant="secondary" className="text-[8px] px-1 py-0 h-4 gap-0.5">
-                      <ListOrdered className="h-2.5 w-2.5" /> PBP
-                    </Badge>
-                  )}
-                </div>
-                <div className="flex items-center gap-2 mt-1">
-                  {(g.away_score != null && g.home_score != null) ? (
-                    <span className="text-xs text-muted-foreground">{g.away_score} - {g.home_score}</span>
-                  ) : (
-                    <span className="text-xs text-muted-foreground">No score</span>
-                  )}
-                  <span className="text-[10px] text-muted-foreground">{formatInUserTZ(g.start_time)} {getTZAbbrev()}</span>
-                </div>
+        const updateBulkCell = (id: string, field: keyof BulkEdit, val: string) => {
+          setBulkEdits(prev => ({ ...prev, [id]: { ...prev[id], [field]: val } }));
+        };
+
+        return (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <p className="text-xs text-muted-foreground">
+                {bulkGames.length} game{bulkGames.length !== 1 ? "s" : ""} loaded
+                {dirtyCount > 0 && <span className="ml-2 text-primary font-medium">· {dirtyCount} unsaved change{dirtyCount !== 1 ? "s" : ""}</span>}
+              </p>
+              {dirtyCount > 0 && (
+                <Button
+                  onClick={() => bulkSaveMutation.mutate()}
+                  disabled={bulkSaveMutation.isPending}
+                  size="sm"
+                  className="gap-1.5 text-xs"
+                >
+                  {bulkSaveMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+                  Save {dirtyCount} Change{dirtyCount !== 1 ? "s" : ""}
+                </Button>
+              )}
+            </div>
+
+            {bulkLoading ? (
+              <p className="text-sm text-muted-foreground">Loading games...</p>
+            ) : bulkGames.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No games found for this range. Click "Load Games" to fetch.</p>
+            ) : (
+              <div className="rounded-md border border-border overflow-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-muted/30">
+                      <TableHead className="text-[10px] py-2 px-3">League</TableHead>
+                      <TableHead className="text-[10px] py-2 px-3">Matchup</TableHead>
+                      <TableHead className="text-[10px] py-2 px-3">Time</TableHead>
+                      <TableHead className="text-[10px] py-2 px-3 w-36">Status</TableHead>
+                      <TableHead className="text-[10px] py-2 px-3 w-20">Away Score</TableHead>
+                      <TableHead className="text-[10px] py-2 px-3 w-20">Home Score</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {bulkGames.map(g => {
+                      const e = bulkEdits[g.id];
+                      const o = bulkOriginals[g.id];
+                      const isDirty = e && o && (e.status !== o.status || e.home_score !== o.home_score || e.away_score !== o.away_score);
+                      return (
+                        <TableRow key={g.id} className={isDirty ? "bg-primary/5 border-l-2 border-l-primary" : ""}>
+                          <TableCell className="text-[10px] py-1.5 px-3">
+                            <Badge variant="outline" className="text-[9px]">{g.league}</Badge>
+                          </TableCell>
+                          <TableCell className="text-xs py-1.5 px-3 font-medium whitespace-nowrap">
+                            {g.away_abbr} @ {g.home_abbr}
+                          </TableCell>
+                          <TableCell className="text-[10px] py-1.5 px-3 text-muted-foreground whitespace-nowrap">
+                            {formatInUserTZ(g.start_time)}
+                          </TableCell>
+                          <TableCell className="py-1 px-2">
+                            <Select value={e?.status ?? g.status} onValueChange={v => updateBulkCell(g.id, "status", v)}>
+                              <SelectTrigger className="h-7 text-[10px] w-full">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="scheduled">Scheduled</SelectItem>
+                                <SelectItem value="in_progress">In Progress</SelectItem>
+                                <SelectItem value="final">Final</SelectItem>
+                                <SelectItem value="postponed">Postponed</SelectItem>
+                                <SelectItem value="cancelled">Cancelled</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </TableCell>
+                          <TableCell className="py-1 px-2">
+                            <Input
+                              type="number"
+                              value={e?.away_score ?? ""}
+                              onChange={ev => updateBulkCell(g.id, "away_score", ev.target.value)}
+                              className="h-7 text-xs w-16"
+                              placeholder="—"
+                            />
+                          </TableCell>
+                          <TableCell className="py-1 px-2">
+                            <Input
+                              type="number"
+                              value={e?.home_score ?? ""}
+                              onChange={ev => updateBulkCell(g.id, "home_score", ev.target.value)}
+                              className="h-7 text-xs w-16"
+                              placeholder="—"
+                            />
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
               </div>
-              <Badge variant={g.status.toLowerCase().startsWith("final") ? "default" : g.status === "scheduled" ? "secondary" : "outline"} className="text-[10px] uppercase">
-                {g.status}
-              </Badge>
-            </Card>
-          ))}
-        </div>
+            )}
+          </div>
+        );
+      })()}
+
+      {/* ── CARD VIEW ── */}
+      {viewMode === "card" && (
+        <>
+          {/* Bulk fix */}
+          {scheduledWithScores.length > 0 && (
+            <Button variant="destructive" size="sm" onClick={() => bulkFinalize.mutate()} disabled={bulkFinalize.isPending} className="text-xs">
+              Finalize {scheduledWithScores.length} scored games still marked "scheduled"
+            </Button>
+          )}
+
+          {/* Game list */}
+          {isLoading ? (
+            <p className="text-sm text-muted-foreground">Loading games...</p>
+          ) : filtered.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No games found for this date.</p>
+          ) : (
+            <div className="space-y-2">
+              {filtered.map(g => (
+                <Card key={g.id} className="p-3 flex items-center justify-between cursor-pointer active:bg-accent/50 transition-colors" onClick={() => openEdit(g)}>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className="text-[10px]">{g.league}</Badge>
+                      <span className="text-sm font-medium text-foreground">{g.away_abbr} @ {g.home_abbr}</span>
+                      {quarterCounts?.[g.id] && (
+                        <Badge variant="secondary" className="text-[8px] px-1 py-0 h-4 gap-0.5">
+                          <TableProperties className="h-2.5 w-2.5" /> QTR
+                        </Badge>
+                      )}
+                      {pbpCounts?.[g.id] && (
+                        <Badge variant="secondary" className="text-[8px] px-1 py-0 h-4 gap-0.5">
+                          <ListOrdered className="h-2.5 w-2.5" /> PBP
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 mt-1">
+                      {(g.away_score != null && g.home_score != null) ? (
+                        <span className="text-xs text-muted-foreground">{g.away_score} - {g.home_score}</span>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">No score</span>
+                      )}
+                      <span className="text-[10px] text-muted-foreground">{formatInUserTZ(g.start_time)} {getTZAbbrev()}</span>
+                    </div>
+                  </div>
+                  <Badge variant={g.status.toLowerCase().startsWith("final") ? "default" : g.status === "scheduled" ? "secondary" : "outline"} className="text-[10px] uppercase">
+                    {g.status}
+                  </Badge>
+                </Card>
+              ))}
+            </div>
+          )}
+        </>
       )}
 
       {/* Edit dialog with tabs: Game Info + Odds */}
