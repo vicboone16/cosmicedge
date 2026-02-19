@@ -1,4 +1,5 @@
-import { Settings, Sliders, Star, MapPin, Shield, LogIn, LogOut, User, Globe, Upload, FileSpreadsheet, ChevronRight } from "lucide-react";
+import { Settings, Sliders, Star, MapPin, Shield, LogIn, LogOut, User, Globe, Upload, FileSpreadsheet, ChevronRight, Moon, Sun } from "lucide-react";
+import { useTheme } from "next-themes";
 import { useAuth } from "@/hooks/use-auth";
 import { useTimezone } from "@/hooks/use-timezone";
 import { useIsAdmin } from "@/hooks/use-admin";
@@ -15,6 +16,7 @@ import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 
 const SettingsPage = () => {
+  const { theme, setTheme } = useTheme();
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const { userTimezone, updateTimezone } = useTimezone();
@@ -258,6 +260,42 @@ const SettingsPage = () => {
               ))}
             </SelectContent>
           </Select>
+        </div>
+
+        {/* Dark Mode */}
+        <div className="cosmic-card rounded-xl p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-lg bg-secondary flex items-center justify-center shrink-0">
+                {theme === "dark" ? (
+                  <Moon className="h-5 w-5 text-muted-foreground" />
+                ) : (
+                  <Sun className="h-5 w-5 text-muted-foreground" />
+                )}
+              </div>
+              <div>
+                <p className="text-sm font-medium">Appearance</p>
+                <p className="text-xs text-muted-foreground capitalize">
+                  {theme === "system" ? "System default" : theme === "dark" ? "Dark mode" : "Light mode"}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-1 bg-secondary rounded-lg p-1">
+              {(["light", "system", "dark"] as const).map((t) => (
+                <button
+                  key={t}
+                  onClick={() => setTheme(t)}
+                  className={`px-2.5 py-1 rounded-md text-xs font-medium transition-all capitalize ${
+                    theme === t
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {t === "system" ? "Auto" : t}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
 
         {/* CSV Import section - Admin only */}
