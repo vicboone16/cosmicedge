@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { Globe, MapPin, Loader2 } from "lucide-react";
+import { Globe, MapPin, Loader2, TrendingUp, TrendingDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -59,25 +59,75 @@ function PlayerAstrocarto({ playerId, playerName, team, venueLat, venueLng }: {
   if (!result || data?.error) return null;
 
   // Extract planetary lines or angular data
-  const lines = result?.planetary_lines || result?.angular_planets || result?.lines || [];
+  const lines: any[] = result?.planetary_lines || result?.angular_planets || result?.lines || [];
   const proximity = result?.closest_line || result?.proximity;
   const influence = result?.influence_summary || result?.summary;
 
   if (!lines?.length && !proximity && !influence) return null;
 
+  // Determine strongest (closest orb) and weakest (furthest orb) lines
+  const scoredLines = lines
+    .filter((l: any) => {
+      const d = l.distance_degrees ?? l.orb ?? null;
+      return d !== null;
+    })
+    .map((l: any) => ({
+      ...l,
+      absOrb: Math.abs(l.distance_degrees ?? l.orb ?? 999),
+    }))
+    .sort((a: any, b: any) => a.absOrb - b.absOrb);
+
+  const strongestLine = scoredLines[0] ?? null;
+  const weakestLine = scoredLines[scoredLines.length - 1] ?? null;
+
+  const formatLine = (line: any, idx: number) => {
+    const planet = line.planet || line.name || `Line ${idx + 1}`;
+    const angle = line.angle || line.type || "";
+    const distance = line.distance_degrees ?? line.orb ?? null;
+    const isClose = distance !== null && Math.abs(distance) < 2;
+    return { planet, angle, distance, isClose };
+  };
+
   return (
-    <div className="cosmic-card rounded-lg p-2.5 space-y-1">
+    <div className="cosmic-card rounded-lg p-2.5 space-y-1.5">
       <div className="flex items-center justify-between">
         <p className="text-[10px] font-semibold text-foreground">{playerName}</p>
         <span className="text-[8px] text-primary font-bold">{team}</span>
       </div>
+
+      {/* Strongest / Weakest line summary */}
+      {(strongestLine || weakestLine) && (
+        <div className="flex gap-2">
+          {strongestLine && (() => {
+            const { planet, angle, distance } = formatLine(strongestLine, 0);
+            return (
+              <div className="flex items-center gap-1 bg-primary/10 text-primary rounded px-1.5 py-0.5 flex-1 min-w-0">
+                <TrendingUp className="h-2.5 w-2.5 shrink-0" />
+                <span className="text-[8px] font-semibold truncate">
+                  {planet} {angle}{distance !== null ? ` ${Math.abs(distance).toFixed(1)}°` : ""}
+                </span>
+              </div>
+            );
+          })()}
+          {weakestLine && weakestLine !== strongestLine && (() => {
+            const { planet, angle, distance } = formatLine(weakestLine, 0);
+            return (
+              <div className="flex items-center gap-1 bg-muted text-muted-foreground rounded px-1.5 py-0.5 flex-1 min-w-0">
+                <TrendingDown className="h-2.5 w-2.5 shrink-0" />
+                <span className="text-[8px] font-semibold truncate">
+                  {planet} {angle}{distance !== null ? ` ${Math.abs(distance).toFixed(1)}°` : ""}
+                </span>
+              </div>
+            );
+          })()}
+        </div>
+      )}
+
+      {/* All lines */}
       {Array.isArray(lines) && lines.length > 0 && (
         <div className="flex flex-wrap gap-1">
           {lines.slice(0, 4).map((line: any, i: number) => {
-            const planet = line.planet || line.name || `Line ${i + 1}`;
-            const angle = line.angle || line.type || "";
-            const distance = line.distance_degrees ?? line.orb ?? null;
-            const isClose = distance !== null && Math.abs(distance) < 2;
+            const { planet, angle, distance, isClose } = formatLine(line, i);
             return (
               <span
                 key={i}
