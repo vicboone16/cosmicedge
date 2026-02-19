@@ -6,8 +6,9 @@ import { Button } from "@/components/ui/button";
 import { ManualStatsEntry } from "@/components/admin/ManualStatsEntry";
 import { Card } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ExternalLink } from "lucide-react";
+import { ExternalLink, Download } from "lucide-react";
 import * as XLSX from "xlsx";
+import { downloadCsvTemplate } from "@/lib/csv-utils";
 
 const BREF_TEAMS = [
   { abbr: "ATL", bref: "ATL", name: "Atlanta Hawks" },
@@ -381,6 +382,18 @@ export default function AdminImportPage() {
                 <SelectItem value="NBA">NBA</SelectItem>
               </SelectContent>
             </Select>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5 text-xs"
+              onClick={() => downloadCsvTemplate(
+                "schedule_scores_template.csv",
+                ["Date", "HomeTeam", "AwayTeam", "HomeScore", "AwayScore", "Venue", "Status"],
+                { Date: "2025-10-22", HomeTeam: "Los Angeles Lakers", AwayTeam: "Denver Nuggets", HomeScore: "110", AwayScore: "102", Venue: "Crypto.com Arena", Status: "final" }
+              )}
+            >
+              <Download className="h-3 w-3" /> Template
+            </Button>
             <input ref={csvRef} type="file" accept=".csv" className="text-xs" />
             <Button onClick={handleCsvScheduleUpload} disabled={loading} variant="default">
               {loading ? "Importing..." : "Import CSV Schedule"}
@@ -505,6 +518,18 @@ export default function AdminImportPage() {
                 <SelectItem value="NBA">NBA</SelectItem>
               </SelectContent>
             </Select>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5 text-xs"
+              onClick={() => downloadCsvTemplate(
+                "roster_template.csv",
+                ["Name", "Team", "Position", "League", "BirthDate", "BirthPlace", "BirthTime", "ExternalId"],
+                { Name: "LeBron James", Team: "LAL", Position: "F", League: "NBA", BirthDate: "1984-12-30", BirthPlace: "Akron, OH, USA", BirthTime: "18:00", ExternalId: "2544" }
+              )}
+            >
+              <Download className="h-3 w-3" /> Template
+            </Button>
             <input ref={rosterCsvRef} type="file" accept=".csv" className="text-xs" />
             <Button onClick={handleRosterCsvUpload} disabled={loading} variant="default">
               {loading ? "Importing..." : "Import Roster CSV"}
@@ -522,6 +547,18 @@ export default function AdminImportPage() {
             Columns: Name, League, BirthTime (HH:MM 24hr), BirthPlace (optional)
           </p>
           <div className="flex gap-3 items-center flex-wrap">
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5 text-xs"
+              onClick={() => downloadCsvTemplate(
+                "birth_time_template.csv",
+                ["Name", "League", "BirthTime", "BirthPlace"],
+                { Name: "LeBron James", League: "NBA", BirthTime: "18:00", BirthPlace: "Akron, OH, USA" }
+              )}
+            >
+              <Download className="h-3 w-3" /> Template
+            </Button>
             <input ref={birthTimeCsvRef} type="file" accept=".csv" className="text-xs" />
             <Button onClick={handleBirthTimeCsvUpload} disabled={loading} variant="default">
               {loading ? "Updating..." : "Update Birth Times"}
