@@ -58,6 +58,24 @@ export type Database = {
           },
         ]
       }
+      api_cache: {
+        Row: {
+          cache_key: string
+          payload: Json
+          updated_at: string
+        }
+        Insert: {
+          cache_key: string
+          payload?: Json
+          updated_at?: string
+        }
+        Update: {
+          cache_key?: string
+          payload?: Json
+          updated_at?: string
+        }
+        Relationships: []
+      }
       api_fetch_log: {
         Row: {
           cooldown_until: string | null
@@ -85,6 +103,33 @@ export type Database = {
           last_fetched_at?: string
           last_http_status?: number | null
           params_json?: Json
+        }
+        Relationships: []
+      }
+      apify_raw_logs: {
+        Row: {
+          actor_id: string
+          captured_at: string
+          id: string
+          input_json: Json | null
+          items_count: number | null
+          payload: Json
+        }
+        Insert: {
+          actor_id: string
+          captured_at?: string
+          id?: string
+          input_json?: Json | null
+          items_count?: number | null
+          payload?: Json
+        }
+        Update: {
+          actor_id?: string
+          captured_at?: string
+          id?: string
+          input_json?: Json | null
+          items_count?: number | null
+          payload?: Json
         }
         Relationships: []
       }
@@ -1635,6 +1680,27 @@ export type Database = {
           },
         ]
       }
+      picks_raw: {
+        Row: {
+          captured_at: string
+          id: string
+          league: string
+          payload: Json
+        }
+        Insert: {
+          captured_at?: string
+          id?: string
+          league: string
+          payload?: Json
+        }
+        Update: {
+          captured_at?: string
+          id?: string
+          league?: string
+          payload?: Json
+        }
+        Relationships: []
+      }
       play_by_play: {
         Row: {
           assist_player_id: string | null
@@ -1704,6 +1770,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      player_boxscores_raw: {
+        Row: {
+          captured_at: string
+          id: string
+          payload: Json
+        }
+        Insert: {
+          captured_at?: string
+          id?: string
+          payload?: Json
+        }
+        Update: {
+          captured_at?: string
+          id?: string
+          payload?: Json
+        }
+        Relationships: []
       }
       player_game_stats: {
         Row: {
@@ -3228,6 +3312,89 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      trending_players: {
+        Row: {
+          as_of: string
+          headshot_url: string | null
+          id: string
+          league: string
+          player_id: string | null
+          player_name: string | null
+          position: string | null
+          rank: number | null
+          reason: Json | null
+          team: string | null
+          trend_score: number | null
+        }
+        Insert: {
+          as_of?: string
+          headshot_url?: string | null
+          id?: string
+          league?: string
+          player_id?: string | null
+          player_name?: string | null
+          position?: string | null
+          rank?: number | null
+          reason?: Json | null
+          team?: string | null
+          trend_score?: number | null
+        }
+        Update: {
+          as_of?: string
+          headshot_url?: string | null
+          id?: string
+          league?: string
+          player_id?: string | null
+          player_name?: string | null
+          position?: string | null
+          rank?: number | null
+          reason?: Json | null
+          team?: string | null
+          trend_score?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "trending_players_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      trending_teams: {
+        Row: {
+          as_of: string
+          id: string
+          league: string
+          rank: number | null
+          reason: Json | null
+          team_abbr: string
+          team_name: string | null
+          trend_score: number | null
+        }
+        Insert: {
+          as_of?: string
+          id?: string
+          league?: string
+          rank?: number | null
+          reason?: Json | null
+          team_abbr: string
+          team_name?: string | null
+          trend_score?: number | null
+        }
+        Update: {
+          as_of?: string
+          id?: string
+          league?: string
+          rank?: number | null
+          reason?: Json | null
+          team_abbr?: string
+          team_name?: string | null
+          trend_score?: number | null
+        }
+        Relationships: []
       }
       user_roles: {
         Row: {
