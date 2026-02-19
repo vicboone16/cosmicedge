@@ -74,11 +74,17 @@ export default function CreateBetForm({ userId }: CreateBetFormProps) {
   const [whySummary, setWhySummary] = useState("");
   const [notes, setNotes] = useState("");
 
-  // Past 7 + future 7 days
+  // Past 7 + future 7 days — use LOCAL date to avoid UTC-day mismatch
   const dateOptions = useMemo(() => {
     const opts: { value: string; label: string }[] = [];
+    const now = new Date();
+    // Get local date parts to build date strings correctly
+    const localYear = now.getFullYear();
+    const localMonth = now.getMonth();
+    const localDay = now.getDate();
+    const localToday = new Date(localYear, localMonth, localDay);
     for (let i = -7; i <= 7; i++) {
-      const d = addDays(new Date(), i);
+      const d = addDays(localToday, i);
       const label = i === 0 ? "Today" : i === 1 ? "Tomorrow" : i === -1 ? "Yesterday" : format(d, "EEE, MMM d");
       opts.push({ value: format(d, "yyyy-MM-dd"), label });
     }
@@ -89,23 +95,38 @@ export default function CreateBetForm({ userId }: CreateBetFormProps) {
     queryKey: ["games-for-bet-form", selectedDate],
     queryFn: async () => {
       let query = supabase.from("games").select("*").order("start_time", { ascending: true });
+
       if (selectedDate === "all") {
-        const pastWeek = format(subDays(new Date(), 7), "yyyy-MM-dd");
-        query = query.gte("start_time", pastWeek).limit(200);
+        // Use proper UTC boundaries: ±7 local days converted to UTC
+        const now = new Date();
+        const pastBound = subDays(now, 7);
+        const futureBound = addDays(now, 7);
+        query = query
+          .gte("start_time", pastBound.toISOString())
+          .lte("start_time", futureBound.toISOString())
+          .limit(300);
       } else {
-        const nextDay = format(addDays(new Date(selectedDate + "T00:00:00"), 1), "yyyy-MM-dd");
-        query = query.gte("start_time", selectedDate).lt("start_time", nextDay);
+        // Convert local date boundaries to UTC for the query
+        // e.g. "2026-02-19" → local midnight → UTC ISO string
+        const localStart = new Date(selectedDate + "T00:00:00");
+        const localEnd = new Date(selectedDate + "T23:59:59");
+        query = query
+          .gte("start_time", localStart.toISOString())
+          .lte("start_time", localEnd.toISOString());
       }
+
       const { data, error } = await query;
       if (error) throw error;
-      // Deduplicate: keep one game per (home_abbr, away_abbr, date), prefer api/nba_schedule source
+
+      // Deduplicate: keep one game per (home_abbr, away_abbr, local-date), prefer non-thesportsdb source
       const seen = new Map<string, GameRow>();
       for (const g of (data || []) as GameRow[]) {
-        const key = `${g.home_abbr}-${g.away_abbr}-${g.league}-${new Date(g.start_time).toDateString()}`;
+        // Use local date string to group correctly by the user's calendar day
+        const localDate = new Date(g.start_time).toLocaleDateString();
+        const key = `${g.home_abbr}-${g.away_abbr}-${g.league}-${localDate}`;
         if (!seen.has(key)) {
           seen.set(key, g);
         } else {
-          // Prefer non-thesportsdb source
           const existing = seen.get(key)!;
           if (existing.source === "thesportsdb" && g.source !== "thesportsdb") {
             seen.set(key, g);
