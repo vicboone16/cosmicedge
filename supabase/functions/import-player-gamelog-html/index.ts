@@ -200,7 +200,7 @@ Deno.serve(async (req) => {
           league: "NBA",
           period: "full",
           starter: row.is_starter === "1" || row.is_starter === "*",
-          minutes: num(row.mp),
+          minutes: parseMinutes(row.mp),
           fg_made: num(row.fg),
           fg_attempted: num(row.fga),
           three_made: num(row.fg3),
@@ -313,4 +313,17 @@ function num(v: string | undefined): number | null {
   if (!v || v === "") return null;
   const n = Number(v.replace(/[+,]/g, ""));
   return isNaN(n) ? null : n;
+}
+
+function parseMinutes(v: string | undefined): number | null {
+  if (!v || v === "") return null;
+  // Handle "mm:ss" format from Basketball Reference
+  if (v.includes(":")) {
+    const [mm, ss] = v.split(":");
+    const mins = Number(mm);
+    const secs = Number(ss);
+    if (isNaN(mins)) return null;
+    return Math.round(mins + (isNaN(secs) ? 0 : secs / 60));
+  }
+  return num(v);
 }
