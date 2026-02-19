@@ -98,7 +98,9 @@ async function fetchFromTheOddsAPI(apiKey: string, leagues: string[]): Promise<{
     const sportKey = THE_ODDS_SPORT_KEYS[league];
     if (!sportKey) continue;
 
-    const url = `${THE_ODDS_API_BASE}/sports/${sportKey}/odds/?apiKey=${apiKey}&regions=us&markets=h2h,spreads,totals,team_totals,alternate_spreads,alternate_totals&oddsFormat=american`;
+    // Start with base markets; premium markets (team_totals, alternate_spreads, alternate_totals)
+    // require a higher subscription tier and cause 422 errors on standard plans
+    let url = `${THE_ODDS_API_BASE}/sports/${sportKey}/odds/?apiKey=${apiKey}&regions=us&markets=h2h,spreads,totals&oddsFormat=american`;
     const resp = await fetch(url);
     remaining = resp.headers.get("x-requests-remaining");
 
