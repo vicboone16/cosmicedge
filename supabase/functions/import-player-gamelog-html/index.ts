@@ -42,8 +42,21 @@ Deno.serve(async (req) => {
         continue;
       }
 
+      // Log first 500 chars of HTML for debugging structure
+      console.log(`[import-player-gamelog-html] ${player_name}: HTML length=${html_content.length}, first 500 chars: ${html_content.substring(0, 500)}`);
       const rows = parsePlayerGameLog(html_content);
       console.log(`[import-player-gamelog-html] ${player_name}: ${rows.length} game rows parsed`);
+      if (rows.length > 0) {
+        console.log(`[import-player-gamelog-html] First row keys: ${Object.keys(rows[0]).join(", ")}`);
+        console.log(`[import-player-gamelog-html] First row: ${JSON.stringify(rows[0])}`);
+      }
+      if (rows.length === 0) {
+        // Check what <tr> tags exist
+        const trCount = (html_content.match(/<tr/gi) || []).length;
+        const dataRowCount = (html_content.match(/<tr\s+data-row/gi) || []).length;
+        const dataStatCount = (html_content.match(/data-stat/gi) || []).length;
+        console.log(`[import-player-gamelog-html] ${player_name}: trCount=${trCount}, dataRowCount=${dataRowCount}, dataStatCount=${dataStatCount}`);
+      }
 
       if (rows.length === 0) {
         allErrors.push(`${player_name}: No game rows found in HTML`);
@@ -164,7 +177,7 @@ Deno.serve(async (req) => {
         }
 
         if (!matchingGames || matchingGames.length === 0) {
-          console.log(`[import-player-gamelog-html] No game found: ${gameDate} home=${homeAbbr} away=${awayAbbr} range=${dateStart}..${dateEnd}`);
+          console.log(`[import-player-gamelog-html] No game found: date=${gameDate} rowTeam=${rowTeam} opp=${oppAbbr} home=${homeAbbr} away=${awayAbbr} isAway=${isAway} range=${dateStart}..${dateEnd}`);
           totalGamesNotFound++;
           skipped++;
           continue;
