@@ -18,6 +18,51 @@ const LEAGUE_SEARCH_NAMES: Record<string, string> = {
   MLB: "MLB",
 };
 
+// Hard-coded TheSportsDB team IDs → canonical abbreviation
+// This avoids relying on search_all_teams.php which only returns ~10 teams
+const HARDCODED_TEAM_MAPS: Record<string, Record<string, string>> = {
+  NBA: {
+    "134880": "ATL", "134881": "BOS", "134882": "BKN", "134883": "CHA",
+    "134884": "CHI", "134885": "CLE", "134886": "DAL", "134887": "DEN",
+    "134888": "DET", "134889": "GSW", "134890": "HOU", "134891": "IND",
+    "134892": "LAC", "134893": "LAL", "134894": "MEM", "134895": "MIA",
+    "134896": "MIL", "134897": "MIN", "134898": "NOP", "134899": "NYK",
+    "134900": "OKC", "134901": "ORL", "134902": "PHI", "134903": "PHX",
+    "134904": "POR", "134905": "SAC", "134906": "SAS", "134907": "TOR",
+    "134908": "UTA", "134909": "WAS",
+  },
+  NFL: {
+    "135908": "ARI", "135899": "ATL", "135900": "BAL", "135901": "BUF",
+    "135902": "CAR", "135903": "CHI", "135904": "CIN", "135905": "CLE",
+    "135906": "DAL", "135907": "DEN", "135909": "DET", "135910": "GB",
+    "135911": "HOU", "135912": "IND", "135913": "JAX", "135914": "KC",
+    "135915": "LV",  "135916": "LAC", "135917": "LAR", "135918": "MIA",
+    "135919": "MIN", "135920": "NE",  "135921": "NO",  "135922": "NYG",
+    "135923": "NYJ", "135924": "PHI", "135925": "PIT", "135926": "SF",
+    "135927": "SEA", "135928": "TB",  "135929": "TEN", "135930": "WAS",
+  },
+  NHL: {
+    "134846": "ANA", "134830": "BOS", "134831": "BUF", "134833": "CGY",
+    "134832": "CAR", "134834": "CHI", "134835": "COL", "134836": "CBJ",
+    "134837": "DAL", "134838": "DET", "134839": "EDM", "134840": "FLA",
+    "134841": "LAK", "134842": "MIN", "134843": "MTL", "134844": "NSH",
+    "134845": "NJD", "134847": "NYI", "134848": "NYR", "134849": "OTT",
+    "134850": "PHI", "134851": "PIT", "134852": "SJS", "134853": "SEA",
+    "134854": "STL", "134855": "TBL", "134856": "TOR", "135991": "UTA",
+    "134857": "VAN", "134858": "VGK", "134859": "WSH", "134860": "WPG",
+  },
+  MLB: {
+    "135269": "ARI", "135270": "ATL", "135271": "BAL", "135272": "BOS",
+    "135273": "CHC", "135274": "CHW", "135275": "CIN", "135276": "CLE",
+    "135277": "COL", "135278": "DET", "135279": "HOU", "135280": "KCR",
+    "135281": "LAA", "135282": "LAD", "135283": "MIA", "135284": "MIL",
+    "135285": "MIN", "135286": "NYM", "135287": "NYY", "135288": "OAK",
+    "135289": "PHI", "135290": "PIT", "135291": "SDP", "135292": "SFG",
+    "135293": "SEA", "135294": "STL", "135295": "TBR", "135296": "TEX",
+    "135297": "TOR", "135298": "WSN",
+  },
+};
+
 function getAbbr(league: string, teamName: string): string | null {
   const dict = CANONICAL[league];
   if (!dict) return null;
@@ -46,24 +91,11 @@ async function syncTeams(
   supabase: any,
   league: string,
 ) {
-  const data = await apiFetch(apiKey, `search_all_teams.php?l=${LEAGUE_SEARCH_NAMES[league]}`);
-  const teams = data.teams || [];
-  
-  let upserted = 0;
-  const teamMap: Record<string, string> = {};
-  
-  for (const t of teams) {
-    const name = t.strTeam;
-    const abbr = getAbbr(league, name);
-    if (!abbr) {
-      console.warn(`No mapping for ${league} team: ${name}`);
-      continue;
-    }
-    teamMap[t.idTeam] = abbr;
-    upserted++;
-  }
-  
-  return { teams_found: teams.length, mapped: upserted, team_map: teamMap };
+  // Use hardcoded team map — search_all_teams.php only returns ~10 teams on limited plans
+  const teamMap = { ...(HARDCODED_TEAM_MAPS[league] || {}) };
+  const mapped = Object.keys(teamMap).length;
+  console.log(`${league}: using hardcoded team map with ${mapped} teams`);
+  return { teams_found: mapped, mapped, team_map: teamMap };
 }
 
 // ─── MODE: rosters ──────────────────────────────────────────────────────────
@@ -76,13 +108,18 @@ async function syncRosters(
   maxTeams = 4,
   providedTeamMap: Record<string, string> | null = null,
 ) {
-  // Reuse a provided team map to avoid redundant API calls on each paginated batch
+  // Use hardcoded map (always complete) — avoids search_all_teams API which returns only ~10 teams
   let teamMap: Record<string, string>;
   if (providedTeamMap && Object.keys(providedTeamMap).length > 0) {
     teamMap = providedTeamMap;
   } else {
-    const teamResult = await syncTeams(apiKey, supabase, league);
-    teamMap = teamResult.team_map;
+    // Always fall back to hardcoded map, not the API
+    teamMap = { ...(HARDCODED_TEAM_MAPS[league] || {}) };
+    if (Object.keys(teamMap).length === 0) {
+      // If somehow hardcoded map is empty, try API as last resort
+      const teamResult = await syncTeams(apiKey, supabase, league);
+      teamMap = teamResult.team_map;
+    }
   }
 
   const allEntries = Object.entries(teamMap);

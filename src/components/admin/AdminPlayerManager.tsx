@@ -161,6 +161,7 @@ interface Player {
 export default function AdminPlayerManager() {
   const qc = useQueryClient();
   const [search, setSearch] = useState("");
+  const [abbrSearch, setAbbrSearch] = useState("");
   const [teamSearch, setTeamSearch] = useState("");
   const [leagueFilter, setLeagueFilter] = useState("ALL");
   const [editPlayer, setEditPlayer] = useState<Player | null>(null);
@@ -171,13 +172,14 @@ export default function AdminPlayerManager() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [massDeleteOpen, setMassDeleteOpen] = useState(false);
 
-  const canSearch = search.length >= 2 || teamSearch.length >= 2 || leagueFilter !== "ALL";
+  const canSearch = search.length >= 2 || abbrSearch.length >= 1 || teamSearch.length >= 2 || leagueFilter !== "ALL";
 
   const { data: players = [], isLoading } = useQuery({
-    queryKey: ["admin-players", search, teamSearch, leagueFilter],
+    queryKey: ["admin-players", search, abbrSearch, teamSearch, leagueFilter],
     queryFn: async () => {
-      let q = supabase.from("players").select("*").order("name").limit(100);
+      let q = supabase.from("players").select("*").order("name").limit(150);
       if (search.length >= 2) q = q.ilike("name", `%${search}%`);
+      if (abbrSearch.length >= 1) q = q.ilike("team", `${abbrSearch}%`);
       if (teamSearch.length >= 2) q = q.ilike("team", `%${teamSearch}%`);
       if (leagueFilter !== "ALL") q = q.eq("league", leagueFilter);
       const { data, error } = await q;
@@ -298,8 +300,8 @@ export default function AdminPlayerManager() {
   return (
     <div className="space-y-3">
       {/* Search bar row */}
-      <div className="flex items-center gap-2">
-        <div className="relative flex-1">
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative flex-1 min-w-32">
           <Search className="absolute left-2.5 top-2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search name..."
@@ -308,12 +310,21 @@ export default function AdminPlayerManager() {
             className="pl-9 h-8 text-xs"
           />
         </div>
-        <div className="relative w-28">
+        <div className="w-20">
           <Input
-            placeholder="Team abbr..."
-            value={teamSearch}
-            onChange={e => { setTeamSearch(e.target.value.toUpperCase()); clearSelection(); }}
+            placeholder="Abbr..."
+            value={abbrSearch}
+            onChange={e => { setAbbrSearch(e.target.value.toUpperCase()); clearSelection(); }}
             className="h-8 text-xs uppercase"
+            maxLength={4}
+          />
+        </div>
+        <div className="w-28">
+          <Input
+            placeholder="Team name..."
+            value={teamSearch}
+            onChange={e => { setTeamSearch(e.target.value); clearSelection(); }}
+            className="h-8 text-xs"
           />
         </div>
         <Select value={leagueFilter} onValueChange={v => { setLeagueFilter(v); clearSelection(); }}>
@@ -374,7 +385,7 @@ export default function AdminPlayerManager() {
       )}
 
       {isLoading && <p className="text-xs text-muted-foreground">Searching...</p>}
-      {!canSearch && <p className="text-xs text-muted-foreground italic">Enter a name, team abbreviation, or select a league to search.</p>}
+      {!canSearch && <p className="text-xs text-muted-foreground italic">Enter a name, abbreviation, team name, or select a league to search.</p>}
 
       {/* Player list */}
       <div className="space-y-1 max-h-[58vh] overflow-y-auto">
@@ -423,9 +434,44 @@ export default function AdminPlayerManager() {
           </DialogHeader>
           {editPlayer && (
             <div className="space-y-3">
+              {/* Name */}
+              <div>
+                <label className="text-[10px] text-muted-foreground uppercase">Name</label>
+                <Input
+                  className="h-8 text-xs"
+                  value={editPlayer.name || ""}
+                  onChange={e => setEditPlayer({ ...editPlayer, name: e.target.value })}
+                />
+              </div>
+              {/* League dropdown */}
+              <div>
+                <label className="text-[10px] text-muted-foreground uppercase">League</label>
+                <Select
+                  value={editPlayer.league || ""}
+                  onValueChange={v => setEditPlayer({ ...editPlayer, league: v, team: null })}
+                >
+                  <SelectTrigger className="h-8 text-xs w-full">
+                    <SelectValue placeholder="Select league…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="NBA">NBA</SelectItem>
+                    <SelectItem value="NFL">NFL</SelectItem>
+                    <SelectItem value="NHL">NHL</SelectItem>
+                    <SelectItem value="MLB">MLB</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {/* Team combobox — repopulates based on league */}
+              <div>
+                <label className="text-[10px] text-muted-foreground uppercase">Team</label>
+                <TeamCombobox
+                  value={editPlayer.team}
+                  league={editPlayer.league}
+                  onChange={abbr => setEditPlayer({ ...editPlayer, team: abbr })}
+                />
+              </div>
+              {/* Remaining fields */}
               {([
-                { key: "name", label: "Name" },
-                { key: "league", label: "League" },
                 { key: "position", label: "Position" },
                 { key: "birth_date", label: "Birth Date" },
                 { key: "birth_time", label: "Birth Time" },
@@ -442,14 +488,6 @@ export default function AdminPlayerManager() {
                   />
                 </div>
               ))}
-              <div>
-                <label className="text-[10px] text-muted-foreground uppercase">Team</label>
-                <TeamCombobox
-                  value={editPlayer.team}
-                  league={editPlayer.league}
-                  onChange={abbr => setEditPlayer({ ...editPlayer, team: abbr })}
-                />
-              </div>
               <DialogFooter>
                 <Button size="sm" className="text-xs" onClick={() => updateMutation.mutate(editPlayer)} disabled={updateMutation.isPending}>
                   <Save className="h-3.5 w-3.5 mr-1" /> Save
