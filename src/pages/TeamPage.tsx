@@ -5,7 +5,6 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
-import { PeriodScoresTicker } from "@/components/game/PeriodScoresTicker";
 import { TeamOddsSection } from "@/components/team/TeamOddsSection";
 
 const ZODIAC_RANGES = [
@@ -34,6 +33,7 @@ function getSignFromDate(dateStr: string): { sign: string; symbol: string } {
   }
   return { sign: "Capricorn", symbol: "♑" };
 }
+
 function StatCell({ label, value }: { label: string; value: string | null | undefined }) {
   return (
     <div className="cosmic-card rounded-xl p-2 text-center">
@@ -72,7 +72,6 @@ const TeamPage = () => {
         .select("*")
         .eq("team", abbr!)
         .order("name");
-      // Filter by league if we know it from standings
       if (standings?.league) {
         query = query.eq("league", standings.league);
       }
@@ -98,9 +97,14 @@ const TeamPage = () => {
       return data || [];
     },
     enabled: !!abbr,
+    refetchInterval: (query) => {
+      const games = query.state.data;
+      const hasLive = games?.some((g) => g.status === "live");
+      return hasLive ? 30_000 : 180_000;
+    },
   });
 
-  // Upcoming scheduled games
+  // Upcoming scheduled games — only future
   const { data: upcomingGames } = useQuery({
     queryKey: ["team-upcoming-games", abbr, standings?.league],
     queryFn: async () => {
@@ -111,14 +115,16 @@ const TeamPage = () => {
         .eq("league", lg)
         .or(`home_abbr.eq.${abbr},away_abbr.eq.${abbr}`)
         .eq("status", "scheduled")
+        .gte("start_time", new Date().toISOString())
         .order("start_time", { ascending: true })
         .limit(10);
       return data || [];
     },
     enabled: !!abbr,
+    refetchInterval: 180_000,
   });
 
-  // Fetch advanced game stats (Four Factors, ORtg/DRtg, etc.)
+  // Fetch advanced game stats
   const { data: advancedStats } = useQuery({
     queryKey: ["team-advanced-stats", abbr],
     queryFn: async () => {
@@ -209,7 +215,7 @@ const TeamPage = () => {
           </section>
         )}
 
-        {/* Advanced Stats - Hidden by default */}
+        {/* Team Stats (Season Avg) */}
         {seasonAvg && (
           <section>
             <button
@@ -218,7 +224,7 @@ const TeamPage = () => {
             >
               <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-widest flex items-center gap-1.5">
                 <BarChart3 className="h-3.5 w-3.5" />
-                Advanced Stats ({seasonAvg.games} games)
+                Team Stats · Avg ({seasonAvg.games} games)
               </h3>
               {showAdvanced ? (
                 <ChevronUp className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
@@ -227,16 +233,16 @@ const TeamPage = () => {
               )}
             </button>
 
-            {showAdvanced && (
-              <div className="space-y-3 mt-2 animate-in fade-in slide-in-from-top-2 duration-200">
-                {/* Core Metrics */}
-                <div className="grid grid-cols-4 gap-2">
-                  <StatCell label="PPG" value={seasonAvg.ppg?.toFixed(1)} />
-                  <StatCell label="ORtg" value={seasonAvg.off_rating?.toFixed(1)} />
-                  <StatCell label="DRtg" value={seasonAvg.def_rating?.toFixed(1)} />
-                  <StatCell label="Pace" value={seasonAvg.pace?.toFixed(1)} />
-                </div>
+            {/* Always show core metrics */}
+            <div className="grid grid-cols-4 gap-2 mt-2">
+              <StatCell label={`PPG (${seasonAvg.games}g)`} value={seasonAvg.ppg?.toFixed(1)} />
+              <StatCell label="ORtg" value={seasonAvg.off_rating?.toFixed(1)} />
+              <StatCell label="DRtg" value={seasonAvg.def_rating?.toFixed(1)} />
+              <StatCell label="Pace" value={seasonAvg.pace?.toFixed(1)} />
+            </div>
 
+            {showAdvanced && (
+              <div className="space-y-3 mt-3 animate-in fade-in slide-in-from-top-2 duration-200">
                 {/* Shooting */}
                 <div className="grid grid-cols-4 gap-2">
                   <StatCell label="TS%" value={seasonAvg.ts_pct != null ? (seasonAvg.ts_pct * 100).toFixed(1) + "%" : null} />
@@ -246,7 +252,10 @@ const TeamPage = () => {
                 </div>
 
                 {/* Offensive Four Factors */}
-                <p className="text-[9px] font-semibold text-primary/70 uppercase tracking-wider mt-1">Offensive Four Factors</p>
+                <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-widest flex items-center gap-1.5">
+                  <TrendingUp className="h-3 w-3" />
+                  Offensive Four Factors
+                </h4>
                 <div className="grid grid-cols-4 gap-2">
                   <StatCell label="eFG%" value={seasonAvg.efg_pct != null ? (seasonAvg.efg_pct * 100).toFixed(1) + "%" : null} />
                   <StatCell label="TOV%" value={seasonAvg.tov_pct?.toFixed(1)} />
@@ -255,7 +264,10 @@ const TeamPage = () => {
                 </div>
 
                 {/* Defensive Four Factors */}
-                <p className="text-[9px] font-semibold text-primary/70 uppercase tracking-wider mt-1">Defensive Four Factors</p>
+                <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-widest flex items-center gap-1.5">
+                  <TrendingUp className="h-3 w-3" />
+                  Defensive Four Factors
+                </h4>
                 <div className="grid grid-cols-4 gap-2">
                   <StatCell label="Opp eFG%" value={seasonAvg.opp_efg_pct != null ? (seasonAvg.opp_efg_pct * 100).toFixed(1) + "%" : null} />
                   <StatCell label="Opp TOV%" value={seasonAvg.opp_tov_pct?.toFixed(1)} />
@@ -285,7 +297,7 @@ const TeamPage = () => {
               <Calendar className="h-3.5 w-3.5" />
               Upcoming Games
             </h3>
-            <div className="space-y-1.5">
+            <div className="space-y-1">
               {upcomingGames.map(g => {
                 const isHome = g.home_abbr === abbr;
                 const opp = isHome ? g.away_abbr : g.home_abbr;
@@ -295,16 +307,14 @@ const TeamPage = () => {
                   <button
                     key={g.id}
                     onClick={() => navigate(`/game/${g.id}`)}
-                    className="w-full cosmic-card rounded-lg p-2.5 text-left hover:border-primary/30 transition-colors"
+                    className="w-full cosmic-card rounded-lg p-2 text-left hover:border-primary/30 transition-colors flex items-center justify-between"
                   >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px] text-muted-foreground w-12">{dateStr}</span>
-                        <span className="text-[10px] text-muted-foreground">{isHome ? "vs" : "@"}</span>
-                        <span className="text-xs font-semibold text-primary">{opp}</span>
-                      </div>
-                      <span className="text-[10px] text-muted-foreground">{timeStr}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] text-muted-foreground w-12">{dateStr}</span>
+                      <span className="text-[10px] text-muted-foreground">{isHome ? "vs" : "@"}</span>
+                      <span className="text-xs font-semibold text-primary">{opp}</span>
                     </div>
+                    <span className="text-[10px] text-muted-foreground">{timeStr}</span>
                   </button>
                 );
               })}
@@ -312,14 +322,14 @@ const TeamPage = () => {
           </section>
         )}
 
-        {/* Recent Games */}
+        {/* Recent Games — compact */}
         {recentGames && recentGames.length > 0 && (
           <section>
             <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-3 flex items-center gap-1.5">
               <Calendar className="h-3.5 w-3.5" />
               Recent Games
             </h3>
-            <div className="space-y-1.5">
+            <div className="space-y-1">
               {recentGames.map(g => {
                 const isHome = g.home_abbr === abbr;
                 const opp = isHome ? g.away_abbr : g.home_abbr;
@@ -327,7 +337,6 @@ const TeamPage = () => {
                 const oppScore = isHome ? g.away_score : g.home_score;
                 const won = teamScore != null && oppScore != null && teamScore > oppScore;
                 const isLive = g.status === "live";
-                const isFinal = g.status === "final";
                 const dateStr = new Date(g.start_time).toLocaleDateString(undefined, { month: "short", day: "numeric" });
 
                 return (
@@ -335,35 +344,29 @@ const TeamPage = () => {
                     key={g.id}
                     onClick={() => navigate(`/game/${g.id}`)}
                     className={cn(
-                      "w-full cosmic-card rounded-lg p-2.5 text-left hover:border-primary/30 transition-colors",
+                      "w-full cosmic-card rounded-lg p-2 text-left hover:border-primary/30 transition-colors flex items-center justify-between",
                       isLive && "border-l-2 border-l-cosmic-green"
                     )}
                   >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px] text-muted-foreground w-12">{dateStr}</span>
-                        <span className="text-[10px] text-muted-foreground">{isHome ? "vs" : "@"}</span>
-                        <span className="text-xs font-semibold text-primary">{opp}</span>
-                        {isLive && <span className="h-1.5 w-1.5 rounded-full bg-cosmic-green animate-pulse" />}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {(isFinal || isLive) && teamScore != null && oppScore != null && (
-                          <span className={cn("text-xs font-bold tabular-nums", won ? "text-cosmic-green" : isFinal ? "text-cosmic-red" : "text-foreground")}>
-                            {teamScore}-{oppScore}
-                          </span>
-                        )}
-                        {isFinal && (
-                          <span className={cn("text-[9px] font-bold", won ? "text-cosmic-green" : "text-cosmic-red")}>
-                            {won ? "W" : "L"}
-                          </span>
-                        )}
-                      </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] text-muted-foreground w-12">{dateStr}</span>
+                      <span className="text-[10px] text-muted-foreground">{isHome ? "vs" : "@"}</span>
+                      <span className="text-xs font-semibold text-primary">{opp}</span>
+                      {isLive && <span className="h-1.5 w-1.5 rounded-full bg-cosmic-green animate-pulse" />}
                     </div>
-                    {(isFinal || isLive) && (
-                      <div className="mt-1">
-                        <PeriodScoresTicker gameId={g.id} league={g.league} isLive={isLive} />
-                      </div>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {teamScore != null && oppScore != null && (
+                        <span className={cn("text-xs font-bold tabular-nums", won ? "text-cosmic-green" : "text-cosmic-red")}>
+                          {teamScore}-{oppScore}
+                        </span>
+                      )}
+                      {!isLive && teamScore != null && (
+                        <span className={cn("text-[9px] font-bold", won ? "text-cosmic-green" : "text-cosmic-red")}>
+                          {won ? "W" : "L"}
+                        </span>
+                      )}
+                      {!isLive && <span className="text-[9px] text-muted-foreground">FINAL</span>}
+                    </div>
                   </button>
                 );
               })}
@@ -380,12 +383,12 @@ const TeamPage = () => {
           {loadingPlayers ? (
             <p className="text-sm text-muted-foreground">Loading roster...</p>
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-1">
               {players?.map((p) => (
                 <button
                   key={p.id}
                   onClick={() => navigate(`/player/${p.id}`)}
-                  className="w-full cosmic-card rounded-xl p-3 flex items-center gap-3 hover:border-primary/30 transition-colors text-left"
+                  className="w-full cosmic-card rounded-xl p-2.5 flex items-center gap-3 hover:border-primary/30 transition-colors text-left"
                 >
                   <Avatar className="h-9 w-9 shrink-0">
                     {p.headshot_url && <AvatarImage src={p.headshot_url} alt={p.name} />}
