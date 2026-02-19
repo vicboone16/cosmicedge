@@ -241,26 +241,58 @@ Deno.serve(async (req) => {
 function parsePlayerGameLog(html: string): Record<string, string>[] {
   const rows: Record<string, string>[] = [];
 
-  // Match each <tr data-row="N"> ... </tr>
-  const trRegex = /<tr\s+data-row="\d+"[^>]*>([\s\S]*?)<\/tr>/g;
+  // Try <tr data-row="N"> first, fall back to any <tr> containing data-stat cells
+  let trRegex = /<tr\s+data-row="\d+"[^>]*>([\s\S]*?)<\/tr>/g;
+  let hasDataRows = trRegex.test(html);
+  trRegex.lastIndex = 0; // reset after test
+
+  if (!hasDataRows) {
+    // Fallback: match any <tr> that isn't in <thead>
+    // Remove thead first to avoid matching header rows
+    const noThead = html.replace(/<thead[\s\S]*?<\/thead>/gi, "");
+    trRegex = /<tr[^>]*>([\s\S]*?)<\/tr>/g;
+    let trMatch;
+    while ((trMatch = trRegex.exec(noThead)) !== null) {
+      const row = extractCells(trMatch[1]);
+      if (row.date) rows.push(row);
+    }
+    return rows;
+  }
+
   let trMatch;
   while ((trMatch = trRegex.exec(html)) !== null) {
-    const trContent = trMatch[1];
-    const row: Record<string, string> = {};
-
-    // Match each <th ...>value</th> or <td ...>value</td> cell individually
-    const cellRegex = /<(?:th|td)\s[^>]*?data-stat="([^"]+)"[^>]*>([\s\S]*?)<\/(?:th|td)>/g;
-    let cellMatch;
-    while ((cellMatch = cellRegex.exec(trContent)) !== null) {
-      // Strip any nested HTML tags from the value
-      const rawValue = cellMatch[2].replace(/<[^>]*>/g, "").trim();
-      row[cellMatch[1]] = rawValue;
-    }
-
+    const row = extractCells(trMatch[1]);
     if (row.date) rows.push(row);
   }
 
   return rows;
+}
+
+function extractCells(trContent: string): Record<string, string> {
+  const row: Record<string, string> = {};
+  const cellRegex = /<(?:th|td)\s[^>]*?data-stat="([^"]+)"[^>]*>([\s\S]*?)<\/(?:th|td)>/g;
+  let cellMatch;
+  while ((cellMatch = cellRegex.exec(trContent)) !== null) {
+    const rawValue = cellMatch[2].replace(/<[^>]*>/g, "").trim();
+    row[cellMatch[1]] = rawValue;
+  }
+  // Fallback: if no data-stat attributes, try positional mapping from plain <td>/<th>
+  if (Object.keys(row).length === 0) {
+    const plainRegex = /<(?:th|td)[^>]*>([\s\S]*?)<\/(?:th|td)>/g;
+    const POSITIONAL_KEYS = [
+      "date", "team_name_abbr", "game_location", "opp_name_abbr", "game_result",
+      "is_starter", "mp", "fg", "fga", "fg_pct", "fg3", "fg3a", "fg3_pct",
+      "ft", "fta", "ft_pct", "orb", "drb", "trb", "ast", "stl", "blk",
+      "tov", "pf", "pts", "game_score", "plus_minus",
+    ];
+    let idx = 0;
+    let pm;
+    while ((pm = plainRegex.exec(trContent)) !== null && idx < POSITIONAL_KEYS.length) {
+      row[POSITIONAL_KEYS[idx]] = pm[1].replace(/<[^>]*>/g, "").trim();
+      idx++;
+    }
+  }
+  return row;
 }
 
 function num(v: string | undefined): number | null {
