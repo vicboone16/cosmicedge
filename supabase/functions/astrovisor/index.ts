@@ -159,6 +159,74 @@ Deno.serve(async (req) => {
       );
     }
 
+    // ── sky_positions: current planetary positions (no birth data needed) ──
+    // Calls natal/chart with the transit date to get current sky positions.
+    // Used as a fallback when the Astrology API quota is exhausted.
+    if (mode === "sky_positions") {
+      const chartTime = url.searchParams.get("transit_time") || "12:00";
+      const cacheId = `sky_${transitDate}`;
+
+      // Check cache first
+      const { data: cachedSky } = await supabase
+        .from("astro_calculations")
+        .select("result")
+        .eq("entity_id", cacheId)
+        .eq("entity_type", "sky")
+        .eq("calc_type", "sky_positions")
+        .eq("calc_date", transitDate)
+        .gt("expires_at", new Date().toISOString())
+        .maybeSingle();
+
+      if (cachedSky?.result) {
+        return new Response(
+          JSON.stringify({ success: true, cached: true, result: cachedSky.result }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const resp = await fetch(`${ASTROVISOR_BASE}/api/v1/natal/chart`, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          date: transitDate,
+          time: chartTime,
+          latitude: locationLat || 40.7128,
+          longitude: locationLng || -74.006,
+        }),
+      });
+
+      if (!resp.ok) {
+        console.error(`AstroVisor sky_positions error: ${resp.status}`);
+        return new Response(
+          JSON.stringify({ success: false, error: `sky_positions error: ${resp.status}` }),
+          { status: resp.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const result = await resp.json();
+
+      // Cache for 12 hours (planets don't move much in a day)
+      await supabase.from("astro_calculations").upsert({
+        entity_id: cacheId,
+        entity_type: "sky",
+        calc_type: "sky_positions",
+        calc_date: transitDate,
+        provider: "astrovisor",
+        result,
+        location_lat: locationLat || 40.7128,
+        location_lng: locationLng || -74.006,
+        expires_at: new Date(Date.now() + 12 * 60 * 60 * 1000).toISOString(),
+      }, { onConflict: "entity_id,entity_type,calc_type,calc_date" });
+
+      return new Response(
+        JSON.stringify({ success: true, cached: false, result }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     if (!entityId) throw new Error("entity_id is required");
 
     if (mode === "horary") {
