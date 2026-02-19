@@ -1003,6 +1003,8 @@ export default function AdminImportPage() {
                 addLog(`Importing ${pName}: ${file.name}`);
                 try {
                   const htmlContent = await file.text();
+                  console.log(`[GamelogImport] ${pName}: file size=${file.size}, text length=${htmlContent.length}, first 300 chars:`, htmlContent.substring(0, 300));
+                  addLog(`  📋 File: ${file.size} bytes, text: ${htmlContent.length} chars`);
                   const { data: { session } } = await supabase.auth.getSession();
                   const res = await fetch(
                     `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/import-player-gamelog-html`,
