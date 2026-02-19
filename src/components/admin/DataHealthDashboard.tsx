@@ -137,22 +137,51 @@ export function DataHealthDashboard() {
   const tsdbSync = async (mode: string, league: string) => {
     const key = `${mode}_${league}`;
     setTsdbSyncing(key);
+
     try {
-      const { data: result, error } = await supabase.functions.invoke("thesportsdb-sync", {
-        body: { mode, league },
-      });
-      if (error) throw new Error(error.message || "Sync failed");
-      if (result?.error) throw new Error(result.error);
-      
-      const summary = mode === "rosters"
-        ? `${result.players_upserted} players across ${result.teams_processed} teams`
-        : mode === "scores"
-        ? `${result.games_upserted ?? result.games_updated ?? 0} games updated`
-        : mode === "schedule"
-        ? `${result.games_inserted} upcoming games added`
-        : `${result.mapped} teams mapped`;
-      
-      toast.success(`${league} ${mode}: ${summary}`);
+      if (mode === "rosters") {
+        // Auto-paginate through ALL teams in batches of 8
+        let startTeam = 0;
+        let totalPlayers = 0;
+        let totalTeams = 0;
+        const batchLogs: string[] = [];
+
+        while (true) {
+          const { data: result, error } = await supabase.functions.invoke("thesportsdb-sync", {
+            body: { mode: "rosters", league, start_team: startTeam, max_teams: 8 },
+          });
+          if (error) throw new Error(error.message || "Sync failed");
+          if (result?.error) throw new Error(result.error);
+
+          totalPlayers += result.players_upserted ?? 0;
+          totalTeams = result.total_teams ?? totalTeams;
+          const nextStart = result.next_start_team;
+          const processed = nextStart ?? totalTeams;
+          batchLogs.push(`${league}: ${processed}/${totalTeams} teams synced, ${totalPlayers} players so far`);
+          setLastLog([...batchLogs]);
+          setShowLog(true);
+
+          if (nextStart == null) break;
+          startTeam = nextStart;
+        }
+
+        toast.success(`${league} rosters: ${totalPlayers} players across ${totalTeams} teams`);
+      } else {
+        const { data: result, error } = await supabase.functions.invoke("thesportsdb-sync", {
+          body: { mode, league },
+        });
+        if (error) throw new Error(error.message || "Sync failed");
+        if (result?.error) throw new Error(result.error);
+
+        const summary = mode === "scores"
+          ? `${result.games_upserted ?? result.games_updated ?? 0} games updated`
+          : mode === "schedule"
+          ? `${result.games_inserted} upcoming games added`
+          : `${result.mapped} teams mapped`;
+
+        toast.success(`${league} ${mode}: ${summary}`);
+      }
+
       setLoading(true);
       fetchData();
     } catch (e: any) {
