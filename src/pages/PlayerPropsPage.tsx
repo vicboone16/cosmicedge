@@ -837,7 +837,7 @@ function TrendsInlineContent({ league }: { league: string }) {
     queryKey: ["trends-inline-props", gameIds],
     queryFn: async () => {
       if (gameIds.length === 0) return [];
-      const { data } = await supabase.from("player_props").select("*").in("game_id", gameIds).order("player_name");
+      const { data } = await supabase.from("player_props").select("*").in("game_id", gameIds).order("player_name").limit(5000);
       return data || [];
     },
     enabled: gameIds.length > 0,
