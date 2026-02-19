@@ -605,7 +605,7 @@ export default function AdminGameManager() {
                     <TableRow className="bg-muted/30">
                       <TableHead className="text-[10px] py-2 px-3">League</TableHead>
                       <TableHead className="text-[10px] py-2 px-3">Matchup</TableHead>
-                      <TableHead className="text-[10px] py-2 px-3">Time</TableHead>
+                      <TableHead className="text-[10px] py-2 px-3">Date · Time ({getTZAbbrev()})</TableHead>
                       <TableHead className="text-[10px] py-2 px-3 w-36">Status</TableHead>
                       <TableHead className="text-[10px] py-2 px-3 w-20">Away Score</TableHead>
                       <TableHead className="text-[10px] py-2 px-3 w-20">Home Score</TableHead>
@@ -616,6 +616,11 @@ export default function AdminGameManager() {
                       const e = bulkEdits[g.id];
                       const o = bulkOriginals[g.id];
                       const isDirty = e && o && (e.status !== o.status || e.home_score !== o.home_score || e.away_score !== o.away_score);
+                      const gameDate = new Date(g.start_time).toLocaleDateString("en-US", {
+                        timeZone: userTimezone,
+                        month: "short",
+                        day: "numeric",
+                      });
                       return (
                         <TableRow key={g.id} className={isDirty ? "bg-primary/5 border-l-2 border-l-primary" : ""}>
                           <TableCell className="text-[10px] py-1.5 px-3">
@@ -625,6 +630,8 @@ export default function AdminGameManager() {
                             {g.away_abbr} @ {g.home_abbr}
                           </TableCell>
                           <TableCell className="text-[10px] py-1.5 px-3 text-muted-foreground whitespace-nowrap">
+                            <span className="font-medium text-foreground">{gameDate}</span>
+                            <span className="mx-1 text-muted-foreground/50">·</span>
                             {formatInUserTZ(g.start_time)}
                           </TableCell>
                           <TableCell className="py-1 px-2">
