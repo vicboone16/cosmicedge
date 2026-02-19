@@ -50,7 +50,7 @@ const EMPTY_ODDS: OddsFormState = {
   total_line: "", total_over: "", total_under: "",
 };
 
-type BulkEdit = { status: string; home_score: string; away_score: string };
+type BulkEdit = { status: string; home_score: string; away_score: string; date: string; time: string };
 
 export default function AdminGameManager() {
   const queryClient = useQueryClient();
@@ -139,14 +139,19 @@ export default function AdminGameManager() {
       const { data, error } = await q;
       if (error) throw error;
       const rows = (data || []) as GameRow[];
-      // Initialise editable state
+      // Initialise editable state (date/time in user's timezone)
       const edits: Record<string, BulkEdit> = {};
       const originals: Record<string, BulkEdit> = {};
       rows.forEach(g => {
+        const dt = new Date(g.start_time);
+        const localDate = dt.toLocaleDateString("en-CA", { timeZone: userTimezone }); // yyyy-MM-dd
+        const localTime = dt.toLocaleTimeString("en-GB", { timeZone: userTimezone, hour: "2-digit", minute: "2-digit", hour12: false }); // HH:mm
         const snap: BulkEdit = {
           status: g.status,
           home_score: g.home_score?.toString() ?? "",
           away_score: g.away_score?.toString() ?? "",
+          date: localDate,
+          time: localTime,
         };
         edits[g.id] = { ...snap };
         originals[g.id] = { ...snap };
@@ -268,17 +273,49 @@ export default function AdminGameManager() {
         const e = bulkEdits[id];
         const o = bulkOriginals[id];
         if (!o) return false;
-        return e.status !== o.status || e.home_score !== o.home_score || e.away_score !== o.away_score;
+        return e.status !== o.status || e.home_score !== o.home_score || e.away_score !== o.away_score || e.date !== o.date || e.time !== o.time;
       });
       if (dirtyIds.length === 0) throw new Error("No changes to save");
-      await Promise.all(dirtyIds.map(id => {
+
+      // Helper: convert local date+time in user's timezone → UTC ISO string
+      const toUtcISO = (date: string, time: string): string | undefined => {
+        if (!date || !time) return undefined;
+        const formatter = new Intl.DateTimeFormat("en-US", { timeZone: userTimezone, timeZoneName: "shortOffset" });
+        const tempDate = new Date(`${date}T${time}:00`);
+        const parts = formatter.formatToParts(tempDate);
+        const tzPart = parts.find(p => p.type === "timeZoneName")?.value || "";
+        const match = tzPart.match(/GMT([+-]?)(\d+)?(?::(\d+))?/);
+        let offsetHours = 0;
+        if (match) {
+          const sign = match[1] === "-" ? -1 : 1;
+          offsetHours = sign * (parseInt(match[2] || "0", 10) + parseInt(match[3] || "0", 10) / 60);
+        }
+        const [year, month, day] = date.split("-").map(Number);
+        const [hour, minute] = time.split(":").map(Number);
+        return new Date(Date.UTC(year, month - 1, day, hour - offsetHours, minute)).toISOString();
+      };
+
+      await Promise.all(dirtyIds.map(async id => {
         const e = bulkEdits[id];
-        return supabase.from("games").update({
+        const o = bulkOriginals[id];
+        const updatePayload: Record<string, any> = {
           status: e.status,
           home_score: e.home_score ? Number(e.home_score) : null,
           away_score: e.away_score ? Number(e.away_score) : null,
           updated_at: new Date().toISOString(),
-        }).eq("id", id).then(({ error }) => { if (error) throw error; });
+        };
+        const timeChanged = e.date !== o?.date || e.time !== o?.time;
+        const newStartTime = timeChanged ? toUtcISO(e.date, e.time) : undefined;
+        if (newStartTime) updatePayload.start_time = newStartTime;
+
+        const { error } = await supabase.from("games").update(updatePayload).eq("id", id);
+        if (error) throw error;
+
+        // Cascade: sync bets start_time + clear astro cache if time changed
+        if (newStartTime) {
+          await supabase.from("bets").update({ start_time: newStartTime, updated_at: new Date().toISOString() }).eq("game_id", id);
+          await supabase.from("astro_calculations").delete().eq("entity_id", id);
+        }
       }));
       return dirtyIds.length;
     },
@@ -287,6 +324,9 @@ export default function AdminGameManager() {
       queryClient.invalidateQueries({ queryKey: ["admin-bulk-games"] });
       queryClient.invalidateQueries({ queryKey: ["games"] });
       queryClient.invalidateQueries({ queryKey: ["bets"] });
+      queryClient.invalidateQueries({ queryKey: ["astro"] });
+      queryClient.invalidateQueries({ queryKey: ["live-scores"] });
+      queryClient.invalidateQueries({ queryKey: ["game-detail"] });
       toast({ title: `${count} game${count !== 1 ? "s" : ""} saved` });
       // Reset originals to current edits
       setBulkOriginals({ ...bulkEdits });
@@ -567,7 +607,7 @@ export default function AdminGameManager() {
         const dirtyCount = Object.keys(bulkEdits).filter(id => {
           const e = bulkEdits[id];
           const o = bulkOriginals[id];
-          return o && (e.status !== o.status || e.home_score !== o.home_score || e.away_score !== o.away_score);
+          return o && (e.status !== o.status || e.home_score !== o.home_score || e.away_score !== o.away_score || e.date !== o.date || e.time !== o.time);
         }).length;
 
         const updateBulkCell = (id: string, field: keyof BulkEdit, val: string) => {
@@ -615,12 +655,7 @@ export default function AdminGameManager() {
                     {bulkGames.map(g => {
                       const e = bulkEdits[g.id];
                       const o = bulkOriginals[g.id];
-                      const isDirty = e && o && (e.status !== o.status || e.home_score !== o.home_score || e.away_score !== o.away_score);
-                      const gameDate = new Date(g.start_time).toLocaleDateString("en-US", {
-                        timeZone: userTimezone,
-                        month: "short",
-                        day: "numeric",
-                      });
+                      const isDirty = e && o && (e.status !== o.status || e.home_score !== o.home_score || e.away_score !== o.away_score || e.date !== o.date || e.time !== o.time);
                       return (
                         <TableRow key={g.id} className={isDirty ? "bg-primary/5 border-l-2 border-l-primary" : ""}>
                           <TableCell className="text-[10px] py-1.5 px-3">
@@ -629,10 +664,21 @@ export default function AdminGameManager() {
                           <TableCell className="text-xs py-1.5 px-3 font-medium whitespace-nowrap">
                             {g.away_abbr} @ {g.home_abbr}
                           </TableCell>
-                          <TableCell className="text-[10px] py-1.5 px-3 text-muted-foreground whitespace-nowrap">
-                            <span className="font-medium text-foreground">{gameDate}</span>
-                            <span className="mx-1 text-muted-foreground/50">·</span>
-                            {formatInUserTZ(g.start_time)}
+                          <TableCell className="py-1 px-2">
+                            <div className="flex flex-col gap-1">
+                              <Input
+                                type="date"
+                                value={e?.date ?? ""}
+                                onChange={ev => updateBulkCell(g.id, "date", ev.target.value)}
+                                className="h-7 text-[10px] w-32"
+                              />
+                              <Input
+                                type="time"
+                                value={e?.time ?? ""}
+                                onChange={ev => updateBulkCell(g.id, "time", ev.target.value)}
+                                className="h-7 text-[10px] w-28"
+                              />
+                            </div>
                           </TableCell>
                           <TableCell className="py-1 px-2">
                             <Select value={e?.status ?? g.status} onValueChange={v => updateBulkCell(g.id, "status", v)}>
