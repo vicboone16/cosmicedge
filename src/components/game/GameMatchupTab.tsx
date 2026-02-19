@@ -1,15 +1,6 @@
-import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
-
-interface TeamRecord {
-  wins: number;
-  losses: number;
-  ties?: number | null;
-  home_record?: string | null;
-  away_record?: string | null;
-}
 
 export function GameMatchupTab({
   gameId,
@@ -48,32 +39,66 @@ export function GameMatchupTab({
     { label: "Last 10", home: homeStanding?.last_10 || "—", away: awayStanding?.last_10 || "—" },
   ];
 
-  // Fetch team season stats for comparison
-  const { data: teamStats } = useQuery({
-    queryKey: ["matchup-team-stats", homeAbbr, awayAbbr],
+  // Fetch team_game_stats averages instead of team_season_stats
+  const { data: homeGameStats } = useQuery({
+    queryKey: ["matchup-game-stats", homeAbbr],
     queryFn: async () => {
       const { data } = await supabase
-        .from("team_season_stats")
-        .select("*")
-        .in("team_abbr", [homeAbbr, awayAbbr])
-        .order("season", { ascending: false })
-        .limit(2);
+        .from("team_game_stats")
+        .select("points, off_rating, def_rating, pace, fg_pct, three_pct, opp_points")
+        .eq("team_abbr", homeAbbr)
+        .order("created_at", { ascending: false });
       return data || [];
     },
   });
 
-  const homeStat = teamStats?.find(s => s.team_abbr === homeAbbr);
-  const awayStat = teamStats?.find(s => s.team_abbr === awayAbbr);
+  const { data: awayGameStats } = useQuery({
+    queryKey: ["matchup-game-stats", awayAbbr],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("team_game_stats")
+        .select("points, off_rating, def_rating, pace, fg_pct, three_pct, opp_points")
+        .eq("team_abbr", awayAbbr)
+        .order("created_at", { ascending: false });
+      return data || [];
+    },
+  });
 
-  const statComparisons = homeStat && awayStat ? [
-    { label: "PPG", home: homeStat.points_per_game, away: awayStat.points_per_game },
-    { label: "Opp PPG", home: homeStat.opp_points_per_game, away: awayStat.opp_points_per_game, lower: true },
-    { label: "Off Rtg", home: homeStat.off_rating, away: awayStat.off_rating },
-    { label: "Def Rtg", home: homeStat.def_rating, away: awayStat.def_rating, lower: true },
-    { label: "Pace", home: homeStat.pace, away: awayStat.pace },
-    { label: "FG%", home: homeStat.fg_pct?.toFixed(1) ?? null, away: awayStat.fg_pct?.toFixed(1) ?? null },
-    { label: "3P%", home: homeStat.three_pct?.toFixed(1) ?? null, away: awayStat.three_pct?.toFixed(1) ?? null },
-  ] : [];
+  // Compute averages from game logs
+  const computeAvg = (stats: any[] | undefined) => {
+    if (!stats?.length) return null;
+    const avg = (key: string) => {
+      const vals = stats.map(r => r[key]).filter((v: any) => v != null);
+      return vals.length ? vals.reduce((a: number, b: number) => a + b, 0) / vals.length : null;
+    };
+    return {
+      games: stats.length,
+      ppg: avg("points"),
+      opp_ppg: avg("opp_points"),
+      off_rating: avg("off_rating"),
+      def_rating: avg("def_rating"),
+      pace: avg("pace"),
+      fg_pct: avg("fg_pct"),
+      three_pct: avg("three_pct"),
+    };
+  };
+
+  const homeAvg = computeAvg(homeGameStats);
+  const awayAvg = computeAvg(awayGameStats);
+
+  const statComparisons = (homeAvg || awayAvg) ? [
+    { label: "PPG", home: homeAvg?.ppg?.toFixed(1) ?? null, away: awayAvg?.ppg?.toFixed(1) ?? null },
+    { label: "Opp PPG", home: homeAvg?.opp_ppg?.toFixed(1) ?? null, away: awayAvg?.opp_ppg?.toFixed(1) ?? null, lower: true },
+    { label: "Off Rtg", home: homeAvg?.off_rating?.toFixed(1) ?? null, away: awayAvg?.off_rating?.toFixed(1) ?? null },
+    { label: "Def Rtg", home: homeAvg?.def_rating?.toFixed(1) ?? null, away: awayAvg?.def_rating?.toFixed(1) ?? null, lower: true },
+    { label: "Pace", home: homeAvg?.pace?.toFixed(1) ?? null, away: awayAvg?.pace?.toFixed(1) ?? null },
+    { label: "FG%", home: homeAvg?.fg_pct?.toFixed(1) ?? null, away: awayAvg?.fg_pct?.toFixed(1) ?? null },
+    { label: "3P%", home: homeAvg?.three_pct?.toFixed(1) ?? null, away: awayAvg?.three_pct?.toFixed(1) ?? null },
+  ].filter(s => s.home !== null || s.away !== null) : [];
+
+  const gameCountLabel = homeAvg && awayAvg
+    ? `${homeAvg.games}G vs ${awayAvg.games}G season avg`
+    : homeAvg ? `${homeAvg.games}G season avg` : awayAvg ? `${awayAvg.games}G season avg` : "";
 
   return (
     <div className="space-y-4">
@@ -93,19 +118,19 @@ export function GameMatchupTab({
         ))}
       </div>
 
-      {/* Stat Comparison */}
+      {/* Stat Comparison — from team_game_stats averages */}
       {statComparisons.length > 0 && (
         <div className="cosmic-card rounded-xl overflow-hidden">
           <div className="px-4 py-3 border-b border-border">
             <h4 className="text-xs font-bold text-foreground">Team Rankings</h4>
           </div>
           {statComparisons.map(s => {
-            const hVal = typeof s.home === "string" ? parseFloat(s.home) : s.home;
-            const aVal = typeof s.away === "string" ? parseFloat(s.away) : s.away;
-            const homeWins = s.lower
-              ? (hVal ?? 999) < (aVal ?? 999)
-              : (hVal ?? 0) > (aVal ?? 0);
-            const awayWins = !homeWins && hVal !== aVal;
+            const hVal = s.home != null ? parseFloat(s.home) : null;
+            const aVal = s.away != null ? parseFloat(s.away) : null;
+            const homeWins = hVal != null && aVal != null
+              ? (s.lower ? hVal < aVal : hVal > aVal)
+              : false;
+            const awayWins = hVal != null && aVal != null && !homeWins && hVal !== aVal;
 
             return (
               <div key={s.label} className="flex items-center justify-between px-4 py-2.5 border-b border-border/50 last:border-b-0">
@@ -125,6 +150,11 @@ export function GameMatchupTab({
               </div>
             );
           })}
+          {gameCountLabel && (
+            <div className="px-4 py-2 text-center">
+              <span className="text-[9px] text-muted-foreground">{gameCountLabel}</span>
+            </div>
+          )}
         </div>
       )}
     </div>
