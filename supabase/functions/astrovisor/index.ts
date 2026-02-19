@@ -264,25 +264,47 @@ Deno.serve(async (req) => {
         );
       }
 
-      const resp = await fetch(`${ASTROVISOR_BASE}/api/v1/transits/calculate`, {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${apiKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          natal_date: birthData.date,
-          natal_time: birthData.time,
-          natal_latitude: birthData.latitude,
-          natal_longitude: birthData.longitude,
-          transit_date: transitDate,
-          transit_time: transitTime,
-          transit_latitude: locationLat || birthData.latitude,
-          transit_longitude: locationLng || birthData.longitude,
-        }),
-      });
+      // Try multiple endpoint variants (API may have been updated)
+      const transitEndpoints = [
+        `${ASTROVISOR_BASE}/api/v1/transits/calculate`,
+        `${ASTROVISOR_BASE}/api/v1/transit/calculate`,
+        `${ASTROVISOR_BASE}/api/v1/transits`,
+        `${ASTROVISOR_BASE}/api/v1/transits/aspects`,
+      ];
 
-      if (!resp.ok) throw new Error(`AstroVisor transits error: ${resp.status} ${await resp.text()}`);
+      const transitBody = {
+        natal_date: birthData.date,
+        natal_time: birthData.time,
+        natal_latitude: birthData.latitude,
+        natal_longitude: birthData.longitude,
+        transit_date: transitDate,
+        transit_time: transitTime,
+        transit_latitude: locationLat || birthData.latitude,
+        transit_longitude: locationLng || birthData.longitude,
+      };
+
+      let resp: Response | null = null;
+      for (const endpoint of transitEndpoints) {
+        const r = await fetch(endpoint, {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${apiKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(transitBody),
+        });
+        if (r.ok || r.status !== 404) {
+          resp = r;
+          break;
+        }
+        console.warn(`AstroVisor transits 404 at ${endpoint}, trying next...`);
+      }
+
+      if (!resp || !resp.ok) {
+        const status = resp?.status ?? 0;
+        const text = resp ? await resp.text() : "no response";
+        throw new Error(`AstroVisor transits error: ${status} ${text}`);
+      }
       result = await resp.json();
 
       // Cache with time-specific key; shorter TTL for live (15-min windows) vs pre-game
