@@ -100,14 +100,24 @@ export function PlayerBirthDateEditor() {
       dbChanges[k] = (v as string) || null;
     }
 
+    // Auto-set natal_data_quality based on what's being saved
+    const finalBirthDate = (changes.birth_date !== undefined ? changes.birth_date : player.birth_date) || null;
+    const finalBirthTime = (changes.birth_time !== undefined ? changes.birth_time : player.birth_time) || null;
+    if (finalBirthDate && finalBirthTime) dbChanges.natal_data_quality = "A";
+    else if (finalBirthDate) dbChanges.natal_data_quality = "B";
+    else dbChanges.natal_data_quality = "C";
+
     setSaving(player.id);
-    const { error } = await supabase
+    const { data: updatedRows, error } = await supabase
       .from("players")
       .update(dbChanges)
-      .eq("id", player.id);
+      .eq("id", player.id)
+      .select("id");
 
     if (error) {
       toast.error(`Failed to save ${player.name}: ${error.message}`);
+    } else if (!updatedRows || updatedRows.length === 0) {
+      toast.error(`Save failed for ${player.name}: no matching record found (check permissions)`);
     } else {
       toast.success(`${player.name} updated`);
       // Convert empty strings to null for DB but keep display values
