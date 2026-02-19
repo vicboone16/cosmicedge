@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
-import { RefreshCw, CalendarDays, Trophy, Wrench, Trash2 } from "lucide-react";
+import { RefreshCw, CalendarDays, Trophy, Wrench, Trash2, Database } from "lucide-react";
 import { toast } from "sonner";
 
 interface LeagueGameStats {
@@ -27,6 +27,7 @@ export function DataHealthDashboard() {
   const [tsdbSyncing, setTsdbSyncing] = useState<string | null>(null);
   const [fixingStatuses, setFixingStatuses] = useState(false);
   const [purgingOrphans, setPurgingOrphans] = useState(false);
+  const [backfilling, setBackfilling] = useState(false);
 
   const fixStatuses = async () => {
     setFixingStatuses(true);
@@ -60,6 +61,25 @@ export function DataHealthDashboard() {
       toast.error(`Purge failed: ${e.message}`);
     } finally {
       setPurgingOrphans(false);
+    }
+  };
+
+  const runBackfill = async () => {
+    setBackfilling(true);
+    try {
+      const { data: result, error } = await supabase.functions.invoke("bulk-backfill-scores", {
+        body: { leagues: ["NBA", "NFL", "NHL"] },
+      });
+      if (error) throw new Error(error.message);
+      const total = result?.total_updated ?? 0;
+      const log = (result?.log ?? []).slice(-6).join(" | ");
+      toast.success(`Backfill: ${total} games scored. ${log}`);
+      setLoading(true);
+      fetchData();
+    } catch (e: any) {
+      toast.error(`Backfill failed: ${e.message}`);
+    } finally {
+      setBackfilling(false);
     }
   };
 
@@ -154,12 +174,22 @@ export function DataHealthDashboard() {
       <div className="space-y-2">
         <div className="flex items-center justify-between">
           <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Games & Scores</h3>
-          <div className="flex gap-1">
+          <div className="flex gap-1 flex-wrap">
             <Button
               size="sm"
               variant="outline"
               className="h-6 px-2 text-[10px] gap-1"
-              disabled={fixingStatuses || purgingOrphans || tsdbSyncing !== null}
+              disabled={fixingStatuses || purgingOrphans || backfilling || tsdbSyncing !== null}
+              onClick={runBackfill}
+            >
+              {backfilling ? <RefreshCw className="h-3 w-3 animate-spin" /> : <Database className="h-3 w-3" />}
+              Run Backfill
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-6 px-2 text-[10px] gap-1"
+              disabled={fixingStatuses || purgingOrphans || backfilling || tsdbSyncing !== null}
               onClick={fixStatuses}
             >
               {fixingStatuses ? <RefreshCw className="h-3 w-3 animate-spin" /> : <Wrench className="h-3 w-3" />}
@@ -169,7 +199,7 @@ export function DataHealthDashboard() {
               size="sm"
               variant="outline"
               className="h-6 px-2 text-[10px] gap-1 text-destructive border-destructive/40 hover:bg-destructive/10"
-              disabled={fixingStatuses || purgingOrphans || tsdbSyncing !== null}
+              disabled={fixingStatuses || purgingOrphans || backfilling || tsdbSyncing !== null}
               onClick={purgeOrphans}
             >
               {purgingOrphans ? <RefreshCw className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
