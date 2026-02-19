@@ -267,6 +267,70 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Special mode: delete orphan scheduled games (no scores, bets, odds, or stats)
+    if (body.mode === "purge_orphans") {
+      const leagues: string[] = body.leagues
+        ? body.leagues.map((l: string) => l.toUpperCase())
+        : ["NBA", "NFL", "NHL", "MLB"];
+      const cutoff = body.cutoff || new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      const log: string[] = [];
+      let totalDeleted = 0;
+
+      for (const league of leagues) {
+        // Find scheduled games before cutoff with no scores
+        const { data: candidates } = await supabase
+          .from("games")
+          .select("id")
+          .eq("league", league)
+          .eq("status", "scheduled")
+          .is("home_score", null)
+          .is("away_score", null)
+          .lt("start_time", cutoff);
+
+        if (!candidates?.length) {
+          log.push(`${league}: no orphan candidates`);
+          continue;
+        }
+
+        const candidateIds = candidates.map((r: any) => r.id);
+
+        // Filter out any that have bets, odds, or stats attached
+        const [betsRes, oddsRes, statsRes] = await Promise.all([
+          supabase.from("bets").select("game_id").in("game_id", candidateIds),
+          supabase.from("odds_snapshots").select("game_id").in("game_id", candidateIds),
+          supabase.from("player_game_stats").select("game_id").in("game_id", candidateIds),
+        ]);
+
+        const protected_ids = new Set([
+          ...(betsRes.data || []).map((r: any) => r.game_id),
+          ...(oddsRes.data || []).map((r: any) => r.game_id),
+          ...(statsRes.data || []).map((r: any) => r.game_id),
+        ]);
+
+        const orphanIds = candidateIds.filter((id: string) => !protected_ids.has(id));
+
+        if (!orphanIds.length) {
+          log.push(`${league}: ${candidateIds.length} candidates all protected`);
+          continue;
+        }
+
+        // Delete in batches
+        const BATCH = 200;
+        let deleted = 0;
+        for (let i = 0; i < orphanIds.length; i += BATCH) {
+          const { error } = await supabase.from("games").delete().in("id", orphanIds.slice(i, i + BATCH));
+          if (!error) deleted += Math.min(BATCH, orphanIds.length - i);
+        }
+        totalDeleted += deleted;
+        log.push(`${league}: deleted ${deleted} orphan scheduled games (${protected_ids.size} protected)`);
+      }
+
+      return new Response(
+        JSON.stringify({ success: true, total_deleted: totalDeleted, log }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
     const apiKey = Deno.env.get("THESPORTSDB_API_KEY");
     if (!apiKey) {
       return new Response(
