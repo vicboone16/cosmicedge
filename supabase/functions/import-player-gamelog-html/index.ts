@@ -104,6 +104,14 @@ Deno.serve(async (req) => {
         const gameDate = row.date;
         if (!gameDate) { skipped++; continue; }
 
+        // Skip DNP/Inactive rows (no meaningful stats)
+        const hasStats = row.pts || row.fg || row.fga || row.mp || row.trb || row.ast;
+        if (!hasStats) {
+          console.log(`[import-player-gamelog-html] Skipping DNP row: date=${gameDate}, reason=${row.reason || row.game_result || 'no stats'}`);
+          skipped++;
+          continue;
+        }
+
         const isAway = row.game_location === "@";
         let oppAbbr: string;
         try {

@@ -139,9 +139,16 @@ const PlayerPage = () => {
         .from("player_game_stats")
         .select("*, games!player_game_stats_game_id_fkey(start_time, home_abbr, away_abbr, league)")
         .eq("player_id", id!)
+        .not("points", "is", null)
         .order("created_at", { ascending: false })
         .limit(82);
-      return data || [];
+      // Sort by game start_time descending for display
+      const sorted = (data || []).sort((a, b) => {
+        const aTime = (a.games as any)?.start_time || "";
+        const bTime = (b.games as any)?.start_time || "";
+        return bTime.localeCompare(aTime);
+      });
+      return sorted;
     },
     enabled: !!id,
   });
