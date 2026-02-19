@@ -42,29 +42,27 @@ function PlayersTab() {
     enabled: query.length >= 2,
   });
 
-  // Trending players — 3-tier fallback
+  // Trending players — read from materialized trending_players table first, fallback to players table
   const { data: trending } = useQuery({
     queryKey: ["nexus-trending-players"],
     queryFn: async () => {
-      // Tier 1: player_props frequency
-      const { data: propsData } = await supabase
-        .from("player_props")
-        .select("player_name, game_id")
-        .order("captured_at", { ascending: false })
-        .limit(200);
-      if (propsData && propsData.length >= 10) {
-        const counts = new Map<string, number>();
-        for (const row of propsData) {
-          counts.set(row.player_name, (counts.get(row.player_name) || 0) + 1);
-        }
-        const sorted = Array.from(counts.entries()).sort((a, b) => b[1] - a[1]).slice(0, 12);
-        const names = sorted.map(([n]) => n);
-        const { data: playerRows } = await supabase
-          .from("players")
-          .select("id, name, team, position, league, headshot_url")
-          .in("name", names)
-          .limit(12);
-        if (playerRows && playerRows.length >= 10) return playerRows;
+      // Tier 1: Read from trending_players table (populated by rebuild-trending edge function)
+      const { data: trendingRows } = await supabase
+        .from("trending_players")
+        .select("player_id, player_name, team, position, headshot_url, trend_score, rank")
+        .eq("league", "NBA")
+        .order("rank", { ascending: true })
+        .limit(15);
+
+      if (trendingRows && trendingRows.length >= 10) {
+        return trendingRows.map((t: any) => ({
+          id: t.player_id,
+          name: t.player_name,
+          team: t.team,
+          position: t.position,
+          league: "NBA",
+          headshot_url: t.headshot_url,
+        }));
       }
 
       // Tier 2: recent game stats composite score
@@ -104,6 +102,7 @@ function PlayersTab() {
       return fallback || [];
     },
     staleTime: 5 * 60_000,
+    refetchInterval: 5 * 60_000,
   });
 
   const showResults = query.length >= 2 && players && players.length > 0;
