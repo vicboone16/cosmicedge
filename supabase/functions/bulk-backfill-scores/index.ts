@@ -11,7 +11,6 @@ const LEAGUE_IDS: Record<string, string> = {
   MLB: "4424",
 };
 
-// Each league has one or more seasons to backfill
 const LEAGUE_SEASONS: Record<string, string[]> = {
   NBA: ["2024-2025", "2025-2026"],
   NFL: ["2024", "2025"],
@@ -56,7 +55,8 @@ async function backfillLeague(
   supabase: any,
   league: string,
   seasons?: string[],
-): Promise<{ league: string; events_fetched: number; games_updated: number; skipped: number; log: string[] }> {
+  insertMissing = false,
+): Promise<{ league: string; events_fetched: number; games_updated: number; games_inserted: number; skipped: number; log: string[] }> {
   const log: string[] = [];
   const leagueId = LEAGUE_IDS[league];
   const targetSeasons = seasons || LEAGUE_SEASONS[league] || [];
@@ -72,7 +72,6 @@ async function backfillLeague(
       if (targetSeasons.length > 1) await delay(600);
     }
   } else {
-    // Fallback to recent past events
     const events = await fetchPastEvents(apiKey, leagueId);
     log.push(`${league} past events: ${events.length} from TSDB`);
     allEvents.push(...events);
@@ -90,7 +89,7 @@ async function backfillLeague(
   log.push(`${league}: ${finalEvents.length} final events with scores`);
 
   if (finalEvents.length === 0) {
-    return { league, events_fetched: allEvents.length, games_updated: 0, skipped: allEvents.length, log };
+    return { league, events_fetched: allEvents.length, games_updated: 0, games_inserted: 0, skipped: allEvents.length, log };
   }
 
   // ── 2. Pre-fetch ALL games for this league from DB (paginated) ──────────
@@ -100,7 +99,7 @@ async function backfillLeague(
   while (true) {
     const { data: batch, error } = await supabase
       .from("games")
-      .select("id, home_abbr, away_abbr, start_time, home_score, away_score, status")
+      .select("id, home_abbr, away_abbr, home_team, away_team, start_time, home_score, away_score, status")
       .eq("league", league)
       .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
     if (error) { log.push(`DB fetch error page ${page}: ${error.message}`); break; }
@@ -111,7 +110,7 @@ async function backfillLeague(
   }
   log.push(`${league}: ${allGames.length} games in DB`);
 
-  // ── 3. Build lookup by home|away|date (±2 day window) ──────────────────
+  // ── 3. Build lookup by home_abbr|away_abbr|date (±2 day window) ──────────
   const gameIndex = new Map<string, any>();
   for (const g of allGames) {
     const d = g.start_time.split("T")[0];
@@ -123,19 +122,20 @@ async function backfillLeague(
     }
   }
 
-  // ── 4. Match events → games, collect updates ───────────────────────────
+  // ── 4. Match events → games, collect updates & inserts ───────────────────
   const pendingUpdates: { id: string; home_score: number; away_score: number }[] = [];
+  const pendingInserts: any[] = [];
   let skipped = 0;
   const alreadyFinal = { count: 0 };
+  const unmatchedSamples: string[] = [];
 
   for (const ev of finalEvents) {
     const homeAbbr = getAbbr(league, ev.strHomeTeam);
     const awayAbbr = getAbbr(league, ev.strAwayTeam);
 
     if (!homeAbbr || !awayAbbr) {
-      // Log unmapped teams for diagnosis (only first 5 per league to avoid noise)
-      if (skipped < 5) {
-        log.push(`  No mapping: "${ev.strHomeTeam}" vs "${ev.strAwayTeam}"`);
+      if (unmatchedSamples.length < 5) {
+        unmatchedSamples.push(`No abbr mapping: "${ev.strHomeTeam}" vs "${ev.strAwayTeam}"`);
       }
       skipped++;
       continue;
@@ -149,11 +149,28 @@ async function backfillLeague(
     const existing = gameIndex.get(key);
 
     if (!existing) {
-      skipped++;
+      // Game not in our DB — insert it if insertMissing mode is on
+      if (insertMissing && ev.dateEvent) {
+        pendingInserts.push({
+          league,
+          home_team: ev.strHomeTeam,
+          away_team: ev.strAwayTeam,
+          home_abbr: homeAbbr,
+          away_abbr: awayAbbr,
+          start_time: ev.dateEvent + "T00:00:00Z",
+          home_score: homeScore,
+          away_score: awayScore,
+          status: "final",
+          source: "thesportsdb",
+          external_id: ev.idEvent ? String(ev.idEvent) : null,
+          venue: ev.strVenue || null,
+        });
+      } else {
+        skipped++;
+      }
       continue;
     }
 
-  // Only update if scores differ OR status isn't already normalised "final"
     const isAlreadyFinal = existing.status === "final" &&
       existing.home_score === homeScore &&
       existing.away_score === awayScore;
@@ -166,7 +183,14 @@ async function backfillLeague(
     pendingUpdates.push({ id: existing.id, home_score: homeScore, away_score: awayScore });
   }
 
+  if (unmatchedSamples.length > 0) {
+    log.push(...unmatchedSamples);
+  }
+
   log.push(`${league}: ${pendingUpdates.length} games need update, ${alreadyFinal.count} already final, ${skipped} unmatched`);
+  if (insertMissing) {
+    log.push(`${league}: ${pendingInserts.length} missing games to insert`);
+  }
 
   // ── 5. Execute bulk updates in parallel batches of 50 ──────────────────
   let gamesUpdated = 0;
@@ -185,12 +209,29 @@ async function backfillLeague(
     if (i + BATCH < pendingUpdates.length) await delay(200);
   }
 
+  // ── 6. Insert missing games if requested ───────────────────────────────
+  let gamesInserted = 0;
+  if (insertMissing && pendingInserts.length > 0) {
+    const INSERT_BATCH = 100;
+    for (let i = 0; i < pendingInserts.length; i += INSERT_BATCH) {
+      const batch = pendingInserts.slice(i, i + INSERT_BATCH);
+      const { error } = await supabase
+        .from("games")
+        .upsert(batch, { onConflict: "external_id", ignoreDuplicates: false });
+      if (!error) gamesInserted += batch.length;
+      else log.push(`Insert error batch ${i}: ${error.message}`);
+      if (i + INSERT_BATCH < pendingInserts.length) await delay(300);
+    }
+    log.push(`${league}: ✅ inserted ${gamesInserted} missing games`);
+  }
+
   log.push(`${league}: ✅ updated ${gamesUpdated} games to final`);
 
   return {
     league,
     events_fetched: allEvents.length,
     games_updated: gamesUpdated,
+    games_inserted: gamesInserted,
     skipped,
     log,
   };
@@ -204,7 +245,6 @@ async function fixStatusCases(supabase: any): Promise<{ fixed_capitalization: nu
   // 1. Try RPC first, fallback to manual
   const { data: capFix, error: capErr } = await supabase.rpc("fix_game_status_cases");
   if (capErr) {
-    // Fallback: manual update for capitalized variants
     const badStatuses = ["Final", "Final/OT", "Final/2OT", "Final/3OT", "FT", "AOT"];
     for (const s of badStatuses) {
       const { data: rows } = await supabase.from("games").select("id").eq("status", s).limit(2000);
@@ -220,7 +260,7 @@ async function fixStatusCases(supabase: any): Promise<{ fixed_capitalization: nu
     log.push(`Status capitalization fix: ${fixedCap} games normalized`);
   }
 
-  // 2. Any game with scores but status != "final" (always run this regardless of RPC result)
+  // 2. Any game with scores but status != "final"
   const { data: scoredRows } = await supabase
     .from("games")
     .select("id")
@@ -257,7 +297,6 @@ Deno.serve(async (req) => {
     let body: Record<string, any> = {};
     try { body = await req.json(); } catch { /* no body */ }
 
-    // Special mode: just fix status casing without hitting TheSportsDB
     if (body.mode === "fix_statuses") {
       const result = await fixStatusCases(supabase);
       return new Response(
@@ -266,7 +305,6 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Special mode: delete orphan scheduled games (no scores, bets, odds, or stats)
     if (body.mode === "purge_orphans") {
       const leagues: string[] = body.leagues
         ? body.leagues.map((l: string) => l.toUpperCase())
@@ -276,7 +314,6 @@ Deno.serve(async (req) => {
       let totalDeleted = 0;
 
       for (const league of leagues) {
-        // Find scheduled games before cutoff with no scores
         const { data: candidates } = await supabase
           .from("games")
           .select("id")
@@ -293,7 +330,6 @@ Deno.serve(async (req) => {
 
         const candidateIds = candidates.map((r: any) => r.id);
 
-        // Filter out any that have bets, odds, or stats attached
         const [betsRes, oddsRes, statsRes] = await Promise.all([
           supabase.from("bets").select("game_id").in("game_id", candidateIds),
           supabase.from("odds_snapshots").select("game_id").in("game_id", candidateIds),
@@ -313,7 +349,6 @@ Deno.serve(async (req) => {
           continue;
         }
 
-        // Delete in batches
         const BATCH = 200;
         let deleted = 0;
         for (let i = 0; i < orphanIds.length; i += BATCH) {
@@ -338,19 +373,19 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Which leagues to backfill — defaults to all four
     const requestedLeagues: string[] = body.leagues
       ? body.leagues.map((l: string) => l.toUpperCase())
       : ["NBA", "NFL", "NHL", "MLB"];
 
-    // Optional per-call season override (e.g. { seasons: ["2024-2025"] })
     const seasonOverride: string[] | undefined = body.seasons;
+    // insertMissing=true will INSERT past games not in our DB (fixes MLB 0-games issue)
+    const insertMissing: boolean = body.insert_missing === true;
 
     const results: any[] = [];
     let totalUpdated = 0;
+    let totalInserted = 0;
     const fullLog: string[] = [];
 
-    // Always fix status casing first before backfilling
     const statusFix = await fixStatusCases(supabase);
     fullLog.push(`Pre-fix: ${statusFix.fixed_capitalization} capitalization fixes, ${statusFix.fixed_has_scores} scored-but-scheduled fixes`);
     fullLog.push(...statusFix.log);
@@ -362,12 +397,12 @@ Deno.serve(async (req) => {
       }
 
       console.log(`--- Backfilling ${league} ---`);
-      const result = await backfillLeague(apiKey, supabase, league, seasonOverride);
+      const result = await backfillLeague(apiKey, supabase, league, seasonOverride, insertMissing);
       results.push(result);
       totalUpdated += result.games_updated;
+      totalInserted += result.games_inserted;
       fullLog.push(...result.log);
 
-      // Brief pause between leagues to avoid rate limiting
       if (requestedLeagues.indexOf(league) < requestedLeagues.length - 1) {
         await delay(800);
       }
@@ -377,6 +412,7 @@ Deno.serve(async (req) => {
       JSON.stringify({
         success: true,
         total_updated: totalUpdated,
+        total_inserted: totalInserted,
         status_fixes: statusFix,
         leagues: results,
         log: fullLog,
