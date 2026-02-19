@@ -71,6 +71,8 @@ export const CANONICAL: Record<string, Record<string, string>> = {
     "New York Mets": "NYM",
     "New York Yankees": "NYY",
     "Oakland Athletics": "OAK",
+    "Athletics": "OAK",           // TheSportsDB name after Oakland → Sacramento relocation
+    "Sacramento Athletics": "OAK",// future-proof
     "Philadelphia Phillies": "PHI",
     "Pittsburgh Pirates": "PIT",
     "San Diego Padres": "SDP",
@@ -147,6 +149,7 @@ export const CANONICAL: Record<string, Record<string, string>> = {
     "Tampa Bay Lightning": "TBL",
     "Toronto Maple Leafs": "TOR",
     "Utah Mammoth": "UTA",
+    "Utah Hockey Club": "UTA",   // prior name before 2025-26 rebrand
     "Vancouver Canucks": "VAN",
     "Vegas Golden Knights": "VGK",
     "Washington Capitals": "WSH",

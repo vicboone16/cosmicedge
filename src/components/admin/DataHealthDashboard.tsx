@@ -64,31 +64,58 @@ export function DataHealthDashboard() {
     }
   };
 
+  /**
+   * Run backfill per-league per-season to avoid edge function timeouts.
+   * Each call fetches ONE season from TheSportsDB and updates/inserts matching games.
+   */
   const runBackfill = async (insertMissing = false) => {
     setBackfilling(true);
-    try {
-      // For insert_missing (MLB-style large imports), run per-league to avoid timeout
-      const leagues = insertMissing
-        ? ["NBA", "NFL", "NHL", "MLB"]
-        : ["NBA", "NFL", "NHL", "MLB"];
 
-      const { data: result, error } = await supabase.functions.invoke("bulk-backfill-scores", {
-        body: {
-          leagues,
-          insert_missing: insertMissing,
-          // Limit to current+last season only to avoid massive payloads
-          ...(insertMissing && { seasons: ["2024-2025", "2025-2026"] }),
-        },
-      });
-      if (error) throw new Error(error.message);
-      const totalUpdated = result?.total_updated ?? 0;
-      const totalInserted = result?.total_inserted ?? 0;
-      const summary = (result?.log ?? []).filter((l: string) => l.includes("✅") || l.includes("updated") || l.includes("inserted")).join(" | ");
-      if (insertMissing) {
-        toast.success(`Import+Backfill done: ${totalUpdated} updated, ${totalInserted} inserted. ${summary}`);
-      } else {
-        toast.success(`Backfill done: ${totalUpdated} games scored. ${summary}`);
+    // Season lists per league (one at a time to stay under 25s edge fn limit)
+    const leagueSeasons: Record<string, string[]> = {
+      NBA: ["2024-2025", "2025-2026"],
+      NFL: ["2024", "2025"],
+      NHL: ["2024-2025", "2025-2026"],
+      MLB: ["2024", "2025"],
+    };
+
+    let totalUpdated = 0;
+    let totalInserted = 0;
+    const allLogs: string[] = [];
+
+    try {
+      for (const [league, seasons] of Object.entries(leagueSeasons)) {
+        for (const season of seasons) {
+          toast.info(`Backfilling ${league} ${season}…`, { duration: 3000 });
+          try {
+            const { data: result, error } = await supabase.functions.invoke("bulk-backfill-scores", {
+              body: {
+                leagues: [league],
+                season,          // single season → keeps payload small
+                insert_missing: insertMissing,
+              },
+            });
+            if (error) {
+              allLogs.push(`${league} ${season} error: ${error.message}`);
+              continue;
+            }
+            totalUpdated += result?.total_updated ?? 0;
+            totalInserted += result?.total_inserted ?? 0;
+            const successes = (result?.log ?? []).filter((l: string) => l.includes("✅"));
+            allLogs.push(...successes);
+          } catch (e: any) {
+            allLogs.push(`${league} ${season} failed: ${e.message}`);
+          }
+          // Small pause between calls to avoid hammering TheSportsDB
+          await new Promise(r => setTimeout(r, 800));
+        }
       }
+
+      const summary = insertMissing
+        ? `Done: ${totalUpdated} updated, ${totalInserted} inserted`
+        : `Done: ${totalUpdated} games scored`;
+      toast.success(summary);
+      if (allLogs.length > 0) console.info("Backfill log:", allLogs);
       setLoading(true);
       fetchData();
     } catch (e: any) {
