@@ -58,6 +58,7 @@ export default function AdminImportPage() {
   const rosterCsvRef = useRef<HTMLInputElement>(null);
   const birthTimeCsvRef = useRef<HTMLInputElement>(null);
   const [rosterLeague, setRosterLeague] = useState<string>("NFL");
+  const [birthLeague, setBirthLeague] = useState<string>("");
   const gamelogCsvRef = useRef<HTMLInputElement>(null);
   const [gamelogLeague, setGamelogLeague] = useState<string>("NFL");
   const nbaBoxscoreRef = useRef<HTMLInputElement>(null);
@@ -306,8 +307,6 @@ export default function AdminImportPage() {
     } catch (e: any) { addLog(`❌ ${e.message}`); }
     setLoading(false);
   };
-
-  const [birthLeague, setBirthLeague] = useState<string>("");
 
   const handleBirthTimeCsvUpload = async () => {
     const file = birthTimeCsvRef.current?.files?.[0];
