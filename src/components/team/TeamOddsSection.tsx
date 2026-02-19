@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
-import { TrendingUp, ChevronDown, ChevronUp, DollarSign } from "lucide-react";
+import { TrendingUp, ChevronDown, ChevronUp, DollarSign, Calendar } from "lucide-react";
 
 // Map abbreviation → full team name for historical_odds matching
 const ABBR_TO_FULL: Record<string, string> = {
@@ -44,11 +44,18 @@ interface GameWithResult {
   id: string;
 }
 
+/** Shift a date string by N days, returning YYYY-MM-DD */
+function shiftDate(dateStr: string, days: number): string {
+  const d = new Date(dateStr + "T12:00:00Z");
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().split("T")[0];
+}
+
 export function TeamOddsSection({ abbr, league }: TeamOddsSectionProps) {
   const [expanded, setExpanded] = useState(true);
   const teamFullName = ABBR_TO_FULL[abbr] || abbr;
 
-  // Get team's final games with scores
+  // Get team's final games with scores — increased limit
   const { data: finalGames } = useQuery({
     queryKey: ["team-final-games-odds", abbr, league],
     queryFn: async () => {
@@ -59,7 +66,7 @@ export function TeamOddsSection({ abbr, league }: TeamOddsSectionProps) {
         .or(`home_abbr.eq.${abbr},away_abbr.eq.${abbr}`)
         .eq("status", "final")
         .order("start_time", { ascending: false })
-        .limit(100);
+        .limit(200);
       return data || [];
     },
     enabled: !!abbr,
@@ -80,17 +87,17 @@ export function TeamOddsSection({ abbr, league }: TeamOddsSectionProps) {
     enabled: !!teamFullName,
   });
 
-  // Get odds_snapshots for upcoming games (line movement)
+  // Get odds_snapshots for upcoming games — only future
   const { data: upcomingOdds } = useQuery({
     queryKey: ["team-upcoming-odds", abbr, league],
     queryFn: async () => {
-      // Get upcoming game IDs
       const { data: upcoming } = await supabase
         .from("games")
         .select("id, home_abbr, away_abbr, start_time")
         .eq("league", league)
         .or(`home_abbr.eq.${abbr},away_abbr.eq.${abbr}`)
         .eq("status", "scheduled")
+        .gte("start_time", new Date().toISOString())
         .order("start_time", { ascending: true })
         .limit(5);
 
@@ -111,7 +118,7 @@ export function TeamOddsSection({ abbr, league }: TeamOddsSectionProps) {
     enabled: !!abbr,
   });
 
-  // Compute ATS and O/U records from historical odds + game results
+  // Compute ATS and O/U records
   const records = computeRecords(finalGames || [], histOdds || [], abbr, teamFullName);
 
   // Get opening/closing lines for recent final games
@@ -176,15 +183,18 @@ export function TeamOddsSection({ abbr, league }: TeamOddsSectionProps) {
             </div>
           )}
 
-          {/* Opening/Closing Lines for Recent Games */}
+          {/* Recent Lines */}
           {recentLines.length > 0 && (
             <div>
-              <p className="text-[9px] font-semibold text-primary/70 uppercase tracking-wider mb-2">Recent Lines</p>
-              <div className="space-y-1.5">
+              <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                <TrendingUp className="h-3 w-3" />
+                Recent Lines
+              </h4>
+              <div className="space-y-1">
                 {recentLines.map((line, i) => (
-                  <div key={i} className="cosmic-card rounded-lg p-2.5 flex items-center justify-between">
+                  <div key={i} className="cosmic-card rounded-lg p-2 flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <span className="text-[10px] text-muted-foreground w-14">
+                      <span className="text-[10px] text-muted-foreground w-12">
                         {new Date(line.date).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
                       </span>
                       <span className="text-xs font-semibold">
@@ -203,8 +213,8 @@ export function TeamOddsSection({ abbr, league }: TeamOddsSectionProps) {
                       {line.spread !== null && (
                         <div>
                           <p className="text-[8px] text-muted-foreground uppercase">Spread</p>
-                          <p className={cn("text-[11px] font-semibold tabular-nums", 
-                            line.coveredSpread === true ? "text-cosmic-green" : 
+                          <p className={cn("text-[11px] font-semibold tabular-nums",
+                            line.coveredSpread === true ? "text-cosmic-green" :
                             line.coveredSpread === false ? "text-cosmic-red" : ""
                           )}>
                             {line.spread > 0 ? "+" : ""}{line.spread}
@@ -215,7 +225,7 @@ export function TeamOddsSection({ abbr, league }: TeamOddsSectionProps) {
                         <div>
                           <p className="text-[8px] text-muted-foreground uppercase">Total</p>
                           <p className={cn("text-[11px] font-semibold tabular-nums",
-                            line.wentOver === true ? "text-cosmic-green" : 
+                            line.wentOver === true ? "text-cosmic-green" :
                             line.wentOver === false ? "text-cosmic-red" : ""
                           )}>
                             {line.total} {line.wentOver !== null ? (line.wentOver ? "O" : "U") : ""}
@@ -237,16 +247,18 @@ export function TeamOddsSection({ abbr, league }: TeamOddsSectionProps) {
             </div>
           )}
 
-          {/* Line Movement for Upcoming Games */}
+          {/* Upcoming Lines */}
           {upcomingOdds && upcomingOdds.length > 0 && (
             <div>
-              <p className="text-[9px] font-semibold text-primary/70 uppercase tracking-wider mb-2">Upcoming Lines</p>
-              <div className="space-y-1.5">
+              <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                <Calendar className="h-3 w-3" />
+                Upcoming Lines
+              </h4>
+              <div className="space-y-1">
                 {upcomingOdds.map((g) => {
                   const isHome = g.home_abbr === abbr;
                   const opp = isHome ? g.away_abbr : g.home_abbr;
-                  
-                  // Get latest odds per market type
+
                   const latestML = g.odds.filter((o: any) => o.market_type === "moneyline").pop();
                   const latestSpread = g.odds.filter((o: any) => o.market_type === "spread").pop();
                   const latestTotal = g.odds.filter((o: any) => o.market_type === "total").pop();
@@ -256,9 +268,9 @@ export function TeamOddsSection({ abbr, league }: TeamOddsSectionProps) {
                   const totalLine = latestTotal?.line ?? null;
 
                   return (
-                    <div key={g.id} className="cosmic-card rounded-lg p-2.5 flex items-center justify-between">
+                    <div key={g.id} className="cosmic-card rounded-lg p-2 flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <span className="text-[10px] text-muted-foreground w-14">
+                        <span className="text-[10px] text-muted-foreground w-12">
                           {new Date(g.start_time).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
                         </span>
                         <span className="text-xs font-semibold">
@@ -301,6 +313,31 @@ export function TeamOddsSection({ abbr, league }: TeamOddsSectionProps) {
   );
 }
 
+/** Match odds with ±1 day tolerance and team name/abbr matching */
+function findMatchingOdds(
+  odds: OddsRecord[],
+  dateStr: string,
+  isHome: boolean,
+  fullName: string,
+  abbr: string
+): OddsRecord[] {
+  const datesToCheck = [dateStr, shiftDate(dateStr, -1), shiftDate(dateStr, 1)];
+
+  return odds.filter((o) => {
+    const matchesDate = datesToCheck.includes(o.snapshot_date);
+    if (!matchesDate) return false;
+
+    // Try full name match first, then abbr-based match
+    if (isHome) {
+      return o.home_team === fullName ||
+        o.home_team.toLowerCase().includes(abbr.toLowerCase());
+    } else {
+      return o.away_team === fullName ||
+        o.away_team.toLowerCase().includes(abbr.toLowerCase());
+    }
+  });
+}
+
 function computeRecords(
   games: GameWithResult[],
   odds: OddsRecord[],
@@ -316,22 +353,14 @@ function computeRecords(
     const isHome = game.home_abbr === abbr;
     const dateStr = game.start_time.split("T")[0];
 
-    // Find matching odds by date and teams
-    const matchingOdds = odds.filter((o) => {
-      const matchesDate = o.snapshot_date === dateStr;
-      const matchesTeam = isHome
-        ? o.home_team === fullName
-        : o.away_team === fullName;
-      return matchesDate && matchesTeam;
-    });
+    const matchingOdds = findMatchingOdds(odds, dateStr, isHome, fullName, abbr);
 
     // Spread ATS
     const spreadOdds = matchingOdds.find((o) => o.market_type === "spread" && o.line != null);
     if (spreadOdds && spreadOdds.line != null) {
-      // line is from home perspective
       const homeMargin = game.home_score - game.away_score;
-      const spreadResult = homeMargin + spreadOdds.line; // home covers if > 0
-      
+      const spreadResult = homeMargin + spreadOdds.line;
+
       if (isHome) {
         if (spreadResult > 0) ats.wins++;
         else if (spreadResult < 0) ats.losses++;
@@ -369,13 +398,7 @@ function getRecentLines(
     const opp = isHome ? game.away_abbr : game.home_abbr;
     const dateStr = game.start_time.split("T")[0];
 
-    const matchingOdds = odds.filter((o) => {
-      const matchesDate = o.snapshot_date === dateStr;
-      const matchesTeam = isHome
-        ? o.home_team === fullName
-        : o.away_team === fullName;
-      return matchesDate && matchesTeam;
-    });
+    const matchingOdds = findMatchingOdds(odds, dateStr, isHome, fullName, abbr);
 
     const spreadOdd = matchingOdds.find((o) => o.market_type === "spread");
     const totalOdd = matchingOdds.find((o) => o.market_type === "total");
@@ -385,7 +408,6 @@ function getRecentLines(
     const oppScore = isHome ? game.away_score : game.home_score;
     const won = teamScore != null && oppScore != null && teamScore > oppScore;
 
-    // ATS result
     let coveredSpread: boolean | null = null;
     const spreadLine = spreadOdd?.line != null
       ? (isHome ? spreadOdd.line : -spreadOdd.line)
@@ -397,7 +419,6 @@ function getRecentLines(
       coveredSpread = isHome ? spreadResult > 0 : spreadResult < 0;
     }
 
-    // O/U result
     let wentOver: boolean | null = null;
     if (totalOdd?.line != null && game.home_score != null && game.away_score != null) {
       const actualTotal = game.home_score + game.away_score;

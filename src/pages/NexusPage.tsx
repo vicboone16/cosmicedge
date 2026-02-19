@@ -42,30 +42,68 @@ function PlayersTab() {
     enabled: query.length >= 2,
   });
 
-  // Trending players (those with most recent prop activity)
+  // Trending players — 3-tier fallback
   const { data: trending } = useQuery({
     queryKey: ["nexus-trending-players"],
     queryFn: async () => {
-      const { data } = await supabase
+      // Tier 1: player_props frequency
+      const { data: propsData } = await supabase
         .from("player_props")
         .select("player_name, game_id")
         .order("captured_at", { ascending: false })
         .limit(200);
-      if (!data) return [];
-      const counts = new Map<string, number>();
-      for (const row of data) {
-        counts.set(row.player_name, (counts.get(row.player_name) || 0) + 1);
+      if (propsData && propsData.length >= 10) {
+        const counts = new Map<string, number>();
+        for (const row of propsData) {
+          counts.set(row.player_name, (counts.get(row.player_name) || 0) + 1);
+        }
+        const sorted = Array.from(counts.entries()).sort((a, b) => b[1] - a[1]).slice(0, 12);
+        const names = sorted.map(([n]) => n);
+        const { data: playerRows } = await supabase
+          .from("players")
+          .select("id, name, team, position, league, headshot_url")
+          .in("name", names)
+          .limit(12);
+        if (playerRows && playerRows.length >= 10) return playerRows;
       }
-      const sorted = Array.from(counts.entries()).sort((a, b) => b[1] - a[1]).slice(0, 12);
-      const names = sorted.map(([n]) => n);
-      // Look up player IDs
-      const { data: playerRows } = await supabase
+
+      // Tier 2: recent game stats composite score
+      const { data: statsData } = await supabase
+        .from("player_game_stats")
+        .select("player_id, points, rebounds, assists, steals, blocks, turnovers, game_id")
+        .order("created_at", { ascending: false })
+        .limit(500);
+      if (statsData && statsData.length >= 10) {
+        const scores = new Map<string, { total: number; count: number }>();
+        for (const s of statsData) {
+          const composite = (s.points || 0) + (s.rebounds || 0) + (s.assists || 0) + (s.steals || 0) + (s.blocks || 0) - (s.turnovers || 0);
+          const prev = scores.get(s.player_id) || { total: 0, count: 0 };
+          scores.set(s.player_id, { total: prev.total + composite, count: prev.count + 1 });
+        }
+        const ranked = Array.from(scores.entries())
+          .map(([id, { total, count }]) => ({ id, avg: total / count }))
+          .sort((a, b) => b.avg - a.avg)
+          .slice(0, 12);
+        const ids = ranked.map((r) => r.id);
+        const { data: playerRows } = await supabase
+          .from("players")
+          .select("id, name, team, position, league, headshot_url")
+          .in("id", ids)
+          .limit(12);
+        if (playerRows && playerRows.length >= 10) return playerRows;
+      }
+
+      // Tier 3: guaranteed fallback — NBA players with headshots
+      const { data: fallback } = await supabase
         .from("players")
         .select("id, name, team, position, league, headshot_url")
-        .in("name", names)
+        .eq("league", "NBA")
+        .not("headshot_url", "is", null)
+        .order("name")
         .limit(12);
-      return playerRows || [];
+      return fallback || [];
     },
+    staleTime: 5 * 60_000,
   });
 
   const showResults = query.length >= 2 && players && players.length > 0;
@@ -146,6 +184,7 @@ function PlayersTab() {
 function TeamsTab() {
   const navigate = useNavigate();
   const [league, setLeague] = useState("NBA");
+  const [expandedTeam, setExpandedTeam] = useState<string | null>(null);
 
   const { data: teams, isLoading } = useQuery({
     queryKey: ["nexus-teams", league],
@@ -156,7 +195,6 @@ function TeamsTab() {
         .eq("league", league)
         .order("season", { ascending: false })
         .limit(50);
-      // Dedupe by team_abbr
       const seen = new Set<string>();
       return (data || []).filter(t => {
         if (seen.has(t.team_abbr)) return false;
@@ -164,21 +202,57 @@ function TeamsTab() {
         return true;
       });
     },
+    staleTime: 5 * 60_000,
+    refetchInterval: 3 * 60_000,
   });
 
-  // Derive recent form from standings streak field
-  const teamRecent = useMemo(() => {
-    const map = new Map<string, ("W" | "L")[]>();
-    for (const t of teams || []) {
-      if (!t.streak) continue;
-      const match = t.streak.match(/^([WL])(\d+)$/i);
-      if (!match) continue;
-      const result = match[1].toUpperCase() as "W" | "L";
-      const count = Math.min(parseInt(match[2], 10), 5);
-      map.set(t.team_abbr, Array(count).fill(result));
+  // Fetch last 5 results from actual games
+  const teamAbbrs = useMemo(() => (teams || []).map(t => t.team_abbr), [teams]);
+
+  const { data: recentGames } = useQuery({
+    queryKey: ["nexus-teams-recent-games", league, teamAbbrs],
+    queryFn: async () => {
+      if (!teamAbbrs.length) return [];
+      const { data } = await supabase
+        .from("games")
+        .select("id, home_abbr, away_abbr, home_score, away_score, start_time, status")
+        .eq("league", league)
+        .in("status", ["final", "Final", "Final/OT"])
+        .order("start_time", { ascending: false })
+        .limit(500);
+      return data || [];
+    },
+    enabled: teamAbbrs.length > 0,
+    staleTime: 5 * 60_000,
+    refetchInterval: 3 * 60_000,
+  });
+
+  // Build last-5 W/L map from real game results
+  const teamLast5 = useMemo(() => {
+    const map = new Map<string, { result: "W" | "L"; score: string; opp: string; date: string; id: string }[]>();
+    if (!recentGames) return map;
+
+    for (const abbr of teamAbbrs) {
+      const teamGames = recentGames
+        .filter(g => g.home_abbr === abbr || g.away_abbr === abbr)
+        .slice(0, 5);
+
+      map.set(abbr, teamGames.map(g => {
+        const isHome = g.home_abbr === abbr;
+        const teamScore = isHome ? g.home_score : g.away_score;
+        const oppScore = isHome ? g.away_score : g.home_score;
+        const won = (teamScore ?? 0) > (oppScore ?? 0);
+        return {
+          result: won ? "W" as const : "L" as const,
+          score: `${teamScore ?? 0}-${oppScore ?? 0}`,
+          opp: isHome ? g.away_abbr : g.home_abbr,
+          date: new Date(g.start_time).toLocaleDateString(undefined, { month: "short", day: "numeric" }),
+          id: g.id,
+        };
+      }));
     }
     return map;
-  }, [teams]);
+  }, [recentGames, teamAbbrs]);
 
   return (
     <div className="space-y-4">
@@ -186,7 +260,7 @@ function TeamsTab() {
         {["NBA", "NHL", "NFL", "MLB"].map(lg => (
           <button
             key={lg}
-            onClick={() => setLeague(lg)}
+            onClick={() => { setLeague(lg); setExpandedTeam(null); }}
             className={cn(
               "px-3 py-1.5 rounded-full text-xs font-semibold transition-colors whitespace-nowrap",
               league === lg
@@ -206,30 +280,73 @@ function TeamsTab() {
       ) : (
         <div className="grid grid-cols-2 gap-2">
           {teams.map(t => {
-            const recent = teamRecent.get(t.team_abbr) || [];
+            const last5 = teamLast5.get(t.team_abbr) || [];
+            const isExpanded = expandedTeam === t.team_abbr;
+            // Pad to 5 dots if fewer
+            const dots: ("W" | "L" | null)[] = [];
+            for (let i = 0; i < 5; i++) {
+              const idx = last5.length - 5 + i; // oldest first
+              dots.push(idx >= 0 ? last5[idx].result : null);
+            }
+            // Reverse last5 for drill-down (most recent on top)
+            const drillDown = [...last5];
+
             return (
-              <button
-                key={t.team_abbr}
-                onClick={() => navigate(`/team/${t.league}/${t.team_abbr}`)}
-                className="cosmic-card rounded-xl p-3 text-left hover:border-primary/30 transition-colors"
-              >
-                <p className="text-sm font-bold text-foreground">{t.team_abbr}</p>
-                <p className="text-[10px] text-muted-foreground truncate">{t.team_name}</p>
-                <div className="flex items-center gap-1 mt-2">
-                  <span className="text-xs font-semibold tabular-nums">{t.wins ?? 0}-{t.losses ?? 0}</span>
-                  <div className="flex gap-0.5 ml-auto">
-                    {recent.map((r, i) => (
-                      <span
-                        key={i}
-                        className={cn(
-                          "h-2 w-2 rounded-full",
-                          r === "W" ? "bg-cosmic-green" : "bg-cosmic-red"
-                        )}
-                      />
-                    ))}
+              <div key={t.team_abbr} className="flex flex-col">
+                <button
+                  onClick={() => setExpandedTeam(isExpanded ? null : t.team_abbr)}
+                  className="cosmic-card rounded-xl p-3 text-left hover:border-primary/30 transition-colors"
+                >
+                  <p className="text-sm font-bold text-foreground">{t.team_abbr}</p>
+                  <p className="text-[10px] text-muted-foreground truncate">{t.team_name}</p>
+                  <div className="flex items-center gap-1 mt-2">
+                    <span className="text-xs font-semibold tabular-nums">{t.wins ?? 0}-{t.losses ?? 0}</span>
+                    <div className="flex gap-0.5 ml-auto">
+                      {dots.map((d, i) => (
+                        <span
+                          key={i}
+                          className={cn(
+                            "h-2 w-2 rounded-full",
+                            d === "W" ? "bg-cosmic-green" : d === "L" ? "bg-cosmic-red" : "bg-muted"
+                          )}
+                        />
+                      ))}
+                    </div>
                   </div>
-                </div>
-              </button>
+                </button>
+                {/* Drill-down: last 5 scores */}
+                {isExpanded && drillDown.length > 0 && (
+                  <div className="mt-1 space-y-0.5 animate-in fade-in slide-in-from-top-1 duration-150">
+                    {drillDown.map((g, i) => (
+                      <button
+                        key={i}
+                        onClick={() => navigate(`/game/${g.id}`)}
+                        className="w-full flex items-center justify-between px-3 py-1.5 rounded-lg bg-secondary/40 hover:bg-secondary/70 transition-colors"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="text-[9px] text-muted-foreground w-10">{g.date}</span>
+                          <span className="text-[10px] text-foreground font-medium">vs {g.opp}</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[10px] font-semibold tabular-nums">{g.score}</span>
+                          <span className={cn(
+                            "text-[9px] font-bold",
+                            g.result === "W" ? "text-cosmic-green" : "text-cosmic-red"
+                          )}>
+                            {g.result}
+                          </span>
+                        </div>
+                      </button>
+                    ))}
+                    <button
+                      onClick={() => navigate(`/team/${league}/${t.team_abbr}`)}
+                      className="w-full text-center text-[10px] text-primary py-1 hover:underline"
+                    >
+                      View Full Team Page →
+                    </button>
+                  </div>
+                )}
+              </div>
             );
           })}
         </div>
@@ -238,16 +355,14 @@ function TeamsTab() {
   );
 }
 
-// ── Trends Tab (lazy-loads TrendsPage content) ──
+// ── Trends Tab ──
 import TrendsPage from "./TrendsPage";
-
 function TrendsTab() {
   return <TrendsPage />;
 }
 
-// ── History Tab (lazy-loads HistoricalPage content) ──
+// ── History Tab ──
 import HistoricalPage from "./HistoricalPage";
-
 function HistoryTab() {
   return <HistoricalPage />;
 }
