@@ -324,7 +324,6 @@ async function syncScoresAll(
   endRound: number,
 ) {
   let totalUpdated = 0;
-  let totalPeriods = 0;
   let totalEvents = 0;
   let totalSkipped = 0;
   const roundResults: any[] = [];
@@ -332,7 +331,6 @@ async function syncScoresAll(
   for (let r = startRound; r <= endRound; r++) {
     const result = await syncScores(apiKey, supabase, league, season, String(r));
     totalUpdated += result.games_updated;
-    totalPeriods += result.periods_upserted;
     totalEvents += result.events_fetched;
     totalSkipped += result.skipped;
     roundResults.push({ round: r, ...result });
@@ -346,7 +344,6 @@ async function syncScoresAll(
     rounds_processed: endRound - startRound + 1,
     total_events: totalEvents,
     total_updated: totalUpdated,
-    total_periods: totalPeriods,
     total_skipped: totalSkipped,
   };
 }
