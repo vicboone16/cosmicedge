@@ -14,7 +14,7 @@ const LEAGUE_IDS: Record<string, string> = {
 // Each league has one or more seasons to backfill
 const LEAGUE_SEASONS: Record<string, string[]> = {
   NBA: ["2024-2025", "2025-2026"],
-  NFL: ["2024-2025"],
+  NFL: ["2024", "2025"],
   NHL: ["2024-2025", "2025-2026"],
   MLB: ["2024", "2025"],
 };
@@ -111,15 +111,14 @@ async function backfillLeague(
   }
   log.push(`${league}: ${allGames.length} games in DB`);
 
-  // ── 3. Build lookup by home|away|date (±1 day window) ──────────────────
+  // ── 3. Build lookup by home|away|date (±2 day window) ──────────────────
   const gameIndex = new Map<string, any>();
   for (const g of allGames) {
     const d = g.start_time.split("T")[0];
     const dt = new Date(d);
-    const dayBefore = new Date(dt.getTime() - 86400000).toISOString().split("T")[0];
-    const dayAfter  = new Date(dt.getTime() + 86400000).toISOString().split("T")[0];
-    for (const date of [d, dayBefore, dayAfter]) {
-      const key = `${g.home_abbr}|${g.away_abbr}|${date}`;
+    for (let offset = -2; offset <= 2; offset++) {
+      const shifted = new Date(dt.getTime() + offset * 86400000).toISOString().split("T")[0];
+      const key = `${g.home_abbr}|${g.away_abbr}|${shifted}`;
       if (!gameIndex.has(key)) gameIndex.set(key, g);
     }
   }
