@@ -67,6 +67,8 @@ export default function AdminImportPage() {
   const [nbaTxtType, setNbaTxtType] = useState<string>("auto");
    const nbaSeasonRef = useRef<HTMLInputElement>(null);
    const nbaBoxscoreXlsxRef = useRef<HTMLInputElement>(null);
+   const playerGamelogHtmlRef = useRef<HTMLInputElement>(null);
+   const [playerGamelogName, setPlayerGamelogName] = useState<string>("");
 
   // Game log coverage: which NBA teams have stats imported
   const [gameLogCoverage, setGameLogCoverage] = useState<Record<string, number>>({});
@@ -903,6 +905,80 @@ export default function AdminImportPage() {
               {loading ? "Importing..." : "Import NBA Team Data"}
             </Button>
           </div>
+        </Card>
+
+        {/* Player Game Log HTML Import (Basketball Reference) */}
+        <Card className="p-4 space-y-3">
+          <h2 className="text-sm font-semibold text-foreground">🏀 Player Game Log Import (Basketball Reference)</h2>
+          <p className="text-xs text-muted-foreground">
+            Upload .xls player game log files exported from Basketball Reference. Enter the player name, or upload multiple files
+            with player names embedded in filenames (e.g., "LeBron_James.xls"). Supports single or bulk upload.
+          </p>
+          <p className="text-xs text-muted-foreground italic">
+            💡 Go to a player's page → Game Log → "Share &amp; Export" → download as .xls
+          </p>
+          <div className="flex gap-3 items-center flex-wrap">
+            <input
+              type="text"
+              placeholder="Player name (e.g., LeBron James)"
+              value={playerGamelogName}
+              onChange={(e) => setPlayerGamelogName(e.target.value)}
+              className="h-9 w-56 rounded-md border border-input bg-background px-3 text-xs"
+            />
+            <input ref={playerGamelogHtmlRef} type="file" accept=".xls,.xlsx,.html" multiple className="text-xs" />
+            <Button onClick={async () => {
+              const files = playerGamelogHtmlRef.current?.files;
+              if (!files || files.length === 0) { addLog("No files selected"); return; }
+              setLoading(true);
+
+              for (let f = 0; f < files.length; f++) {
+                const file = files[f];
+                // Derive player name: use input field, or try to parse from filename
+                let pName = playerGamelogName.trim();
+                if (!pName && files.length > 0) {
+                  // Try filename: "LeBron_James.xls" → "LeBron James"
+                  pName = file.name.replace(/\.(xls|xlsx|html)$/i, "").replace(/[_-]/g, " ").replace(/sportsref download \d+/i, "").trim();
+                }
+                if (!pName) {
+                  addLog(`❌ ${file.name}: No player name provided and couldn't derive from filename`);
+                  continue;
+                }
+
+                addLog(`Importing ${pName}: ${file.name}`);
+                try {
+                  const htmlContent = await file.text();
+                  const { data: { session } } = await supabase.auth.getSession();
+                  const res = await fetch(
+                    `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/import-player-gamelog-html`,
+                    {
+                      method: "POST",
+                      headers: {
+                        Authorization: `Bearer ${session?.access_token}`,
+                        apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+                        "Content-Type": "application/json",
+                      },
+                      body: JSON.stringify({ player_name: pName, html_content: htmlContent }),
+                    }
+                  );
+                  const result = await res.json();
+                  if (!res.ok || result.error) {
+                    addLog(`❌ ${pName}: ${result.error || "Upload failed"}`);
+                  } else {
+                    const pr = result.player_results?.[0];
+                    addLog(`✅ ${pName}: ${pr?.inserted || 0} games inserted, ${pr?.skipped || 0} skipped, ${result.games_not_found || 0} unmatched`);
+                    if (result.players_created > 0) addLog(`  ℹ️ Created new player record`);
+                    if (result.errors?.length) result.errors.slice(0, 5).forEach((e: string) => addLog(`  ⚠️ ${e}`));
+                  }
+                } catch (e: any) { addLog(`❌ ${pName}: ${e.message}`); }
+              }
+              setLoading(false);
+            }} disabled={loading} variant="default">
+              {loading ? "Importing..." : "Import Player Game Logs"}
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            For bulk import: leave player name blank, name files like "PlayerName.xls". For single player: enter name and upload one file.
+          </p>
         </Card>
 
         {/* Manual Player Stats Entry */}
