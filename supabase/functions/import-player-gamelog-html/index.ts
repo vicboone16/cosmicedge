@@ -254,8 +254,8 @@ Deno.serve(async (req) => {
 function parsePlayerGameLog(html: string): Record<string, string>[] {
   const rows: Record<string, string>[] = [];
 
-  // Try <tr data-row="N"> first, fall back to any <tr> containing data-stat cells
-  let trRegex = /<tr\s+data-row="\d+"[^>]*>([\s\S]*?)<\/tr>/g;
+  // Try <tr ...data-row="N"...> first (data-row may not be the first attribute)
+  let trRegex = /<tr\s[^>]*data-row="\d+"[^>]*>([\s\S]*?)<\/tr>/g;
   let hasDataRows = trRegex.test(html);
   trRegex.lastIndex = 0; // reset after test
 
