@@ -40,10 +40,26 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Input validation: file size limit (10MB)
+    const MAX_FILE_SIZE = 10 * 1024 * 1024;
+    if (file.size > MAX_FILE_SIZE) {
+      return new Response(JSON.stringify({ error: "File too large. Maximum 10MB." }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const text = await file.text();
     const lines = text.trim().replace(/^\uFEFF/, "").split("\n");
     if (lines.length < 2) {
       return new Response(JSON.stringify({ error: "CSV has no data rows" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Input validation: row count limit
+    const MAX_ROWS = 50000;
+    if (lines.length > MAX_ROWS) {
+      return new Response(JSON.stringify({ error: `Too many rows. Maximum ${MAX_ROWS}.` }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
