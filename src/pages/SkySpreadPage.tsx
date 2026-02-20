@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { Star, Filter, ArrowUpDown, CheckSquare, Square, Zap, TrendingUp, AlertTriangle, ChevronDown, ChevronUp, Pin, PinOff, Trash2, CheckCircle, RefreshCw, Wallet, DollarSign } from "lucide-react";
+import { Star, Filter, ArrowUpDown, CheckSquare, Square, Zap, TrendingUp, AlertTriangle, ChevronDown, ChevronUp, Pin, PinOff, Trash2, CheckCircle, RefreshCw, Wallet, DollarSign, Edit2 } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
@@ -367,6 +367,19 @@ const SkySpreadPage = () => {
     queryClient.invalidateQueries({ queryKey: ["live-board"] });
   };
 
+  const handleDeleteBet = async (betId: string) => {
+    // Remove from live board first (FK constraint)
+    await supabase.from("live_board_items").delete().eq("bet_id", betId);
+    const { error } = await supabase.from("bets").delete().eq("id", betId);
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Bet deleted" });
+      queryClient.invalidateQueries({ queryKey: ["skyspread-bets"] });
+      queryClient.invalidateQueries({ queryKey: ["live-board"] });
+    }
+  };
+
   const handleTogglePin = async (item: LiveBoardItem) => {
     await supabase.from("live_board_items").update({ is_pinned: !item.is_pinned }).eq("id", item.id);
     queryClient.invalidateQueries({ queryKey: ["live-board"] });
@@ -709,6 +722,21 @@ const SkySpreadPage = () => {
                       {bet.book && (
                         <p className="text-[10px] text-muted-foreground">Book: {bet.book}</p>
                       )}
+
+                      {/* Delete action */}
+                      <div className="flex items-center gap-3 pt-2 border-t border-border/30">
+                        <button
+                          onClick={() => {
+                            if (window.confirm("Delete this bet? This cannot be undone.")) {
+                              handleDeleteBet(bet.id);
+                            }
+                          }}
+                          className="flex items-center gap-1 text-[10px] text-destructive hover:text-destructive/80 transition-colors"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                          Delete Bet
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>
