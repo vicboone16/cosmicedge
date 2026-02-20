@@ -7,6 +7,63 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { TeamOddsSection } from "@/components/team/TeamOddsSection";
 
+const ABBR_TO_FULL: Record<string, string> = {
+  ATL: "Atlanta Hawks", BOS: "Boston Celtics", BKN: "Brooklyn Nets",
+  CHA: "Charlotte Hornets", CHI: "Chicago Bulls", CLE: "Cleveland Cavaliers",
+  DAL: "Dallas Mavericks", DEN: "Denver Nuggets", DET: "Detroit Pistons",
+  GSW: "Golden State Warriors", HOU: "Houston Rockets", IND: "Indiana Pacers",
+  LAC: "Los Angeles Clippers", LAL: "Los Angeles Lakers", MEM: "Memphis Grizzlies",
+  MIA: "Miami Heat", MIL: "Milwaukee Bucks", MIN: "Minnesota Timberwolves",
+  NOP: "New Orleans Pelicans", NYK: "New York Knicks", OKC: "Oklahoma City Thunder",
+  ORL: "Orlando Magic", PHI: "Philadelphia 76ers", PHX: "Phoenix Suns",
+  POR: "Portland Trail Blazers", SAC: "Sacramento Kings", SAS: "San Antonio Spurs",
+  TOR: "Toronto Raptors", UTA: "Utah Jazz", WAS: "Washington Wizards",
+};
+
+function shiftDate(dateStr: string, days: number): string {
+  const d = new Date(dateStr + "T12:00:00Z");
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().split("T")[0];
+}
+
+function getGameOutcomes(
+  game: any,
+  odds: any[],
+  teamAbbr: string,
+  teamFullName: string
+): { ats: string | null; ou: string | null } {
+  if (!game.home_score || !game.away_score) return { ats: null, ou: null };
+  const isHome = game.home_abbr === teamAbbr;
+  const dateStr = game.start_time.split("T")[0];
+  const datesToCheck = [dateStr, shiftDate(dateStr, -1), shiftDate(dateStr, 1)];
+
+  const matching = odds.filter((o) => {
+    if (!datesToCheck.includes(o.snapshot_date)) return false;
+    if (isHome) return o.home_team === teamFullName || o.home_team?.toLowerCase().includes(teamAbbr.toLowerCase());
+    return o.away_team === teamFullName || o.away_team?.toLowerCase().includes(teamAbbr.toLowerCase());
+  });
+
+  let ats: string | null = null;
+  const spreadOdd = matching.find((o) => o.market_type === "spread" && o.line != null);
+  if (spreadOdd) {
+    const homeMargin = game.home_score - game.away_score;
+    const spreadResult = homeMargin + spreadOdd.line;
+    if (isHome) ats = spreadResult > 0 ? "✓" : spreadResult < 0 ? "✗" : "P";
+    else ats = spreadResult < 0 ? "✓" : spreadResult > 0 ? "✗" : "P";
+  }
+
+  let ou: string | null = null;
+  const totalOdd = matching.find((o) => o.market_type === "total" && o.line != null);
+  if (totalOdd) {
+    const actualTotal = game.home_score + game.away_score;
+    if (actualTotal > totalOdd.line) ou = "O";
+    else if (actualTotal < totalOdd.line) ou = "U";
+    else ou = "P";
+  }
+
+  return { ats, ou };
+}
+
 const ZODIAC_RANGES = [
   { sign: "Capricorn", symbol: "♑", m1: 1, d1: 1, m2: 1, d2: 19 },
   { sign: "Aquarius", symbol: "♒", m1: 1, d1: 20, m2: 2, d2: 18 },
@@ -102,6 +159,22 @@ const TeamPage = () => {
       const hasLive = games?.some((g) => g.status === "live");
       return hasLive ? 30_000 : 180_000;
     },
+  });
+
+  // Historical odds for outcome badges
+  const teamFullName = ABBR_TO_FULL[abbr || ""] || abbr || "";
+  const { data: recentOdds } = useQuery({
+    queryKey: ["team-recent-odds-badges", teamFullName],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("historical_odds")
+        .select("home_team, away_team, market_type, line, snapshot_date")
+        .or(`home_team.eq.${teamFullName},away_team.eq.${teamFullName}`)
+        .order("snapshot_date", { ascending: false })
+        .limit(500);
+      return data || [];
+    },
+    enabled: !!teamFullName,
   });
 
   // Upcoming scheduled games — only future
@@ -338,6 +411,7 @@ const TeamPage = () => {
                 const won = teamScore != null && oppScore != null && teamScore > oppScore;
                 const isLive = g.status === "live";
                 const dateStr = new Date(g.start_time).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+                const outcomes = !isLive ? getGameOutcomes(g, recentOdds || [], abbr!, teamFullName) : { ats: null, ou: null };
 
                 return (
                   <button
@@ -365,7 +439,26 @@ const TeamPage = () => {
                           {won ? "W" : "L"}
                         </span>
                       )}
-                      {!isLive && <span className="text-[9px] text-muted-foreground">FINAL</span>}
+                      {outcomes.ats && (
+                        <span className={cn(
+                          "text-[8px] font-bold px-1 py-0.5 rounded",
+                          outcomes.ats === "✓" ? "bg-cosmic-green/20 text-cosmic-green" :
+                          outcomes.ats === "✗" ? "bg-cosmic-red/20 text-cosmic-red" :
+                          "bg-muted text-muted-foreground"
+                        )}>
+                          ATS {outcomes.ats}
+                        </span>
+                      )}
+                      {outcomes.ou && (
+                        <span className={cn(
+                          "text-[8px] font-bold px-1 py-0.5 rounded",
+                          outcomes.ou === "O" ? "bg-cosmic-green/20 text-cosmic-green" :
+                          outcomes.ou === "U" ? "bg-cosmic-red/20 text-cosmic-red" :
+                          "bg-muted text-muted-foreground"
+                        )}>
+                          {outcomes.ou}
+                        </span>
+                      )}
                     </div>
                   </button>
                 );
