@@ -195,13 +195,15 @@ export default function CreateBetForm({ userId }: CreateBetFormProps) {
     if (isParlay) {
       const parlayOdds = calculateParlayOdds();
       if (!parlayOdds) return null;
+      // Profit = stake * (decimal - 1)
       const dec = americanToDecimal(parlayOdds);
-      return (stake * dec).toFixed(2);
+      return (stake * (dec - 1)).toFixed(2);
     } else {
       const odds = parseInt(legs[0]?.odds, 10);
       if (isNaN(odds)) return null;
-      const dec = americanToDecimal(odds);
-      return (stake * dec).toFixed(2);
+      // Profit only: for -120 on $100 → $83.33, for +150 on $100 → $150
+      if (odds > 0) return (stake * odds / 100).toFixed(2);
+      return (stake * 100 / Math.abs(odds)).toFixed(2);
     }
   }, [stakeAmount, legs, isParlay]);
 
@@ -245,6 +247,7 @@ export default function CreateBetForm({ userId }: CreateBetFormProps) {
     } else {
       const leg = legs[0];
       const game = games?.find(g => g.id === leg.gameId);
+      const toWin = projectedWin ? parseFloat(projectedWin) : null;
       const { error } = await supabase.from("bets").insert({
         user_id: userId, game_id: leg.gameId,
         home_team: game?.home_team ?? null, away_team: game?.away_team ?? null,
@@ -253,6 +256,7 @@ export default function CreateBetForm({ userId }: CreateBetFormProps) {
         line: leg.line ? parseFloat(leg.line) : null,
         odds: parseInt(leg.odds, 10), book: book || null,
         stake_amount: stakeAmount ? parseFloat(stakeAmount) : null,
+        to_win_amount: toWin,
         stake_unit: stakeUnit, confidence: confidence[0], edge_score: edgeScore[0],
         why_summary: whySummary || null, notes: notes || null,
       });
