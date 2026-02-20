@@ -13,6 +13,12 @@ import PropBuilderDialog from "@/components/skyspread/PropBuilderDialog";
 import BankrollTab from "@/components/skyspread/BankrollTab";
 import { TrackedPropsWidget } from "@/components/tracking/TrackedProps";
 import { toast } from "@/hooks/use-toast";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Slider } from "@/components/ui/slider";
+import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
 
 type BetRow = Tables<"bets">;
 type LiveBoardItem = Tables<"live_board_items">;
@@ -88,6 +94,116 @@ function getTrackingStatus(bet: BetRow, snapshot?: SnapshotRow | null): { label:
       : { label: "Sweating", color: "text-cosmic-gold", icon: TrendingUp };
   }
   return { label: "Pregame", color: "text-cosmic-cyan", icon: Star };
+}
+
+function EditBetInline({ bet, onSaved, onCancel }: { bet: BetRow; onSaved: () => void; onCancel: () => void }) {
+  const [selection, setSelection] = useState(bet.selection || "");
+  const [side, setSide] = useState(bet.side || "");
+  const [line, setLine] = useState(String(bet.line ?? ""));
+  const [odds, setOdds] = useState(String(bet.odds ?? ""));
+  const [stakeAmount, setStakeAmount] = useState(String(bet.stake_amount ?? bet.stake ?? ""));
+  const [confidence, setConfidence] = useState([bet.confidence ?? 50]);
+  const [edgeScore, setEdgeScore] = useState([bet.edge_score ?? 50]);
+  const [notes, setNotes] = useState(bet.notes || "");
+  const [whySummary, setWhySummary] = useState(bet.why_summary || "");
+  const [book, setBook] = useState(bet.book || "");
+  const [result, setResult] = useState(bet.result || "");
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = async () => {
+    setSaving(true);
+    const update: Record<string, any> = {
+      selection, side: side || null,
+      line: line ? parseFloat(line) : null,
+      odds: parseInt(odds, 10) || bet.odds,
+      stake_amount: stakeAmount ? parseFloat(stakeAmount) : null,
+      confidence: confidence[0], edge_score: edgeScore[0],
+      notes: notes || null, why_summary: whySummary || null, book: book || null,
+    };
+    if (result && result !== bet.result) {
+      update.result = result;
+      update.status = "settled";
+      update.settled_at = new Date().toISOString();
+    }
+    const { error } = await supabase.from("bets").update(update).eq("id", bet.id);
+    setSaving(false);
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Bet updated" });
+      onSaved();
+    }
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="space-y-1.5">
+        <Label className="text-xs">Selection</Label>
+        <Input value={selection} onChange={(e) => setSelection(e.target.value)} />
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <div className="space-y-1.5">
+          <Label className="text-xs">Side</Label>
+          <Input value={side} onChange={(e) => setSide(e.target.value)} placeholder="home/away/over/under" />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs">Line</Label>
+          <Input type="number" value={line} onChange={(e) => setLine(e.target.value)} />
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <div className="space-y-1.5">
+          <Label className="text-xs">Odds</Label>
+          <Input type="number" value={odds} onChange={(e) => setOdds(e.target.value)} />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs">Stake</Label>
+          <Input type="number" value={stakeAmount} onChange={(e) => setStakeAmount(e.target.value)} />
+        </div>
+      </div>
+      <div className="space-y-1.5">
+        <Label className="text-xs">Book</Label>
+        <Input value={book} onChange={(e) => setBook(e.target.value)} />
+      </div>
+      <div className="space-y-1.5">
+        <div className="flex items-center justify-between">
+          <Label className="text-xs">Confidence</Label>
+          <span className="text-[10px] text-muted-foreground tabular-nums">{confidence[0]}</span>
+        </div>
+        <Slider min={0} max={100} step={1} value={confidence} onValueChange={setConfidence} />
+      </div>
+      <div className="space-y-1.5">
+        <div className="flex items-center justify-between">
+          <Label className="text-xs">Edge Score</Label>
+          <span className="text-[10px] text-muted-foreground tabular-nums">{edgeScore[0]}</span>
+        </div>
+        <Slider min={0} max={100} step={1} value={edgeScore} onValueChange={setEdgeScore} />
+      </div>
+      <div className="space-y-1.5">
+        <Label className="text-xs">Manual Result</Label>
+        <div className="flex gap-1">
+          {["", "win", "loss", "push"].map(r => (
+            <button key={r} onClick={() => setResult(r)}
+              className={cn("text-[10px] font-semibold px-2.5 py-1 rounded-full transition-colors",
+                result === r ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground"
+              )}>{r || "None"}</button>
+          ))}
+        </div>
+      </div>
+      <div className="space-y-1.5">
+        <Label className="text-xs">Why Summary</Label>
+        <Textarea value={whySummary} onChange={(e) => setWhySummary(e.target.value)} rows={2} />
+      </div>
+      <div className="space-y-1.5">
+        <Label className="text-xs">Notes</Label>
+        <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
+      </div>
+      <div className="flex gap-2">
+        <Button variant="outline" onClick={onCancel} className="flex-1">Cancel</Button>
+        <Button onClick={handleSave} disabled={saving} className="flex-1">{saving ? "Saving..." : "Save Changes"}</Button>
+      </div>
+    </div>
+  );
 }
 
 function LiveCard({ item, onRemove, onTogglePin }: {
@@ -189,12 +305,14 @@ const SkySpreadPage = () => {
   const { user } = useAuth();
   const userId = user?.id ?? null;
   const [activeTab, setActiveTab] = useState<"ledger" | "bankroll">("ledger");
+  const [ledgerTab, setLedgerTab] = useState<"open" | "settled">("open");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [sortBy, setSortBy] = useState<string>("confidence");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [showLive, setShowLive] = useState(true);
+  const [editingBet, setEditingBet] = useState<BetRow | null>(null);
   const settledRef = useRef<Set<string>>(new Set());
 
   // Subscribe to realtime score updates + auto-settle notifications
@@ -291,19 +409,19 @@ const SkySpreadPage = () => {
 
   // Bets
   const { data: bets, isLoading, refetch } = useQuery({
-    queryKey: ["skyspread-bets", userId, statusFilter],
+    queryKey: ["skyspread-bets", userId],
     queryFn: async () => {
       if (!userId) return [];
-      let query = supabase.from("bets").select("*").eq("user_id", userId).limit(2000);
-      if (statusFilter !== "all") {
-        query = query.eq("status", statusFilter);
-      }
-      const { data, error } = await query.order("created_at", { ascending: false });
+      const { data, error } = await supabase.from("bets").select("*").eq("user_id", userId).limit(2000).order("created_at", { ascending: false });
       if (error) throw error;
       return (data || []) as BetRow[];
     },
     enabled: !!userId,
   });
+
+  // Filter bets by ledger tab
+  const isSettledBet = (b: BetRow) => b.status === "settled" || b.status === "won" || b.status === "lost" || b.status === "push" || b.status === "void";
+  const filteredBets = (bets || []).filter(b => ledgerTab === "settled" ? isSettledBet(b) : !isSettledBet(b));
 
   // Fetch live game data for all bet game_ids
   const betGameIds = [...new Set(bets?.map(b => b.game_id).filter(Boolean) || [])];
@@ -324,18 +442,18 @@ const SkySpreadPage = () => {
     refetchInterval: 15_000,
   });
 
-  const sortedBets = [...(bets || [])].sort((a, b) => {
+  const sortedBets = [...filteredBets].sort((a, b) => {
     if (sortBy === "confidence") return (b.confidence ?? 0) - (a.confidence ?? 0);
     if (sortBy === "edge_score") return (b.edge_score ?? 0) - (a.edge_score ?? 0);
     if (sortBy === "start_time") return new Date(a.start_time || a.created_at).getTime() - new Date(b.start_time || b.created_at).getTime();
     return 0;
   });
 
-  const openCount = bets?.filter(b => b.status === "open").length || 0;
+  const openCount = bets?.filter(b => !isSettledBet(b) && (b.status === "open")).length || 0;
   const liveCount = bets?.filter(b => b.status === "live").length || 0;
-  const settledToday = bets?.filter(b => b.settled_at && new Date(b.settled_at).toDateString() === new Date().toDateString()).length || 0;
-  const bestEdge = bets?.reduce((max, b) => Math.max(max, b.edge_score ?? 0), 0) || 0;
-  const riskiest = bets?.reduce((max, b) => {
+  const settledCount = bets?.filter(b => isSettledBet(b)).length || 0;
+  const bestEdge = filteredBets.reduce((max, b) => Math.max(max, b.edge_score ?? 0), 0) || 0;
+  const riskiest = filteredBets.reduce((max, b) => {
     const v = typeof b.volatility === "string" ? (b.volatility === "High" ? 90 : b.volatility === "Med" ? 60 : 30) : 50;
     return Math.max(max, v);
   }, 0) || 0;
@@ -487,20 +605,26 @@ const SkySpreadPage = () => {
           </section>
         )}
 
-        {/* Filters */}
-        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
-          {["all", "open", "live", "won", "lost", "push", "void"].map(s => (
-            <button
-              key={s}
-              onClick={() => setStatusFilter(s)}
-              className={cn(
-                "text-[10px] font-semibold uppercase tracking-wider px-2.5 py-1 rounded-full transition-colors whitespace-nowrap",
-                statusFilter === s ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground"
-              )}
-            >
-              {s}
-            </button>
-          ))}
+        {/* Open / Settled Sub-Tabs */}
+        <div className="flex gap-1">
+          <button
+            onClick={() => setLedgerTab("open")}
+            className={cn(
+              "flex-1 py-1.5 rounded-lg text-xs font-semibold transition-colors",
+              ledgerTab === "open" ? "bg-cosmic-cyan/20 text-cosmic-cyan border border-cosmic-cyan/30" : "bg-secondary/60 text-muted-foreground hover:text-foreground"
+            )}
+          >
+            Open ({openCount + liveCount})
+          </button>
+          <button
+            onClick={() => setLedgerTab("settled")}
+            className={cn(
+              "flex-1 py-1.5 rounded-lg text-xs font-semibold transition-colors",
+              ledgerTab === "settled" ? "bg-cosmic-green/20 text-cosmic-green border border-cosmic-green/30" : "bg-secondary/60 text-muted-foreground hover:text-foreground"
+            )}
+          >
+            Settled ({settledCount})
+          </button>
         </div>
 
         {/* Sort */}
@@ -525,7 +649,7 @@ const SkySpreadPage = () => {
           {[
             { label: "Open", val: openCount, color: "text-cosmic-cyan" },
             { label: "Live", val: liveCount, color: "text-cosmic-green" },
-            { label: "Settled", val: settledToday, color: "text-foreground" },
+            { label: "Settled", val: settledCount, color: "text-foreground" },
             { label: "Best Edge", val: bestEdge, color: "text-cosmic-gold" },
             { label: "Riskiest", val: riskiest, color: "text-cosmic-red" },
           ].map(s => (
@@ -723,15 +847,22 @@ const SkySpreadPage = () => {
                         <p className="text-[10px] text-muted-foreground">Book: {bet.book}</p>
                       )}
 
-                      {/* Delete action */}
+                      {/* Edit & Delete actions */}
                       <div className="flex items-center gap-3 pt-2 border-t border-border/30">
+                        <button
+                          onClick={() => { setEditingBet(bet); }}
+                          className="flex items-center gap-1 text-[10px] text-primary hover:text-primary/80 transition-colors"
+                        >
+                          <Edit2 className="h-3 w-3" />
+                          Edit Bet
+                        </button>
                         <button
                           onClick={() => {
                             if (window.confirm("Delete this bet? This cannot be undone.")) {
                               handleDeleteBet(bet.id);
                             }
                           }}
-                          className="flex items-center gap-1 text-[10px] text-destructive hover:text-destructive/80 transition-colors"
+                          className="flex items-center gap-1 text-[10px] text-destructive hover:text-destructive/80 transition-colors ml-auto"
                         >
                           <Trash2 className="h-3 w-3" />
                           Delete Bet
@@ -770,6 +901,25 @@ const SkySpreadPage = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Edit Bet Dialog */}
+      {editingBet && (
+        <Dialog open={!!editingBet} onOpenChange={(o) => { if (!o) setEditingBet(null); }}>
+          <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="font-display">Edit Bet</DialogTitle>
+            </DialogHeader>
+            <EditBetInline
+              bet={editingBet}
+              onSaved={() => {
+                setEditingBet(null);
+                queryClient.invalidateQueries({ queryKey: ["skyspread-bets"] });
+              }}
+              onCancel={() => setEditingBet(null)}
+            />
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   );
