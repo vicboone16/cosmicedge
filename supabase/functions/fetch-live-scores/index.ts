@@ -204,7 +204,7 @@ Deno.serve(async (req) => {
 
         // Upsert snapshot for live tracking
         if (match.status === "live" || match.status === "final") {
-          await supabase.from("game_state_snapshots").insert({
+          const { error: snapErr } = await supabase.from("game_state_snapshots").insert({
             game_id: game.id,
             status: match.status,
             home_score: match.homeScore,
@@ -212,6 +212,7 @@ Deno.serve(async (req) => {
             quarter: match.quarter,
             clock: match.clock,
           });
+          if (snapErr) console.error(`Snapshot insert error for ${game.id}: ${snapErr.message}`);
         }
 
         // Update games table
@@ -221,7 +222,9 @@ Deno.serve(async (req) => {
         if (match.status === "live" || match.status === "final") updateData.status = match.status;
 
         if (Object.keys(updateData).length > 0) {
-          await supabase.from("games").update(updateData).eq("id", game.id);
+          const { error: updateErr } = await supabase.from("games").update(updateData).eq("id", game.id);
+          if (updateErr) console.error(`Game update error for ${game.id}: ${updateErr.message}`);
+          else console.log(`Updated ${game.home_abbr} vs ${game.away_abbr}: ${JSON.stringify(updateData)}`);
         }
 
         updatedCount++;
