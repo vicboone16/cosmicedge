@@ -158,44 +158,58 @@ Deno.serve(async (req) => {
     }
 
     // Upsert games using external_id to avoid duplicates
+    // IMPORTANT: never overwrite non-null scores/status with null values
     let upserted = 0;
     for (const g of gameUpserts) {
+      let existing: { id: string; status: string; home_score: number | null } | null = null;
+
       if (g.external_id) {
-        // Check if game exists by external_id
-        const { data: existing } = await supabase
+        const { data } = await supabase
           .from("games")
-          .select("id")
+          .select("id, status, home_score")
           .eq("external_id", g.external_id as string)
           .maybeSingle();
+        existing = data;
+      }
 
-        if (existing) {
-          await supabase.from("games").update(g).eq("id", existing.id);
-        } else {
-          await supabase.from("games").insert(g);
-        }
-        upserted++;
-      } else {
+      if (!existing) {
         // Match by league + teams + date
         const startDate = g.start_time ? (g.start_time as string).split("T")[0] : null;
         if (startDate) {
-          const { data: existing } = await supabase
+          const { data } = await supabase
             .from("games")
-            .select("id")
+            .select("id, status, home_score")
             .eq("league", g.league as string)
             .eq("home_abbr", g.home_abbr as string)
             .eq("away_abbr", g.away_abbr as string)
             .gte("start_time", `${startDate}T00:00:00Z`)
             .lte("start_time", `${startDate}T23:59:59Z`)
             .maybeSingle();
-
-          if (existing) {
-            await supabase.from("games").update(g).eq("id", existing.id);
-          } else {
-            await supabase.from("games").insert(g);
-          }
-          upserted++;
+          existing = data;
         }
       }
+
+      if (existing) {
+        // Build safe update: never regress status or clear scores
+        const safeUpdate: Record<string, unknown> = { ...g };
+        const existingIsActive = existing.status === "live" || existing.status === "final";
+        const incomingIsScheduled = g.status === "scheduled";
+
+        // Don't overwrite live/final status with scheduled
+        if (existingIsActive && incomingIsScheduled) {
+          delete safeUpdate.status;
+        }
+        // Don't clear scores if they already exist
+        if (existing.home_score != null && g.home_score == null) {
+          delete safeUpdate.home_score;
+          delete safeUpdate.away_score;
+        }
+
+        await supabase.from("games").update(safeUpdate).eq("id", existing.id);
+      } else if (g.start_time) {
+        await supabase.from("games").insert(g);
+      }
+      upserted++;
     }
 
     console.log(`[sync-scoreboard] Processed ${allEvents.length} events, upserted ${upserted} games`);

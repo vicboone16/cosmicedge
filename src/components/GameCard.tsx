@@ -44,6 +44,7 @@ export function GameCard({ game }: { game: GameWithOdds }) {
   const { formatInUserTZ, getTZAbbrev } = useTimezone();
   const isLive = game.status === "live";
   const isFinal = game.status === "final";
+  const hasScores = game.home_score != null && game.away_score != null;
 
   // Planetary hour at game start time
   const gameStartDate = new Date(game.start_time);
@@ -76,7 +77,13 @@ export function GameCard({ game }: { game: GameWithOdds }) {
           {isFinal && (
             <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Final</span>
           )}
-          {!isLive && !isFinal && (
+          {!isLive && !isFinal && hasScores && (
+            <span className="flex items-center gap-1.5">
+              <span className="h-2 w-2 rounded-full bg-cosmic-green animate-pulse-glow" />
+              <span className="text-xs font-semibold text-cosmic-green uppercase tracking-wider">In Progress</span>
+            </span>
+          )}
+          {!isLive && !isFinal && !hasScores && (
             <span className="text-xs text-muted-foreground">
               {formatInUserTZ(game.start_time)} <span className="text-[9px]">{getTZAbbrev()}</span>
             </span>
@@ -102,8 +109,8 @@ export function GameCard({ game }: { game: GameWithOdds }) {
             </span>
           </div>
           <div className="flex items-center gap-4">
-            {(isLive || isFinal) && (
-              <span className={cn("text-lg font-bold font-display tabular-nums", isLive ? "text-cosmic-green" : isFinal && (game.away_score ?? 0) > (game.home_score ?? 0) ? "text-foreground" : "text-muted-foreground")}>
+            {(isLive || isFinal || hasScores) && (
+              <span className={cn("text-lg font-bold font-display tabular-nums", isLive || (!isFinal && hasScores) ? "text-cosmic-green" : isFinal && (game.away_score ?? 0) > (game.home_score ?? 0) ? "text-foreground" : "text-muted-foreground")}>
                 {game.away_score}
               </span>
             )}
@@ -126,8 +133,8 @@ export function GameCard({ game }: { game: GameWithOdds }) {
             </span>
           </div>
           <div className="flex items-center gap-4">
-            {(isLive || isFinal) && (
-              <span className={cn("text-lg font-bold font-display tabular-nums", isLive ? "text-cosmic-green" : isFinal && (game.home_score ?? 0) > (game.away_score ?? 0) ? "text-foreground" : "text-muted-foreground")}>
+            {(isLive || isFinal || hasScores) && (
+              <span className={cn("text-lg font-bold font-display tabular-nums", isLive || (!isFinal && hasScores) ? "text-cosmic-green" : isFinal && (game.home_score ?? 0) > (game.away_score ?? 0) ? "text-foreground" : "text-muted-foreground")}>
                 {game.home_score}
               </span>
             )}
@@ -139,9 +146,9 @@ export function GameCard({ game }: { game: GameWithOdds }) {
       </div>
 
       {/* Period Scores Ticker */}
-      {(isLive || isFinal) && (
+      {(isLive || isFinal || hasScores) && (
         <div className="mt-2 pt-2 border-t border-border/30">
-          <PeriodScoresTicker gameId={game.id} league={game.league} isLive={isLive} />
+          <PeriodScoresTicker gameId={game.id} league={game.league} isLive={isLive || hasScores} />
         </div>
       )}
 
