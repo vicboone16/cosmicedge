@@ -51,7 +51,9 @@ export function generateRequestId(): string {
 
 // Per-session correlation id that persists across a user's session actions
 let _activeCorrelationId = generateCorrelationId();
-export function getCorrelationId() { return _activeCorrelationId; }
+export function getCorrelationId() {
+  return _activeCorrelationId;
+}
 export function rotateCorrelationId() {
   _activeCorrelationId = generateCorrelationId();
   return _activeCorrelationId;
@@ -81,16 +83,22 @@ export const monitor = buildMonitor();
 
 // ─── Core logger ────────────────────────────────────────────────────────────
 function getCurrentRoute(): string {
-  try { return window.location.pathname; } catch { return "unknown"; }
+  try {
+    return window.location.pathname;
+  } catch {
+    return "unknown";
+  }
 }
 
 function getUserId(): string | null {
   try {
-    const raw = localStorage.getItem("sb-xilxyiijgnadlbabytfn-auth-token");
+    const raw = localStorage.getItem("sb-gwfgmlfggeyxexclwybk-auth-token");
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     return parsed?.user?.id ?? null;
-  } catch { return null; }
+  } catch {
+    return null;
+  }
 }
 
 function emit(level: LogLevel, message: string, meta?: Record<string, unknown>) {
@@ -111,9 +119,15 @@ function emit(level: LogLevel, message: string, meta?: Record<string, unknown>) 
   }
 
   switch (level) {
-    case "debug": console.debug("[CE]", entry); break;
-    case "info":  console.info("[CE]", entry); break;
-    case "warn":  console.warn("[CE]", entry); break;
+    case "debug":
+      console.debug("[CE]", entry);
+      break;
+    case "info":
+      console.info("[CE]", entry);
+      break;
+    case "warn":
+      console.warn("[CE]", entry);
+      break;
     case "error":
       console.error("[CE]", entry);
       monitor.captureMessage(message, "error");
@@ -125,8 +139,8 @@ function emit(level: LogLevel, message: string, meta?: Record<string, unknown>) 
 
 export const logger = {
   debug: (msg: string, meta?: Record<string, unknown>) => emit("debug", msg, meta),
-  info:  (msg: string, meta?: Record<string, unknown>) => emit("info",  msg, meta),
-  warn:  (msg: string, meta?: Record<string, unknown>) => emit("warn",  msg, meta),
+  info: (msg: string, meta?: Record<string, unknown>) => emit("info", msg, meta),
+  warn: (msg: string, meta?: Record<string, unknown>) => emit("warn", msg, meta),
   error: (msg: string, meta?: Record<string, unknown>) => emit("error", msg, meta),
   /** Log a network call result */
   network: (opts: {
