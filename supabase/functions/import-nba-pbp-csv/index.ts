@@ -43,8 +43,24 @@ Deno.serve(async (req) => {
     const { csv } = await req.json();
     if (!csv) throw new Error("No csv provided");
 
+    // Input validation: size limit (10MB)
+    const MAX_SIZE = 10 * 1024 * 1024;
+    if (typeof csv === "string" && csv.length > MAX_SIZE) {
+      return new Response(JSON.stringify({ error: "CSV data too large. Maximum 10MB." }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // Parse CSV
     const lines = csv.split("\n").filter((l: string) => l.trim());
+
+    // Input validation: row count limit
+    const MAX_ROWS = 100000;
+    if (lines.length > MAX_ROWS) {
+      return new Response(JSON.stringify({ error: `Too many rows. Maximum ${MAX_ROWS}.` }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
     const headers = parseCSVLine(lines[0]);
 
     const rows: any[] = [];

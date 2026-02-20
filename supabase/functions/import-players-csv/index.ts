@@ -24,9 +24,25 @@ Deno.serve(async (req) => {
 
     if (!file) throw new Error("No file uploaded");
 
+    // Input validation: file size limit (10MB)
+    const MAX_FILE_SIZE = 10 * 1024 * 1024;
+    if (file.size > MAX_FILE_SIZE) {
+      return new Response(JSON.stringify({ error: "File too large. Maximum 10MB." }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const text = (await file.text()).replace(/^\uFEFF/, "");
     const lines = text.trim().split(/\r?\n/);
     if (lines.length < 2) throw new Error("CSV must have header + data rows");
+
+    // Input validation: row count limit
+    const MAX_ROWS = 50000;
+    if (lines.length > MAX_ROWS) {
+      return new Response(JSON.stringify({ error: `Too many rows. Maximum ${MAX_ROWS}.` }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     // Find the actual header row — skip title rows that don't look like headers
     let headerIdx = 0;
