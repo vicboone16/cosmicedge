@@ -29,6 +29,7 @@ interface ScoreUpdate {
   homeTeam: string;
   awayTeam: string;
   idEvent: string;
+  quarterScores: { quarter: number; home: number; away: number }[];
 }
 
 function getAbbr(league: string, teamName: string): string | null {
@@ -101,6 +102,20 @@ async function fetchLiveScoresForLeague(
     const status = mapTsdbStatus(ev.strStatus, ev.strProgress);
     const quarter = parseQuarter(ev.strProgress, ev.strStatus, league);
     
+    // Extract quarter/period scores if available
+    const quarterScores: { quarter: number; home: number; away: number }[] = [];
+    for (let q = 1; q <= 8; q++) {
+      const hKey = `intHomeScore${q}`;
+      const aKey = `intAwayScore${q}`;
+      if (ev[hKey] != null && ev[aKey] != null) {
+        const h = parseInt(String(ev[hKey]));
+        const a = parseInt(String(ev[aKey]));
+        if (!isNaN(h) && !isNaN(a)) {
+          quarterScores.push({ quarter: q, home: h, away: a });
+        }
+      }
+    }
+    
     results.push({
       homeScore,
       awayScore,
@@ -110,6 +125,7 @@ async function fetchLiveScoresForLeague(
       homeTeam: ev.strHomeTeam || "",
       awayTeam: ev.strAwayTeam || "",
       idEvent: ev.idEvent || "",
+      quarterScores,
     });
   }
   
@@ -222,6 +238,21 @@ Deno.serve(async (req) => {
           if (snapErr) {
             console.error(`[fetch-live-scores] Snapshot error ${game.id}: ${snapErr.message}`);
             errors.push(`snap:${game.home_abbr}:${snapErr.message}`);
+          }
+        }
+
+        // Upsert quarter/period scores
+        if (match.quarterScores.length > 0) {
+          for (const qs of match.quarterScores) {
+            const { error: qErr } = await supabase.from("game_quarters").upsert({
+              game_id: game.id,
+              quarter: qs.quarter,
+              home_score: qs.home,
+              away_score: qs.away,
+            }, { onConflict: "game_id,quarter" });
+            if (qErr) {
+              console.error(`[fetch-live-scores] Quarter ${qs.quarter} error ${game.id}: ${qErr.message}`);
+            }
           }
         }
 
