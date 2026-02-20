@@ -6,7 +6,7 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const ASTROVISOR_BASE = "https://astrovisor.io";
+const ASTROVISOR_BASE = "https://api.astrovisor.io";
 
 interface BirthData {
   name: string;
@@ -111,7 +111,7 @@ Deno.serve(async (req) => {
       for (const player of needCalc.slice(0, 20)) {
         try {
           const birthTime = player.birth_time || "12:00";
-          const resp = await fetch(`${ASTROVISOR_BASE}/api/v1/natal/chart`, {
+          const resp = await fetch(`${ASTROVISOR_BASE}/v1/natal/chart`, {
             method: "POST",
             headers: {
               "Authorization": `Bearer ${apiKey}`,
@@ -184,7 +184,7 @@ Deno.serve(async (req) => {
         );
       }
 
-      const resp = await fetch(`${ASTROVISOR_BASE}/api/v1/natal/chart`, {
+      const resp = await fetch(`${ASTROVISOR_BASE}/v1/natal/chart`, {
         method: "POST",
         headers: {
           "Authorization": `Bearer ${apiKey}`,
@@ -231,7 +231,7 @@ Deno.serve(async (req) => {
 
     if (mode === "horary") {
       const chartTime = url.searchParams.get("transit_time") || "12:00";
-      const resp = await fetch(`${ASTROVISOR_BASE}/api/v1/natal/chart`, {
+      const resp = await fetch(`${ASTROVISOR_BASE}/v1/natal/chart`, {
         method: "POST",
         headers: {
           "Authorization": `Bearer ${apiKey}`,
@@ -286,7 +286,7 @@ Deno.serve(async (req) => {
     let expiresIn = 24 * 60 * 60 * 1000; // default 24h
 
     if (mode === "natal") {
-      const resp = await fetch(`${ASTROVISOR_BASE}/api/v1/natal/chart`, {
+      const resp = await fetch(`${ASTROVISOR_BASE}/v1/natal/chart`, {
         method: "POST",
         headers: {
           "Authorization": `Bearer ${apiKey}`,
@@ -334,10 +334,10 @@ Deno.serve(async (req) => {
 
       // Try multiple endpoint variants (API may have been updated)
       const transitEndpoints = [
-        `${ASTROVISOR_BASE}/api/v1/transits/calculate`,
-        `${ASTROVISOR_BASE}/api/v1/transit/calculate`,
-        `${ASTROVISOR_BASE}/api/v1/transits`,
-        `${ASTROVISOR_BASE}/api/v1/transits/aspects`,
+        `${ASTROVISOR_BASE}/v1/transits/calculate`,
+        `${ASTROVISOR_BASE}/v1/transit/calculate`,
+        `${ASTROVISOR_BASE}/v1/transits`,
+        `${ASTROVISOR_BASE}/v1/transits/aspects`,
       ];
 
       const transitBody = {
@@ -407,7 +407,7 @@ Deno.serve(async (req) => {
         );
       }
 
-      const resp = await fetch(`${ASTROVISOR_BASE}/api/v1/relationships/synastry`, {
+      const resp = await fetch(`${ASTROVISOR_BASE}/v1/relationships/synastry`, {
         method: "POST",
         headers: {
           "Authorization": `Bearer ${apiKey}`,
@@ -434,7 +434,7 @@ Deno.serve(async (req) => {
       expiresIn = 10 * 365 * 24 * 60 * 60 * 1000; // synastry between same two people never changes
 
     } else if (mode === "progressions") {
-      const resp = await fetch(`${ASTROVISOR_BASE}/api/v1/progressions/secondary`, {
+      const resp = await fetch(`${ASTROVISOR_BASE}/v1/progressions/secondary`, {
         method: "POST",
         headers: {
           "Authorization": `Bearer ${apiKey}`,
