@@ -20,6 +20,7 @@ All 13 production crons are running correctly targeting the Live project URL (`g
 | 38 | nba-boxscores-live | */30 * * * * |
 | 39 | sportsline-picks-live | 0 15 * * * |
 | 40 | balldontlie-live | 30 2 * * * |
+| TBD | normalize-boxscores-live | */30 * * * * |
 
 ### Test Crons (TO BE REMOVED - IDs 5-20)
 These are redundant crons in the Test DB that waste API quota. Run each unschedule in Cloud View → Run SQL → **Test**:
@@ -237,6 +238,21 @@ SELECT cron.schedule(
   $$
   SELECT net.http_post(
     url := 'https://gwfgmlfggeyxexclwybk.supabase.co/functions/v1/sync-balldontlie',
+    headers := '{"Content-Type":"application/json","Authorization":"Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd3ZmdtbGZnZ2V5eGV4Y2x3eWJrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA5NDA1NDQsImV4cCI6MjA4NjUxNjU0NH0.oWZskdzWyLz_uO2VXUfGbbyasBhRs5HBRvTWFhMBrMA"}'::jsonb,
+    body := '{}'::jsonb
+  ) AS request_id;
+  $$
+);
+```
+
+### normalize-boxscores-live (every 30 min)
+```sql
+SELECT cron.schedule(
+  'normalize-boxscores-live',
+  '*/30 * * * *',
+  $$
+  SELECT net.http_post(
+    url := 'https://gwfgmlfggeyxexclwybk.supabase.co/functions/v1/normalize-boxscores',
     headers := '{"Content-Type":"application/json","Authorization":"Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd3ZmdtbGZnZ2V5eGV4Y2x3eWJrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA5NDA1NDQsImV4cCI6MjA4NjUxNjU0NH0.oWZskdzWyLz_uO2VXUfGbbyasBhRs5HBRvTWFhMBrMA"}'::jsonb,
     body := '{}'::jsonb
   ) AS request_id;
