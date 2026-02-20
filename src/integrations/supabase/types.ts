@@ -3619,6 +3619,7 @@ export type Database = {
         }[]
       }
       settle_bets_on_game: { Args: { p_game_id: string }; Returns: undefined }
+      sync_live_scores_via_api: { Args: never; Returns: Json }
       unaccent: { Args: { "": string }; Returns: string }
     }
     Enums: {
