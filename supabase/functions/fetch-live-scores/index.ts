@@ -186,6 +186,8 @@ Deno.serve(async (req) => {
         continue;
       }
 
+      console.log(`${league}: ${liveScores.length} live events from API, sample: ${JSON.stringify(liveScores.slice(0, 2).map(s => ({ home: s.homeTeam, away: s.awayTeam, hs: s.homeScore, as: s.awayScore, st: s.status })))}`);
+
       for (const game of leagueGames) {
         // Match by team abbreviation/name
         const match = liveScores.find((ls) => {
@@ -200,7 +202,10 @@ Deno.serve(async (req) => {
 
         if (!match) continue;
         // Only update if we have actual score data or status change
-        if (match.homeScore == null && match.awayScore == null && match.status === "scheduled") continue;
+        if (match.homeScore == null && match.awayScore == null && match.status === "scheduled") {
+          console.log(`Skipping ${game.home_abbr} vs ${game.away_abbr}: no score data (status=${match.status})`);
+          continue;
+        }
 
         // Upsert snapshot for live tracking
         if (match.status === "live" || match.status === "final") {
@@ -225,10 +230,11 @@ Deno.serve(async (req) => {
           const { error: updateErr } = await supabase.from("games").update(updateData).eq("id", game.id);
           if (updateErr) console.error(`Game update error for ${game.id}: ${updateErr.message}`);
           else console.log(`Updated ${game.home_abbr} vs ${game.away_abbr}: ${JSON.stringify(updateData)}`);
+          updatedCount++;
+          leagueCounts[league] = (leagueCounts[league] || 0) + 1;
+        } else {
+          console.log(`Matched ${game.home_abbr} vs ${game.away_abbr} but no score data to write (hs=${match.homeScore}, as=${match.awayScore}, st=${match.status})`);
         }
-
-        updatedCount++;
-        leagueCounts[league] = (leagueCounts[league] || 0) + 1;
       }
     }
 
