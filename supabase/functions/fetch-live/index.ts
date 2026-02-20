@@ -32,7 +32,11 @@ Deno.serve(async (req) => {
 
     if (mode === "live") {
       // ── Fetch live NBA games from API-Basketball ──
-      const resp = await fetch(`${API_BASKETBALL_BASE}/games?league=12&season=2024-2025&live=all`, {
+      // Dynamically determine current NBA season (e.g. Oct 2025 → "2025-2026")
+      const now = new Date();
+      const seasonYear = now.getMonth() >= 9 ? now.getFullYear() : now.getFullYear() - 1;
+      const season = `${seasonYear}-${seasonYear + 1}`;
+      const resp = await fetch(`${API_BASKETBALL_BASE}/games?league=12&season=${season}&live=all`, {
         headers: { "x-apisports-key": apiKey },
       });
 
