@@ -23,3 +23,15 @@ verify_jwt = false
 
 [functions.rebuild-trending]
 verify_jwt = false
+
+[functions.pbpstats-live-games-ingest]
+verify_jwt = false
+
+[functions.pbpstats-live-pbp-ingest]
+verify_jwt = false
+
+[functions.pbpstats-rollup-quarter-stats]
+verify_jwt = false
+
+[functions.pbpstats-diagnostics]
+verify_jwt = false
