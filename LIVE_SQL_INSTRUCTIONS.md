@@ -259,3 +259,33 @@ SELECT cron.schedule(
   $$
 );
 ```
+
+### pbp-dispatcher-live (every 1 min) — CANONICAL live games + period scores
+```sql
+SELECT cron.schedule(
+  'pbp-dispatcher-live',
+  '* * * * *',
+  $$
+  SELECT net.http_post(
+    url := 'https://gwfgmlfggeyxexclwybk.supabase.co/functions/v1/pbp-dispatcher',
+    headers := '{"Content-Type":"application/json","Authorization":"Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd3ZmdtbGZnZ2V5eGV4Y2x3eWJrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA5NDA1NDQsImV4cCI6MjA4NjUxNjU0NH0.oWZskdzWyLz_uO2VXUfGbbyasBhRs5HBRvTWFhMBrMA"}'::jsonb,
+    body := '{}'::jsonb
+  ) AS request_id;
+  $$
+);
+```
+
+---
+
+## Crons to REMOVE (old pbpstats dispatcher — replaced by pbp-dispatcher)
+
+If any of these exist, unschedule them in Cloud View → Run SQL → **Live**:
+```sql
+-- Remove old pbpstats-dispatcher if scheduled
+SELECT cron.unschedule('pbpstats-dispatcher-live');
+-- Remove any standalone ingest/rollup cron jobs
+SELECT cron.unschedule('pbpstats-games-ingest-live');
+SELECT cron.unschedule('pbpstats-pbp-ingest-live');
+SELECT cron.unschedule('pbpstats-rollup-live');
+```
+Note: `cron.unschedule()` will error if the name doesn't exist — that's fine, just skip.
