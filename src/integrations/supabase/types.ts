@@ -495,6 +495,116 @@ export type Database = {
         }
         Relationships: []
       }
+      cosmic_game_id_map: {
+        Row: {
+          confidence: number
+          created_at: string
+          game_key: string
+          league: string
+          match_method: string
+          provider: string
+          provider_game_id: string
+        }
+        Insert: {
+          confidence: number
+          created_at?: string
+          game_key: string
+          league: string
+          match_method: string
+          provider: string
+          provider_game_id: string
+        }
+        Update: {
+          confidence?: number
+          created_at?: string
+          game_key?: string
+          league?: string
+          match_method?: string
+          provider?: string
+          provider_game_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cosmic_game_id_map_game_key_fkey"
+            columns: ["game_key"]
+            isOneToOne: false
+            referencedRelation: "cosmic_games"
+            referencedColumns: ["game_key"]
+          },
+        ]
+      }
+      cosmic_games: {
+        Row: {
+          away_team_abbr: string
+          created_at: string
+          game_date: string
+          game_key: string
+          home_team_abbr: string
+          league: string
+          season: string | null
+          start_time_utc: string | null
+          status: string | null
+          updated_at: string
+        }
+        Insert: {
+          away_team_abbr: string
+          created_at?: string
+          game_date: string
+          game_key?: string
+          home_team_abbr: string
+          league: string
+          season?: string | null
+          start_time_utc?: string | null
+          status?: string | null
+          updated_at?: string
+        }
+        Update: {
+          away_team_abbr?: string
+          created_at?: string
+          game_date?: string
+          game_key?: string
+          home_team_abbr?: string
+          league?: string
+          season?: string | null
+          start_time_utc?: string | null
+          status?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      cosmic_unmatched_games: {
+        Row: {
+          created_at: string
+          diagnostics: Json
+          id: string
+          league: string
+          payload: Json
+          provider: string
+          provider_game_id: string | null
+          reason: string
+        }
+        Insert: {
+          created_at?: string
+          diagnostics?: Json
+          id?: string
+          league: string
+          payload?: Json
+          provider: string
+          provider_game_id?: string | null
+          reason: string
+        }
+        Update: {
+          created_at?: string
+          diagnostics?: Json
+          id?: string
+          league?: string
+          payload?: Json
+          provider?: string
+          provider_game_id?: string | null
+          reason?: string
+        }
+        Relationships: []
+      }
       depth_charts: {
         Row: {
           created_at: string
@@ -1677,6 +1787,257 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "games"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      pbp_events: {
+        Row: {
+          away_score: number | null
+          clock: string | null
+          created_at: string
+          description: string
+          event_type: string | null
+          game_key: string
+          home_score: number | null
+          id: string
+          period: number
+          player_id: string | null
+          player_name: string | null
+          provider: string
+          provider_event_id: string
+          provider_game_id: string
+          raw: Json
+          team_abbr: string | null
+        }
+        Insert: {
+          away_score?: number | null
+          clock?: string | null
+          created_at?: string
+          description: string
+          event_type?: string | null
+          game_key: string
+          home_score?: number | null
+          id?: string
+          period: number
+          player_id?: string | null
+          player_name?: string | null
+          provider: string
+          provider_event_id: string
+          provider_game_id: string
+          raw?: Json
+          team_abbr?: string | null
+        }
+        Update: {
+          away_score?: number | null
+          clock?: string | null
+          created_at?: string
+          description?: string
+          event_type?: string | null
+          game_key?: string
+          home_score?: number | null
+          id?: string
+          period?: number
+          player_id?: string | null
+          player_name?: string | null
+          provider?: string
+          provider_event_id?: string
+          provider_game_id?: string
+          raw?: Json
+          team_abbr?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pbp_events_game_key_fkey"
+            columns: ["game_key"]
+            isOneToOne: false
+            referencedRelation: "cosmic_games"
+            referencedColumns: ["game_key"]
+          },
+        ]
+      }
+      pbp_live_games_by_provider: {
+        Row: {
+          game_key: string | null
+          league: string
+          provider: string
+          provider_game_id: string
+          raw: Json
+          status: string | null
+          updated_at: string
+        }
+        Insert: {
+          game_key?: string | null
+          league: string
+          provider: string
+          provider_game_id: string
+          raw?: Json
+          status?: string | null
+          updated_at?: string
+        }
+        Update: {
+          game_key?: string | null
+          league?: string
+          provider?: string
+          provider_game_id?: string
+          raw?: Json
+          status?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pbp_live_games_by_provider_game_key_fkey"
+            columns: ["game_key"]
+            isOneToOne: false
+            referencedRelation: "cosmic_games"
+            referencedColumns: ["game_key"]
+          },
+        ]
+      }
+      pbp_quarter_player_stats: {
+        Row: {
+          ast: number
+          blk: number
+          fg3a: number
+          fg3m: number
+          fga: number
+          fgm: number
+          fta: number
+          ftm: number
+          game_key: string
+          last_provider_event_id: string | null
+          period: number
+          pf: number
+          player_id: string
+          player_name: string
+          provider: string
+          pts: number
+          reb: number
+          stl: number
+          team_abbr: string | null
+          tov: number
+          updated_at: string
+        }
+        Insert: {
+          ast?: number
+          blk?: number
+          fg3a?: number
+          fg3m?: number
+          fga?: number
+          fgm?: number
+          fta?: number
+          ftm?: number
+          game_key: string
+          last_provider_event_id?: string | null
+          period: number
+          pf?: number
+          player_id: string
+          player_name: string
+          provider: string
+          pts?: number
+          reb?: number
+          stl?: number
+          team_abbr?: string | null
+          tov?: number
+          updated_at?: string
+        }
+        Update: {
+          ast?: number
+          blk?: number
+          fg3a?: number
+          fg3m?: number
+          fga?: number
+          fgm?: number
+          fta?: number
+          ftm?: number
+          game_key?: string
+          last_provider_event_id?: string | null
+          period?: number
+          pf?: number
+          player_id?: string
+          player_name?: string
+          provider?: string
+          pts?: number
+          reb?: number
+          stl?: number
+          team_abbr?: string | null
+          tov?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pbp_quarter_player_stats_game_key_fkey"
+            columns: ["game_key"]
+            isOneToOne: false
+            referencedRelation: "cosmic_games"
+            referencedColumns: ["game_key"]
+          },
+        ]
+      }
+      pbp_quarter_team_stats: {
+        Row: {
+          dreb: number
+          fg3a: number
+          fg3m: number
+          fga: number
+          fgm: number
+          fouls: number
+          fta: number
+          ftm: number
+          game_key: string
+          last_provider_event_id: string | null
+          oreb: number
+          period: number
+          provider: string
+          pts: number
+          team_abbr: string
+          tov: number
+          updated_at: string
+        }
+        Insert: {
+          dreb?: number
+          fg3a?: number
+          fg3m?: number
+          fga?: number
+          fgm?: number
+          fouls?: number
+          fta?: number
+          ftm?: number
+          game_key: string
+          last_provider_event_id?: string | null
+          oreb?: number
+          period: number
+          provider: string
+          pts?: number
+          team_abbr: string
+          tov?: number
+          updated_at?: string
+        }
+        Update: {
+          dreb?: number
+          fg3a?: number
+          fg3m?: number
+          fga?: number
+          fgm?: number
+          fouls?: number
+          fta?: number
+          ftm?: number
+          game_key?: string
+          last_provider_event_id?: string | null
+          oreb?: number
+          period?: number
+          provider?: string
+          pts?: number
+          team_abbr?: string
+          tov?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pbp_quarter_team_stats_game_key_fkey"
+            columns: ["game_key"]
+            isOneToOne: false
+            referencedRelation: "cosmic_games"
+            referencedColumns: ["game_key"]
           },
         ]
       }
