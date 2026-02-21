@@ -137,14 +137,19 @@ export function PeriodScoresTicker({ gameId, league, isLive }: { gameId: string;
 
   if (!quarters.length) return null;
 
-  const periodLabel = league === "NHL" ? "P" : league === "MLB" ? "" : "Q";
+  const formatPeriodLabel = (p: number) => {
+    if (league === "NHL") return `P${p}`;
+    if (league === "MLB") return `${p}`;
+    // NBA/NFL: 1-4 = Q1-Q4, >4 = OT1+
+    return p <= 4 ? `Q${p}` : `OT${p - 4}`;
+  };
 
   return (
     <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
       {quarters.map((q) => (
         <div key={q.quarter} className="flex flex-col items-center min-w-[28px]">
           <span className="text-[8px] text-muted-foreground uppercase">
-            {periodLabel}{q.quarter}
+            {formatPeriodLabel(q.quarter)}
           </span>
           <span className="text-[10px] font-semibold tabular-nums text-muted-foreground">
             {q.away_score ?? "-"}
