@@ -51,8 +51,15 @@ Deno.serve(async (req) => {
 
     // Filter to today's games (or all if date not parseable)
     const todayStr = new Date().toISOString().slice(0, 10);
+    
+    // Filter to today's games only to avoid timeout
+    const todayGames = games.filter((g: any) => {
+      const d = g.Date || g.game_date || "";
+      return d.startsWith(todayStr);
+    });
+    console.log(`[pbpstats-ingest] ${games.length} total season games, ${todayGames.length} today (${todayStr})`);
 
-    for (const g of games) {
+    for (const g of todayGames) {
       const providerGameId = g.GameId || g.game_id || g.id;
       if (!providerGameId) continue;
 
@@ -110,8 +117,8 @@ Deno.serve(async (req) => {
       JSON.stringify({
         success: true,
         write_mode: writeMode,
-        total_games: games.length,
-        matched,
+        total_games: todayGames.length,
+        total_season_games: games.length,
         unmatched,
         upserted,
         latency_ms: Date.now() - t0,

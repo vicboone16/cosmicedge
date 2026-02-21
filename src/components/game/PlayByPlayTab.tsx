@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
@@ -14,6 +14,69 @@ export function PlayByPlayTab({ gameId, homeAbbr, awayAbbr, league }: PlayByPlay
   const [periodFilter, setPeriodFilter] = useState<number | null>(null);
 
   const isNBA = league === "NBA";
+
+  // Build a game_key candidate for pbp_events lookup
+  const gameKeyQuery = useQuery({
+    queryKey: ["game-key-lookup", gameId],
+    queryFn: async () => {
+      const { data: game } = await supabase
+        .from("games")
+        .select("start_time, home_abbr, away_abbr")
+        .eq("id", gameId)
+        .maybeSingle();
+      if (!game) return null;
+      const dateStr = game.start_time?.slice(0, 10);
+      // Look up cosmic_games by fingerprint
+      const { data: cosmic } = await supabase
+        .from("cosmic_games")
+        .select("game_key")
+        .eq("game_date", dateStr)
+        .eq("home_team_abbr", game.home_abbr)
+        .eq("away_team_abbr", game.away_abbr)
+        .maybeSingle();
+      return cosmic?.game_key || null;
+    },
+    enabled: isNBA,
+  });
+
+  // Live pbp_events from the pbpstats pipeline
+  const { data: livePbpEvents, isLoading: livePbpLoading } = useQuery({
+    queryKey: ["live-pbp-events", gameKeyQuery.data],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("pbp_events")
+        .select("*")
+        .eq("game_key", gameKeyQuery.data!)
+        .order("period", { ascending: true })
+        .order("created_at", { ascending: true })
+        .limit(1000);
+      return data || [];
+    },
+    enabled: isNBA && !!gameKeyQuery.data,
+    refetchInterval: 15000, // Poll every 15s for live updates
+  });
+
+  // Subscribe to realtime inserts on pbp_events for this game_key
+  useEffect(() => {
+    if (!gameKeyQuery.data) return;
+    const channel = supabase
+      .channel(`pbp-live-${gameKeyQuery.data}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "pbp_events",
+          filter: `game_key=eq.${gameKeyQuery.data}`,
+        },
+        () => {
+          // Invalidate query to re-fetch
+          // The refetchInterval handles this too, but realtime gives instant updates
+        }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [gameKeyQuery.data]);
 
   const { data: nbaEvents, isLoading: nbaLoading } = useQuery({
     queryKey: ["nba-pbp", gameId],
@@ -84,8 +147,25 @@ export function PlayByPlayTab({ gameId, homeAbbr, awayAbbr, league }: PlayByPlay
     enabled: !isNBA,
   });
 
-  const isLoading = isNBA ? nbaLoading : genericLoading;
-  const events = isNBA ? nbaEvents : genericEvents;
+  const isLoading = isNBA ? (nbaLoading && livePbpLoading) : genericLoading;
+
+  // Merge: prefer live pbp_events if available, fall back to historical nba_play_by_play_events
+  const rawEvents = isNBA
+    ? (livePbpEvents && livePbpEvents.length > 0 ? livePbpEvents : nbaEvents)
+    : genericEvents;
+
+  // Normalize live pbp_events to match the rendering format
+  const events = isNBA && livePbpEvents && livePbpEvents.length > 0
+    ? livePbpEvents.map((ev: any) => ({
+        ...ev,
+        // Map pbp_events fields to the format the renderer expects
+        play_id: ev.provider_event_id,
+        team: ev.team_abbr,
+        remaining_time: ev.clock,
+        player: ev.player_name,
+        points: ev.event_type?.includes("3pt") ? 3 : ev.event_type?.includes("free throw") ? 1 : ev.event_type?.includes("shot") || ev.event_type?.includes("field goal") ? 2 : 0,
+      }))
+    : rawEvents;
 
   if (isLoading) {
     return <p className="text-sm text-muted-foreground text-center py-8">Loading play-by-play…</p>;

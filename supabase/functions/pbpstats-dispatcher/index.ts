@@ -72,16 +72,56 @@ Deno.serve(async (req) => {
       results.games_ingest = { error: e.message };
     }
 
-    // Step 2: Ingest play-by-play events for live games
-    try {
-      const pbpResp = await fetch(
-        `${supabaseUrl}/functions/v1/pbpstats-live-pbp-ingest?league=nba`,
-        { method: "GET", headers: callHeaders }
+    // Step 2: Ingest play-by-play events ONLY for games that are currently live
+    const pbpResults: any[] = [];
+    if (liveGames.length > 0) {
+      // Get the game_keys for live games from cosmic_game_id_map via game fingerprint
+      const liveFingerprints = liveGames.map(
+        (g) => `${g.start_time?.slice(0, 10)}_${g.away_abbr}_${g.home_abbr}`
       );
-      results.pbp_ingest = await pbpResp.json();
-    } catch (e) {
-      results.pbp_ingest = { error: e.message };
+
+      // Find provider_game_ids for live games
+      const { data: liveProviderGames } = await supabase
+        .from("pbp_live_games_by_provider")
+        .select("provider_game_id, game_key")
+        .eq("provider", "pbpstats")
+        .eq("league", "nba");
+
+      // Match provider games to our live games via game_key → cosmic_games
+      const liveGameKeys = new Set<string>();
+      for (const lg of liveGames) {
+        const dateStr = lg.start_time?.slice(0, 10);
+        // Look up cosmic_games for this live game
+        const { data: cg } = await supabase
+          .from("cosmic_games")
+          .select("game_key")
+          .eq("league", "nba")
+          .eq("game_date", dateStr)
+          .eq("home_team_abbr", lg.home_abbr)
+          .eq("away_team_abbr", lg.away_abbr)
+          .maybeSingle();
+        if (cg?.game_key) liveGameKeys.add(cg.game_key);
+      }
+
+      const providerGamesToIngest = (liveProviderGames || []).filter(
+        (pg) => pg.game_key && liveGameKeys.has(pg.game_key)
+      );
+
+      console.log(`[pbpstats-dispatcher] ${providerGamesToIngest.length} live provider games to ingest PBP`);
+
+      for (const pg of providerGamesToIngest) {
+        try {
+          const pbpResp = await fetch(
+            `${supabaseUrl}/functions/v1/pbpstats-live-pbp-ingest?provider_game_id=${encodeURIComponent(pg.provider_game_id)}`,
+            { method: "GET", headers: callHeaders }
+          );
+          pbpResults.push({ provider_game_id: pg.provider_game_id, ...(await pbpResp.json()) });
+        } catch (e) {
+          pbpResults.push({ provider_game_id: pg.provider_game_id, error: e.message });
+        }
+      }
     }
+    results.pbp_ingest = pbpResults;
 
     // Step 3: Rollup quarter stats for each live game's game_key
     if (liveGames.length > 0) {
