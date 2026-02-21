@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Users, TrendingUp, ChevronDown, ChevronUp, BarChart3, Calendar } from "lucide-react";
+import { ArrowLeft, Users, TrendingUp, ChevronDown, ChevronUp, BarChart3, Calendar, History as HistoryIcon } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
@@ -399,66 +399,68 @@ const TeamPage = () => {
         {recentGames && recentGames.length > 0 && (
           <section>
             <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-3 flex items-center gap-1.5">
-              <Calendar className="h-3.5 w-3.5" />
+              <HistoryIcon className="h-3.5 w-3.5" />
               Recent Games
             </h3>
             <div className="space-y-1">
               {recentGames.map(g => {
                 const isHome = g.home_abbr === abbr;
                 const opp = isHome ? g.away_abbr : g.home_abbr;
+                const dateStr = new Date(g.start_time).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+                const outcomes = getGameOutcomes(g, recentOdds || [], abbr!, teamFullName);
                 const teamScore = isHome ? g.home_score : g.away_score;
                 const oppScore = isHome ? g.away_score : g.home_score;
-                const won = teamScore != null && oppScore != null && teamScore > oppScore;
+                const won = (teamScore ?? 0) > (oppScore ?? 0);
                 const isLive = g.status === "live";
-                const dateStr = new Date(g.start_time).toLocaleDateString(undefined, { month: "short", day: "numeric" });
-                const outcomes = !isLive ? getGameOutcomes(g, recentOdds || [], abbr!, teamFullName) : { ats: null, ou: null };
 
                 return (
                   <button
                     key={g.id}
                     onClick={() => navigate(`/game/${g.id}`)}
                     className={cn(
-                      "w-full cosmic-card rounded-lg p-2 text-left hover:border-primary/30 transition-colors flex items-center justify-between",
+                      "w-full cosmic-card rounded-lg p-2 text-left hover:border-primary/30 transition-colors",
                       isLive && "border-l-2 border-l-cosmic-green"
                     )}
                   >
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] text-muted-foreground w-12">{dateStr}</span>
-                      <span className="text-[10px] text-muted-foreground">{isHome ? "vs" : "@"}</span>
-                      <span className="text-xs font-semibold text-primary">{opp}</span>
-                      {isLive && <span className="h-1.5 w-1.5 rounded-full bg-cosmic-green animate-pulse" />}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {teamScore != null && oppScore != null && (
-                        <span className={cn("text-xs font-bold tabular-nums", won ? "text-cosmic-green" : "text-cosmic-red")}>
-                          {teamScore}-{oppScore}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[9px] text-muted-foreground w-10">{dateStr}</span>
+                        <span className="text-[10px] text-muted-foreground">{isHome ? "vs" : "@"}</span>
+                        <span className="text-xs font-semibold text-foreground w-8">{opp}</span>
+                        <span className="text-xs font-bold tabular-nums ml-2">
+                          {teamScore ?? 0}-{oppScore ?? 0}
                         </span>
-                      )}
-                      {!isLive && teamScore != null && (
-                        <span className={cn("text-[9px] font-bold", won ? "text-cosmic-green" : "text-cosmic-red")}>
+                        <span className={cn(
+                          "text-[10px] font-bold ml-1",
+                          won ? "text-cosmic-green" : "text-cosmic-red"
+                        )}>
                           {won ? "W" : "L"}
                         </span>
-                      )}
-                      {outcomes.ats && (
-                        <span className={cn(
-                          "text-[8px] font-bold px-1 py-0.5 rounded",
-                          outcomes.ats === "✓" ? "bg-cosmic-green/20 text-cosmic-green" :
-                          outcomes.ats === "✗" ? "bg-cosmic-red/20 text-cosmic-red" :
-                          "bg-muted text-muted-foreground"
-                        )}>
-                          ATS {outcomes.ats}
+                        {isLive && <span className="h-1.5 w-1.5 rounded-full bg-cosmic-green animate-pulse" />}
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        {outcomes.ats && (
+                          <span className={cn(
+                            "text-[9px] font-bold px-1 rounded",
+                            outcomes.ats === "✓" ? "bg-cosmic-green/10 text-cosmic-green" : 
+                            outcomes.ats === "✗" ? "bg-cosmic-red/10 text-cosmic-red" : "bg-muted text-muted-foreground"
+                          )}>
+                            ATS {outcomes.ats}
+                          </span>
+                        )}
+                        {outcomes.ou && (
+                          <span className={cn(
+                            "text-[9px] font-bold px-1 rounded",
+                            outcomes.ou === "O" ? "bg-cosmic-green/10 text-cosmic-green" : 
+                            outcomes.ou === "U" ? "bg-cosmic-red/10 text-cosmic-red" : "bg-muted text-muted-foreground"
+                          )}>
+                            {outcomes.ou}
+                          </span>
+                        )}
+                        <span className="text-[8px] text-muted-foreground uppercase ml-1">
+                          {isLive ? "Live" : "Final"}
                         </span>
-                      )}
-                      {outcomes.ou && (
-                        <span className={cn(
-                          "text-[8px] font-bold px-1 py-0.5 rounded",
-                          outcomes.ou === "O" ? "bg-cosmic-green/20 text-cosmic-green" :
-                          outcomes.ou === "U" ? "bg-cosmic-red/20 text-cosmic-red" :
-                          "bg-muted text-muted-foreground"
-                        )}>
-                          {outcomes.ou}
-                        </span>
-                      )}
+                      </div>
                     </div>
                   </button>
                 );
@@ -471,40 +473,38 @@ const TeamPage = () => {
         <section>
           <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-3 flex items-center gap-1.5">
             <Users className="h-3.5 w-3.5" />
-            Roster ({players?.length || 0})
+            Roster
           </h3>
-          {loadingPlayers ? (
-            <p className="text-sm text-muted-foreground">Loading roster...</p>
-          ) : (
-            <div className="space-y-1">
-              {players?.map((p) => (
+          <div className="space-y-1">
+            {loadingPlayers ? (
+              <p className="text-xs text-muted-foreground text-center py-4">Loading roster...</p>
+            ) : !players || players.length === 0 ? (
+              <p className="text-xs text-muted-foreground text-center py-4">No roster data available.</p>
+            ) : (
+              players.map(p => (
                 <button
                   key={p.id}
                   onClick={() => navigate(`/player/${p.id}`)}
-                  className="w-full cosmic-card rounded-xl p-2.5 flex items-center gap-3 hover:border-primary/30 transition-colors text-left"
+                  className="w-full cosmic-card rounded-lg p-2 flex items-center gap-3 hover:border-primary/30 transition-colors text-left"
                 >
-                  <Avatar className="h-9 w-9 shrink-0">
+                  <Avatar className="h-8 w-8 shrink-0">
                     {p.headshot_url && <AvatarImage src={p.headshot_url} alt={p.name} />}
-                    <AvatarFallback className="text-[10px] bg-secondary">
-                      {p.name.slice(0, 2).toUpperCase()}
-                    </AvatarFallback>
+                    <AvatarFallback className="text-[10px] bg-secondary">{p.name.slice(0, 2).toUpperCase()}</AvatarFallback>
                   </Avatar>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-foreground">{p.name}</p>
+                    <p className="text-xs font-semibold text-foreground">{p.name}</p>
                     <p className="text-[10px] text-muted-foreground">{p.position || "—"}</p>
                   </div>
-                  {p.birth_date && (() => {
-                    const z = getSignFromDate(p.birth_date);
-                    return (
-                      <span className="astro-badge rounded-full px-2 py-0.5 text-[10px] font-medium text-cosmic-indigo">
-                        {z.symbol} {z.sign}
-                      </span>
-                    );
-                  })()}
+                  {p.birth_date && (
+                    <div className="flex items-center gap-1 bg-secondary/50 px-1.5 py-0.5 rounded-full">
+                      <span className="text-[10px]">{getSignFromDate(p.birth_date).symbol}</span>
+                      <span className="text-[9px] text-muted-foreground font-medium">{getSignFromDate(p.birth_date).sign}</span>
+                    </div>
+                  )}
                 </button>
-              ))}
-            </div>
-          )}
+              ))
+            )}
+          </div>
         </section>
       </div>
     </div>

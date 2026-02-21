@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
-import { TrendingUp, ChevronDown, ChevronUp, DollarSign, Calendar } from "lucide-react";
+import { TrendingUp, ChevronDown, ChevronUp, DollarSign, Calendar, History as HistoryIcon } from "lucide-react";
 
 // Map abbreviation → full team name for historical_odds matching
 const ABBR_TO_FULL: Record<string, string> = {
@@ -187,7 +187,7 @@ export function TeamOddsSection({ abbr, league }: TeamOddsSectionProps) {
           {recentLines.length > 0 && (
             <div>
               <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-2 flex items-center gap-1.5">
-                <TrendingUp className="h-3 w-3" />
+                <HistoryIcon className="h-3 w-3" />
                 Recent Lines
               </h4>
               <div className="space-y-1">
