@@ -8,7 +8,7 @@ interface QuarterScore {
 }
 
 export function PeriodScoresTicker({ gameId, league, isLive }: { gameId: string; league: string; isLive: boolean }) {
-  // 1. Primary: game_quarters table (populated by fetch-live-scores for final games)
+  // 1. game_quarters (primary for final games)
   const { data: gameQuarters } = useQuery({
     queryKey: ["game-quarters", gameId],
     queryFn: async () => {
@@ -23,26 +23,20 @@ export function PeriodScoresTicker({ gameId, league, isLive }: { gameId: string;
     refetchInterval: isLive ? 15_000 : false,
   });
 
-  // 2. For live NBA games: derive from pbp_quarter_team_stats via cosmic_games lookup
-  const { data: gameInfo } = useQuery({
-    queryKey: ["game-info-ticker", gameId],
+  // 2. For live NBA: derive from pbp_quarter_team_stats
+  const { data: pbpQuarterScores } = useQuery({
+    queryKey: ["pbp-quarter-scores-ticker", gameId],
     queryFn: async () => {
-      const { data } = await supabase
+      // Get game info for team abbrs
+      const { data: gameInfo } = await supabase
         .from("games")
         .select("home_abbr, away_abbr, start_time")
         .eq("id", gameId)
         .maybeSingle();
-      return data;
-    },
-    enabled: isLive && league === "NBA" && (!gameQuarters || gameQuarters.length === 0),
-  });
 
-  const { data: pbpQuarterScores } = useQuery({
-    queryKey: ["pbp-quarter-scores", gameId, gameInfo?.home_abbr],
-    queryFn: async () => {
       if (!gameInfo) return [];
+
       const dateStr = gameInfo.start_time?.slice(0, 10);
-      // Look up cosmic game_key
       const { data: cosmic } = await supabase
         .from("cosmic_games")
         .select("game_key")
@@ -53,7 +47,6 @@ export function PeriodScoresTicker({ gameId, league, isLive }: { gameId: string;
 
       if (!cosmic?.game_key) return [];
 
-      // Fetch pbp_quarter_team_stats for this game_key
       const { data: stats } = await supabase
         .from("pbp_quarter_team_stats")
         .select("period, team_abbr, pts")
@@ -62,7 +55,6 @@ export function PeriodScoresTicker({ gameId, league, isLive }: { gameId: string;
 
       if (!stats || stats.length === 0) return [];
 
-      // Group by period: home vs away
       const periods: Record<number, { home_score: number; away_score: number }> = {};
       for (const s of stats) {
         if (!periods[s.period]) periods[s.period] = { home_score: 0, away_score: 0 };
@@ -77,12 +69,12 @@ export function PeriodScoresTicker({ gameId, league, isLive }: { gameId: string;
         .map(([p, scores]) => ({ quarter: Number(p), ...scores }))
         .sort((a, b) => a.quarter - b.quarter);
     },
-    enabled: isLive && league === "NBA" && !!gameInfo && (!gameQuarters || gameQuarters.length === 0),
+    enabled: isLive && league === "NBA",
     staleTime: 15_000,
     refetchInterval: 15_000,
   });
 
-  // 3. Fallback: derive from game_state_snapshots (latest snapshot per quarter)
+  // 3. Fallback: derive from game_state_snapshots (always runs for live games)
   const { data: snapshotScores } = useQuery({
     queryKey: ["snapshot-quarter-scores", gameId],
     queryFn: async () => {
@@ -95,22 +87,20 @@ export function PeriodScoresTicker({ gameId, league, isLive }: { gameId: string;
 
       if (!snapshots || snapshots.length === 0) return [];
 
-      // Parse quarter indicators (Q1, Q2, P1, etc.) and derive per-period scores
-      // We track cumulative scores at each quarter transition
       const quarterMap: Record<number, { home_score: number; away_score: number }> = {};
       let prevHome = 0;
       let prevAway = 0;
 
-      // Get unique quarters in order
       const qNums: { q: number; home: number; away: number }[] = [];
       for (const snap of snapshots) {
-        const qMatch = snap.quarter?.match(/(\d+)/);
+        const qMatch = snap.quarter?.match(/Q?(\d+)/i);
         if (!qMatch) continue;
         const qNum = parseInt(qMatch[1]);
+        if (qNum < 1 || qNum > 10) continue; // skip anomalous values
         qNums.push({ q: qNum, home: snap.home_score ?? 0, away: snap.away_score ?? 0 });
       }
 
-      // Get the last snapshot for each quarter (cumulative total at end of that quarter)
+      // Get last snapshot per quarter (cumulative total at end)
       const lastByQ: Record<number, { home: number; away: number }> = {};
       for (const item of qNums) {
         lastByQ[item.q] = { home: item.home, away: item.away };
@@ -133,12 +123,12 @@ export function PeriodScoresTicker({ gameId, league, isLive }: { gameId: string;
         .map(([p, scores]) => ({ quarter: Number(p), ...scores }))
         .sort((a, b) => a.quarter - b.quarter);
     },
-    enabled: isLive && (!gameQuarters || gameQuarters.length === 0) && (!pbpQuarterScores || pbpQuarterScores.length === 0),
+    enabled: isLive,
     staleTime: 15_000,
     refetchInterval: 15_000,
   });
 
-  // Choose the best available data source
+  // Choose the best available data source (prefer most specific)
   const quarters: QuarterScore[] =
     (gameQuarters && gameQuarters.length > 0) ? gameQuarters :
     (pbpQuarterScores && pbpQuarterScores.length > 0) ? pbpQuarterScores :
