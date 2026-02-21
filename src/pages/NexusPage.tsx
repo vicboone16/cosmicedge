@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Compass, Search, User, Users, Flame, History, X, TrendingUp } from "lucide-react";
+import { Compass, Search, User, Users, Flame, History as HistoryIcon, X, TrendingUp } from "lucide-react";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -42,11 +42,37 @@ function PlayersTab() {
     enabled: query.length >= 2,
   });
 
-  // Trending players — read from materialized trending_players table first, fallback to players table
   const { data: trending } = useQuery({
     queryKey: ["nexus-trending-players"],
     queryFn: async () => {
-      // Tier 1: Compute trending from recent game stats (works in both Test and Live)
+      // Tier 1: Try player_props rank by frequency (highly trending in betting markets)
+      const { data: propData } = await supabase
+        .from("player_props")
+        .select("player_name")
+        .limit(1000);
+
+      if (propData && propData.length >= 20) {
+        const counts = new Map<string, number>();
+        for (const p of propData) {
+          counts.set(p.player_name, (counts.get(p.player_name) || 0) + 1);
+        }
+        const ranked = Array.from(counts.entries())
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 15);
+        
+        const names = ranked.map(r => r[0]);
+        const { data: playerRows } = await supabase
+          .from("players")
+          .select("id, name, team, position, league, headshot_url")
+          .in("name", names);
+
+        if (playerRows && playerRows.length >= 8) {
+          const nameOrder = new Map(names.map((n, i) => [n, i]));
+          return playerRows.sort((a, b) => (nameOrder.get(a.name) ?? 99) - (nameOrder.get(b.name) ?? 99));
+        }
+      }
+
+      // Tier 2: Compute trending from recent game stats
       const { data: statsData } = await supabase
         .from("player_game_stats")
         .select("player_id, points, rebounds, assists, steals, blocks, turnovers")
@@ -70,16 +96,14 @@ function PlayersTab() {
         const { data: playerRows } = await supabase
           .from("players")
           .select("id, name, team, position, league, headshot_url")
-          .in("id", ids)
-          .limit(15);
+          .in("id", ids);
         if (playerRows && playerRows.length > 0) {
-          // Sort by ranked order
           const idOrder = new Map(ids.map((id, i) => [id, i]));
           return playerRows.sort((a, b) => (idOrder.get(a.id) ?? 99) - (idOrder.get(b.id) ?? 99));
         }
       }
 
-      // Tier 2: guaranteed fallback — NBA players with headshots
+      // Tier 3: guaranteed fallback — NBA players with headshots
       const { data: fallback } = await supabase
         .from("players")
         .select("id, name, team, position, league, headshot_url")
@@ -89,8 +113,8 @@ function PlayersTab() {
         .limit(15);
       return fallback || [];
     },
-    staleTime: 5 * 60_000,
-    refetchInterval: 5 * 60_000,
+    staleTime: 10 * 60_000,
+    refetchInterval: 10 * 60_000,
   });
 
   const showResults = query.length >= 2 && players && players.length > 0;
@@ -272,8 +296,8 @@ function TeamsTab() {
             // Pad to 5 dots if fewer
             const dots: ("W" | "L" | null)[] = [];
             for (let i = 0; i < 5; i++) {
-              const idx = last5.length - 5 + i; // oldest first
-              dots.push(idx >= 0 ? last5[idx].result : null);
+              const idx = 4 - i; // most recent on right (i=4)
+              dots.push(last5[idx] ? last5[idx].result : null);
             }
             // Reverse last5 for drill-down (most recent on top)
             const drillDown = [...last5];
@@ -382,7 +406,7 @@ export default function NexusPage() {
               Trends
             </TabsTrigger>
             <TabsTrigger value="history" className="text-xs gap-1">
-              <History className="h-3 w-3" />
+              <HistoryIcon className="h-3 w-3" />
               History
             </TabsTrigger>
           </TabsList>
