@@ -200,6 +200,77 @@ Deno.serve(async (req) => {
       return await backfillSeason(supabase, apiKey, season, startDate, endDate, fetchStats, offset, limit, writeMode, addLog, t0);
     }
 
+    // ── MODE: backfill_auto — self-chaining backfill via api_cache cursor ─
+    if (mode === "backfill_auto") {
+      const CURSOR_KEY = "ncaab_backfill_cursor";
+      const defaultStart = `${seasonYear}-11-04`;
+      const defaultEnd = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+
+      // Read cursor from api_cache
+      const { data: cursor } = await supabase
+        .from("api_cache").select("payload").eq("cache_key", CURSOR_KEY).maybeSingle();
+
+      const cursorPayload = cursor?.payload as any;
+
+      // Check if backfill is done
+      if (cursorPayload?.status === "done") {
+        addLog("Backfill already complete. Delete api_cache row 'ncaab_backfill_cursor' to restart.");
+        return new Response(
+          JSON.stringify({ success: true, mode: "backfill_auto", status: "done", log, latency_ms: Date.now() - t0 }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const startDate = cursorPayload?.next_start_date || defaultStart;
+      const endDate = cursorPayload?.end_date || defaultEnd;
+      const offset = cursorPayload?.next_offset || 0;
+      const limit = 15;
+
+      addLog(`backfill_auto: resuming from date=${startDate} offset=${offset} end=${endDate}`);
+
+      // Run one batch of backfill
+      const result = await backfillSeasonReturnData(supabase, apiKey, season, startDate, endDate, true, offset, limit, writeMode, addLog, t0);
+
+      // Save cursor for next invocation
+      if (result.next_call) {
+        await supabase.from("api_cache").upsert({
+          cache_key: CURSOR_KEY,
+          payload: {
+            next_start_date: result.next_call.start_date,
+            end_date: result.next_call.end_date || endDate,
+            next_offset: result.next_call.offset || 0,
+            status: "in_progress",
+            last_date_processed: startDate,
+            last_run: new Date().toISOString(),
+          },
+          updated_at: new Date().toISOString(),
+        }, { onConflict: "cache_key" });
+      } else {
+        // Backfill complete
+        await supabase.from("api_cache").upsert({
+          cache_key: CURSOR_KEY,
+          payload: {
+            status: "done",
+            completed_at: new Date().toISOString(),
+            last_date_processed: startDate,
+          },
+          updated_at: new Date().toISOString(),
+        }, { onConflict: "cache_key" });
+        addLog("🎉 Backfill complete!");
+      }
+
+      return new Response(
+        JSON.stringify({
+          success: true, mode: "backfill_auto",
+          date: startDate, offset, processed: result.processed,
+          created: result.created, next_call: result.next_call,
+          status: result.next_call ? "in_progress" : "done",
+          write_mode: writeMode, log, latency_ms: Date.now() - t0,
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // ── MODE: backfill_h2h — fetch head-to-head history ──────────────────
     if (mode === "backfill_h2h") {
       const teamId = body.team_id as string;
@@ -628,6 +699,49 @@ async function backfillSeason(
 ) {
   const log: string[] = [];
   const logMsg = (msg: string) => { log.push(msg); addLog(msg); };
+  const result = await backfillSeasonCore(supabase, apiKey, season, startDate, endDate, fetchStats, offset, limit, writeMode, logMsg, t0);
+
+  return new Response(
+    JSON.stringify({
+      success: true, mode: "backfill", date: startDate,
+      ...result,
+      write_mode: writeMode, log, latency_ms: Date.now() - t0,
+    }),
+    { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+  );
+}
+
+/** Returns structured data instead of a Response — used by backfill_auto */
+async function backfillSeasonReturnData(
+  supabase: ReturnType<typeof createClient>,
+  apiKey: string,
+  season: string,
+  startDate: string,
+  endDate: string,
+  fetchStats: boolean,
+  offset: number,
+  limit: number,
+  writeMode: string,
+  addLog: (msg: string) => void,
+  t0: number
+) {
+  return await backfillSeasonCore(supabase, apiKey, season, startDate, endDate, fetchStats, offset, limit, writeMode, addLog, t0);
+}
+
+/** Core backfill logic shared by both backfill and backfill_auto modes */
+async function backfillSeasonCore(
+  supabase: ReturnType<typeof createClient>,
+  apiKey: string,
+  season: string,
+  startDate: string,
+  endDate: string,
+  fetchStats: boolean,
+  offset: number,
+  limit: number,
+  writeMode: string,
+  logMsg: (msg: string) => void,
+  t0: number
+) {
   const dateStr = startDate;
   logMsg(`Backfill NCAAB date=${dateStr} offset=${offset} limit=${limit}`);
 
@@ -638,43 +752,30 @@ async function backfillSeason(
 
   if (!resp.ok) {
     logMsg(`Backfill ${dateStr} failed: ${resp.status}`);
-    return new Response(
-      JSON.stringify({ error: `API error ${resp.status}`, log, latency_ms: Date.now() - t0 }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return { error: `API error ${resp.status}`, processed: 0, created: 0, next_call: null };
   }
 
   const json = await resp.json();
   const allGames = json.response || [];
   const finishedGames = allGames.filter((g: any) => g.status?.short === "FT" || g.status?.short === "AOT");
   
-  // Apply offset/limit to paginate through large days
   const batch = finishedGames.slice(offset, offset + limit);
   const moreOnThisDay = offset + limit < finishedGames.length;
   logMsg(`${dateStr}: ${finishedGames.length} finished, processing ${batch.length} (offset ${offset})`);
 
   if (batch.length === 0) {
-    // Move to next day
     const nextDate = new Date(new Date(dateStr + "T00:00:00Z").getTime() + 86400000).toISOString().slice(0, 10);
-    return new Response(
-      JSON.stringify({
-        success: true, mode: "backfill", date: dateStr,
-        total: allGames.length, finished: finishedGames.length, processed: 0,
-        next_call: nextDate <= endDate ? { start_date: nextDate, offset: 0 } : null,
-        write_mode: writeMode, log, latency_ms: Date.now() - t0,
-      }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return {
+      total: allGames.length, finished: finishedGames.length, processed: 0, created: 0,
+      next_call: nextDate <= endDate ? { start_date: nextDate, end_date: endDate, offset: 0 } : null,
+    };
   }
 
   if (writeMode === "dry_run") {
-    return new Response(
-      JSON.stringify({ success: true, mode: "backfill", dry_run: true, batch: batch.length, log }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return { dry_run: true, processed: batch.length, created: 0, next_call: null };
   }
 
-  // ── Pre-load team abbreviations for this batch ──────────────────────
+  // Pre-load team abbreviations
   const teamIdSet = new Set<string>();
   for (const g of batch) {
     teamIdSet.add(String(g.teams?.home?.id || 0));
@@ -689,7 +790,6 @@ async function backfillSeason(
     teamAbbrMap[ct.cache_key] = (ct.payload as any)?.abbr || "";
   }
 
-  // Cache missing teams in one upsert
   const newTeamCache: any[] = [];
   for (const g of batch) {
     for (const side of ["home", "away"] as const) {
@@ -707,7 +807,7 @@ async function backfillSeason(
     await supabase.from("api_cache").upsert(newTeamCache, { onConflict: "cache_key" });
   }
 
-  // ── Pre-load existing cosmic_game_id_map entries ────────────────────
+  // Pre-load existing maps
   const apiGameIds = batch.map((g: any) => String(g.id));
   const { data: existingMaps } = await supabase
     .from("cosmic_game_id_map")
@@ -720,7 +820,7 @@ async function backfillSeason(
     existingMapLookup[m.provider_game_id] = m.game_key;
   }
 
-  // ── Process each game ──────────────────────────────────────────────
+  // Process each game
   let created = 0;
   let skipped = 0;
   const allPeriodRows: any[] = [];
@@ -737,7 +837,6 @@ async function backfillSeason(
     let gameKey = existingMapLookup[apiGameId];
 
     if (!gameKey) {
-      // Try find existing cosmic_game
       const { data: cg } = await supabase
         .from("cosmic_games").select("game_key")
         .eq("league", "ncaab").eq("game_date", gameDateStr)
@@ -764,7 +863,6 @@ async function backfillSeason(
 
     if (!gameKey) continue;
 
-    // Collect period scores
     const homeScores = game.scores?.home || {};
     const awayScores = game.scores?.away || {};
     const periodMap: Record<string, number> = { quarter_1: 1, quarter_2: 2, quarter_3: 3, quarter_4: 4, over_time: 5, half_1: 1, half_2: 2 };
@@ -778,12 +876,11 @@ async function backfillSeason(
     }
   }
 
-  // ── Batch writes ───────────────────────────────────────────────────
+  // Batch writes
   if (newIdMaps.length > 0) {
     await supabase.from("cosmic_game_id_map").upsert(newIdMaps, { onConflict: "provider,provider_game_id" });
   }
   if (allPeriodRows.length > 0) {
-    // Chunk to avoid payload limits
     for (let i = 0; i < allPeriodRows.length; i += 200) {
       await supabase.from("pbp_quarter_team_stats").upsert(
         allPeriodRows.slice(i, i + 200),
@@ -794,7 +891,6 @@ async function backfillSeason(
 
   logMsg(`Done: ${batch.length} processed, ${created} created, ${skipped} skipped, ${allPeriodRows.length} period rows`);
 
-  // Calculate next call params
   let nextCall: any = null;
   if (moreOnThisDay) {
     nextCall = { start_date: dateStr, end_date: endDate, offset: offset + limit };
@@ -805,19 +901,13 @@ async function backfillSeason(
     }
   }
 
-  return new Response(
-    JSON.stringify({
-      success: true, mode: "backfill", date: dateStr,
-      total: allGames.length, finished: finishedGames.length,
-      processed: batch.length, created, skipped,
-      periods_written: allPeriodRows.length,
-      next_call: nextCall,
-      write_mode: writeMode, log, latency_ms: Date.now() - t0,
-    }),
-    { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-  );
+  return {
+    total: allGames.length, finished: finishedGames.length,
+    processed: batch.length, created, skipped,
+    periods_written: allPeriodRows.length,
+    next_call: nextCall,
+  };
 }
-
 // ── MODE: backfill_h2h — fetch head-to-head for a team ────────────────────
 async function backfillH2H(
   supabase: ReturnType<typeof createClient>,
