@@ -268,7 +268,7 @@ function TeamsTab() {
   return (
     <div className="space-y-4">
       <div className="flex gap-1.5 overflow-x-auto no-scrollbar">
-        {["NBA", "NHL", "NFL", "MLB"].map(lg => (
+        {["NBA", "NHL", "NFL", "MLB", "NCAAB"].map(lg => (
           <button
             key={lg}
             onClick={() => { setLeague(lg); setExpandedTeam(null); }}

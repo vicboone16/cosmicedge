@@ -225,7 +225,7 @@ export default function PlayerPropsPage() {
       const { data } = await supabase
         .from("games")
         .select("id, home_abbr, away_abbr, start_time, league")
-        .in("league", ["NBA", "NHL", "MLB", "NFL"])
+        .in("league", ["NBA", "NHL", "MLB", "NFL", "NCAAB"])
         .gte("start_time", start.toISOString())
         .lte("start_time", end.toISOString())
         .order("start_time", { ascending: true });
@@ -438,7 +438,7 @@ export default function PlayerPropsPage() {
 
         {/* League filter chips */}
         <div className="flex gap-1.5 mb-3 overflow-x-auto no-scrollbar">
-          {["ALL", "NBA", "NHL", "MLB", "NFL"].map((lg) => (
+          {["ALL", "NBA", "NHL", "MLB", "NFL", "NCAAB"].map((lg) => (
             <button
               key={lg}
               onClick={() => setLeagueFilter(lg)}
