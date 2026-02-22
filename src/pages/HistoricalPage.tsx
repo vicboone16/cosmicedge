@@ -45,6 +45,10 @@ const LEAGUE_SEASONS: Record<string, { label: string; start: Date; end: Date }[]
     { label: "2024-25", start: new Date(2024, 8, 5), end: new Date(2025, 1, 15) },   // Sep 5 – Feb 15
     { label: "2025-26", start: new Date(2025, 8, 4), end: new Date(2026, 1, 15) },
   ],
+  NCAAB: [
+    { label: "2024-25", start: new Date(2024, 10, 4), end: new Date(2025, 3, 10) },  // Nov 4 – Apr 10
+    { label: "2025-26", start: new Date(2025, 10, 3), end: new Date(2026, 3, 10) },
+  ],
 };
 
 function getSeasonsForLeague(lg: string) {
@@ -481,7 +485,7 @@ export default function HistoricalPage() {
 
         {/* League chips */}
         <div className="flex gap-1.5">
-          {["NBA", "NHL", "MLB", "NFL"].map((lg) => (
+          {["NBA", "NHL", "MLB", "NFL", "NCAAB"].map((lg) => (
             <button key={lg} onClick={() => {
               setLeague(lg);
               setSelectedGameId(null);
@@ -492,7 +496,7 @@ export default function HistoricalPage() {
             }}
               className={`px-3 py-1 rounded-full text-[11px] font-semibold transition-colors ${
                 league === lg ? "bg-primary text-primary-foreground" : "bg-secondary/60 text-muted-foreground hover:bg-secondary hover:text-foreground"
-              }`}>{lg}</button>
+              }`}>{lg}{lg === "NCAAB" && <span className="ml-1 text-[8px] opacity-70">β</span>}</button>
           ))}
         </div>
       </header>
@@ -807,7 +811,7 @@ export default function HistoricalPage() {
               <div>
                 <label className="text-[9px] text-muted-foreground block mb-1">Leagues</label>
                 <div className="flex gap-1.5">
-                  {["NBA", "NHL", "NFL", "MLB"].map(lg => {
+                  {["NBA", "NHL", "NFL", "MLB", "NCAAB"].map(lg => {
                     const isSelected = btLeagues.includes(lg);
                     return (
                       <button key={lg} onClick={() => {
@@ -815,7 +819,7 @@ export default function HistoricalPage() {
                       }}
                         className={`px-3 py-1 rounded-full text-[11px] font-semibold transition-colors ${
                           isSelected ? "bg-primary text-primary-foreground" : "bg-secondary/60 text-muted-foreground hover:bg-secondary hover:text-foreground"
-                        }`}>{lg}</button>
+                        }`}>{lg}{lg === "NCAAB" && <span className="ml-1 text-[8px] opacity-70">β</span>}</button>
                     );
                   })}
                 </div>
