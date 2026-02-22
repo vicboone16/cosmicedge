@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { CANONICAL } from "../_shared/team-mappings.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -17,45 +18,16 @@ const SPORT_KEYS: Record<string, string> = {
   NCAAF: "americanfootball_ncaaf",
 };
 
-// Map Odds API team names to standard abbreviations
-const TEAM_ABBR: Record<string, string> = {
-  "Atlanta Hawks": "ATL", "Boston Celtics": "BOS", "Brooklyn Nets": "BKN",
-  "Charlotte Hornets": "CHA", "Chicago Bulls": "CHI", "Cleveland Cavaliers": "CLE",
-  "Dallas Mavericks": "DAL", "Denver Nuggets": "DEN", "Detroit Pistons": "DET",
-  "Golden State Warriors": "GSW", "Houston Rockets": "HOU", "Indiana Pacers": "IND",
-  "Los Angeles Clippers": "LAC", "Los Angeles Lakers": "LAL", "Memphis Grizzlies": "MEM",
-  "Miami Heat": "MIA", "Milwaukee Bucks": "MIL", "Minnesota Timberwolves": "MIN",
-  "New Orleans Pelicans": "NOP", "New York Knicks": "NYK", "Oklahoma City Thunder": "OKC",
-  "Orlando Magic": "ORL", "Philadelphia 76ers": "PHI", "Phoenix Suns": "PHX",
-  "Portland Trail Blazers": "POR", "Sacramento Kings": "SAC", "San Antonio Spurs": "SAS",
-  "Toronto Raptors": "TOR", "Utah Jazz": "UTA", "Washington Wizards": "WAS",
-  // NHL
-  "Edmonton Oilers": "EDM", "Toronto Maple Leafs": "TOR", "Montreal Canadiens": "MTL",
-  "Ottawa Senators": "OTT", "Winnipeg Jets": "WPG", "Calgary Flames": "CGY",
-  "Vancouver Canucks": "VAN", "Vegas Golden Knights": "VGK", "Colorado Avalanche": "COL",
-  "Dallas Stars": "DAL", "Nashville Predators": "NSH", "St Louis Blues": "STL",
-  "Minnesota Wild": "MIN", "Carolina Hurricanes": "CAR", "Florida Panthers": "FLA",
-  "Tampa Bay Lightning": "TBL", "New York Rangers": "NYR", "New York Islanders": "NYI",
-  "New Jersey Devils": "NJD", "Pittsburgh Penguins": "PIT", "Washington Capitals": "WSH",
-  "Columbus Blue Jackets": "CBJ", "Boston Bruins": "BOS", "Buffalo Sabres": "BUF",
-  "Detroit Red Wings": "DET", "Philadelphia Flyers": "PHI", "Anaheim Ducks": "ANA",
-  "Los Angeles Kings": "LAK", "San Jose Sharks": "SJS", "Seattle Kraken": "SEA",
-  "Chicago Blackhawks": "CHI", "Utah Hockey Club": "UHC",
-  // MLB
-  "New York Yankees": "NYY", "New York Mets": "NYM", "Boston Red Sox": "BOS",
-  "Houston Astros": "HOU", "Los Angeles Dodgers": "LAD", "Los Angeles Angels": "LAA",
-  "Chicago Cubs": "CHC", "Chicago White Sox": "CWS", "San Francisco Giants": "SF",
-  "Atlanta Braves": "ATL", "Philadelphia Phillies": "PHI", "San Diego Padres": "SD",
-  "Texas Rangers": "TEX", "Seattle Mariners": "SEA", "Toronto Blue Jays": "TOR",
-  "Tampa Bay Rays": "TB", "Baltimore Orioles": "BAL", "Cleveland Guardians": "CLE",
-  "Minnesota Twins": "MIN", "Detroit Tigers": "DET", "Milwaukee Brewers": "MIL",
-  "St. Louis Cardinals": "STL", "Cincinnati Reds": "CIN", "Pittsburgh Pirates": "PIT",
-  "Kansas City Royals": "KC", "Arizona Diamondbacks": "ARI", "Colorado Rockies": "COL",
-  "Miami Marlins": "MIA", "Washington Nationals": "WSH", "Oakland Athletics": "OAK",
-};
-
-function getAbbr(name: string): string {
-  return TEAM_ABBR[name] || name.split(" ").map(w => w[0]).join("").toUpperCase().slice(0, 3);
+function getAbbr(league: string, teamName: string): string | null {
+  const dict = CANONICAL[league];
+  if (!dict) return null;
+  const abbr = dict[teamName];
+  if (abbr) return abbr;
+  // Try common variants (e.g. "LA Clippers" vs "Los Angeles Clippers")
+  for (const [name, a] of Object.entries(dict)) {
+    if (name.toLowerCase() === teamName.toLowerCase()) return a;
+  }
+  return null;
 }
 
 Deno.serve(async (req) => {
@@ -103,15 +75,21 @@ Deno.serve(async (req) => {
     const remaining = resp.headers.get("x-requests-remaining");
     const data = await resp.json();
 
-    // The participants endpoint returns teams with players
-    // Structure: array of { id, name, players: [{ id, name, ... }] }
     let playersUpserted = 0;
     let teamsProcessed = 0;
+    let skippedTeams: string[] = [];
     const batchSize = 50;
 
     for (const team of data) {
       const teamName = team.name || "";
-      const teamAbbr = getAbbr(teamName);
+      const teamAbbr = getAbbr(league, teamName);
+      
+      if (!teamAbbr) {
+        console.warn(`Unknown team name for ${league}: "${teamName}" — skipping`);
+        skippedTeams.push(teamName);
+        continue;
+      }
+      
       teamsProcessed++;
 
       const players = team.players || [];
@@ -124,15 +102,12 @@ Deno.serve(async (req) => {
           team: teamAbbr,
           league,
           position: p.position || null,
-          // The Odds API participant IDs are unique per provider
           external_id: p.id ? `oddsapi_${p.id}` : null,
         }));
 
-        // Upsert by name + team to avoid duplicates
         for (const record of records) {
           if (!record.name) continue;
 
-          // Check if player exists by name + team
           const { data: existing } = await supabase
             .from("players")
             .select("id")
@@ -141,7 +116,6 @@ Deno.serve(async (req) => {
             .maybeSingle();
 
           if (existing) {
-            // Update team assignment if changed
             await supabase
               .from("players")
               .update({ team: record.team, league: record.league, position: record.position })
@@ -163,6 +137,7 @@ Deno.serve(async (req) => {
         league,
         teams_processed: teamsProcessed,
         players_upserted: playersUpserted,
+        skipped_teams: skippedTeams,
         api_remaining: remaining,
         fetched_at: new Date().toISOString(),
       }),
