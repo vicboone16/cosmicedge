@@ -24,6 +24,9 @@ export function LeagueFilter({ selected, onSelect }: LeagueFilterProps) {
           )}
         >
           {league}
+          {league === "NCAAB" && (
+            <span className="ml-1 text-[8px] font-normal opacity-70 align-super">β</span>
+          )}
         </button>
       ))}
     </div>

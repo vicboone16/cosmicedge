@@ -80,6 +80,7 @@ export function DataHealthDashboard() {
       NFL: ["2024", "2025"],
       NHL: ["2024-2025", "2025-2026"],
       MLB: ["2024", "2025"],
+      NCAAB: ["2024-2025", "2025-2026"],
     };
 
     let totalUpdated = 0;
@@ -199,7 +200,7 @@ export function DataHealthDashboard() {
       else setRefreshing(true);
 
       // { count: "exact", head: true } bypasses row limits entirely — no .limit() needed
-      const leagues = ["NBA", "NFL", "NHL", "MLB"];
+      const leagues = ["NBA", "NFL", "NHL", "MLB", "NCAAB"];
       
       const gamePromises = leagues.map(async (league) => {
         const [totalRes, scoredRes] = await Promise.all([
@@ -303,7 +304,7 @@ export function DataHealthDashboard() {
             </Button>
           </div>
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
           {games.map((g) => {
             const scorePct = pct(g.withScores, g.total);
             const scoreKey = `scores_${g.league}`;
