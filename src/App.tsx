@@ -7,6 +7,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
 import { AuthProvider } from "@/hooks/use-auth";
+import { RevenueCatProvider } from "@/hooks/use-revenuecat";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { RequireAuth } from "@/components/auth/RequireAuth";
 import SplashScreen from "@/components/SplashScreen";
@@ -43,6 +44,8 @@ const AdminPage = lazy(() => import("./pages/AdminPage"));
 const HealthPage = lazy(() => import("./pages/HealthPage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const PrivacyPage = lazy(() => import("./pages/PrivacyPage"));
+const PaywallPage = lazy(() => import("./pages/PaywallPage"));
+const SubscriptionPage = lazy(() => import("./pages/SubscriptionPage"));
 const AppStorePrivacyScript = lazy(() => import("./pages/AppStorePrivacyScript"));
 
 // Bootstrap global error capture immediately
@@ -88,6 +91,7 @@ const App = () => {
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
+        <RevenueCatProvider>
         <TooltipProvider>
           <Toaster />
           <Sonner />
@@ -123,6 +127,8 @@ const App = () => {
                   <Route path="/admin/import" element={<RequireAuth><AdminImportPage /></RequireAuth>} />
                   <Route path="/admin/games" element={<RequireAuth><AdminGamesPage /></RequireAuth>} />
                   <Route path="/admin" element={<RequireAuth><AdminPage /></RequireAuth>} />
+                  <Route path="/paywall" element={<RequireAuth><PaywallPage /></RequireAuth>} />
+                  <Route path="/subscription" element={<RequireAuth><SubscriptionPage /></RequireAuth>} />
                 </Route>
                 <Route path="/auth" element={<AuthPage />} />
                 <Route path="/privacy" element={<PrivacyPage />} />
@@ -133,6 +139,7 @@ const App = () => {
             </Suspense>
           </BrowserRouter>
         </TooltipProvider>
+        </RevenueCatProvider>
       </AuthProvider>
     </QueryClientProvider>
     </ThemeProvider>

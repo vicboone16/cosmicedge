@@ -2,7 +2,7 @@ import { Outlet, useNavigate } from "react-router-dom";
 import { BottomNav } from "./BottomNav";
 import { useAuth } from "@/hooks/use-auth";
 import { useIsAdmin } from "@/hooks/use-admin";
-import { User, LogIn, Moon, Settings, Users, LogOut, Shield } from "lucide-react";
+import { User, LogIn, Moon, Settings, Users, LogOut, Shield, Sparkles } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -71,6 +71,10 @@ export function AppLayout() {
                 <DropdownMenuItem onClick={() => navigate("/settings")} className="gap-2 cursor-pointer">
                   <Settings className="h-4 w-4" />
                   Settings
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate("/subscription")} className="gap-2 cursor-pointer">
+                  <Sparkles className="h-4 w-4" />
+                  Subscription
                 </DropdownMenuItem>
                 {isAdmin && (
                   <DropdownMenuItem onClick={() => navigate("/admin")} className="gap-2 cursor-pointer">
