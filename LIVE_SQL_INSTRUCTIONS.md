@@ -275,6 +275,51 @@ SELECT cron.schedule(
 );
 ```
 
+### ncaab-dispatcher-live (every 2 min) — NCAA Basketball live games + period scores
+```sql
+SELECT cron.schedule(
+  'ncaab-dispatcher-live',
+  '*/2 * * * *',
+  $$
+  SELECT net.http_post(
+    url := 'https://gwfgmlfggeyxexclwybk.supabase.co/functions/v1/ncaab-dispatcher',
+    headers := '{"Content-Type":"application/json","Authorization":"Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd3ZmdtbGZnZ2V5eGV4Y2x3eWJrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA5NDA1NDQsImV4cCI6MjA4NjUxNjU0NH0.oWZskdzWyLz_uO2VXUfGbbyasBhRs5HBRvTWFhMBrMA"}'::jsonb,
+    body := '{}'::jsonb
+  ) AS request_id;
+  $$
+);
+```
+
+### ncaab-schedule-sync-live (daily at 6am UTC) — Sync today/tomorrow NCAAB schedule
+```sql
+SELECT cron.schedule(
+  'ncaab-schedule-sync-live',
+  '0 6 * * *',
+  $$
+  SELECT net.http_post(
+    url := 'https://gwfgmlfggeyxexclwybk.supabase.co/functions/v1/ncaab-dispatcher',
+    headers := '{"Content-Type":"application/json","Authorization":"Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd3ZmdtbGZnZ2V5eGV4Y2x3eWJrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA5NDA1NDQsImV4cCI6MjA4NjUxNjU0NH0.oWZskdzWyLz_uO2VXUfGbbyasBhRs5HBRvTWFhMBrMA"}'::jsonb,
+    body := '{"mode":"sync_schedule"}'::jsonb
+  ) AS request_id;
+  $$
+);
+```
+
+### ncaab-teams-sync-live (weekly on Monday at 5am UTC) — Sync NCAAB teams + standings
+```sql
+SELECT cron.schedule(
+  'ncaab-teams-sync-live',
+  '0 5 * * 1',
+  $$
+  SELECT net.http_post(
+    url := 'https://gwfgmlfggeyxexclwybk.supabase.co/functions/v1/ncaab-dispatcher',
+    headers := '{"Content-Type":"application/json","Authorization":"Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd3ZmdtbGZnZ2V5eGV4Y2x3eWJrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA5NDA1NDQsImV4cCI6MjA4NjUxNjU0NH0.oWZskdzWyLz_uO2VXUfGbbyasBhRs5HBRvTWFhMBrMA"}'::jsonb,
+    body := '{"mode":"sync_teams"}'::jsonb
+  ) AS request_id;
+  $$
+);
+```
+
 ---
 
 ## Crons to REMOVE (old pbpstats dispatcher — replaced by pbp-dispatcher)

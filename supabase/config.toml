@@ -41,3 +41,6 @@ verify_jwt = false
 
 [functions.pbp-dispatcher]
 verify_jwt = false
+
+[functions.ncaab-dispatcher]
+verify_jwt = false
