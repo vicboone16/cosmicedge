@@ -190,6 +190,26 @@ Deno.serve(async (req) => {
       return await syncStandings(supabase, apiKey, season, writeMode, addLog, t0);
     }
 
+    // ── MODE: backfill — fetch all past games for the season ─────────────
+    if (mode === "backfill") {
+      const startDate = (body.start_date as string) || `${seasonYear}-11-01`;
+      const endDate = (body.end_date as string) || new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+      const fetchStats = body.fetch_stats !== false;
+      const offset = Number(body.offset) || 0;
+      const limit = Number(body.limit) || 15;
+      return await backfillSeason(supabase, apiKey, season, startDate, endDate, fetchStats, offset, limit, writeMode, addLog, t0);
+    }
+
+    // ── MODE: backfill_h2h — fetch head-to-head history ──────────────────
+    if (mode === "backfill_h2h") {
+      const teamId = body.team_id as string;
+      if (!teamId) {
+        return new Response(JSON.stringify({ error: "team_id required for backfill_h2h", log }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      return await backfillH2H(supabase, apiKey, season, teamId, writeMode, addLog, t0);
+    }
+
     // ── MODE: live (default) ─────────────────────────────────────────────
     // A) Fetch live games from API-Basketball NCAA
     const liveResp = await fetch(
@@ -586,6 +606,259 @@ async function syncStandings(
   return new Response(
     JSON.stringify({
       success: true, mode: "sync_standings", groups: standings.length,
+      write_mode: writeMode, log, latency_ms: Date.now() - t0,
+    }),
+    { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+  );
+}
+
+// ── MODE: backfill — iterate past dates and fetch all finished games ──────
+async function backfillSeason(
+  supabase: ReturnType<typeof createClient>,
+  apiKey: string,
+  season: string,
+  startDate: string,
+  endDate: string,
+  fetchStats: boolean,
+  offset: number,
+  limit: number,
+  writeMode: string,
+  addLog: (msg: string) => void,
+  t0: number
+) {
+  const log: string[] = [];
+  const logMsg = (msg: string) => { log.push(msg); addLog(msg); };
+  const dateStr = startDate;
+  logMsg(`Backfill NCAAB date=${dateStr} offset=${offset} limit=${limit}`);
+
+  const resp = await fetch(
+    `${API_BASKETBALL_BASE}/games?league=${NCAAB_LEAGUE_ID}&season=${season}&date=${dateStr}`,
+    { headers: { "x-apisports-key": apiKey } }
+  );
+
+  if (!resp.ok) {
+    logMsg(`Backfill ${dateStr} failed: ${resp.status}`);
+    return new Response(
+      JSON.stringify({ error: `API error ${resp.status}`, log, latency_ms: Date.now() - t0 }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+
+  const json = await resp.json();
+  const allGames = json.response || [];
+  const finishedGames = allGames.filter((g: any) => g.status?.short === "FT" || g.status?.short === "AOT");
+  
+  // Apply offset/limit to paginate through large days
+  const batch = finishedGames.slice(offset, offset + limit);
+  const moreOnThisDay = offset + limit < finishedGames.length;
+  logMsg(`${dateStr}: ${finishedGames.length} finished, processing ${batch.length} (offset ${offset})`);
+
+  if (batch.length === 0) {
+    // Move to next day
+    const nextDate = new Date(new Date(dateStr + "T00:00:00Z").getTime() + 86400000).toISOString().slice(0, 10);
+    return new Response(
+      JSON.stringify({
+        success: true, mode: "backfill", date: dateStr,
+        total: allGames.length, finished: finishedGames.length, processed: 0,
+        next_call: nextDate <= endDate ? { start_date: nextDate, offset: 0 } : null,
+        write_mode: writeMode, log, latency_ms: Date.now() - t0,
+      }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+
+  if (writeMode === "dry_run") {
+    return new Response(
+      JSON.stringify({ success: true, mode: "backfill", dry_run: true, batch: batch.length, log }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+
+  // ── Pre-load team abbreviations for this batch ──────────────────────
+  const teamIdSet = new Set<string>();
+  for (const g of batch) {
+    teamIdSet.add(String(g.teams?.home?.id || 0));
+    teamIdSet.add(String(g.teams?.away?.id || 0));
+  }
+  const cacheKeys = [...teamIdSet].map(id => `ncaab_team_${id}`);
+  const { data: cachedTeams } = await supabase
+    .from("api_cache").select("cache_key, payload").in("cache_key", cacheKeys);
+
+  const teamAbbrMap: Record<string, string> = {};
+  for (const ct of cachedTeams || []) {
+    teamAbbrMap[ct.cache_key] = (ct.payload as any)?.abbr || "";
+  }
+
+  // Cache missing teams in one upsert
+  const newTeamCache: any[] = [];
+  for (const g of batch) {
+    for (const side of ["home", "away"] as const) {
+      const tid = String(g.teams?.[side]?.id || 0);
+      const key = `ncaab_team_${tid}`;
+      if (!teamAbbrMap[key]) {
+        const name = g.teams?.[side]?.name || "";
+        const abbr = generateTeamAbbr(name, tid);
+        teamAbbrMap[key] = abbr;
+        newTeamCache.push({ cache_key: key, payload: { abbr, team_name: name, api_team_id: tid }, updated_at: new Date().toISOString() });
+      }
+    }
+  }
+  if (newTeamCache.length > 0) {
+    await supabase.from("api_cache").upsert(newTeamCache, { onConflict: "cache_key" });
+  }
+
+  // ── Pre-load existing cosmic_game_id_map entries ────────────────────
+  const apiGameIds = batch.map((g: any) => String(g.id));
+  const { data: existingMaps } = await supabase
+    .from("cosmic_game_id_map")
+    .select("provider_game_id, game_key")
+    .eq("provider", "api-basketball")
+    .in("provider_game_id", apiGameIds);
+
+  const existingMapLookup: Record<string, string> = {};
+  for (const m of existingMaps || []) {
+    existingMapLookup[m.provider_game_id] = m.game_key;
+  }
+
+  // ── Process each game ──────────────────────────────────────────────
+  let created = 0;
+  let skipped = 0;
+  const allPeriodRows: any[] = [];
+  const newIdMaps: any[] = [];
+
+  for (const game of batch) {
+    const apiGameId = String(game.id);
+    const homeId = String(game.teams?.home?.id || 0);
+    const awayId = String(game.teams?.away?.id || 0);
+    const homeAbbr = teamAbbrMap[`ncaab_team_${homeId}`] || `T${homeId}`;
+    const awayAbbr = teamAbbrMap[`ncaab_team_${awayId}`] || `T${awayId}`;
+    const gameDateStr = game.date?.slice(0, 10) || dateStr;
+
+    let gameKey = existingMapLookup[apiGameId];
+
+    if (!gameKey) {
+      // Try find existing cosmic_game
+      const { data: cg } = await supabase
+        .from("cosmic_games").select("game_key")
+        .eq("league", "ncaab").eq("game_date", gameDateStr)
+        .eq("home_team_abbr", homeAbbr).eq("away_team_abbr", awayAbbr)
+        .maybeSingle();
+
+      if (cg?.game_key) {
+        gameKey = cg.game_key;
+      } else {
+        const { data: newCg } = await supabase
+          .from("cosmic_games")
+          .insert({ league: "ncaab", game_date: gameDateStr, home_team_abbr: homeAbbr, away_team_abbr: awayAbbr, start_time_utc: game.date || null, status: "final", season })
+          .select("game_key").single();
+        gameKey = newCg?.game_key;
+        created++;
+      }
+
+      if (gameKey) {
+        newIdMaps.push({ provider: "api-basketball", provider_game_id: apiGameId, game_key: gameKey, league: "ncaab", match_method: "backfill_exact", confidence: 100 });
+      }
+    } else {
+      skipped++;
+    }
+
+    if (!gameKey) continue;
+
+    // Collect period scores
+    const homeScores = game.scores?.home || {};
+    const awayScores = game.scores?.away || {};
+    const periodMap: Record<string, number> = { quarter_1: 1, quarter_2: 2, quarter_3: 3, quarter_4: 4, over_time: 5, half_1: 1, half_2: 2 };
+
+    for (const [key, period] of Object.entries(periodMap)) {
+      const homePts = homeScores[key];
+      const awayPts = awayScores[key];
+      if (homePts == null && awayPts == null) continue;
+      allPeriodRows.push({ game_key: gameKey, provider: "api-basketball", period, team_abbr: homeAbbr, pts: homePts ?? 0, updated_at: new Date().toISOString() });
+      allPeriodRows.push({ game_key: gameKey, provider: "api-basketball", period, team_abbr: awayAbbr, pts: awayPts ?? 0, updated_at: new Date().toISOString() });
+    }
+  }
+
+  // ── Batch writes ───────────────────────────────────────────────────
+  if (newIdMaps.length > 0) {
+    await supabase.from("cosmic_game_id_map").upsert(newIdMaps, { onConflict: "provider,provider_game_id" });
+  }
+  if (allPeriodRows.length > 0) {
+    // Chunk to avoid payload limits
+    for (let i = 0; i < allPeriodRows.length; i += 200) {
+      await supabase.from("pbp_quarter_team_stats").upsert(
+        allPeriodRows.slice(i, i + 200),
+        { onConflict: "game_key,provider,period,team_abbr" }
+      );
+    }
+  }
+
+  logMsg(`Done: ${batch.length} processed, ${created} created, ${skipped} skipped, ${allPeriodRows.length} period rows`);
+
+  // Calculate next call params
+  let nextCall: any = null;
+  if (moreOnThisDay) {
+    nextCall = { start_date: dateStr, end_date: endDate, offset: offset + limit };
+  } else {
+    const nextDate = new Date(new Date(dateStr + "T00:00:00Z").getTime() + 86400000).toISOString().slice(0, 10);
+    if (nextDate <= endDate) {
+      nextCall = { start_date: nextDate, end_date: endDate, offset: 0 };
+    }
+  }
+
+  return new Response(
+    JSON.stringify({
+      success: true, mode: "backfill", date: dateStr,
+      total: allGames.length, finished: finishedGames.length,
+      processed: batch.length, created, skipped,
+      periods_written: allPeriodRows.length,
+      next_call: nextCall,
+      write_mode: writeMode, log, latency_ms: Date.now() - t0,
+    }),
+    { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+  );
+}
+
+// ── MODE: backfill_h2h — fetch head-to-head for a team ────────────────────
+async function backfillH2H(
+  supabase: ReturnType<typeof createClient>,
+  apiKey: string,
+  season: string,
+  teamId: string,
+  writeMode: string,
+  addLog: (msg: string) => void,
+  t0: number
+) {
+  addLog(`Backfill H2H for team ${teamId}, season=${season}`);
+
+  const resp = await fetch(
+    `${API_BASKETBALL_BASE}/games?league=${NCAAB_LEAGUE_ID}&season=${season}&team=${teamId}`,
+    { headers: { "x-apisports-key": apiKey } }
+  );
+
+  if (!resp.ok) {
+    addLog(`H2H fetch failed: ${resp.status}`);
+    return new Response(
+      JSON.stringify({ error: `H2H fetch failed: ${resp.status}`, log }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+
+  const json = await resp.json();
+  const games = json.response || [];
+  addLog(`Team ${teamId} games: ${games.length}`);
+
+  let processed = 0;
+  for (const game of games) {
+    const statusShort = game.status?.short || "NS";
+    if (statusShort !== "FT" && statusShort !== "AOT") continue;
+    await processGame(supabase, game, writeMode, addLog);
+    processed++;
+  }
+
+  return new Response(
+    JSON.stringify({
+      success: true, mode: "backfill_h2h",
+      team_id: teamId, total_games: games.length, processed,
       write_mode: writeMode, log, latency_ms: Date.now() - t0,
     }),
     { headers: { ...corsHeaders, "Content-Type": "application/json" } }
