@@ -385,7 +385,7 @@ async function processGame(
       await supabase.from("cosmic_unmatched_games").insert({
         provider: "api-basketball",
         provider_game_id: apiGameId,
-        league: "ncaab",
+        league: "NCAAB",
         reason: `team_resolution_failed: home="${homeName}" away="${awayName}"`,
         payload: game,
         diagnostics: { homeName, awayName, homeTeamId, awayTeamId },
@@ -398,7 +398,7 @@ async function processGame(
   const resolveResult = await resolveGameKey(supabase, {
     provider: "api-basketball",
     provider_game_id: apiGameId,
-    league: "ncaab",
+    league: "NCAAB",
     game_date: dateStr,
     start_time_utc: game.date || undefined,
     home_team_abbr: homeAbbr,
@@ -428,7 +428,7 @@ async function processGame(
   await supabase.from("pbp_live_games_by_provider").upsert({
     provider: "api-basketball",
     provider_game_id: apiGameId,
-    league: "ncaab",
+    league: "NCAAB",
     game_key: gameKey,
     status: ourStatus,
     raw: { status: statusShort, period: currentPeriod, timer: game.status?.timer },
@@ -475,6 +475,27 @@ async function processGame(
     status: ourStatus,
     updated_at: new Date().toISOString(),
   }).eq("game_key", gameKey);
+
+  // ── H) Sync to games table so homepage/UI can find NCAAB games ─────
+  const homeTotal = game.scores?.home?.total ?? null;
+  const awayTotal = game.scores?.away?.total ?? null;
+  const startTimeUtc = game.date || `${dateStr}T00:00:00Z`;
+
+  await supabase.from("games").upsert({
+    external_id: `api-basketball-ncaab-${apiGameId}`,
+    league: "NCAAB",
+    home_team: homeName,
+    away_team: awayName,
+    home_abbr: homeAbbr,
+    away_abbr: awayAbbr,
+    start_time: startTimeUtc,
+    status: ourStatus,
+    home_score: homeTotal,
+    away_score: awayTotal,
+    venue: game.arena?.name || null,
+    source: "api-basketball",
+    updated_at: new Date().toISOString(),
+  }, { onConflict: "external_id" });
 
   return {
     api_game_id: apiGameId, game_key: gameKey, home: homeAbbr, away: awayAbbr,
@@ -826,6 +847,8 @@ async function backfillSeasonCore(
   const allPeriodRows: any[] = [];
   const newIdMaps: any[] = [];
 
+  const gamesTableRows: any[] = [];
+
   for (const game of batch) {
     const apiGameId = String(game.id);
     const homeId = String(game.teams?.home?.id || 0);
@@ -833,13 +856,15 @@ async function backfillSeasonCore(
     const homeAbbr = teamAbbrMap[`ncaab_team_${homeId}`] || `T${homeId}`;
     const awayAbbr = teamAbbrMap[`ncaab_team_${awayId}`] || `T${awayId}`;
     const gameDateStr = game.date?.slice(0, 10) || dateStr;
+    const homeName = game.teams?.home?.name || "";
+    const awayName = game.teams?.away?.name || "";
 
     let gameKey = existingMapLookup[apiGameId];
 
     if (!gameKey) {
       const { data: cg } = await supabase
         .from("cosmic_games").select("game_key")
-        .eq("league", "ncaab").eq("game_date", gameDateStr)
+        .eq("league", "NCAAB").eq("game_date", gameDateStr)
         .eq("home_team_abbr", homeAbbr).eq("away_team_abbr", awayAbbr)
         .maybeSingle();
 
@@ -848,20 +873,39 @@ async function backfillSeasonCore(
       } else {
         const { data: newCg } = await supabase
           .from("cosmic_games")
-          .insert({ league: "ncaab", game_date: gameDateStr, home_team_abbr: homeAbbr, away_team_abbr: awayAbbr, start_time_utc: game.date || null, status: "final", season })
+          .insert({ league: "NCAAB", game_date: gameDateStr, home_team_abbr: homeAbbr, away_team_abbr: awayAbbr, start_time_utc: game.date || null, status: "final", season })
           .select("game_key").single();
         gameKey = newCg?.game_key;
         created++;
       }
 
       if (gameKey) {
-        newIdMaps.push({ provider: "api-basketball", provider_game_id: apiGameId, game_key: gameKey, league: "ncaab", match_method: "backfill_exact", confidence: 100 });
+        newIdMaps.push({ provider: "api-basketball", provider_game_id: apiGameId, game_key: gameKey, league: "NCAAB", match_method: "backfill_exact", confidence: 100 });
       }
     } else {
       skipped++;
     }
 
     if (!gameKey) continue;
+
+    // Sync to games table
+    const statusShort = game.status?.short || "FT";
+    const ourStatus = mapStatus(statusShort);
+    gamesTableRows.push({
+      external_id: `api-basketball-ncaab-${apiGameId}`,
+      league: "NCAAB",
+      home_team: homeName,
+      away_team: awayName,
+      home_abbr: homeAbbr,
+      away_abbr: awayAbbr,
+      start_time: game.date || `${gameDateStr}T00:00:00Z`,
+      status: ourStatus,
+      home_score: game.scores?.home?.total ?? null,
+      away_score: game.scores?.away?.total ?? null,
+      venue: game.arena?.name || null,
+      source: "api-basketball",
+      updated_at: new Date().toISOString(),
+    });
 
     const homeScores = game.scores?.home || {};
     const awayScores = game.scores?.away || {};
@@ -885,6 +929,15 @@ async function backfillSeasonCore(
       await supabase.from("pbp_quarter_team_stats").upsert(
         allPeriodRows.slice(i, i + 200),
         { onConflict: "game_key,provider,period,team_abbr" }
+      );
+    }
+  }
+  // Sync to games table in batches
+  if (gamesTableRows.length > 0) {
+    for (let i = 0; i < gamesTableRows.length; i += 50) {
+      await supabase.from("games").upsert(
+        gamesTableRows.slice(i, i + 50),
+        { onConflict: "external_id" }
       );
     }
   }
