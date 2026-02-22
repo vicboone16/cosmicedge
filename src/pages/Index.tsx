@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { RefreshCw, Loader2, Star, ChevronLeft, ChevronRight } from "lucide-react";
 import { GameCard } from "@/components/GameCard";
 import { LeagueFilter } from "@/components/LeagueFilter";
@@ -15,13 +15,16 @@ const Index = () => {
   const { data: games, isLoading, isError, refetch, isFetching } = useGames(selectedLeague, selectedDate, userTimezone);
 
   const canGoForward = selectedDate < addDays(new Date(), 7);
-  const goBack = () => setSelectedDate((d) => addDays(d, -1));
-  const goForward = () => canGoForward && setSelectedDate((d) => addDays(d, 1));
-  const goToday = () => setSelectedDate(new Date());
+  const goBack = useCallback(() => setSelectedDate((d) => addDays(d, -1)), []);
+  const goForward = useCallback(() => setSelectedDate((d) => addDays(d, 1)), []);
+  const goToday = useCallback(() => setSelectedDate(new Date()), []);
+  const handleRefresh = useCallback(() => refetch(), [refetch]);
 
-  const liveGames = games?.filter((g) => g.status === "live") || [];
-  const upcoming = games?.filter((g) => g.status === "scheduled") || [];
-  const final = games?.filter((g) => g.status === "final") || [];
+  const { liveGames, upcoming, final: finalGames } = useMemo(() => ({
+    liveGames: games?.filter((g) => g.status === "live") || [],
+    upcoming: games?.filter((g) => g.status === "scheduled") || [],
+    final: games?.filter((g) => g.status === "final") || [],
+  }), [games]);
 
   return (
     <div className="min-h-screen">
@@ -34,7 +37,7 @@ const Index = () => {
               <h1 className="text-xl font-bold font-display tracking-tight">Cosmic Edge</h1>
             </div>
             <button
-              onClick={() => refetch()}
+              onClick={handleRefresh}
               disabled={isFetching}
               className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
             >
@@ -132,13 +135,13 @@ const Index = () => {
               </section>
             )}
 
-            {final.length > 0 && (
+            {finalGames.length > 0 && (
               <section>
                 <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-3">
                   Settled · Outcomes Recorded
                 </h2>
                 <div className="space-y-3">
-                  {final.map((game) => (
+                  {finalGames.map((game) => (
                     <GameCard key={game.id} game={game} />
                   ))}
                 </div>

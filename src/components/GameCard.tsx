@@ -1,3 +1,4 @@
+import { memo, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import type { GameWithOdds } from "@/hooks/use-games";
@@ -12,7 +13,7 @@ function formatOdds(odds: number): string {
   return odds > 0 ? `+${odds}` : `${odds}`;
 }
 
-function LiveSnapshot({ gameId }: { gameId: string }) {
+const LiveSnapshot = memo(function LiveSnapshot({ gameId }: { gameId: string }) {
   const { data: snapshot } = useQuery({
     queryKey: ["game-snapshot", gameId],
     queryFn: async () => {
@@ -37,28 +38,38 @@ function LiveSnapshot({ gameId }: { gameId: string }) {
       {snapshot.clock && snapshot.clock !== snapshot.quarter && <> · {snapshot.clock}</>}
     </span>
   );
-}
+});
 
-export function GameCard({ game }: { game: GameWithOdds }) {
+export const GameCard = memo(function GameCard({ game }: { game: GameWithOdds }) {
   const navigate = useNavigate();
   const { formatInUserTZ, getTZAbbrev } = useTimezone();
   const isLive = game.status === "live";
   const isFinal = game.status === "final";
   const hasScores = game.home_score != null && game.away_score != null;
 
-  // Planetary hour at game start time
-  const gameStartDate = new Date(game.start_time);
-  const planetaryHour = getPlanetaryHourAt(gameStartDate);
-  const elemental = { label: `${planetaryHour?.symbol || "☉"} ${planetaryHour?.planet || "Solar"}`, color: "text-cosmic-gold" };
+  // Memoize planetary hour computation
+  const planetaryHour = useMemo(() => {
+    const gameStartDate = new Date(game.start_time);
+    return getPlanetaryHourAt(gameStartDate);
+  }, [game.start_time]);
 
-  const handleTeamClick = (e: React.MouseEvent, abbr: string) => {
+  const elemental = useMemo(() => ({
+    label: `${planetaryHour?.symbol || "☉"} ${planetaryHour?.planet || "Solar"}`,
+    color: "text-cosmic-gold",
+  }), [planetaryHour]);
+
+  const handleTeamClick = useCallback((e: React.MouseEvent, abbr: string) => {
     e.stopPropagation();
     navigate(`/team/${game.league}/${abbr}`);
-  };
+  }, [navigate, game.league]);
+
+  const handleGameClick = useCallback(() => {
+    navigate(`/game/${game.id}`);
+  }, [navigate, game.id]);
 
   return (
     <button
-      onClick={() => navigate(`/game/${game.id}`)}
+      onClick={handleGameClick}
       className={cn(
         "w-full text-left cosmic-card rounded-xl p-4 transition-all duration-200 hover:border-primary/30 hover:cosmic-glow active:scale-[0.98]",
         isLive && "border-l-2 border-l-cosmic-green"
@@ -134,7 +145,7 @@ export function GameCard({ game }: { game: GameWithOdds }) {
           </div>
           <div className="flex items-center gap-4">
             {(isLive || isFinal || hasScores) && (
-              <span className={cn("text-lg font-bold font-display tabular-nums", isLive || (!isFinal && hasScores) ? "text-cosmic-green" : isFinal && (game.home_score ?? 0) > (game.away_score ?? 0) ? "text-foreground" : "text-muted-foreground")}>
+              <span className={cn("text-lg font-bold font-display tabular-nums", isLive || (!isFinal && hasScores) ? "text-cosmic-green" : isFinal && (game.home_score ?? 0) > (game.home_score ?? 0) ? "text-foreground" : "text-muted-foreground")}>
                 {game.home_score}
               </span>
             )}
@@ -182,4 +193,4 @@ export function GameCard({ game }: { game: GameWithOdds }) {
       </div>
     </button>
   );
-}
+});
