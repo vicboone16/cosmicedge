@@ -1425,6 +1425,96 @@ export type Database = {
         }
         Relationships: []
       }
+      nebula_prop_predictions: {
+        Row: {
+          astro: Json | null
+          book: string
+          confidence: number
+          created_at: string
+          edge_score: number
+          game_id: string
+          hit_l10: number | null
+          hit_l20: number | null
+          id: string
+          line: number | null
+          microbars: Json | null
+          mu: number
+          odds: number | null
+          one_liner: string | null
+          player_id: string
+          pred_ts: string
+          prop_type: string
+          risk: number
+          side: string | null
+          sigma: number
+          streak: number | null
+          updated_at: string
+        }
+        Insert: {
+          astro?: Json | null
+          book?: string
+          confidence?: number
+          created_at?: string
+          edge_score?: number
+          game_id: string
+          hit_l10?: number | null
+          hit_l20?: number | null
+          id?: string
+          line?: number | null
+          microbars?: Json | null
+          mu?: number
+          odds?: number | null
+          one_liner?: string | null
+          player_id: string
+          pred_ts?: string
+          prop_type: string
+          risk?: number
+          side?: string | null
+          sigma?: number
+          streak?: number | null
+          updated_at?: string
+        }
+        Update: {
+          astro?: Json | null
+          book?: string
+          confidence?: number
+          created_at?: string
+          edge_score?: number
+          game_id?: string
+          hit_l10?: number | null
+          hit_l20?: number | null
+          id?: string
+          line?: number | null
+          microbars?: Json | null
+          mu?: number
+          odds?: number | null
+          one_liner?: string | null
+          player_id?: string
+          pred_ts?: string
+          prop_type?: string
+          risk?: number
+          side?: string | null
+          sigma?: number
+          streak?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "nebula_prop_predictions_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "nebula_prop_predictions_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       nfl_games: {
         Row: {
           arena: string | null
@@ -3911,6 +4001,104 @@ export type Database = {
       }
     }
     Views: {
+      np_v_latest_prop_predictions: {
+        Row: {
+          astro: Json | null
+          away_abbr: string | null
+          book: string | null
+          confidence: number | null
+          created_at: string | null
+          edge_score: number | null
+          game_id: string | null
+          game_start_time: string | null
+          headshot_url: string | null
+          hit_l10: number | null
+          hit_l20: number | null
+          home_abbr: string | null
+          id: string | null
+          league: string | null
+          line: number | null
+          microbars: Json | null
+          mu: number | null
+          odds: number | null
+          one_liner: string | null
+          player_id: string | null
+          player_name: string | null
+          player_team: string | null
+          pred_ts: string | null
+          prop_type: string | null
+          risk: number | null
+          side: string | null
+          sigma: number | null
+          streak: number | null
+          updated_at: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "nebula_prop_predictions_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "nebula_prop_predictions_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      np_v_prop_overlay: {
+        Row: {
+          astro: Json | null
+          away_abbr: string | null
+          book: string | null
+          confidence: number | null
+          created_at: string | null
+          edge_score: number | null
+          game_id: string | null
+          game_start_time: string | null
+          headshot_url: string | null
+          hit_l10: number | null
+          hit_l20: number | null
+          home_abbr: string | null
+          id: string | null
+          league: string | null
+          line: number | null
+          microbars: Json | null
+          mu: number | null
+          odds: number | null
+          one_liner: string | null
+          player_id: string | null
+          player_name: string | null
+          player_team: string | null
+          pred_ts: string | null
+          prop_type: string | null
+          risk: number | null
+          side: string | null
+          sigma: number | null
+          streak: number | null
+          updated_at: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "nebula_prop_predictions_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "nebula_prop_predictions_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       v_nfl_player_game_metrics: {
         Row: {
           away_team_name: string | null

@@ -7,6 +7,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { PlayerPropsSection } from "@/components/player/PlayerPropsSection";
+import { ModelsTab } from "@/components/models/ModelsTab";
+import { useNebulaOverlayByPlayer } from "@/hooks/use-nebula-overlay";
 
 function getZodiacFromDate(dateStr: string): { sign: string; symbol: string; element: string; quality: string } {
   const d = new Date(dateStr + "T12:00:00");
@@ -84,6 +86,7 @@ function getPlayerProps(stats: any, element: string) {
 type StatsTab = "stats" | "1h" | "1q" | "game_logs";
 type SampleSize = 5 | 10 | "season";
 type StatMode = "averages" | "totals";
+type PlayerProfileTab = "overview" | "astrology" | "models";
 
 const PlayerPage = () => {
   const { id } = useParams();
@@ -92,6 +95,9 @@ const PlayerPage = () => {
   const [sampleSize, setSampleSize] = useState<SampleSize>(10);
   const [showOpponent, setShowOpponent] = useState(false);
   const [statMode, setStatMode] = useState<StatMode>("averages");
+  const [profileTab, setProfileTab] = useState<PlayerProfileTab>("overview");
+
+  const { data: overlayRows = [], isLoading: overlayLoading, refetch: refetchOverlay } = useNebulaOverlayByPlayer(id);
 
   const { data: player, isLoading } = useQuery({
     queryKey: ["player", id],
@@ -311,85 +317,124 @@ const PlayerPage = () => {
             View Trends
           </button>
         </div>
+
+        {/* Profile tabs */}
+        <div className="flex gap-1 mt-3 border-b border-border/50 -mx-4 px-4 overflow-x-auto no-scrollbar">
+          {([
+            { val: "overview" as PlayerProfileTab, label: "Overview" },
+            { val: "astrology" as PlayerProfileTab, label: "Astrology" },
+            { val: "models" as PlayerProfileTab, label: "Models" },
+          ]).map(t => (
+            <button
+              key={t.val}
+              onClick={() => setProfileTab(t.val)}
+              className={cn(
+                "px-4 py-2.5 text-xs font-semibold transition-colors whitespace-nowrap border-b-2",
+                profileTab === t.val
+                  ? "text-primary border-primary"
+                  : "text-muted-foreground border-transparent hover:text-foreground"
+              )}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
       </header>
 
       <div className="px-4 py-4 space-y-5">
-        {/* Natal Profile */}
-        {zodiac && (
-          <section>
-            <h3 className="text-xs font-semibold text-primary uppercase tracking-widest mb-3 flex items-center gap-1.5">
-              <Star className="h-3.5 w-3.5" />
-              Natal Profile
-            </h3>
-            <div className="celestial-gradient rounded-xl p-4">
-              <div className="flex items-center gap-3 mb-3">
-                <span className="text-3xl">{zodiac.symbol}</span>
-                <div>
-                  <p className="text-sm font-semibold text-foreground">Sun in {zodiac.sign}</p>
-                  <p className="text-[10px] text-muted-foreground">
-                    {zodiac.element} · {zodiac.quality} · Born {player.birth_date} {player.birth_place ? `· ${player.birth_place}` : ""}
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="astro-badge rounded-full px-2 py-0.5 text-[10px] font-medium text-cosmic-indigo">
-                  ☉ {zodiac.sign}
-                </span>
-                {player.natal_data_quality === "exact" ? (
-                  <span className="astro-badge rounded-full px-2 py-0.5 text-[10px] font-medium text-cosmic-indigo">
-                    Exact Birth Time
-                  </span>
-                ) : (
-                  <span className="astro-badge rounded-full px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
-                    Houses/Rising: Noon est.
-                  </span>
-                )}
-                <span className="astro-badge rounded-full px-2 py-0.5 text-[10px] font-medium text-cosmic-indigo">
-                  {zodiac.element} Element
-                </span>
-              </div>
-            </div>
-          </section>
+        {/* Models Tab */}
+        {profileTab === "models" && (
+          <ModelsTab
+            overlayRows={overlayRows}
+            isLoading={overlayLoading}
+            onRefresh={() => refetchOverlay()}
+            hasBaseProps={true}
+            showSearch
+          />
         )}
 
-        {/* Active Transit Effects */}
-        {transitMods.length > 0 && (
-          <section>
-            <h3 className="text-xs font-semibold text-primary uppercase tracking-widest mb-3 flex items-center gap-1.5">
-              <Zap className="h-3.5 w-3.5" />
-              Active Transit Effects
-            </h3>
-            <div className="space-y-2">
-              {transitMods.map((mod, i) => (
-                <div key={i} className={cn(
-                  "cosmic-card rounded-xl p-3 flex items-start gap-3",
-                  mod.type === "boost" ? "border-l-2 border-l-cosmic-green" : "border-l-2 border-l-cosmic-red"
-                )}>
-                  <div className={cn("p-1.5 rounded-lg mt-0.5", mod.type === "boost" ? "bg-cosmic-green/10" : "bg-cosmic-red/10")}>
-                    {mod.type === "boost" ? <ArrowUp className="h-3.5 w-3.5 text-cosmic-green" /> : <ArrowDown className="h-3.5 w-3.5 text-cosmic-red" />}
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-semibold text-foreground">{mod.stat}</span>
-                      <span className={cn("text-[10px] font-bold", mod.type === "boost" ? "text-cosmic-green" : "text-cosmic-red")}>
-                        {mod.modifier > 0 ? "+" : ""}{mod.modifier}%
-                      </span>
+        {profileTab === "astrology" && (
+          <>
+            {/* Natal Profile */}
+            {zodiac && (
+              <section>
+                <h3 className="text-xs font-semibold text-primary uppercase tracking-widest mb-3 flex items-center gap-1.5">
+                  <Star className="h-3.5 w-3.5" />
+                  Natal Profile
+                </h3>
+                <div className="celestial-gradient rounded-xl p-4">
+                  <div className="flex items-center gap-3 mb-3">
+                    <span className="text-3xl">{zodiac.symbol}</span>
+                    <div>
+                      <p className="text-sm font-semibold text-foreground">Sun in {zodiac.sign}</p>
+                      <p className="text-[10px] text-muted-foreground">
+                        {zodiac.element} · {zodiac.quality} · Born {player.birth_date} {player.birth_place ? `· ${player.birth_place}` : ""}
+                      </p>
                     </div>
-                    <p className="text-[10px] text-muted-foreground mt-0.5">{mod.reason}</p>
+                  </div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="astro-badge rounded-full px-2 py-0.5 text-[10px] font-medium text-cosmic-indigo">
+                      ☉ {zodiac.sign}
+                    </span>
+                    {player.natal_data_quality === "exact" ? (
+                      <span className="astro-badge rounded-full px-2 py-0.5 text-[10px] font-medium text-cosmic-indigo">
+                        Exact Birth Time
+                      </span>
+                    ) : (
+                      <span className="astro-badge rounded-full px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                        Houses/Rising: Noon est.
+                      </span>
+                    )}
+                    <span className="astro-badge rounded-full px-2 py-0.5 text-[10px] font-medium text-cosmic-indigo">
+                      {zodiac.element} Element
+                    </span>
                   </div>
                 </div>
-              ))}
-            </div>
-          </section>
+              </section>
+            )}
+
+            {/* Active Transit Effects */}
+            {transitMods.length > 0 && (
+              <section>
+                <h3 className="text-xs font-semibold text-primary uppercase tracking-widest mb-3 flex items-center gap-1.5">
+                  <Zap className="h-3.5 w-3.5" />
+                  Active Transit Effects
+                </h3>
+                <div className="space-y-2">
+                  {transitMods.map((mod, i) => (
+                    <div key={i} className={cn(
+                      "cosmic-card rounded-xl p-3 flex items-start gap-3",
+                      mod.type === "boost" ? "border-l-2 border-l-cosmic-green" : "border-l-2 border-l-cosmic-red"
+                    )}>
+                      <div className={cn("p-1.5 rounded-lg mt-0.5", mod.type === "boost" ? "bg-cosmic-green/10" : "bg-cosmic-red/10")}>
+                        {mod.type === "boost" ? <ArrowUp className="h-3.5 w-3.5 text-cosmic-green" /> : <ArrowDown className="h-3.5 w-3.5 text-cosmic-red" />}
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-semibold text-foreground">{mod.stat}</span>
+                          <span className={cn("text-[10px] font-bold", mod.type === "boost" ? "text-cosmic-green" : "text-cosmic-red")}>
+                            {mod.modifier > 0 ? "+" : ""}{mod.modifier}%
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-muted-foreground mt-0.5">{mod.reason}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+          </>
         )}
 
-        {/* Props & Odds */}
-        {player.team && (
-          <PlayerPropsSection playerId={id!} playerName={player.name} teamAbbr={player.team} />
-        )}
+        {profileTab === "overview" && (
+          <>
+            {/* Props & Odds */}
+            {player.team && (
+              <PlayerPropsSection playerId={id!} playerName={player.name} teamAbbr={player.team} />
+            )}
 
-        {/* ====== Stats Section with Tabs & Filters ====== */}
-        <section>
+            {/* ====== Stats Section with Tabs & Filters ====== */}
+            <section>
           <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-3 flex items-center gap-1.5">
             <TrendingUp className="h-3.5 w-3.5" />
             Performance
