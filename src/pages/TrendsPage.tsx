@@ -225,13 +225,21 @@ export default function TrendsPage() {
       filtered = filtered.filter(r => r.direction === filters.direction);
     }
 
+    // Apply search filter
+    if (search) {
+      const q = search.toLowerCase();
+      filtered = filtered.filter(r => r.playerName.toLowerCase().includes(q));
+    }
+
     // Sort
     if (sortBy === "hitRate") {
       filtered.sort((a, b) => b.hitRate - a.hitRate);
+    } else if (sortBy === "date") {
+      filtered.sort((a, b) => a.startTime.localeCompare(b.startTime));
     }
 
     return filtered;
-  }, [props, playerStats, gameMap, filters, sortBy]);
+  }, [props, playerStats, gameMap, filters, sortBy, search]);
 
   const handleRefresh = async () => {
     try {
