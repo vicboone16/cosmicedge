@@ -554,7 +554,9 @@ const SkySpreadPage = () => {
             >
               <RefreshCw className={cn("h-4 w-4 text-muted-foreground", refreshing && "animate-spin")} />
             </button>
-            <CreateBetForm userId={userId} />
+            <CreateBetForm userId={userId} prefill={prefillData} onPrefillConsumed={() => {
+              setSearchParams({}, { replace: true });
+            }} />
           </div>
         </div>
 
