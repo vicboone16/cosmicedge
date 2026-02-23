@@ -116,7 +116,7 @@ function americanToDecimal(odds: number): number {
   return (100 / Math.abs(odds)) + 1;
 }
 
-export default function CreateBetForm({ userId }: CreateBetFormProps) {
+export default function CreateBetForm({ userId, prefill, onPrefillConsumed }: CreateBetFormProps) {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -133,6 +133,33 @@ export default function CreateBetForm({ userId }: CreateBetFormProps) {
   const [edgeScore, setEdgeScore] = useState([50]);
   const [whySummary, setWhySummary] = useState("");
   const [notes, setNotes] = useState("");
+
+  // Handle prefill from URL params
+  useEffect(() => {
+    if (prefill && prefill.player) {
+      const isPlayerProp = !!prefill.player;
+      const marketKey = prefill.market || "";
+      // Map player_xxx market keys to prop stat types
+      const propType = marketKey.replace(/^player_/, "");
+      
+      const newLeg: BetLeg = {
+        gameId: prefill.gameId || "",
+        category: isPlayerProp ? "player_prop" : "game",
+        marketType: isPlayerProp ? "player_prop" : marketKey,
+        period: prefill.period || "full",
+        selection: prefill.player ? `${prefill.player} ${prefill.side || "over"} ${prefill.line || ""}` : "",
+        side: prefill.side || "over",
+        playerId: "",
+        playerName: prefill.player || "",
+        propType: propType || "",
+        line: prefill.line || "",
+        odds: prefill.odds || "",
+      };
+      setLegs([newLeg]);
+      setOpen(true);
+      onPrefillConsumed?.();
+    }
+  }, [prefill]);
 
   const dateOptions = useMemo(() => {
     const opts: { value: string; label: string }[] = [];
