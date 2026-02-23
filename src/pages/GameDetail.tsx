@@ -13,6 +13,8 @@ import { SynastrySection } from "@/components/game/SynastrySection";
 import { TransitModifiers } from "@/components/game/TransitModifiers";
 import { PlayerPropsSection } from "@/components/game/PlayerPropsSection";
 import { PeriodOddsSection } from "@/components/game/PeriodOddsSection";
+import { LiveOddsTracker } from "@/components/game/LiveOddsTracker";
+import { SGOPlayerPropsAnalyzer } from "@/components/game/SGOPlayerPropsAnalyzer";
 import { HoraryChartSection } from "@/components/game/HoraryChartSection";
 import { AstrocartographySection } from "@/components/game/AstrocartographySection";
 import { TransitScrubber } from "@/components/game/TransitScrubber";
@@ -657,19 +659,27 @@ const GameDetail = () => {
                   </div>
                 </section>
 
-                {/* Period Markets */}
+                {/* Live Odds Tracker (SGO all markets) */}
+                <LiveOddsTracker gameId={game.id} homeAbbr={game.home_abbr} awayAbbr={game.away_abbr} league={game.league} />
+
+                {/* Period Markets (legacy) */}
                 <PeriodOddsSection gameId={game.id} league={game.league} />
               </>
             )}
 
             {gameSubTab === "player_props" && (
-              <PlayerPropsSection gameId={game.id} />
+              <>
+                <PlayerPropsSection gameId={game.id} />
+                <SGOPlayerPropsAnalyzer gameId={game.id} homeAbbr={game.home_abbr} awayAbbr={game.away_abbr} />
+              </>
             )}
 
-            {(gameSubTab === "team_props" || gameSubTab === "game_props") && (
-              <div className="text-center py-8">
-                <p className="text-sm text-muted-foreground">Coming soon</p>
-              </div>
+            {gameSubTab === "team_props" && (
+              <LiveOddsTracker gameId={game.id} homeAbbr={game.home_abbr} awayAbbr={game.away_abbr} league={game.league} />
+            )}
+
+            {gameSubTab === "game_props" && (
+              <LiveOddsTracker gameId={game.id} homeAbbr={game.home_abbr} awayAbbr={game.away_abbr} league={game.league} />
             )}
           </>
         )}

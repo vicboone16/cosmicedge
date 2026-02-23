@@ -1,5 +1,6 @@
 // SGO Live & Upcoming Events Poller
 // Uses shared SGO types for proper API model normalization
+// Now ingests ALL markets: game lines, player props, alts, period markets
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import type { RawEvent } from "../_shared/sgo-types.ts";
 
@@ -118,18 +119,16 @@ function resolveStatus(event: RawEvent): string {
   if (event.status?.finalized) return "final";
   if (event.status?.cancelled) return "cancelled";
   if (event.status?.delayed) return "delayed";
-  // Fallback for stream/seed events without full status
   if ((event as any).live) return "live";
   if ((event as any).finalized) return "final";
   return "scheduled";
 }
 
 // ---------------------------------------------------------------------------
-// Extract scores – prefer status.results, fall back to teams.home/away.score
+// Extract scores
 // ---------------------------------------------------------------------------
 
 function extractScores(event: RawEvent): { home: number | null; away: number | null } {
-  // teams.home.score / teams.away.score is the simplest path
   const homeScore = event.teams?.home?.score ?? null;
   const awayScore = event.teams?.away?.score ?? null;
   if (homeScore != null || awayScore != null) {
@@ -149,7 +148,7 @@ function extractPeriodInfo(event: RawEvent) {
 }
 
 // ---------------------------------------------------------------------------
-// Parse odds from the event.odds map
+// Parse odds from the event.odds map (legacy — for odds_snapshots)
 // ---------------------------------------------------------------------------
 
 function parseOddsSnapshots(odds: Record<string, unknown>, gameId: string) {
@@ -177,10 +176,8 @@ function parseOddsSnapshots(odds: Record<string, unknown>, gameId: string) {
       continue;
     }
 
-    // Consensus
     snapshots.push({ game_id: gameId, bookmaker: "sgo_consensus", market_type: marketType, home_price: homePrice, away_price: awayPrice, line });
 
-    // Per-bookmaker
     if (oddData.byBookmaker) {
       for (const [bk, bkData] of Object.entries(oddData.byBookmaker) as [string, any][]) {
         snapshots.push({
@@ -196,6 +193,120 @@ function parseOddsSnapshots(odds: Record<string, unknown>, gameId: string) {
   }
 
   return snapshots;
+}
+
+// ---------------------------------------------------------------------------
+// Format SGO player ID to readable name
+// ---------------------------------------------------------------------------
+
+function formatPlayerName(playerId: string): string {
+  if (!playerId) return "Unknown";
+  // Remove suffix like '_1_NBA', '_2_NFL'
+  const parts = playerId.split("_");
+  if (parts.length > 2) {
+    // Last part is league, second to last is number
+    const nameParts = parts.slice(0, -2);
+    return nameParts.map(p => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase()).join(" ");
+  }
+  return parts.map(p => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase()).join(" ");
+}
+
+// ---------------------------------------------------------------------------
+// Parse ALL odds into sgo_market_odds format
+// ---------------------------------------------------------------------------
+
+function parseAllMarketOdds(odds: Record<string, unknown>, gameId: string, eventId: string, league: string) {
+  const rows: any[] = [];
+
+  for (const [oddID, oddData] of Object.entries(odds) as [string, any][]) {
+    const sideID = oddData.sideID || "";
+    const statEntityID = oddData.statEntityID || "all";
+    const statID = oddData.statID || null;
+    const betTypeID = oddData.betTypeID || "";
+    const periodID = oddData.periodID || "game";
+
+    // Determine bet type
+    let betType = "unknown";
+    if (betTypeID === "ml" || oddID.includes("-ml-")) betType = "ml";
+    else if (betTypeID === "sp" || oddID.includes("-sp-")) betType = "sp";
+    else if (betTypeID === "ou" || oddID.includes("-ou-")) betType = "ou";
+    else betType = betTypeID || "unknown";
+
+    // Determine side
+    const side = sideID || (oddID.includes("home") ? "home" : oddID.includes("away") ? "away" : oddID.includes("over") ? "over" : oddID.includes("under") ? "under" : "unknown");
+
+    // Determine period
+    let period = "full";
+    if (periodID && periodID !== "game") {
+      period = periodID; // e.g. '1Q', '2Q', '1H', '2H', 'OT1', etc.
+    }
+
+    // Is player prop?
+    const isPlayerProp = statEntityID !== "all" && statEntityID !== "home" && statEntityID !== "away";
+    const playerName = isPlayerProp ? formatPlayerName(statEntityID) : null;
+
+    // Is alternate?
+    const isAlternate = oddData.isMainLine === false || oddID.includes("alt");
+
+    // Consensus odds
+    const consensusOdds = oddData.odds != null ? Math.round(Number(oddData.odds)) : null;
+    const consensusLine = oddData.spread ?? oddData.overUnder ?? null;
+
+    if (consensusOdds != null || consensusLine != null) {
+      rows.push({
+        game_id: gameId,
+        event_id: eventId,
+        league,
+        odd_id: oddID,
+        bet_type: betType,
+        side,
+        period,
+        stat_entity_id: statEntityID,
+        stat_id: statID,
+        player_name: playerName,
+        is_player_prop: isPlayerProp,
+        is_alternate: isAlternate,
+        bookmaker: "consensus",
+        odds: consensusOdds,
+        line: consensusLine != null ? Number(consensusLine) : null,
+        available: true,
+        last_updated_at: oddData.lastUpdatedAt || null,
+      });
+    }
+
+    // Per-bookmaker odds
+    if (oddData.byBookmaker) {
+      for (const [bkId, bkData] of Object.entries(oddData.byBookmaker) as [string, any][]) {
+        const bkOdds = bkData.odds != null ? Math.round(Number(bkData.odds)) : null;
+        const bkLine = bkData.spread ?? bkData.overUnder ?? consensusLine;
+        const bkAvailable = bkData.available !== false;
+
+        if (bkOdds != null || bkLine != null) {
+          rows.push({
+            game_id: gameId,
+            event_id: eventId,
+            league,
+            odd_id: oddID,
+            bet_type: betType,
+            side,
+            period,
+            stat_entity_id: statEntityID,
+            stat_id: statID,
+            player_name: playerName,
+            is_player_prop: isPlayerProp,
+            is_alternate: isAlternate,
+            bookmaker: bkId,
+            odds: bkOdds,
+            line: bkLine != null ? Number(bkLine) : null,
+            available: bkAvailable,
+            last_updated_at: bkData.lastUpdatedAt || null,
+          });
+        }
+      }
+    }
+  }
+
+  return rows;
 }
 
 // ---------------------------------------------------------------------------
@@ -224,7 +335,7 @@ Deno.serve(async (req) => {
 
     if (!streamData?.data?.length) {
       return new Response(
-        JSON.stringify({ success: true, feed, events_found: 0, games_upserted: 0, odds_snapshots_stored: 0 }),
+        JSON.stringify({ success: true, feed, events_found: 0, games_upserted: 0, odds_snapshots_stored: 0, market_odds_stored: 0 }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
@@ -236,12 +347,12 @@ Deno.serve(async (req) => {
     let gamesUpserted = 0;
     let snapshotsStored = 0;
     let stateSnapshotsStored = 0;
+    let marketOddsStored = 0;
 
     for (const event of events) {
       const eventLeague = event.leagueID || "";
       const { homeTeam, awayTeam, homeAbbr, awayAbbr } = extractTeamInfo(event);
 
-      // Resolve start time
       const startTime = event.status?.startsAt ?? (event as any).start ?? (event as any).startTime ?? null;
       if (!startTime || isNaN(new Date(startTime).getTime())) continue;
 
@@ -293,7 +404,7 @@ Deno.serve(async (req) => {
         await supabase.from("games").update({ home_score: scores.home, away_score: scores.away }).eq("id", gameId);
       }
 
-      // Store game_state_snapshot for live/final games (real-time timeline)
+      // Store game_state_snapshot for live/final games
       if (status === "live" || status === "final") {
         const { periodId, displayShort } = extractPeriodInfo(event);
         const { error: snapErr } = await supabase.from("game_state_snapshots").insert({
@@ -307,14 +418,27 @@ Deno.serve(async (req) => {
         if (!snapErr) stateSnapshotsStored++;
       }
 
-      // Parse & store odds snapshots
+      // Parse & store odds
       if (event.odds && typeof event.odds === "object") {
+        // Legacy odds_snapshots (game-level ML/SP/OU only)
         const oddsSnaps = parseOddsSnapshots(event.odds as Record<string, unknown>, gameId);
         for (let i = 0; i < oddsSnaps.length; i += BATCH) {
           const chunk = oddsSnaps.slice(i, i + BATCH);
           const { error } = await supabase.from("odds_snapshots").insert(chunk);
           if (error) console.error("Snapshot insert error:", error.message);
           else snapshotsStored += chunk.length;
+        }
+
+        // NEW: All markets → sgo_market_odds (upsert)
+        const allMarkets = parseAllMarketOdds(event.odds as Record<string, unknown>, gameId, event.eventID, eventLeague);
+        for (let i = 0; i < allMarkets.length; i += BATCH) {
+          const chunk = allMarkets.slice(i, i + BATCH);
+          const { error } = await supabase.from("sgo_market_odds").upsert(chunk, {
+            onConflict: "game_id,odd_id,bookmaker",
+            ignoreDuplicates: false,
+          });
+          if (error) console.error("Market odds upsert error:", error.message);
+          else marketOddsStored += chunk.length;
         }
       }
 
@@ -338,6 +462,7 @@ Deno.serve(async (req) => {
         games_upserted: gamesUpserted,
         odds_snapshots_stored: snapshotsStored,
         state_snapshots_stored: stateSnapshotsStored,
+        market_odds_stored: marketOddsStored,
         fetched_at: new Date().toISOString(),
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
