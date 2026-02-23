@@ -44,3 +44,9 @@ verify_jwt = false
 
 [functions.ncaab-dispatcher]
 verify_jwt = false
+
+[functions.fetch-sgo-live]
+verify_jwt = false
+
+[functions.sgo-dispatcher]
+verify_jwt = false
