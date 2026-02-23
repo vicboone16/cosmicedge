@@ -2645,6 +2645,7 @@ export type Database = {
           name: string
           natal_data_quality: string | null
           position: string | null
+          status: string
           team: string | null
           updated_at: string
         }
@@ -2662,6 +2663,7 @@ export type Database = {
           name: string
           natal_data_quality?: string | null
           position?: string | null
+          status?: string
           team?: string | null
           updated_at?: string
         }
@@ -2679,6 +2681,7 @@ export type Database = {
           name?: string
           natal_data_quality?: string | null
           position?: string | null
+          status?: string
           team?: string | null
           updated_at?: string
         }

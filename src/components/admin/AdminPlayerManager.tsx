@@ -156,6 +156,7 @@ interface Player {
   external_id: string | null;
   headshot_url: string | null;
   natal_data_quality: string | null;
+  status: string;
 }
 
 export default function AdminPlayerManager() {
@@ -164,6 +165,7 @@ export default function AdminPlayerManager() {
   const [abbrSearch, setAbbrSearch] = useState("");
   const [teamSearch, setTeamSearch] = useState("");
   const [leagueFilter, setLeagueFilter] = useState("ALL");
+  const [statusFilter, setStatusFilter] = useState("active");
   const [editPlayer, setEditPlayer] = useState<Player | null>(null);
   const [mergeSource, setMergeSource] = useState<Player | null>(null);
   const [mergeTarget, setMergeTarget] = useState<Player | null>(null);
@@ -175,13 +177,14 @@ export default function AdminPlayerManager() {
   const canSearch = search.length >= 2 || abbrSearch.length >= 1 || teamSearch.length >= 2 || leagueFilter !== "ALL";
 
   const { data: players = [], isLoading } = useQuery({
-    queryKey: ["admin-players", search, abbrSearch, teamSearch, leagueFilter],
+    queryKey: ["admin-players", search, abbrSearch, teamSearch, leagueFilter, statusFilter],
     queryFn: async () => {
       let q = supabase.from("players").select("*").order("name").limit(150);
       if (search.length >= 2) q = q.ilike("name", `%${search}%`);
       if (abbrSearch.length >= 1) q = q.ilike("team", `${abbrSearch}%`);
       if (teamSearch.length >= 2) q = q.ilike("team", `%${teamSearch}%`);
       if (leagueFilter !== "ALL") q = q.eq("league", leagueFilter);
+      if (statusFilter !== "ALL") q = q.eq("status", statusFilter);
       const { data, error } = await q;
       if (error) throw error;
       return (data || []) as Player[];
@@ -224,6 +227,7 @@ export default function AdminPlayerManager() {
         birth_time: p.birth_time,
         headshot_url: p.headshot_url,
         natal_data_quality: p.natal_data_quality,
+        status: p.status,
       }).eq("id", p.id);
       if (error) throw error;
     },
@@ -339,6 +343,17 @@ export default function AdminPlayerManager() {
             <SelectItem value="MLB">MLB</SelectItem>
           </SelectContent>
         </Select>
+        <Select value={statusFilter} onValueChange={v => { setStatusFilter(v); clearSelection(); }}>
+          <SelectTrigger className="w-24 h-8 text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="ALL">All Status</SelectItem>
+            <SelectItem value="active">Active</SelectItem>
+            <SelectItem value="retired">Retired</SelectItem>
+            <SelectItem value="archived">Archived</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Merge mode banner */}
@@ -408,6 +423,11 @@ export default function AdminPlayerManager() {
               <p className="text-[10px] text-muted-foreground">
                 {p.league} · {p.team || "—"} · {p.position || "—"} · {p.birth_date || "No DOB"}
                 {p.external_id && ` · ext:${p.external_id}`}
+                {p.status !== "active" && (
+                  <span className={cn("ml-1 px-1 py-0.5 rounded text-[9px] font-medium uppercase",
+                    p.status === "retired" ? "bg-amber-500/20 text-amber-400" : "bg-muted text-muted-foreground"
+                  )}>{p.status}</span>
+                )}
               </p>
             </div>
             <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => setEditPlayer({ ...p })}>
@@ -471,6 +491,23 @@ export default function AdminPlayerManager() {
                 />
               </div>
               {/* Remaining fields */}
+              {/* Status */}
+              <div>
+                <label className="text-[10px] text-muted-foreground uppercase">Status</label>
+                <Select
+                  value={editPlayer.status || "active"}
+                  onValueChange={v => setEditPlayer({ ...editPlayer, status: v })}
+                >
+                  <SelectTrigger className="h-8 text-xs w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="active">Active</SelectItem>
+                    <SelectItem value="retired">Retired</SelectItem>
+                    <SelectItem value="archived">Archived</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
               {([
                 { key: "position", label: "Position" },
                 { key: "birth_date", label: "Birth Date" },

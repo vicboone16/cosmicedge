@@ -373,6 +373,7 @@ const GameDetail = () => {
         .select("id, name, position, team, birth_date, league, headshot_url")
         .in("team", [game.home_abbr, game.away_abbr])
         .eq("league", game.league)
+        .eq("status", "active")
         .limit(50);
       return data || [];
     },
