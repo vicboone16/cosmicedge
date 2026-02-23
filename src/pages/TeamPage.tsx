@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { TeamOddsSection } from "@/components/team/TeamOddsSection";
+import { TeamPlayerPropsSection } from "@/components/team/TeamPlayerPropsSection";
 
 const ABBR_TO_FULL: Record<string, string> = {
   ATL: "Atlanta Hawks", BOS: "Boston Celtics", BKN: "Brooklyn Nets",
@@ -363,6 +364,9 @@ const TeamPage = () => {
 
         {/* Odds & Records */}
         <TeamOddsSection abbr={abbr!} league={standings?.league || leagueParam?.toUpperCase() || "NBA"} />
+
+        {/* Player Props for upcoming game */}
+        <TeamPlayerPropsSection abbr={abbr!} league={standings?.league || leagueParam?.toUpperCase() || "NBA"} />
 
         {/* Upcoming Games */}
         {upcomingGames && upcomingGames.length > 0 && (
