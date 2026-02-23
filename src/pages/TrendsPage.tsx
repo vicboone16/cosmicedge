@@ -50,12 +50,14 @@ export default function TrendsPage() {
     queryFn: async () => {
       const start = new Date(selectedDate);
       start.setHours(0, 0, 0, 0);
+      // Widen window: look back 1 day and forward 2 days to catch evening games across timezones
+      const lookBack = addDays(start, -1);
       const end = addDays(start, 2);
       const { data } = await supabase
         .from("games")
         .select("id, home_abbr, away_abbr, home_team, away_team, start_time, league")
         .eq("league", leagueFilter)
-        .gte("start_time", start.toISOString())
+        .gte("start_time", lookBack.toISOString())
         .lte("start_time", end.toISOString())
         .order("start_time", { ascending: true });
       return data || [];
