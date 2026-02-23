@@ -128,6 +128,7 @@ const TeamPage = () => {
         .from("players")
         .select("*")
         .eq("team", abbr!)
+        .eq("status", "active")
         .order("name");
       if (standings?.league) {
         query = query.eq("league", standings.league);
