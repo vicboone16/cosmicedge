@@ -1,3 +1,5 @@
+// fetch-odds — Unified odds fetcher using SportsGameOdds (SGO) v2 + SportsDataIO
+// Replaces The Odds API with SGO as primary source
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
@@ -81,181 +83,68 @@ interface NormalizedGame {
 }
 
 // ═══════════════════════════════════════════════
-// PROVIDER 1: The Odds API
-// ═══════════════════════════════════════════════
-const THE_ODDS_API_BASE = "https://api.the-odds-api.com/v4";
-const THE_ODDS_SPORT_KEYS: Record<string, string> = {
-  NBA: "basketball_nba", NFL: "americanfootball_nfl",
-  MLB: "baseball_mlb", NHL: "icehockey_nhl",
-  NCAAB: "basketball_ncaab", NCAAF: "americanfootball_ncaaf",
-};
-
-async function fetchFromTheOddsAPI(apiKey: string, leagues: string[]): Promise<{ games: NormalizedGame[]; remaining: string | null }> {
-  const allGames: NormalizedGame[] = [];
-  let remaining: string | null = null;
-
-  for (const league of leagues) {
-    const sportKey = THE_ODDS_SPORT_KEYS[league];
-    if (!sportKey) continue;
-
-    // Start with base markets; premium markets (team_totals, alternate_spreads, alternate_totals)
-    // require a higher subscription tier and cause 422 errors on standard plans
-    let url = `${THE_ODDS_API_BASE}/sports/${sportKey}/odds/?apiKey=${apiKey}&regions=us&markets=h2h,spreads,totals&oddsFormat=american`;
-    const resp = await fetch(url);
-    remaining = resp.headers.get("x-requests-remaining");
-
-    if (!resp.ok) {
-      console.error(`TheOddsAPI error for ${league}: ${resp.status}`);
-      continue;
-    }
-
-    const events = await resp.json();
-
-    for (const event of events) {
-      let mlHome = 0, mlAway = 0;
-      let spreadLine = 0, spreadHome = -110, spreadAway = -110;
-      let totalLine = 0, totalOver = -110, totalUnder = -110;
-      const snapshots: NormalizedGame["snapshots"] = [];
-
-      for (const bk of event.bookmakers || []) {
-        for (const market of bk.markets || []) {
-          const homeOut = market.outcomes.find((o: any) => o.name === event.home_team);
-          const awayOut = market.outcomes.find((o: any) => o.name === event.away_team);
-          const overOut = market.outcomes.find((o: any) => o.name === "Over");
-          const underOut = market.outcomes.find((o: any) => o.name === "Under");
-
-          if (market.key === "h2h") {
-            if (homeOut && !mlHome) mlHome = homeOut.price;
-            if (awayOut && !mlAway) mlAway = awayOut.price;
-            snapshots.push({ bookmaker: bk.key, market_type: "moneyline", home_price: homeOut?.price, away_price: awayOut?.price, line: null });
-          }
-          if (market.key === "spreads") {
-            if (homeOut && !spreadLine) { spreadLine = homeOut.point; spreadHome = homeOut.price; }
-            if (awayOut) spreadAway = awayOut.price;
-            snapshots.push({ bookmaker: bk.key, market_type: "spread", home_price: homeOut?.price, away_price: awayOut?.price, line: homeOut?.point || null });
-          }
-          if (market.key === "totals") {
-            if (overOut && !totalLine) { totalLine = overOut.point; totalOver = overOut.price; }
-            if (underOut) totalUnder = underOut.price;
-            snapshots.push({ bookmaker: bk.key, market_type: "total", home_price: overOut?.price, away_price: underOut?.price, line: overOut?.point || null });
-          }
-          // Additional base-tier markets
-          if (market.key === "team_totals") {
-            for (const out of market.outcomes || []) {
-              const isOver = out.name === "Over";
-              const teamSide = out.description === event.home_team ? "home" : "away";
-              snapshots.push({
-                bookmaker: bk.key,
-                market_type: `team_total_${teamSide}`,
-                home_price: isOver ? out.price : null,
-                away_price: isOver ? null : out.price,
-                line: out.point || null,
-              });
-            }
-          }
-          if (market.key === "alternate_spreads") {
-            snapshots.push({
-              bookmaker: bk.key,
-              market_type: "alt_spread",
-              home_price: homeOut?.price || null,
-              away_price: awayOut?.price || null,
-              line: homeOut?.point || null,
-            });
-          }
-          if (market.key === "alternate_totals") {
-            snapshots.push({
-              bookmaker: bk.key,
-              market_type: "alt_total",
-              home_price: overOut?.price || null,
-              away_price: underOut?.price || null,
-              line: overOut?.point || null,
-            });
-          }
-        }
-      }
-
-      allGames.push({
-        external_id: event.id,
-        league,
-        home_team: event.home_team,
-        away_team: event.away_team,
-        home_abbr: makeAbbr(event.home_team),
-        away_abbr: makeAbbr(event.away_team),
-        start_time: event.commence_time,
-        status: "scheduled",
-        odds: {
-          moneyline: { home: mlHome, away: mlAway },
-          spread: { home: spreadHome, away: spreadAway, line: spreadLine },
-          total: { over: totalOver, under: totalUnder, line: totalLine },
-        },
-        snapshots,
-      });
-    }
-  }
-
-  return { games: allGames, remaining };
-}
-
-// ═══════════════════════════════════════════════
-// PROVIDER 2: SportsGameOdds API
+// PROVIDER 1: SportsGameOdds API (PRIMARY)
 // ═══════════════════════════════════════════════
 const SGO_API_BASE = "https://api.sportsgameodds.com/v2";
 
-// Convert SGO teamID like "OKLAHOMA_CITY_THUNDER_NBA" to display name
 function sgoTeamName(teamID: string): string {
   if (!teamID) return "Unknown";
-  // Remove league suffix
   const parts = teamID.replace(/_NBA$|_NFL$|_MLB$|_NHL$|_NCAAB$|_NCAAF$/i, "").split("_");
   return parts.map(p => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase()).join(" ");
 }
 
 function sgoTeamAbbr(teamID: string): string {
-  const name = sgoTeamName(teamID);
-  return makeAbbr(name);
+  return makeAbbr(sgoTeamName(teamID));
+}
+
+async function fetchWithRetry(url: string, apiKey: string, maxRetries = 2): Promise<any | null> {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    const resp = await fetch(url, { headers: { "X-Api-Key": apiKey } });
+    if (resp.status === 429) {
+      const wait = Math.min(parseInt(resp.headers.get("retry-after") || "5", 10) * 1000, 15000);
+      console.warn(`SGO 429 — waiting ${wait}ms (attempt ${attempt + 1})`);
+      await new Promise(r => setTimeout(r, wait));
+      continue;
+    }
+    if (!resp.ok) {
+      const body = await resp.text();
+      console.error(`SGO error ${resp.status}: ${body.slice(0, 200)}`);
+      return null;
+    }
+    return await resp.json();
+  }
+  console.error("SGO: max retries exceeded");
+  return null;
 }
 
 async function fetchFromSportsGameOdds(apiKey: string, leagues: string[]): Promise<{ games: NormalizedGame[] }> {
   const allGames: NormalizedGame[] = [];
   const leagueParam = leagues.join(",");
 
-  const fetchWithRetry = async (url: string, maxRetries = 2): Promise<Response | null> => {
-    for (let attempt = 0; attempt <= maxRetries; attempt++) {
-      const resp = await fetch(url, { headers: { "X-Api-Key": apiKey } });
-      if (resp.status === 429) {
-        const retryAfter = parseInt(resp.headers.get("retry-after") || "5", 10);
-        const waitMs = Math.min((retryAfter || 5) * 1000, 15000);
-        console.warn(`SGO 429 rate limit — waiting ${waitMs}ms (attempt ${attempt + 1}/${maxRetries + 1})`);
-        await new Promise(r => setTimeout(r, waitMs));
-        continue;
-      }
-      if (!resp.ok) {
-        console.error(`SGO API error: ${resp.status} ${await resp.text()}`);
-        return null;
-      }
-      return resp;
-    }
-    console.error("SGO API: max retries exceeded for rate limit");
-    return null;
-  };
+  let cursor: string | null = null;
+  let pages = 0;
+  const maxPages = 5;
 
-  try {
-    const url = `${SGO_API_BASE}/events?leagueID=${leagueParam}&oddsAvailable=true&finalized=false&limit=50`;
-    const resp = await fetchWithRetry(url);
-    if (!resp) return { games: [] };
+  do {
+    let url = `${SGO_API_BASE}/events?leagueID=${leagueParam}&oddsAvailable=true&finalized=false&limit=50`;
+    if (cursor) url += `&cursor=${cursor}`;
 
-    const json = await resp.json();
-    const events = json.data || [];
+    const json = await fetchWithRetry(url, apiKey);
+    if (!json?.data?.length) break;
+
+    const events = json.data;
+    cursor = json.nextCursor || null;
+    pages++;
 
     for (const event of events) {
       const league = event.leagueID || "";
       const homeTeamID = event.teams?.home?.teamID || "";
       const awayTeamID = event.teams?.away?.teamID || "";
-      const homeTeam = event.teams?.home?.names?.full || event.teams?.home?.names?.medium || sgoTeamName(homeTeamID);
-      const awayTeam = event.teams?.away?.names?.full || event.teams?.away?.names?.medium || sgoTeamName(awayTeamID);
+      const homeTeam = event.teams?.home?.names?.long || event.teams?.home?.names?.medium || sgoTeamName(homeTeamID);
+      const awayTeam = event.teams?.away?.names?.long || event.teams?.away?.names?.medium || sgoTeamName(awayTeamID);
       const homeAbbr = event.teams?.home?.names?.short || event.teams?.home?.names?.abbreviation || sgoTeamAbbr(homeTeamID);
       const awayAbbr = event.teams?.away?.names?.short || event.teams?.away?.names?.abbreviation || sgoTeamAbbr(awayTeamID);
 
-      // Parse odds from the event.odds object
       let mlHome = 0, mlAway = 0;
       let spreadLine = 0, spreadHome = -110, spreadAway = -110;
       let totalLine = 0, totalOver = -110, totalUnder = -110;
@@ -263,7 +152,6 @@ async function fetchFromSportsGameOdds(apiKey: string, leagues: string[]): Promi
 
       const odds = event.odds || {};
       for (const [oddID, oddData] of Object.entries(odds) as [string, any][]) {
-        // Moneyline
         if (oddID.includes("-ml-home")) {
           mlHome = oddData.odds || 0;
           if (oddData.byBookmaker) {
@@ -282,7 +170,6 @@ async function fetchFromSportsGameOdds(apiKey: string, leagues: string[]): Promi
             }
           }
         }
-        // Spread
         if (oddID.includes("-sp-home")) {
           spreadHome = oddData.odds || -110;
           spreadLine = oddData.spread || oddData.overUnder || 0;
@@ -302,7 +189,6 @@ async function fetchFromSportsGameOdds(apiKey: string, leagues: string[]): Promi
             }
           }
         }
-        // Total
         if (oddID.includes("-ou-over")) {
           totalOver = oddData.odds || -110;
           totalLine = oddData.overUnder || oddData.spread || 0;
@@ -324,16 +210,17 @@ async function fetchFromSportsGameOdds(apiKey: string, leagues: string[]): Promi
         }
       }
 
-      const status = event.live ? "live" : event.finalized ? "final" : "scheduled";
+      const status = event.status?.live ? "live" : event.status?.finalized ? "final" : "scheduled";
+      const startTime = event.status?.startsAt || event.start || event.startTime || event.startDate || null;
 
       allGames.push({
-        external_id: event.eventID || event.id,
+        external_id: `sgo_${event.eventID || event.id}`,
         league,
         home_team: homeTeam,
         away_team: awayTeam,
         home_abbr: homeAbbr,
         away_abbr: awayAbbr,
-        start_time: event.start || event.startTime || event.startDate || null,
+        start_time: startTime,
         status,
         odds: {
           moneyline: { home: mlHome, away: mlAway },
@@ -343,15 +230,13 @@ async function fetchFromSportsGameOdds(apiKey: string, leagues: string[]): Promi
         snapshots,
       });
     }
-  } catch (err) {
-    console.error("SGO fetch error:", err);
-  }
+  } while (cursor && pages < maxPages);
 
   return { games: allGames };
 }
 
 // ═══════════════════════════════════════════════
-// PROVIDER 3: SportsDataIO
+// PROVIDER 2: SportsDataIO (secondary)
 // ═══════════════════════════════════════════════
 const SDIO_API_BASE = "https://api.sportsdata.io/v3";
 const SDIO_SPORT_SLUGS: Record<string, string> = {
@@ -360,7 +245,7 @@ const SDIO_SPORT_SLUGS: Record<string, string> = {
 
 async function fetchOddsFromSportsDataIO(apiKey: string, leagues: string[]): Promise<{ games: NormalizedGame[] }> {
   const allGames: NormalizedGame[] = [];
-  const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+  const today = new Date().toISOString().slice(0, 10);
 
   for (const league of leagues) {
     const slug = SDIO_SPORT_SLUGS[league];
@@ -381,28 +266,13 @@ async function fetchOddsFromSportsDataIO(apiKey: string, leagues: string[]): Pro
         let totalLine = 0, totalOver = -110, totalUnder = -110;
         const snapshots: NormalizedGame["snapshots"] = [];
 
-        // Parse pregame odds from the first available consensus line
         for (const odds of game.PregameOdds || []) {
           const bk = odds.Sportsbook?.Name || "consensus";
-
-          if (odds.HomeMoneyLine != null && !mlHome) {
-            mlHome = odds.HomeMoneyLine;
-            mlAway = odds.AwayMoneyLine || 0;
-          }
+          if (odds.HomeMoneyLine != null && !mlHome) { mlHome = odds.HomeMoneyLine; mlAway = odds.AwayMoneyLine || 0; }
           snapshots.push({ bookmaker: `sdio_${bk}`, market_type: "moneyline", home_price: odds.HomeMoneyLine, away_price: odds.AwayMoneyLine, line: null });
-
-          if (odds.HomePointSpread != null && !spreadLine) {
-            spreadLine = odds.HomePointSpread;
-            spreadHome = odds.HomePointSpreadPayout || -110;
-            spreadAway = odds.AwayPointSpreadPayout || -110;
-          }
+          if (odds.HomePointSpread != null && !spreadLine) { spreadLine = odds.HomePointSpread; spreadHome = odds.HomePointSpreadPayout || -110; spreadAway = odds.AwayPointSpreadPayout || -110; }
           snapshots.push({ bookmaker: `sdio_${bk}`, market_type: "spread", home_price: odds.HomePointSpreadPayout, away_price: odds.AwayPointSpreadPayout, line: odds.HomePointSpread });
-
-          if (odds.OverUnder != null && !totalLine) {
-            totalLine = odds.OverUnder;
-            totalOver = odds.OverPayout || -110;
-            totalUnder = odds.UnderPayout || -110;
-          }
+          if (odds.OverUnder != null && !totalLine) { totalLine = odds.OverUnder; totalOver = odds.OverPayout || -110; totalUnder = odds.UnderPayout || -110; }
           snapshots.push({ bookmaker: `sdio_${bk}`, market_type: "total", home_price: odds.OverPayout, away_price: odds.UnderPayout, line: odds.OverUnder });
         }
 
@@ -447,56 +317,40 @@ async function fetchStandingsFromSportsDataIO(apiKey: string, leagues: string[],
     try {
       const url = `${SDIO_API_BASE}/${slug}/scores/json/Standings/${currentYear}?key=${apiKey}`;
       const resp = await fetch(url);
-      if (!resp.ok) {
-        console.error(`SportsDataIO standings error for ${league}: ${resp.status}`);
-        continue;
-      }
+      if (!resp.ok) { console.error(`SportsDataIO standings error for ${league}: ${resp.status}`); continue; }
       const standings = await resp.json();
 
       for (const team of standings) {
         const teamName = team.Name || team.City + " " + team.Name || "";
         const fullName = team.City ? `${team.City} ${team.Name}` : teamName;
         const record: Record<string, any> = {
-          league,
-          season: currentYear,
-          team_name: fullName,
-          team_abbr: team.Key || makeAbbr(fullName),
-          conference: team.Conference || null,
-          division: team.Division || null,
-          wins: team.Wins || 0,
-          losses: team.Losses || 0,
-          ties: team.Ties || 0,
-          overtime_losses: team.OvertimeLosses || 0,
-          win_pct: team.Percentage || 0,
-          games_back: team.GamesBack || 0,
-          streak: team.StreakDescription || null,
+          league, season: currentYear,
+          team_name: fullName, team_abbr: team.Key || makeAbbr(fullName),
+          conference: team.Conference || null, division: team.Division || null,
+          wins: team.Wins || 0, losses: team.Losses || 0, ties: team.Ties || 0,
+          overtime_losses: team.OvertimeLosses || 0, win_pct: team.Percentage || 0,
+          games_back: team.GamesBack || 0, streak: team.StreakDescription || null,
           last_10: team.LastTenWins != null ? `${team.LastTenWins}-${team.LastTenLosses}` : null,
           home_record: team.HomeWins != null ? `${team.HomeWins}-${team.HomeLosses}` : null,
           away_record: team.AwayWins != null ? `${team.AwayWins}-${team.AwayLosses}` : null,
           points_for: team.PointsFor || team.RunsScored || 0,
           points_against: team.PointsAgainst || team.RunsAgainst || 0,
           net_points: (team.PointsFor || 0) - (team.PointsAgainst || 0),
-          playoff_seed: team.PlayoffRank || null,
-          clinched: team.ClinchIndicator || null,
-          external_team_id: team.TeamID ? String(team.TeamID) : null,
-          provider: "sportsdataio",
+          playoff_seed: team.PlayoffRank || null, clinched: team.ClinchIndicator || null,
+          external_team_id: team.TeamID ? String(team.TeamID) : null, provider: "sportsdataio",
         };
-
-        await supabase
-          .from("standings")
-          .upsert(record, { onConflict: "league,season,team_name,provider" });
+        await supabase.from("standings").upsert(record, { onConflict: "league,season,team_name,provider" });
         totalCount++;
       }
     } catch (err) {
       console.error(`SportsDataIO standings error for ${league}:`, err);
     }
   }
-
   return { count: totalCount };
 }
 
 // ═══════════════════════════════════════════════
-// MAIN HANDLER — merges all providers
+// MAIN HANDLER — SGO primary + SDIO secondary
 // ═══════════════════════════════════════════════
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -506,7 +360,7 @@ Deno.serve(async (req) => {
   try {
     const url = new URL(req.url);
     const sports = url.searchParams.get("sports") || "NBA,NFL,MLB,NHL";
-    const provider = url.searchParams.get("provider") || "all"; // "theodds", "sgo", "sdio", "all"
+    const provider = url.searchParams.get("provider") || "all"; // "sgo", "sdio", "all"
     const leaguesList = sports.split(",").map(s => s.trim().toUpperCase());
 
     const supabase = createClient(
@@ -517,22 +371,8 @@ Deno.serve(async (req) => {
     let allGames: NormalizedGame[] = [];
     const meta: Record<string, any> = {};
 
-    // Fetch from The Odds API
-    if (provider === "all" || provider === "theodds") {
-      const apiKey = Deno.env.get("THE_ODDS_API_KEY");
-      if (apiKey) {
-        const result = await fetchFromTheOddsAPI(apiKey, leaguesList);
-        allGames = allGames.concat(result.games);
-        meta.theodds_remaining = result.remaining;
-        meta.theodds_count = result.games.length;
-      } else {
-        meta.theodds_error = "API key not configured";
-      }
-    }
-
-    // Fetch from SportsGameOdds (throttle after previous provider)
+    // Primary: SportsGameOdds
     if (provider === "all" || provider === "sgo") {
-      if (provider === "all") await new Promise(r => setTimeout(r, 1500));
       const apiKey = Deno.env.get("SPORTSGAMEODDS_API_KEY");
       if (apiKey) {
         const result = await fetchFromSportsGameOdds(apiKey, leaguesList);
@@ -543,15 +383,15 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Fetch from SportsDataIO
+    // Secondary: SportsDataIO
     if (provider === "all" || provider === "sdio") {
+      if (provider === "all") await new Promise(r => setTimeout(r, 1500));
       const apiKey = Deno.env.get("SPORTSDATAIO_API_KEY");
       if (apiKey) {
         const result = await fetchOddsFromSportsDataIO(apiKey, leaguesList);
         allGames = allGames.concat(result.games);
         meta.sdio_count = result.games.length;
 
-        // Also fetch standings
         const standingsResult = await fetchStandingsFromSportsDataIO(apiKey, leaguesList, supabase);
         meta.sdio_standings_count = standingsResult.count;
       } else {
@@ -566,36 +406,24 @@ Deno.serve(async (req) => {
 
     const deduped = new Map<string, NormalizedGame>();
     for (const game of allGames) {
-      // Skip games without a valid start time early (before dedup)
       if (!game.start_time || isNaN(new Date(game.start_time).getTime())) {
-        console.warn(`Skipping game ${game.external_id} (${game.away_team} @ ${game.home_team}) — invalid start_time: ${game.start_time}`);
+        console.warn(`Skipping game ${game.external_id} — invalid start_time: ${game.start_time}`);
         continue;
       }
       const startMs = new Date(game.start_time).getTime();
       const homeNorm = normalizeForDedup(game.home_team);
       const awayNorm = normalizeForDedup(game.away_team);
-      const key = `${homeNorm}|${awayNorm}|${Math.floor(startMs / 7200000)}`; // 2hr window
+      const key = `${homeNorm}|${awayNorm}|${Math.floor(startMs / 7200000)}`;
 
       if (deduped.has(key)) {
         const existing = deduped.get(key)!;
-        // Merge snapshots from both providers
         existing.snapshots = [...existing.snapshots, ...game.snapshots];
-        // Prefer the version with better data (proper team names, non-zero odds)
-        if (game.odds.moneyline.home && !existing.odds.moneyline.home) {
-          existing.odds.moneyline = game.odds.moneyline;
-        }
-        if (game.odds.spread.line && !existing.odds.spread.line) {
-          existing.odds.spread = game.odds.spread;
-        }
-        if (game.odds.total.line && !existing.odds.total.line) {
-          existing.odds.total = game.odds.total;
-        }
-        // Prefer proper display names over ID-style names
+        if (game.odds.moneyline.home && !existing.odds.moneyline.home) existing.odds.moneyline = game.odds.moneyline;
+        if (game.odds.spread.line && !existing.odds.spread.line) existing.odds.spread = game.odds.spread;
+        if (game.odds.total.line && !existing.odds.total.line) existing.odds.total = game.odds.total;
         if (!existing.home_team.includes(" ") && game.home_team.includes(" ")) {
-          existing.home_team = game.home_team;
-          existing.away_team = game.away_team;
-          existing.home_abbr = game.home_abbr;
-          existing.away_abbr = game.away_abbr;
+          existing.home_team = game.home_team; existing.away_team = game.away_team;
+          existing.home_abbr = game.home_abbr; existing.away_abbr = game.away_abbr;
         }
       } else {
         deduped.set(key, { ...game });
@@ -605,76 +433,43 @@ Deno.serve(async (req) => {
     // Save to database
     const savedGames: any[] = [];
     for (const game of deduped.values()) {
-      // Skip games without a valid start time
-      if (!game.start_time) {
-        console.warn(`Skipping game ${game.external_id} (${game.away_team} @ ${game.home_team}) — no start_time`);
-        continue;
-      }
+      if (!game.start_time) continue;
 
       const gameData = {
-        external_id: game.external_id,
-        league: game.league,
-        home_team: game.home_team,
-        away_team: game.away_team,
-        home_abbr: game.home_abbr,
-        away_abbr: game.away_abbr,
-        start_time: game.start_time,
-        status: game.status,
-        venue: game.venue || null,
+        external_id: game.external_id, league: game.league,
+        home_team: game.home_team, away_team: game.away_team,
+        home_abbr: game.home_abbr, away_abbr: game.away_abbr,
+        start_time: game.start_time, status: game.status, venue: game.venue || null,
       };
 
-      const { data: existing } = await supabase
-        .from("games")
-        .select("id")
-        .eq("external_id", game.external_id)
-        .maybeSingle();
+      const { data: existing } = await supabase.from("games").select("id").eq("external_id", game.external_id).maybeSingle();
 
       let gameId: string;
       if (existing) {
         gameId = existing.id;
         await supabase.from("games").update(gameData).eq("id", gameId);
       } else {
-        // Also check by team + time match for cross-provider dedup
         const startTime = new Date(game.start_time);
-        const timeBefore = new Date(startTime.getTime() - 3600000).toISOString();
-        const timeAfter = new Date(startTime.getTime() + 3600000).toISOString();
-
-        const { data: matchByTeam } = await supabase
-          .from("games")
-          .select("id")
-          .eq("home_team", game.home_team)
-          .eq("away_team", game.away_team)
-          .gte("start_time", timeBefore)
-          .lte("start_time", timeAfter)
+        const { data: matchByTeam } = await supabase.from("games").select("id")
+          .eq("home_team", game.home_team).eq("away_team", game.away_team)
+          .gte("start_time", new Date(startTime.getTime() - 3600000).toISOString())
+          .lte("start_time", new Date(startTime.getTime() + 3600000).toISOString())
           .maybeSingle();
 
         if (matchByTeam) {
           gameId = matchByTeam.id;
           await supabase.from("games").update(gameData).eq("id", gameId);
         } else {
-          const { data: newGame } = await supabase
-            .from("games")
-            .insert(gameData)
-            .select("id")
-            .single();
+          const { data: newGame } = await supabase.from("games").insert(gameData).select("id").single();
           gameId = newGame!.id;
         }
       }
 
-      // Look up stadium coordinates from stadiums table
-      const { data: stadium } = await supabase
-        .from("stadiums")
-        .select("name, latitude, longitude")
-        .eq("team_abbr", game.home_abbr)
-        .eq("league", game.league)
-        .maybeSingle();
-
+      // Stadium coords
+      const { data: stadium } = await supabase.from("stadiums").select("name, latitude, longitude")
+        .eq("team_abbr", game.home_abbr).eq("league", game.league).maybeSingle();
       if (stadium) {
-        await supabase.from("games").update({
-          venue: game.venue || stadium.name,
-          venue_lat: stadium.latitude,
-          venue_lng: stadium.longitude,
-        }).eq("id", gameId);
+        await supabase.from("games").update({ venue: game.venue || stadium.name, venue_lat: stadium.latitude, venue_lng: stadium.longitude }).eq("id", gameId);
       }
 
       // Store odds snapshots

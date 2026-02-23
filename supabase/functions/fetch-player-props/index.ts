@@ -1,3 +1,5 @@
+// fetch-player-props — Player props fetcher using SGO v2 + SportsDataIO fallback
+// Replaces The Odds API with SGO as primary source
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
@@ -6,210 +8,74 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const THE_ODDS_API_BASE = "https://api.the-odds-api.com/v4";
 const SDIO_BASE = "https://api.sportsdata.io/v3";
-
-const SPORT_KEYS: Record<string, string> = {
-  NBA: "basketball_nba",
-  NFL: "americanfootball_nfl",
-  MLB: "baseball_mlb",
-  NHL: "icehockey_nhl",
-};
+const SGO_BASE = "https://api.sportsgameodds.com/v2";
 
 const SDIO_SPORT_KEYS: Record<string, string> = {
-  NBA: "nba",
-  NFL: "nfl",
-  MLB: "mlb",
-  NHL: "nhl",
+  NBA: "nba", NFL: "nfl", MLB: "mlb", NHL: "nhl",
 };
 
-// ─── All player prop markets per league ─────────────────────────────────────
-
-const LEAGUE_MARKETS: Record<string, string[]> = {
-  NBA: [
-    "player_points", "player_points_q1", "player_rebounds", "player_rebounds_q1",
-    "player_assists", "player_assists_q1", "player_threes", "player_blocks",
-    "player_steals", "player_blocks_steals", "player_turnovers",
-    "player_points_rebounds_assists", "player_points_rebounds", "player_points_assists",
-    "player_rebounds_assists", "player_field_goals", "player_frees_made",
-    "player_frees_attempts", "player_first_basket", "player_first_team_basket",
-    "player_double_double", "player_triple_double",
-  ],
-  NHL: [
-    "player_points", "player_power_play_points", "player_assists",
-    "player_blocked_shots", "player_shots_on_goal", "player_goals",
-    "player_total_saves", "player_goal_scorer_first", "player_goal_scorer_last",
-    "player_goal_scorer_anytime",
-  ],
-  MLB: [
-    "batter_home_runs", "batter_first_home_run", "batter_hits", "batter_total_bases",
-    "batter_rbis", "batter_runs_scored", "batter_hits_runs_rbis", "batter_singles",
-    "batter_doubles", "batter_triples", "batter_walks", "batter_strikeouts",
-    "batter_stolen_bases", "pitcher_strikeouts", "pitcher_record_a_win",
-    "pitcher_hits_allowed", "pitcher_walks", "pitcher_earned_runs", "pitcher_outs",
-  ],
-  NFL: [
-    "player_pass_yds", "player_pass_tds", "player_pass_completions",
-    "player_pass_attempts", "player_pass_interceptions", "player_rush_yds",
-    "player_rush_attempts", "player_rush_tds", "player_receptions",
-    "player_reception_yds", "player_reception_tds", "player_anytime_td",
-    "player_1st_td", "player_last_td", "player_sacks", "player_solo_tackles",
-    "player_field_goals", "player_kicking_points",
-  ],
-};
-
-// Alternate markets per league (fetched when alternates=true)
-const ALTERNATE_MARKETS: Record<string, string[]> = {
-  NBA: [
-    "player_points_alternate", "player_rebounds_alternate", "player_assists_alternate",
-    "player_blocks_alternate", "player_steals_alternate", "player_turnovers_alternate",
-    "player_threes_alternate", "player_points_assists_alternate",
-    "player_points_rebounds_alternate", "player_rebounds_assists_alternate",
-    "player_points_rebounds_assists_alternate",
-  ],
-  NHL: [
-    "player_points_alternate", "player_assists_alternate",
-    "player_power_play_points_alternate", "player_goals_alternate",
-    "player_shots_on_goal_alternate", "player_blocked_shots_alternate",
-    "player_total_saves_alternate",
-  ],
-  MLB: [
-    "batter_total_bases_alternate", "batter_home_runs_alternate",
-    "batter_hits_alternate", "batter_rbis_alternate", "batter_walks_alternate",
-    "batter_strikeouts_alternate", "batter_runs_scored_alternate",
-    "batter_singles_alternate", "batter_doubles_alternate", "batter_triples_alternate",
-    "pitcher_hits_allowed_alternate", "pitcher_walks_alternate",
-    "pitcher_strikeouts_alternate",
-  ],
-  NFL: [
-    "player_pass_yds_alternate", "player_pass_tds_alternate",
-    "player_pass_completions_alternate", "player_rush_yds_alternate",
-    "player_rush_attempts_alternate", "player_receptions_alternate",
-    "player_reception_yds_alternate", "player_sacks_alternate",
-    "player_solo_tackles_alternate",
-  ],
-};
-
-// Game-period markets to also fetch per league
-const PERIOD_MARKETS: Record<string, string[]> = {
-  NBA: [
-    "h2h_q1", "h2h_h1", "spreads_h1", "totals_q1", "totals_h1",
-    "team_totals_q1", "team_totals_h1",
-  ],
-  NHL: [
-    "h2h_p1", "h2h_p2", "h2h_p3", "totals_p1", "totals_p2", "totals_p3",
-    "spreads_p1", "team_totals_p1", "team_totals_p2", "team_totals_p3",
-  ],
-  MLB: [
-    "h2h_1st_1_innings", "h2h_1st_5_innings",
-    "totals_1st_1_innings", "totals_1st_5_innings",
-    "spreads_1st_5_innings",
-  ],
-  NFL: [
-    "h2h_q1", "h2h_h1", "spreads_h1", "totals_q1", "totals_h1",
-  ],
-};
-
-// Label lookup for all markets
+// Market labels for display
 const MARKET_LABELS: Record<string, string> = {
-  player_points: "Points", player_points_q1: "Points Q1",
-  player_rebounds: "Rebounds", player_rebounds_q1: "Rebounds Q1",
-  player_assists: "Assists", player_assists_q1: "Assists Q1",
-  player_threes: "3-Pointers", player_blocks: "Blocks",
-  player_steals: "Steals", player_blocks_steals: "Blk+Stl",
-  player_turnovers: "Turnovers",
-  player_points_rebounds_assists: "Pts+Reb+Ast",
+  player_points: "Points", player_rebounds: "Rebounds", player_assists: "Assists",
+  player_threes: "3-Pointers", player_blocks: "Blocks", player_steals: "Steals",
+  player_turnovers: "Turnovers", player_points_rebounds_assists: "Pts+Reb+Ast",
   player_points_rebounds: "Pts+Reb", player_points_assists: "Pts+Ast",
-  player_rebounds_assists: "Reb+Ast", player_field_goals: "Field Goals",
-  player_frees_made: "Free Throws", player_frees_attempts: "FT Attempts",
-  player_first_basket: "First Basket", player_first_team_basket: "1st Team Basket",
-  player_double_double: "Double-Double", player_triple_double: "Triple-Double",
-  // NHL
-  player_power_play_points: "PP Points", player_blocked_shots: "Blocked Shots",
-  player_shots_on_goal: "Shots on Goal", player_goals: "Goals",
-  player_total_saves: "Saves",
-  player_goal_scorer_first: "First Goal", player_goal_scorer_last: "Last Goal",
-  player_goal_scorer_anytime: "Anytime Goal",
-  // MLB
-  batter_home_runs: "Home Runs", batter_first_home_run: "First HR",
-  batter_hits: "Hits", batter_total_bases: "Total Bases",
-  batter_rbis: "RBIs", batter_runs_scored: "Runs Scored",
-  batter_hits_runs_rbis: "H+R+RBI", batter_singles: "Singles",
-  batter_doubles: "Doubles", batter_triples: "Triples",
-  batter_walks: "Walks", batter_strikeouts: "Strikeouts (B)",
-  batter_stolen_bases: "Stolen Bases",
-  pitcher_strikeouts: "Strikeouts (P)", pitcher_record_a_win: "Pitcher Win",
-  pitcher_hits_allowed: "Hits Allowed", pitcher_walks: "Walks (P)",
-  pitcher_earned_runs: "Earned Runs", pitcher_outs: "Outs",
-  // NFL
+  player_rebounds_assists: "Reb+Ast", player_double_double: "Double-Double",
+  player_triple_double: "Triple-Double", player_field_goals: "Field Goals",
+  player_goals: "Goals", player_shots_on_goal: "Shots on Goal", player_total_saves: "Saves",
+  player_power_play_points: "PP Points", player_goal_scorer_anytime: "Anytime Goal",
+  batter_home_runs: "Home Runs", batter_hits: "Hits", batter_total_bases: "Total Bases",
+  batter_rbis: "RBIs", batter_runs_scored: "Runs Scored", batter_strikeouts: "Strikeouts (B)",
+  pitcher_strikeouts: "Strikeouts (P)", pitcher_earned_runs: "Earned Runs",
   player_pass_yds: "Pass Yards", player_pass_tds: "Pass TDs",
-  player_pass_completions: "Completions", player_pass_attempts: "Pass Att",
-  player_pass_interceptions: "Interceptions", player_rush_yds: "Rush Yards",
-  player_rush_attempts: "Rush Att", player_rush_tds: "Rush TDs",
-  player_receptions: "Receptions", player_reception_yds: "Rec Yards",
-  player_reception_tds: "Rec TDs", player_anytime_td: "Anytime TD",
-  player_1st_td: "First TD", player_last_td: "Last TD",
-  player_sacks: "Sacks", player_solo_tackles: "Solo Tackles",
-  player_kicking_points: "Kicking Pts",
-  // Period markets
-  h2h_q1: "ML Q1", h2h_q2: "ML Q2", h2h_q3: "ML Q3", h2h_q4: "ML Q4",
-  h2h_h1: "ML 1H", h2h_h2: "ML 2H",
-  h2h_p1: "ML P1", h2h_p2: "ML P2", h2h_p3: "ML P3",
-  h2h_1st_1_innings: "ML 1st Inn", h2h_1st_5_innings: "ML 1st 5 Inn",
-  spreads_h1: "Spread 1H", spreads_h2: "Spread 2H",
-  spreads_p1: "Spread P1", spreads_p2: "Spread P2", spreads_p3: "Spread P3",
-  spreads_1st_5_innings: "Spread 1st 5 Inn",
-  totals_q1: "O/U Q1", totals_h1: "O/U 1H",
-  totals_p1: "O/U P1", totals_p2: "O/U P2", totals_p3: "O/U P3",
-  totals_1st_1_innings: "O/U 1st Inn", totals_1st_5_innings: "O/U 1st 5 Inn",
-  team_totals_q1: "TT Q1", team_totals_h1: "TT 1H",
-  team_totals_p1: "TT P1", team_totals_p2: "TT P2", team_totals_p3: "TT P3",
-  // Alternates
-  player_points_alternate: "Alt Points", player_rebounds_alternate: "Alt Rebounds",
-  player_assists_alternate: "Alt Assists", player_blocks_alternate: "Alt Blocks",
-  player_steals_alternate: "Alt Steals", player_turnovers_alternate: "Alt Turnovers",
-  player_threes_alternate: "Alt 3PM", player_points_assists_alternate: "Alt Pts+Ast",
-  player_points_rebounds_alternate: "Alt Pts+Reb", player_rebounds_assists_alternate: "Alt Reb+Ast",
-  player_points_rebounds_assists_alternate: "Alt PRA",
-  player_power_play_points_alternate: "Alt PP Pts", player_goals_alternate: "Alt Goals",
-  player_shots_on_goal_alternate: "Alt SOG", player_blocked_shots_alternate: "Alt Blocked",
-  player_total_saves_alternate: "Alt Saves",
-  batter_total_bases_alternate: "Alt TB", batter_home_runs_alternate: "Alt HR",
-  batter_hits_alternate: "Alt Hits", batter_rbis_alternate: "Alt RBI",
-  batter_walks_alternate: "Alt BB", batter_strikeouts_alternate: "Alt K(B)",
-  batter_runs_scored_alternate: "Alt Runs", batter_singles_alternate: "Alt 1B",
-  batter_doubles_alternate: "Alt 2B", batter_triples_alternate: "Alt 3B",
-  pitcher_hits_allowed_alternate: "Alt HA", pitcher_walks_alternate: "Alt BB(P)",
-  pitcher_strikeouts_alternate: "Alt K(P)",
-  player_pass_yds_alternate: "Alt Pass Yds", player_pass_tds_alternate: "Alt Pass TDs",
-  player_pass_completions_alternate: "Alt Comp", player_rush_yds_alternate: "Alt Rush Yds",
-  player_rush_attempts_alternate: "Alt Rush Att", player_receptions_alternate: "Alt Rec",
-  player_reception_yds_alternate: "Alt Rec Yds", player_sacks_alternate: "Alt Sacks",
-  player_solo_tackles_alternate: "Alt Tackles",
+  player_rush_yds: "Rush Yards", player_receptions: "Receptions",
+  player_reception_yds: "Rec Yards", player_anytime_td: "Anytime TD",
 };
 
-// Map SportsDataIO market names to our market keys
+// Map SportsDataIO market names to our keys
 const SDIO_MARKET_MAP: Record<string, string> = {
-  "Points": "player_points",
-  "Rebounds": "player_rebounds",
-  "Assists": "player_assists",
-  "Three Pointers Made": "player_threes",
-  "Blocked Shots": "player_blocks",
-  "Steals": "player_steals",
-  "Pts+Rebs+Asts": "player_points_rebounds_assists",
-  "Turnovers": "player_turnovers",
-  "Double Double": "player_double_double",
-  "Goals": "player_goals",
-  "Shots on Goal": "player_shots_on_goal",
-  "Saves": "player_total_saves",
-  "Home Runs": "batter_home_runs",
-  "Hits": "batter_hits",
-  "Total Bases": "batter_total_bases",
-  "RBIs": "batter_rbis",
-  "Runs Scored": "batter_runs_scored",
-  "Stolen Bases": "batter_stolen_bases",
-  "Strikeouts": "pitcher_strikeouts",
+  "Points": "player_points", "Rebounds": "player_rebounds", "Assists": "player_assists",
+  "Three Pointers Made": "player_threes", "Blocked Shots": "player_blocks",
+  "Steals": "player_steals", "Pts+Rebs+Asts": "player_points_rebounds_assists",
+  "Turnovers": "player_turnovers", "Double Double": "player_double_double",
+  "Goals": "player_goals", "Shots on Goal": "player_shots_on_goal",
+  "Saves": "player_total_saves", "Home Runs": "batter_home_runs",
+  "Hits": "batter_hits", "Total Bases": "batter_total_bases",
+  "RBIs": "batter_rbis", "Runs Scored": "batter_runs_scored",
+  "Stolen Bases": "batter_stolen_bases", "Strikeouts": "pitcher_strikeouts",
 };
+
+// Map SGO statID to our market key
+function sgoStatToMarketKey(statID: string): string {
+  const map: Record<string, string> = {
+    points: "player_points", rebounds: "player_rebounds", assists: "player_assists",
+    threePointersMade: "player_threes", blocks: "player_blocks", steals: "player_steals",
+    turnovers: "player_turnovers", doubleDouble: "player_double_double",
+    tripleDouble: "player_triple_double", fieldGoalsMade: "player_field_goals",
+    goals: "player_goals", shotsOnGoal: "player_shots_on_goal", saves: "player_total_saves",
+    powerPlayPoints: "player_power_play_points", anytimeGoalScorer: "player_goal_scorer_anytime",
+    homeRuns: "batter_home_runs", hits: "batter_hits", totalBases: "batter_total_bases",
+    rbis: "batter_rbis", runsScored: "batter_runs_scored", strikeouts: "pitcher_strikeouts",
+    passingYards: "player_pass_yds", passingTouchdowns: "player_pass_tds",
+    rushingYards: "player_rush_yds", receptions: "player_receptions",
+    receivingYards: "player_reception_yds", anytimeTouchdown: "player_anytime_td",
+    pointsReboundsAssists: "player_points_rebounds_assists",
+    pointsRebounds: "player_points_rebounds", pointsAssists: "player_points_assists",
+    reboundsAssists: "player_rebounds_assists",
+  };
+  return map[statID] || statID;
+}
+
+function formatPlayerName(playerId: string): string {
+  if (!playerId) return "Unknown";
+  const parts = playerId.split("_");
+  if (parts.length > 2) {
+    const nameParts = parts.slice(0, -2);
+    return nameParts.map(p => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase()).join(" ");
+  }
+  return parts.map(p => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase()).join(" ");
+}
 
 interface PropRow {
   game_id: string;
@@ -225,80 +91,96 @@ interface PropRow {
 
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-// ─── SOURCE 1: The Odds API ───────────────────────────────────────────────────
+// ─── SOURCE 1: SGO v2 (PRIMARY) ────────────────────────────────────────────
 
-async function fetchPropsFromOddsAPI(
+async function fetchPropsFromSGO(
   apiKey: string,
-  sportKey: string,
   eventId: string,
-  markets: string[]
 ): Promise<PropRow[]> {
   const props: PropRow[] = [];
 
-  // Batch 3 markets per request with throttling
-  for (let i = 0; i < markets.length; i += 3) {
-    if (i > 0) await delay(1200);
-
-    const batch = markets.slice(i, i + 3);
-    const marketsParam = batch.join(",");
-    const url = `${THE_ODDS_API_BASE}/sports/${sportKey}/events/${eventId}/odds?apiKey=${apiKey}&regions=us&markets=${marketsParam}&oddsFormat=american`;
-
-    try {
-      const resp = await fetch(url);
-      if (!resp.ok) {
-        const body = await resp.text();
-        if (resp.status === 401) {
-          console.warn(`[OddsAPI] 401 - API key may lack Additional Markets tier`);
-          return props; // Stop trying this source
-        }
-        if (resp.status === 429) {
-          console.warn(`[OddsAPI] Rate limited, backing off...`);
-          await delay(5000);
-          continue;
-        }
-        console.warn(`[OddsAPI] ${resp.status} for event ${eventId}: ${body.slice(0, 200)}`);
-        continue;
-      }
-
-      const data = await resp.json();
-      const remaining = resp.headers.get("x-requests-remaining");
-      if (remaining) console.log(`[OddsAPI] remaining: ${remaining}`);
-
-      for (const bk of data.bookmakers || []) {
-        for (const market of bk.markets || []) {
-          const playerOutcomes = new Map<string, { over?: any; under?: any }>();
-          for (const outcome of market.outcomes || []) {
-            const playerName = outcome.description || outcome.name;
-            if (!playerOutcomes.has(playerName)) playerOutcomes.set(playerName, {});
-            const entry = playerOutcomes.get(playerName)!;
-            if (outcome.name === "Over") entry.over = outcome;
-            else if (outcome.name === "Under") entry.under = outcome;
-          }
-
-          for (const [playerName, outcomes] of playerOutcomes) {
-            props.push({
-              game_id: "",
-              external_event_id: eventId,
-              player_name: playerName,
-              market_key: market.key,
-              market_label: MARKET_LABELS[market.key] || market.key,
-              bookmaker: bk.key,
-              line: outcomes.over?.point ?? outcomes.under?.point ?? null,
-              over_price: outcomes.over?.price ?? null,
-              under_price: outcomes.under?.price ?? null,
-            });
-          }
-        }
-      }
-    } catch (err) {
-      console.error(`[OddsAPI] Error for event ${eventId}:`, err);
+  try {
+    const url = `${SGO_BASE}/events?eventID=${eventId}&limit=1`;
+    const resp = await fetch(url, { headers: { "X-Api-Key": apiKey } });
+    if (resp.status === 429) {
+      console.warn("[SGO Props] Rate limited, backing off...");
+      await delay(5000);
+      return props;
     }
+    if (!resp.ok) {
+      const body = await resp.text();
+      console.warn(`[SGO Props] ${resp.status}: ${body.slice(0, 200)}`);
+      return props;
+    }
+
+    const json = await resp.json();
+    const events = json.data || [];
+    if (events.length === 0) return props;
+
+    const event = events[0];
+    const odds = event.odds || {};
+
+    // Group by player+stat to pair over/under
+    const grouped = new Map<string, { over?: any; under?: any; statID: string; playerName: string; bookmaker: string }>();
+
+    for (const [oddID, oddData] of Object.entries(odds) as [string, any][]) {
+      const statEntityID = oddData.statEntityID || "all";
+      const statID = oddData.statID || "";
+      const isPlayerProp = statEntityID !== "all" && statEntityID !== "home" && statEntityID !== "away";
+      if (!isPlayerProp) continue;
+
+      const playerName = formatPlayerName(statEntityID);
+      const sideID = oddData.sideID || "";
+      const isOver = sideID === "over" || oddID.includes("-over") || oddID.includes("-ou-over");
+      const isUnder = sideID === "under" || oddID.includes("-under") || oddID.includes("-ou-under");
+
+      // Process consensus
+      const groupKey = `${statEntityID}|${statID}|consensus`;
+      if (!grouped.has(groupKey)) grouped.set(groupKey, { statID, playerName, bookmaker: "sgo_consensus" });
+      const entry = grouped.get(groupKey)!;
+      if (isOver) entry.over = oddData;
+      else if (isUnder) entry.under = oddData;
+
+      // Process per-bookmaker
+      if (oddData.byBookmaker) {
+        for (const [bkId, bkData] of Object.entries(oddData.byBookmaker) as [string, any][]) {
+          const bkGroupKey = `${statEntityID}|${statID}|${bkId}`;
+          if (!grouped.has(bkGroupKey)) grouped.set(bkGroupKey, { statID, playerName, bookmaker: `sgo_${bkId}` });
+          const bkEntry = grouped.get(bkGroupKey)!;
+          if (isOver) bkEntry.over = bkData;
+          else if (isUnder) bkEntry.under = bkData;
+        }
+      }
+    }
+
+    for (const [, g] of grouped) {
+      const marketKey = sgoStatToMarketKey(g.statID);
+      const line = g.over?.overUnder ?? g.over?.spread ?? g.under?.overUnder ?? g.under?.spread ?? null;
+      const overPrice = g.over?.odds != null ? Math.round(Number(g.over.odds)) : null;
+      const underPrice = g.under?.odds != null ? Math.round(Number(g.under.odds)) : null;
+
+      if (overPrice != null || underPrice != null || line != null) {
+        props.push({
+          game_id: "",
+          external_event_id: eventId,
+          player_name: g.playerName,
+          market_key: marketKey,
+          market_label: MARKET_LABELS[marketKey] || marketKey,
+          bookmaker: g.bookmaker,
+          line: line != null ? Number(line) : null,
+          over_price: overPrice,
+          under_price: underPrice,
+        });
+      }
+    }
+  } catch (err) {
+    console.error(`[SGO Props] Error for event ${eventId}:`, err);
   }
 
   return props;
 }
 
-// ─── SOURCE 2: SportsDataIO ──────────────────────────────────────────────────
+// ─── SOURCE 2: SportsDataIO (FALLBACK) ──────────────────────────────────────
 
 async function fetchPropsFromSportsDataIO(
   apiKey: string,
@@ -313,11 +195,7 @@ async function fetchPropsFromSportsDataIO(
 
   try {
     const resp = await fetch(url);
-    if (!resp.ok) {
-      const body = await resp.text();
-      console.warn(`[SDIO] ${resp.status} for game ${sdioGameId}: ${body.slice(0, 200)}`);
-      return [];
-    }
+    if (!resp.ok) { await resp.text(); return []; }
 
     const data = await resp.json();
     if (!Array.isArray(data)) return [];
@@ -328,7 +206,6 @@ async function fetchPropsFromSportsDataIO(
 
       for (const outcome of market.BettingOutcomes || []) {
         if (!outcome.PlayerName) continue;
-
         const isOver = outcome.BettingOutcomeType === "Over";
         const isUnder = outcome.BettingOutcomeType === "Under";
 
@@ -337,18 +214,12 @@ async function fetchPropsFromSportsDataIO(
         );
 
         if (existing) {
-          if (isOver) {
-            existing.over_price = outcome.PayoutAmerican ?? null;
-            existing.line = outcome.Value ?? existing.line;
-          } else if (isUnder) {
-            existing.under_price = outcome.PayoutAmerican ?? null;
-          }
+          if (isOver) { existing.over_price = outcome.PayoutAmerican ?? null; existing.line = outcome.Value ?? existing.line; }
+          else if (isUnder) { existing.under_price = outcome.PayoutAmerican ?? null; }
         } else {
           props.push({
-            game_id: "",
-            external_event_id: String(sdioGameId),
-            player_name: outcome.PlayerName,
-            market_key: marketKey,
+            game_id: "", external_event_id: String(sdioGameId),
+            player_name: outcome.PlayerName, market_key: marketKey,
             market_label: MARKET_LABELS[marketKey] || marketName,
             bookmaker: market.Sportsbook?.Name || "sportsdataio",
             line: outcome.Value ?? null,
@@ -365,154 +236,77 @@ async function fetchPropsFromSportsDataIO(
   return props;
 }
 
-// ─── SDIO game ID lookup helper ──────────────────────────────────────────────
+// ─── SDIO game ID lookup ──────────────────────────────────────────────
 
 const MONTHS = ["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"];
 function toSdioDate(d: Date): string {
   return `${d.getFullYear()}-${MONTHS[d.getMonth()]}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-async function getSdioGameId(
-  apiKey: string,
-  league: string,
-  homeAbbr: string,
-  awayAbbr: string,
-  gameDate: Date
-): Promise<number | null> {
+async function getSdioGameId(apiKey: string, league: string, homeAbbr: string, awayAbbr: string, gameDate: Date): Promise<number | null> {
   const sport = SDIO_SPORT_KEYS[league];
   if (!sport) return null;
-
-  const dateStr = toSdioDate(gameDate);
   try {
-    const resp = await fetch(`${SDIO_BASE}/${sport}/scores/json/GamesByDate/${dateStr}?key=${apiKey}`);
-    if (!resp.ok) {
-      await resp.text();
-      return null;
-    }
+    const resp = await fetch(`${SDIO_BASE}/${sport}/scores/json/GamesByDate/${toSdioDate(gameDate)}?key=${apiKey}`);
+    if (!resp.ok) { await resp.text(); return null; }
     const games = await resp.json();
     if (!Array.isArray(games)) return null;
-
     const match = games.find((g: any) =>
       (g.HomeTeam === homeAbbr && g.AwayTeam === awayAbbr) ||
       (g.HomeTeam?.toUpperCase() === homeAbbr?.toUpperCase() && g.AwayTeam?.toUpperCase() === awayAbbr?.toUpperCase())
     );
     return match?.GameID ?? null;
-  } catch {
-    return null;
-  }
+  } catch { return null; }
 }
 
 // ─── Main handler ────────────────────────────────────────────────────────────
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const oddsApiKey = Deno.env.get("THE_ODDS_API_KEY");
+    const sgoApiKey = Deno.env.get("SPORTSGAMEODDS_API_KEY");
     const sdioApiKey = Deno.env.get("SPORTSDATAIO_API_KEY");
 
-    if (!oddsApiKey && !sdioApiKey) {
+    if (!sgoApiKey && !sdioApiKey) {
       return new Response(
         JSON.stringify({ error: "No API keys configured for player props" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-    );
-
+    const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
     const url = new URL(req.url);
     const league = url.searchParams.get("league") || "NBA";
     const gameId = url.searchParams.get("game_id");
-    const includeAlternates = url.searchParams.get("alternates") === "true";
-    const includePeriods = url.searchParams.get("periods") !== "false"; // default true
-    const sportKey = SPORT_KEYS[league];
-
-    if (!sportKey) {
-      return new Response(
-        JSON.stringify({ error: `Unsupported league: ${league}` }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // Build market list
-    const playerMarkets = LEAGUE_MARKETS[league] || [];
-    const alternateMarkets = includeAlternates ? (ALTERNATE_MARKETS[league] || []) : [];
-    const periodMarkets = includePeriods ? (PERIOD_MARKETS[league] || []) : [];
-    const allMarkets = [...playerMarkets, ...alternateMarkets, ...periodMarkets];
 
     let targetEvents: { eventId: string; gameId: string; homeAbbr: string; awayAbbr: string; startTime: string }[] = [];
 
     if (gameId) {
-      const { data: game } = await supabase
-        .from("games")
-        .select("id, external_id, home_abbr, away_abbr, start_time")
-        .eq("id", gameId)
-        .single();
-
+      const { data: game } = await supabase.from("games").select("id, external_id, home_abbr, away_abbr, start_time").eq("id", gameId).single();
       if (!game?.external_id) {
-        return new Response(
-          JSON.stringify({ error: "Game not found or no external_id" }),
-          { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+        return new Response(JSON.stringify({ error: "Game not found or no external_id" }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
       targetEvents = [{ eventId: game.external_id, gameId: game.id, homeAbbr: game.home_abbr, awayAbbr: game.away_abbr, startTime: game.start_time }];
     } else {
-      if (oddsApiKey) {
-        const eventsUrl = `${THE_ODDS_API_BASE}/sports/${sportKey}/events?apiKey=${oddsApiKey}`;
-        const eventsResp = await fetch(eventsUrl);
-        if (eventsResp.ok) {
-          const events = await eventsResp.json();
-          for (const event of events) {
-            const { data: game } = await supabase
-              .from("games")
-              .select("id, home_abbr, away_abbr, start_time")
-              .eq("external_id", event.id)
-              .maybeSingle();
+      // Get today's games from DB
+      const today = new Date();
+      const startOfDay = new Date(today); startOfDay.setHours(0, 0, 0, 0);
+      const endOfDay = new Date(today); endOfDay.setHours(23, 59, 59, 999);
 
-            if (game) {
-              targetEvents.push({ eventId: event.id, gameId: game.id, homeAbbr: game.home_abbr, awayAbbr: game.away_abbr, startTime: game.start_time });
-            }
-          }
-        } else {
-          await eventsResp.text();
-          console.warn(`[OddsAPI] Events fetch failed: ${eventsResp.status}`);
-        }
-      }
+      const { data: dbGames } = await supabase.from("games").select("id, external_id, home_abbr, away_abbr, start_time")
+        .eq("league", league)
+        .gte("start_time", startOfDay.toISOString())
+        .lte("start_time", endOfDay.toISOString());
 
-      if (targetEvents.length === 0) {
-        const today = new Date();
-        const startOfDay = new Date(today);
-        startOfDay.setHours(0, 0, 0, 0);
-        const endOfDay = new Date(today);
-        endOfDay.setHours(23, 59, 59, 999);
-
-        const { data: dbGames } = await supabase
-          .from("games")
-          .select("id, external_id, home_abbr, away_abbr, start_time")
-          .eq("league", league)
-          .gte("start_time", startOfDay.toISOString())
-          .lte("start_time", endOfDay.toISOString());
-
-        for (const g of dbGames || []) {
-          targetEvents.push({
-            eventId: g.external_id || "",
-            gameId: g.id,
-            homeAbbr: g.home_abbr,
-            awayAbbr: g.away_abbr,
-            startTime: g.start_time,
-          });
-        }
+      for (const g of dbGames || []) {
+        targetEvents.push({ eventId: g.external_id || "", gameId: g.id, homeAbbr: g.home_abbr, awayAbbr: g.away_abbr, startTime: g.start_time });
       }
 
       targetEvents = targetEvents.slice(0, 5);
     }
 
-    console.log(`Fetching props for ${targetEvents.length} events in ${league} (${allMarkets.length} markets)`);
+    console.log(`Fetching props for ${targetEvents.length} events in ${league}`);
 
     let totalProps = 0;
     const sources: string[] = [];
@@ -520,39 +314,34 @@ Deno.serve(async (req) => {
     for (const event of targetEvents) {
       let props: PropRow[] = [];
 
-      // Try The Odds API first
-      if (oddsApiKey && event.eventId) {
-        props = await fetchPropsFromOddsAPI(oddsApiKey, sportKey, event.eventId, allMarkets);
+      // Primary: SGO
+      if (sgoApiKey && event.eventId) {
+        // Strip "sgo_" prefix if present to get raw SGO eventID
+        const sgoEventId = event.eventId.startsWith("sgo_") ? event.eventId.slice(4) : event.eventId;
+        props = await fetchPropsFromSGO(sgoApiKey, sgoEventId);
         if (props.length > 0) {
-          sources.push("odds-api");
-          console.log(`[OddsAPI] Got ${props.length} props for game ${event.gameId}`);
+          sources.push("sgo");
+          console.log(`[SGO] Got ${props.length} props for game ${event.gameId}`);
         }
       }
 
-      // Fallback to SportsDataIO if no props from primary source
+      // Fallback: SportsDataIO
       if (props.length === 0 && sdioApiKey) {
-        console.log(`[SDIO] Falling back for game ${event.gameId} (${event.awayAbbr}@${event.homeAbbr})`);
+        console.log(`[SDIO] Falling back for game ${event.gameId}`);
         const gameDate = new Date(event.startTime);
         const sdioGameId = await getSdioGameId(sdioApiKey, league, event.homeAbbr, event.awayAbbr, gameDate);
-
         if (sdioGameId) {
           props = await fetchPropsFromSportsDataIO(sdioApiKey, league, sdioGameId);
           if (props.length > 0) {
             sources.push("sportsdataio");
             console.log(`[SDIO] Got ${props.length} props for game ${event.gameId}`);
           }
-        } else {
-          console.warn(`[SDIO] Could not find SDIO game for ${event.awayAbbr}@${event.homeAbbr}`);
         }
       }
 
-      if (props.length === 0) {
-        console.log(`No props from any source for game ${event.gameId}`);
-        continue;
-      }
+      if (props.length === 0) continue;
 
       const propsWithGameId = props.map((p) => ({ ...p, game_id: event.gameId }));
-
       await supabase.from("player_props").delete().eq("game_id", event.gameId);
 
       for (let i = 0; i < propsWithGameId.length; i += 100) {
@@ -565,22 +354,12 @@ Deno.serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({
-        success: true,
-        events_processed: targetEvents.length,
-        props_stored: totalProps,
-        markets_requested: allMarkets.length,
-        sources: [...new Set(sources)],
-        fetched_at: new Date().toISOString(),
-      }),
+      JSON.stringify({ success: true, events_processed: targetEvents.length, props_stored: totalProps, sources: [...new Set(sources)], fetched_at: new Date().toISOString() }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error);
     console.error("fetch-player-props error:", msg);
-    return new Response(
-      JSON.stringify({ error: msg }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return new Response(JSON.stringify({ error: msg }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 });
