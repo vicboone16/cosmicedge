@@ -43,16 +43,17 @@ function formatPrice(price: number | null): string {
 }
 
 export function PlayerPropsSection({ playerId, playerName, teamAbbr }: PlayerPropsSectionProps) {
-  // Find the player's next game
+  // Find the player's next/current game (include live games started up to 4h ago)
   const { data: nextGame } = useQuery({
     queryKey: ["player-props-next-game", teamAbbr],
     queryFn: async () => {
-      const now = new Date().toISOString();
+      const cutoff = new Date(Date.now() - 4 * 3600000).toISOString();
       const { data } = await supabase
         .from("games")
         .select("id, home_abbr, away_abbr, start_time")
         .or(`home_abbr.eq.${teamAbbr},away_abbr.eq.${teamAbbr}`)
-        .gte("start_time", now)
+        .in("status", ["scheduled", "live", "in_progress"])
+        .gte("start_time", cutoff)
         .order("start_time", { ascending: true })
         .limit(1)
         .maybeSingle();
