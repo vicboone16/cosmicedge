@@ -1,12 +1,13 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { SlidersHorizontal, Flame, TrendingUp, RefreshCw } from "lucide-react";
+import { SlidersHorizontal, Flame, TrendingUp, RefreshCw, Search } from "lucide-react";
 import { format, isToday, addDays } from "date-fns";
 import { cn } from "@/lib/utils";
 import { TrendCard, type TrendInsight } from "@/components/trends/TrendCard";
 import { TrendsFilterModal, type TrendFilters } from "@/components/trends/TrendsFilterModal";
 import { getMarketShort } from "@/lib/market-catalog";
+import { Input } from "@/components/ui/input";
 
 const DEFAULT_FILTERS: TrendFilters = {
   scope: "all",
