@@ -279,6 +279,8 @@ Deno.serve(async (req) => {
     const url = new URL(req.url);
     const league = url.searchParams.get("league") || "NBA";
     const gameId = url.searchParams.get("game_id");
+    const windowHours = url.searchParams.get("window_hours"); // pregame: games starting within N hours
+    const lookbackMinutes = url.searchParams.get("lookback_minutes"); // live: games started within N minutes that aren't final
 
     let targetEvents: { eventId: string; gameId: string; homeAbbr: string; awayAbbr: string; startTime: string }[] = [];
 
@@ -288,8 +290,36 @@ Deno.serve(async (req) => {
         return new Response(JSON.stringify({ error: "Game not found or no external_id" }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
       targetEvents = [{ eventId: game.external_id, gameId: game.id, homeAbbr: game.home_abbr, awayAbbr: game.away_abbr, startTime: game.start_time }];
+    } else if (lookbackMinutes) {
+      // Live mode: games that started within lookback_minutes ago and are not final
+      const now = new Date();
+      const cutoff = new Date(now.getTime() - Number(lookbackMinutes) * 60000);
+      const { data: dbGames } = await supabase.from("games").select("id, external_id, home_abbr, away_abbr, start_time")
+        .eq("league", league)
+        .gte("start_time", cutoff.toISOString())
+        .lte("start_time", now.toISOString())
+        .in("status", ["scheduled", "live", "in_progress"]);
+
+      for (const g of dbGames || []) {
+        if (g.external_id) targetEvents.push({ eventId: g.external_id, gameId: g.id, homeAbbr: g.home_abbr, awayAbbr: g.away_abbr, startTime: g.start_time });
+      }
+      console.log(`[Live mode] Found ${targetEvents.length} active/upcoming games (lookback ${lookbackMinutes}m)`);
+    } else if (windowHours) {
+      // Pregame mode: games starting within the next N hours
+      const now = new Date();
+      const horizon = new Date(now.getTime() + Number(windowHours) * 3600000);
+      const { data: dbGames } = await supabase.from("games").select("id, external_id, home_abbr, away_abbr, start_time")
+        .eq("league", league)
+        .gte("start_time", now.toISOString())
+        .lte("start_time", horizon.toISOString())
+        .in("status", ["scheduled"]);
+
+      for (const g of dbGames || []) {
+        if (g.external_id) targetEvents.push({ eventId: g.external_id, gameId: g.id, homeAbbr: g.home_abbr, awayAbbr: g.away_abbr, startTime: g.start_time });
+      }
+      console.log(`[Pregame mode] Found ${targetEvents.length} upcoming games (window ${windowHours}h)`);
     } else {
-      // Get today's games from DB
+      // Default: today's games
       const today = new Date();
       const startOfDay = new Date(today); startOfDay.setHours(0, 0, 0, 0);
       const endOfDay = new Date(today); endOfDay.setHours(23, 59, 59, 999);
@@ -302,7 +332,6 @@ Deno.serve(async (req) => {
       for (const g of dbGames || []) {
         targetEvents.push({ eventId: g.external_id || "", gameId: g.id, homeAbbr: g.home_abbr, awayAbbr: g.away_abbr, startTime: g.start_time });
       }
-
       targetEvents = targetEvents.slice(0, 5);
     }
 
