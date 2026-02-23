@@ -134,37 +134,7 @@ export default function CreateBetForm({ userId, prefill, onPrefillConsumed }: Cr
   const [whySummary, setWhySummary] = useState("");
   const [notes, setNotes] = useState("");
 
-  // Handle prefill from URL params
-  useEffect(() => {
-    if (prefill && (prefill.player || prefill.gameId)) {
-      const isPlayerProp = !!prefill.player;
-      const marketKey = prefill.market || "";
-      const propType = marketKey.replace(/^player_/, "");
-      const side = prefill.side || "over";
-      const propLabel = PROP_STAT_TYPES.find(p => p.value === propType)?.label || propType;
-      
-      const newLeg: BetLeg = {
-        gameId: prefill.gameId || "",
-        category: isPlayerProp ? "player_prop" : "game",
-        marketType: isPlayerProp ? "player_prop" : marketKey,
-        period: prefill.period || "full",
-        selection: isPlayerProp && prefill.player
-          ? `${prefill.player} ${propLabel} ${side === "over" ? "Over" : "Under"} ${prefill.line || ""}`.trim()
-          : "",
-        side,
-        playerId: "",
-        playerName: prefill.player || "",
-        propType: propType || "",
-        line: prefill.line || "",
-        odds: prefill.odds || "",
-      };
-      setLegs([newLeg]);
-      // Set date to "all" so the prefilled game is visible in the dropdown
-      setSelectedDate("all");
-      setOpen(true);
-      onPrefillConsumed?.();
-    }
-  }, [prefill]);
+  // Prefill effect is below after games query
 
   const dateOptions = useMemo(() => {
     const opts: { value: string; label: string }[] = [];
@@ -208,6 +178,37 @@ export default function CreateBetForm({ userId, prefill, onPrefillConsumed }: Cr
       return Array.from(seen.values()).sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
     },
   });
+
+  // Handle prefill from URL params — wait for games to load so the dropdown works
+  useEffect(() => {
+    if (prefill && (prefill.player || prefill.gameId) && games && games.length > 0) {
+      const isPlayerProp = !!prefill.player;
+      const marketKey = prefill.market || "";
+      const propType = marketKey.replace(/^player_/, "");
+      const side = prefill.side || "over";
+      const propLabel = PROP_STAT_TYPES.find(p => p.value === propType)?.label || propType;
+
+      const newLeg: BetLeg = {
+        gameId: prefill.gameId || "",
+        category: isPlayerProp ? "player_prop" : "game",
+        marketType: isPlayerProp ? "player_prop" : marketKey,
+        period: prefill.period || "full",
+        selection: isPlayerProp && prefill.player
+          ? `${prefill.player} ${propLabel} ${side === "over" ? "Over" : "Under"} ${prefill.line || ""}`.trim()
+          : "",
+        side,
+        playerId: "",
+        playerName: prefill.player || "",
+        propType: propType || "",
+        line: prefill.line || "",
+        odds: prefill.odds ? String(Math.round(Number(prefill.odds))) : "",
+      };
+      setLegs([newLeg]);
+      setSelectedDate("all");
+      setOpen(true);
+      onPrefillConsumed?.();
+    }
+  }, [prefill, games]);
 
   const sgpGameId = sgpMode && legs.length > 0 ? legs[0].gameId : null;
 

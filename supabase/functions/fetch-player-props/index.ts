@@ -1,5 +1,5 @@
 // fetch-player-props — Player props fetcher using SGO v2 + SportsDataIO fallback
-// Now discovers SGO events by league/date and matches to DB games by team abbreviations
+// Uses SGO /events endpoint with proper params and player name resolution from event.players
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
@@ -67,17 +67,18 @@ function sgoStatToMarketKey(statID: string): string {
   return map[statID] || statID;
 }
 
+// Fallback: derive player name from statEntityID (e.g. "lebron_james_lal_NBA" → "Lebron James")
 function formatPlayerName(playerId: string): string {
   if (!playerId) return "Unknown";
   const parts = playerId.split("_");
-  if (parts.length > 2) {
-    const nameParts = parts.slice(0, -2);
-    return nameParts.map(p => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase()).join(" ");
-  }
-  return parts.map(p => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase()).join(" ");
+  // Remove trailing team/league suffixes (e.g. _LAL_NBA or _NBA)
+  const cleaned = parts.filter(p => p.length > 1 || parts.length <= 2);
+  // Take name parts (usually first N-2 parts are the name)
+  const nameParts = cleaned.length > 2 ? cleaned.slice(0, -2) : cleaned;
+  return nameParts.map(p => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase()).join(" ");
 }
 
-// SGO team abbreviation mapping (same as fetch-sgo-live)
+// SGO team abbreviation mapping
 const TEAM_ABBR_MAP: Record<string, string> = {
   "Atlanta Hawks": "ATL", "Boston Celtics": "BOS", "Brooklyn Nets": "BKN",
   "Charlotte Hornets": "CHA", "Chicago Bulls": "CHI", "Cleveland Cavaliers": "CLE",
@@ -95,12 +96,6 @@ function makeAbbr(name: string): string {
   return TEAM_ABBR_MAP[name] || name.split(" ").map(w => w[0]).join("").toUpperCase().slice(0, 3);
 }
 
-function sgoTeamName(teamID: string): string {
-  if (!teamID) return "Unknown";
-  const parts = teamID.replace(/_NBA$|_NFL$|_MLB$|_NHL$/i, "").split("_");
-  return parts.map(p => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase()).join(" ");
-}
-
 interface PropRow {
   game_id: string;
   external_event_id: string;
@@ -115,7 +110,15 @@ interface PropRow {
 
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-// ─── SOURCE 1: SGO v2 (PRIMARY) — fetch ALL events for league, extract player props ──
+// ─── SGO v2: Discover events using proper API params ───
+
+interface SGOPlayer {
+  playerID: string;
+  name?: string;
+  firstName?: string;
+  lastName?: string;
+  teamID?: string;
+}
 
 interface SGOEvent {
   eventID: string;
@@ -124,35 +127,54 @@ interface SGOEvent {
     home?: { teamID?: string; names?: { short?: string; long?: string; medium?: string } };
     away?: { teamID?: string; names?: { short?: string; long?: string; medium?: string } };
   };
-  status?: { startsAt?: string };
+  players?: Record<string, SGOPlayer>;
+  status?: { startsAt?: string; started?: boolean; ended?: boolean };
   odds?: Record<string, any>;
 }
 
 async function discoverSGOEvents(apiKey: string, league: string): Promise<SGOEvent[]> {
   const allEvents: SGOEvent[] = [];
-  let offset = 0;
-  const limit = 50;
+  let cursor: string | null = null;
 
-  // Try up to 3 pages
-  for (let page = 0; page < 3; page++) {
+  // Use proper SGO params: oddsAvailable, started=false, type=match
+  for (let page = 0; page < 5; page++) {
     try {
-      const url = `${SGO_BASE}/events?leagueID=${league}&limit=${limit}&offset=${offset}`;
+      const params = new URLSearchParams({
+        leagueID: league,
+        oddsAvailable: "true",
+        started: "false",
+        type: "match",
+        limit: "50",
+      });
+      if (cursor) params.set("cursor", cursor);
+
+      const url = `${SGO_BASE}/events/?${params}`;
+      console.log(`[SGO] Fetching: ${url.replace(apiKey, "***")}`);
       const resp = await fetch(url, { headers: { "X-Api-Key": apiKey } });
+
       if (resp.status === 429) {
-        console.warn("[SGO] Rate limited during event discovery, backing off...");
+        console.warn("[SGO] Rate limited, backing off 5s...");
         await delay(5000);
         continue;
       }
       if (!resp.ok) {
         const body = await resp.text();
-        console.warn(`[SGO] Event discovery ${resp.status}: ${body.slice(0, 200)}`);
+        console.warn(`[SGO] Event discovery ${resp.status}: ${body.slice(0, 300)}`);
         break;
       }
+
       const json = await resp.json();
       const events = json.data || [];
       allEvents.push(...events);
-      if (events.length < limit) break; // No more pages
-      offset += limit;
+
+      // Use cursor for pagination
+      if (json.nextCursor) {
+        cursor = json.nextCursor;
+      } else {
+        break; // No more pages
+      }
+
+      if (events.length < 50) break;
     } catch (err) {
       console.error("[SGO] Event discovery error:", err);
       break;
@@ -160,6 +182,30 @@ async function discoverSGOEvents(apiKey: string, league: string): Promise<SGOEve
   }
 
   return allEvents;
+}
+
+function resolvePlayerName(event: SGOEvent, statEntityID: string): string {
+  // First try the event.players map which has proper names
+  const players = event.players || {};
+
+  // statEntityID might match a playerID key in players
+  if (players[statEntityID]) {
+    const p = players[statEntityID];
+    if (p.name) return p.name;
+    if (p.firstName && p.lastName) return `${p.firstName} ${p.lastName}`;
+  }
+
+  // Try matching by playerID within the players map
+  for (const p of Object.values(players)) {
+    if (p.playerID === statEntityID) {
+      if (p.name) return p.name;
+      if (p.firstName && p.lastName) return `${p.firstName} ${p.lastName}`;
+    }
+  }
+
+  // Also check odds[oddID].playerID → players lookup
+  // Fallback to parsing the statEntityID string
+  return formatPlayerName(statEntityID);
 }
 
 function extractPlayerPropsFromEvent(event: SGOEvent): PropRow[] {
@@ -175,17 +221,20 @@ function extractPlayerPropsFromEvent(event: SGOEvent): PropRow[] {
     const isPlayerProp = statEntityID !== "all" && statEntityID !== "home" && statEntityID !== "away";
     if (!isPlayerProp) continue;
 
-    const playerName = formatPlayerName(statEntityID);
+    // Use the playerID from odds if available, or statEntityID
+    const playerKey = oddData.playerID || statEntityID;
+    const playerName = resolvePlayerName(event, playerKey);
     const sideID = oddData.sideID || "";
     const isOver = sideID === "over" || oddID.includes("-over") || oddID.includes("-ou-over");
     const isUnder = sideID === "under" || oddID.includes("-under") || oddID.includes("-ou-under");
 
-    // Consensus
+    // Use bookOdds/bookOverUnder/bookSpread as primary (consensus from SGO)
     const groupKey = `${statEntityID}|${statID}|consensus`;
     if (!grouped.has(groupKey)) grouped.set(groupKey, { statID, playerName, bookmaker: "sgo_consensus" });
     const entry = grouped.get(groupKey)!;
-    if (isOver) entry.over = oddData;
-    else if (isUnder) entry.under = oddData;
+
+    if (isOver) entry.over = { odds: oddData.bookOdds, overUnder: oddData.bookOverUnder, spread: oddData.bookSpread, ...oddData };
+    else if (isUnder) entry.under = { odds: oddData.bookOdds, overUnder: oddData.bookOverUnder, spread: oddData.bookSpread, ...oddData };
 
     // Per-bookmaker
     if (oddData.byBookmaker) {
@@ -228,10 +277,10 @@ function matchSGOEventToGame(
   event: SGOEvent,
   dbGames: { id: string; home_abbr: string; away_abbr: string; start_time: string }[]
 ): { id: string; home_abbr: string; away_abbr: string; start_time: string } | null {
-  const homeTeamName = event.teams?.home?.names?.long || event.teams?.home?.names?.medium || sgoTeamName(event.teams?.home?.teamID || "");
-  const awayTeamName = event.teams?.away?.names?.long || event.teams?.away?.names?.medium || sgoTeamName(event.teams?.away?.teamID || "");
-  const homeAbbr = event.teams?.home?.names?.short || makeAbbr(homeTeamName);
-  const awayAbbr = event.teams?.away?.names?.short || makeAbbr(awayTeamName);
+  const homeNames = event.teams?.home?.names;
+  const awayNames = event.teams?.away?.names;
+  const homeAbbr = homeNames?.short || makeAbbr(homeNames?.long || homeNames?.medium || "");
+  const awayAbbr = awayNames?.short || makeAbbr(awayNames?.long || awayNames?.medium || "");
 
   // Direct abbreviation match
   const match = dbGames.find(g =>
@@ -240,7 +289,7 @@ function matchSGOEventToGame(
   );
   if (match) return match;
 
-  // Fuzzy: try matching by just home or away in case of abbreviation differences
+  // Fuzzy: try matching by just home or away
   const fuzzy = dbGames.find(g =>
     (g.home_abbr.toUpperCase() === homeAbbr.toUpperCase() || g.away_abbr.toUpperCase() === awayAbbr.toUpperCase())
   );
@@ -250,9 +299,7 @@ function matchSGOEventToGame(
 // ─── SOURCE 2: SportsDataIO (FALLBACK) ──────────────────────────────────────
 
 async function fetchPropsFromSportsDataIO(
-  apiKey: string,
-  league: string,
-  sdioGameId: number
+  apiKey: string, league: string, sdioGameId: number
 ): Promise<PropRow[]> {
   const sport = SDIO_SPORT_KEYS[league];
   if (!sport) return [];
@@ -377,15 +424,16 @@ Deno.serve(async (req) => {
         .in("status", ["scheduled"]);
       dbGames = data || [];
     } else {
-      // Default: today's games
+      // Default: today + tomorrow games (broader window)
       const today = new Date();
       const startOfDay = new Date(today); startOfDay.setHours(0, 0, 0, 0);
-      const endOfDay = new Date(today); endOfDay.setHours(23, 59, 59, 999);
+      const endOfTomorrow = new Date(today); endOfTomorrow.setDate(endOfTomorrow.getDate() + 1); endOfTomorrow.setHours(23, 59, 59, 999);
       const { data } = await supabase.from("games").select("id, home_abbr, away_abbr, start_time")
         .eq("league", league)
         .gte("start_time", startOfDay.toISOString())
-        .lte("start_time", endOfDay.toISOString());
-      dbGames = (data || []).slice(0, 5);
+        .lte("start_time", endOfTomorrow.toISOString())
+        .in("status", ["scheduled", "live", "in_progress"]);
+      dbGames = (data || []).slice(0, 15);
     }
 
     console.log(`Fetching props for ${dbGames.length} DB games in ${league}`);
@@ -399,23 +447,23 @@ Deno.serve(async (req) => {
     let totalProps = 0;
     const sources: string[] = [];
 
-    // ─── SGO: Discover events by league and match to DB games ───
+    // ─── SGO: Discover events by league with proper filters ───
     if (sgoApiKey) {
-      console.log(`[SGO] Discovering events for ${league}...`);
+      console.log(`[SGO] Discovering upcoming events for ${league}...`);
       const sgoEvents = await discoverSGOEvents(sgoApiKey, league);
-      console.log(`[SGO] Found ${sgoEvents.length} events for ${league}`);
+      console.log(`[SGO] Found ${sgoEvents.length} upcoming events with odds for ${league}`);
 
       for (const sgoEvent of sgoEvents) {
         const matchedGame = matchSGOEventToGame(sgoEvent, dbGames);
         if (!matchedGame) continue;
 
-        const props = extractPlayerPropsFromEvent(sgoEvent);
-        if (props.length === 0) continue;
+        const eventProps = extractPlayerPropsFromEvent(sgoEvent);
+        if (eventProps.length === 0) continue;
 
-        console.log(`[SGO] ${matchedGame.home_abbr} vs ${matchedGame.away_abbr}: ${props.length} player props`);
+        console.log(`[SGO] ${matchedGame.home_abbr} vs ${matchedGame.away_abbr}: ${eventProps.length} player props`);
         sources.push("sgo");
 
-        const propsWithGameId = props.map(p => ({ ...p, game_id: matchedGame.id }));
+        const propsWithGameId = eventProps.map(p => ({ ...p, game_id: matchedGame.id }));
         await supabase.from("player_props").delete().eq("game_id", matchedGame.id);
 
         for (let i = 0; i < propsWithGameId.length; i += 100) {
@@ -438,13 +486,13 @@ Deno.serve(async (req) => {
         const sdioGameId = await getSdioGameId(sdioApiKey, league, game.home_abbr, game.away_abbr, gameDate);
         if (!sdioGameId) continue;
 
-        const props = await fetchPropsFromSportsDataIO(sdioApiKey, league, sdioGameId);
-        if (props.length === 0) continue;
+        const sdioProps = await fetchPropsFromSportsDataIO(sdioApiKey, league, sdioGameId);
+        if (sdioProps.length === 0) continue;
 
-        console.log(`[SDIO] ${game.home_abbr} vs ${game.away_abbr}: ${props.length} player props`);
+        console.log(`[SDIO] ${game.home_abbr} vs ${game.away_abbr}: ${sdioProps.length} player props`);
         sources.push("sportsdataio");
 
-        const propsWithGameId = props.map(p => ({ ...p, game_id: game.id }));
+        const propsWithGameId = sdioProps.map(p => ({ ...p, game_id: game.id }));
         await supabase.from("player_props").delete().eq("game_id", game.id);
 
         for (let i = 0; i < propsWithGameId.length; i += 100) {
