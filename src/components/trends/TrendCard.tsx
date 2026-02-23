@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { BarChart3, Target } from "lucide-react";
+import { BarChart3, Target, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useNavigate } from "react-router-dom";
 import { BarChart, Bar, ReferenceLine, XAxis, YAxis, ResponsiveContainer, Cell } from "recharts";
 import { TrackPropButton } from "@/components/tracking/TrackedProps";
 
@@ -29,8 +30,13 @@ function formatOdds(odds: number | null): string {
 }
 
 export function TrendCard({ insight }: { insight: TrendInsight }) {
+  const navigate = useNavigate();
   const dirLabel = insight.direction === "over" ? "Over" : "Under";
   const hitPct = insight.hitRate;
+
+  const handleAddToSkySpread = () => {
+    navigate(`/skyspread?prefill=true&player=${encodeURIComponent(insight.playerName)}&market=${encodeURIComponent(insight.marketKey || "")}&line=${insight.line ?? ""}&odds=${insight.odds ?? ""}&game_id=${insight.gameId || ""}&side=${insight.direction}`);
+  };
 
   const chartData = (insight.statValues || []).map((val, i) => ({
     game: `G${i + 1}`,
@@ -98,14 +104,23 @@ export function TrendCard({ insight }: { insight: TrendInsight }) {
             <span className="text-sm font-bold tabular-nums text-foreground">{formatOdds(insight.odds)}</span>
           )}
           {insight.gameId && (
-            <TrackPropButton
-              gameId={insight.gameId}
-              playerName={insight.playerName}
-              marketType={insight.marketKey || insight.propLabel}
-              line={insight.line}
-              overPrice={insight.direction === "over" ? insight.odds : null}
-              underPrice={insight.direction === "under" ? insight.odds : null}
-            />
+            <>
+              <TrackPropButton
+                gameId={insight.gameId}
+                playerName={insight.playerName}
+                marketType={insight.marketKey || insight.propLabel}
+                line={insight.line}
+                overPrice={insight.direction === "over" ? insight.odds : null}
+                underPrice={insight.direction === "under" ? insight.odds : null}
+              />
+              <button
+                onClick={handleAddToSkySpread}
+                className="p-1 rounded hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors"
+                title="Add to SkySpread"
+              >
+                <Plus className="h-3.5 w-3.5" />
+              </button>
+            </>
           )}
         </div>
       </div>

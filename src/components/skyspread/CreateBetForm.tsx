@@ -136,19 +136,22 @@ export default function CreateBetForm({ userId, prefill, onPrefillConsumed }: Cr
 
   // Handle prefill from URL params
   useEffect(() => {
-    if (prefill && prefill.player) {
+    if (prefill && (prefill.player || prefill.gameId)) {
       const isPlayerProp = !!prefill.player;
       const marketKey = prefill.market || "";
-      // Map player_xxx market keys to prop stat types
       const propType = marketKey.replace(/^player_/, "");
+      const side = prefill.side || "over";
+      const propLabel = PROP_STAT_TYPES.find(p => p.value === propType)?.label || propType;
       
       const newLeg: BetLeg = {
         gameId: prefill.gameId || "",
         category: isPlayerProp ? "player_prop" : "game",
         marketType: isPlayerProp ? "player_prop" : marketKey,
         period: prefill.period || "full",
-        selection: prefill.player ? `${prefill.player} ${prefill.side || "over"} ${prefill.line || ""}` : "",
-        side: prefill.side || "over",
+        selection: isPlayerProp && prefill.player
+          ? `${prefill.player} ${propLabel} ${side === "over" ? "Over" : "Under"} ${prefill.line || ""}`.trim()
+          : "",
+        side,
         playerId: "",
         playerName: prefill.player || "",
         propType: propType || "",
@@ -156,6 +159,8 @@ export default function CreateBetForm({ userId, prefill, onPrefillConsumed }: Cr
         odds: prefill.odds || "",
       };
       setLegs([newLeg]);
+      // Set date to "all" so the prefilled game is visible in the dropdown
+      setSelectedDate("all");
       setOpen(true);
       onPrefillConsumed?.();
     }
