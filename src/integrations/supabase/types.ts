@@ -2979,6 +2979,83 @@ export type Database = {
           },
         ]
       }
+      sgo_market_odds: {
+        Row: {
+          available: boolean
+          bet_type: string
+          bookmaker: string
+          captured_at: string
+          event_id: string
+          game_id: string
+          id: string
+          is_alternate: boolean
+          is_player_prop: boolean
+          last_updated_at: string | null
+          league: string
+          line: number | null
+          odd_id: string
+          odds: number | null
+          period: string
+          player_name: string | null
+          side: string
+          stat_entity_id: string
+          stat_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          available?: boolean
+          bet_type: string
+          bookmaker?: string
+          captured_at?: string
+          event_id: string
+          game_id: string
+          id?: string
+          is_alternate?: boolean
+          is_player_prop?: boolean
+          last_updated_at?: string | null
+          league: string
+          line?: number | null
+          odd_id: string
+          odds?: number | null
+          period?: string
+          player_name?: string | null
+          side: string
+          stat_entity_id?: string
+          stat_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          available?: boolean
+          bet_type?: string
+          bookmaker?: string
+          captured_at?: string
+          event_id?: string
+          game_id?: string
+          id?: string
+          is_alternate?: boolean
+          is_player_prop?: boolean
+          last_updated_at?: string | null
+          league?: string
+          line?: number | null
+          odd_id?: string
+          odds?: number | null
+          period?: string
+          player_name?: string | null
+          side?: string
+          stat_entity_id?: string
+          stat_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sgo_market_odds_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sportsbooks: {
         Row: {
           created_at: string
