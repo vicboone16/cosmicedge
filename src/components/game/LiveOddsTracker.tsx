@@ -31,7 +31,7 @@ interface MarketOdd {
   updated_at: string;
 }
 
-type PeriodFilter = "all" | "full" | "1Q" | "2Q" | "3Q" | "4Q" | "1H" | "2H";
+type PeriodFilter = "all" | "full" | "1Q" | "2Q" | "3Q" | "4Q" | "1H" | "2H" | "1P" | "2P" | "3P" | "OT";
 type MarketFilter = "all" | "ml" | "sp" | "ou";
 
 const PERIOD_LABELS: Record<string, string> = {

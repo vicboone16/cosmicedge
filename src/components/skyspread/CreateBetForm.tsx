@@ -1,5 +1,5 @@
-import { useState, useMemo } from "react";
-import { Plus, X, CalendarDays, DollarSign, Zap } from "lucide-react";
+import { useState, useMemo, useEffect } from "react";
+import { Plus, X, CalendarDays, DollarSign, Zap, User, Trophy } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -15,36 +15,86 @@ import type { Tables } from "@/integrations/supabase/types";
 
 type GameRow = Tables<"games">;
 
-const MARKET_TYPES = [
-  { value: "moneyline", label: "Moneyline" },
-  { value: "spread", label: "Spread" },
-  { value: "total", label: "Total" },
-  { value: "team_total", label: "Team Total" },
-  { value: "player_prop", label: "Player Prop" },
-  { value: "first_half", label: "1st Half" },
-  { value: "second_half", label: "2nd Half" },
-  { value: "first_quarter", label: "1st Quarter" },
+/* ─── Option Constants ─── */
+
+const BET_CATEGORIES = [
+  { value: "game", label: "Game Bet", icon: Trophy },
+  { value: "player_prop", label: "Player Prop", icon: User },
 ];
 
-const SIDES = [
+const GAME_MARKET_TYPES = [
+  { value: "moneyline", label: "Moneyline" },
+  { value: "spread", label: "Spread" },
+  { value: "total", label: "Total (O/U)" },
+  { value: "team_total", label: "Team Total" },
+  { value: "other", label: "Other" },
+];
+
+const PERIOD_OPTIONS = [
+  { value: "full", label: "Full Game" },
+  { value: "1H", label: "1st Half" },
+  { value: "2H", label: "2nd Half" },
+  { value: "1Q", label: "1st Quarter" },
+  { value: "2Q", label: "2nd Quarter" },
+  { value: "3Q", label: "3rd Quarter" },
+  { value: "4Q", label: "4th Quarter" },
+  { value: "1P", label: "1st Period" },
+  { value: "2P", label: "2nd Period" },
+  { value: "3P", label: "3rd Period" },
+];
+
+const SIDES_GAME = [
   { value: "home", label: "Home" },
   { value: "away", label: "Away" },
   { value: "over", label: "Over" },
   { value: "under", label: "Under" },
-  { value: "player", label: "Player" },
+];
+
+const PROP_STAT_TYPES = [
+  { value: "points", label: "Points" },
+  { value: "rebounds", label: "Rebounds" },
+  { value: "assists", label: "Assists" },
+  { value: "threes", label: "3-Pointers Made" },
+  { value: "blocks", label: "Blocks" },
+  { value: "steals", label: "Steals" },
+  { value: "turnovers", label: "Turnovers" },
+  { value: "points_rebounds_assists", label: "PTS+REB+AST" },
+  { value: "double_double", label: "Double-Double" },
+  { value: "passing_yards", label: "Passing Yards" },
+  { value: "rushing_yards", label: "Rushing Yards" },
+  { value: "receiving_yards", label: "Receiving Yards" },
+  { value: "passing_tds", label: "Passing TDs" },
+  { value: "receptions", label: "Receptions" },
+  { value: "goals", label: "Goals" },
+  { value: "saves", label: "Saves" },
+  { value: "shots_on_goal", label: "Shots on Goal" },
+  { value: "strikeouts", label: "Strikeouts" },
+  { value: "hits", label: "Hits" },
+  { value: "home_runs", label: "Home Runs" },
+  { value: "total_bases", label: "Total Bases" },
+  { value: "other", label: "Other" },
 ];
 
 interface BetLeg {
   gameId: string;
+  category: "game" | "player_prop";
   marketType: string;
+  period: string;
   selection: string;
   side: string;
+  playerId: string;
+  playerName: string;
+  propType: string;
   line: string;
   odds: string;
 }
 
 function emptyLeg(): BetLeg {
-  return { gameId: "", marketType: "moneyline", selection: "", side: "", line: "", odds: "" };
+  return {
+    gameId: "", category: "game", marketType: "moneyline", period: "full",
+    selection: "", side: "", playerId: "", playerName: "", propType: "",
+    line: "", odds: "",
+  };
 }
 
 interface CreateBetFormProps {
@@ -74,15 +124,10 @@ export default function CreateBetForm({ userId }: CreateBetFormProps) {
   const [whySummary, setWhySummary] = useState("");
   const [notes, setNotes] = useState("");
 
-  // Past 7 + future 7 days — use LOCAL date to avoid UTC-day mismatch
   const dateOptions = useMemo(() => {
     const opts: { value: string; label: string }[] = [];
     const now = new Date();
-    // Get local date parts to build date strings correctly
-    const localYear = now.getFullYear();
-    const localMonth = now.getMonth();
-    const localDay = now.getDate();
-    const localToday = new Date(localYear, localMonth, localDay);
+    const localToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     for (let i = -7; i <= 7; i++) {
       const d = addDays(localToday, i);
       const label = i === 0 ? "Today" : i === 1 ? "Tomorrow" : i === -1 ? "Yesterday" : format(d, "EEE, MMM d");
@@ -95,19 +140,13 @@ export default function CreateBetForm({ userId }: CreateBetFormProps) {
     queryKey: ["games-for-bet-form", selectedDate],
     queryFn: async () => {
       let query = supabase.from("games").select("*").order("start_time", { ascending: true });
-
       if (selectedDate === "all") {
-        // Use proper UTC boundaries: ±7 local days converted to UTC
         const now = new Date();
-        const pastBound = subDays(now, 7);
-        const futureBound = addDays(now, 7);
         query = query
-          .gte("start_time", pastBound.toISOString())
-          .lte("start_time", futureBound.toISOString())
+          .gte("start_time", subDays(now, 7).toISOString())
+          .lte("start_time", addDays(now, 7).toISOString())
           .limit(300);
       } else {
-        // Convert local date boundaries to UTC for the query
-        // e.g. "2026-02-19" → local midnight → UTC ISO string
         const localStart = new Date(selectedDate + "T00:00:00");
         const localEnd = new Date(selectedDate + "T23:59:59");
         query = query
@@ -115,41 +154,40 @@ export default function CreateBetForm({ userId }: CreateBetFormProps) {
           .lte("start_time", localEnd.toISOString())
           .limit(500);
       }
-
       const { data, error } = await query;
       if (error) throw error;
-
-      // Deduplicate: keep one game per (home_abbr, away_abbr, local-date), prefer non-thesportsdb source
       const seen = new Map<string, GameRow>();
       for (const g of (data || []) as GameRow[]) {
-        // Use local date string to group correctly by the user's calendar day
         const localDate = new Date(g.start_time).toLocaleDateString();
         const key = `${g.home_abbr}-${g.away_abbr}-${g.league}-${localDate}`;
-        if (!seen.has(key)) {
-          seen.set(key, g);
-        } else {
-          const existing = seen.get(key)!;
-          if (existing.source === "thesportsdb" && g.source !== "thesportsdb") {
-            seen.set(key, g);
-          }
-        }
+        if (!seen.has(key)) { seen.set(key, g); }
+        else { const ex = seen.get(key)!; if (ex.source === "thesportsdb" && g.source !== "thesportsdb") seen.set(key, g); }
       }
-      return Array.from(seen.values()).sort((a, b) =>
-        new Date(a.start_time).getTime() - new Date(b.start_time).getTime()
-      );
+      return Array.from(seen.values()).sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
     },
   });
 
-  // In SGP mode, lock all legs to the same game
   const sgpGameId = sgpMode && legs.length > 0 ? legs[0].gameId : null;
 
   const updateLeg = (idx: number, patch: Partial<BetLeg>) => {
     setLegs(prev => prev.map((l, i) => {
       if (i !== idx) return l;
       const updated = { ...l, ...patch };
-      // SGP: force same game
       if (sgpMode && idx > 0 && patch.gameId === undefined && sgpGameId) {
         updated.gameId = sgpGameId;
+      }
+      // Auto-build selection text
+      if (patch.category || patch.marketType || patch.side || patch.period || patch.playerName || patch.propType) {
+        const g = games?.find(g => g.id === (patch.gameId || updated.gameId));
+        if (updated.category === "player_prop" && updated.playerName) {
+          const propLabel = PROP_STAT_TYPES.find(p => p.value === updated.propType)?.label || updated.propType;
+          updated.selection = `${updated.playerName} ${propLabel} ${updated.side === "over" ? "Over" : updated.side === "under" ? "Under" : ""} ${updated.line}`.trim();
+        } else if (g) {
+          const teamLabel = updated.side === "home" ? g.home_abbr : updated.side === "away" ? g.away_abbr : updated.side === "over" ? "Over" : updated.side === "under" ? "Under" : "";
+          const marketLabel = GAME_MARKET_TYPES.find(m => m.value === updated.marketType)?.label || updated.marketType;
+          const periodLabel = updated.period !== "full" ? ` (${PERIOD_OPTIONS.find(p => p.value === updated.period)?.label || updated.period})` : "";
+          updated.selection = `${teamLabel} ${marketLabel}${periodLabel} ${updated.line}`.trim();
+        }
       }
       return updated;
     }));
@@ -168,15 +206,9 @@ export default function CreateBetForm({ userId }: CreateBetFormProps) {
 
   const resetForm = () => {
     setLegs([emptyLeg()]);
-    setBook("");
-    setStakeAmount("");
-    setStakeUnit("$");
-    setConfidence([50]);
-    setEdgeScore([50]);
-    setWhySummary("");
-    setNotes("");
-    setSelectedDate("all");
-    setSgpMode(false);
+    setBook(""); setStakeAmount(""); setStakeUnit("$");
+    setConfidence([50]); setEdgeScore([50]);
+    setWhySummary(""); setNotes(""); setSelectedDate("all"); setSgpMode(false);
   };
 
   const calculateParlayOdds = (): number | null => {
@@ -191,17 +223,14 @@ export default function CreateBetForm({ userId }: CreateBetFormProps) {
   const projectedWin = useMemo(() => {
     const stake = parseFloat(stakeAmount);
     if (!stake || isNaN(stake)) return null;
-
     if (isParlay) {
       const parlayOdds = calculateParlayOdds();
       if (!parlayOdds) return null;
-      // Profit = stake * (decimal - 1)
       const dec = americanToDecimal(parlayOdds);
       return (stake * (dec - 1)).toFixed(2);
     } else {
       const odds = parseInt(legs[0]?.odds, 10);
       if (isNaN(odds)) return null;
-      // Profit only: for -120 on $100 → $83.33, for +150 on $100 → $150
       if (odds > 0) return (stake * odds / 100).toFixed(2);
       return (stake * 100 / Math.abs(odds)).toFixed(2);
     }
@@ -230,7 +259,8 @@ export default function CreateBetForm({ userId }: CreateBetFormProps) {
         return {
           user_id: userId, game_id: leg.gameId,
           home_team: game?.home_team ?? null, away_team: game?.away_team ?? null,
-          start_time: game?.start_time ?? null, market_type: leg.marketType,
+          start_time: game?.start_time ?? null,
+          market_type: leg.category === "player_prop" ? "player_prop" : leg.marketType,
           selection: leg.selection, side: leg.side || null,
           line: leg.line ? parseFloat(leg.line) : null,
           odds: parseInt(leg.odds, 10), book: book || null,
@@ -251,7 +281,8 @@ export default function CreateBetForm({ userId }: CreateBetFormProps) {
       const { error } = await supabase.from("bets").insert({
         user_id: userId, game_id: leg.gameId,
         home_team: game?.home_team ?? null, away_team: game?.away_team ?? null,
-        start_time: game?.start_time ?? null, market_type: leg.marketType,
+        start_time: game?.start_time ?? null,
+        market_type: leg.category === "player_prop" ? "player_prop" : leg.marketType,
         selection: leg.selection, side: leg.side || null,
         line: leg.line ? parseFloat(leg.line) : null,
         odds: parseInt(leg.odds, 10), book: book || null,
@@ -318,7 +349,6 @@ export default function CreateBetForm({ userId }: CreateBetFormProps) {
               sgpMode={sgpMode}
               onUpdate={(patch) => {
                 updateLeg(idx, patch);
-                // SGP: when first leg game changes, update all others
                 if (sgpMode && idx === 0 && patch.gameId) {
                   setLegs(prev => prev.map((l, i) => i === 0 ? { ...l, ...patch } : { ...l, gameId: patch.gameId! }));
                 }
@@ -419,7 +449,8 @@ export default function CreateBetForm({ userId }: CreateBetFormProps) {
   );
 }
 
-// ── Individual Leg Component ──
+/* ─── Individual Leg Component with Cascading Dropdowns ─── */
+
 function LegForm({
   leg, legIndex, totalLegs, games, sgpMode, onUpdate, onRemove,
 }: {
@@ -427,6 +458,72 @@ function LegForm({
   sgpMode: boolean;
   onUpdate: (patch: Partial<BetLeg>) => void; onRemove: () => void;
 }) {
+  const selectedGame = games.find(g => g.id === leg.gameId);
+
+  // Fetch players for the selected game (from players table by team)
+  const { data: gamePlayers } = useQuery({
+    queryKey: ["leg-players", leg.gameId, selectedGame?.home_abbr, selectedGame?.away_abbr],
+    queryFn: async () => {
+      if (!selectedGame) return [];
+      const { data, error } = await supabase
+        .from("players")
+        .select("id, name, team, position")
+        .in("team", [selectedGame.home_abbr, selectedGame.away_abbr])
+        .eq("status", "active")
+        .order("name")
+        .limit(200);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!selectedGame && leg.category === "player_prop",
+  });
+
+  // Fetch available SGO odds for auto-fill
+  const { data: sgoOdds } = useQuery({
+    queryKey: ["sgo-odds-for-leg", leg.gameId],
+    queryFn: async () => {
+      if (!leg.gameId) return [];
+      const { data, error } = await supabase
+        .from("sgo_market_odds")
+        .select("*")
+        .eq("game_id", leg.gameId)
+        .eq("bookmaker", "consensus")
+        .limit(500);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!leg.gameId,
+  });
+
+  // Auto-fill odds from SGO when market selections change
+  useEffect(() => {
+    if (!sgoOdds?.length || !leg.gameId) return;
+
+    if (leg.category === "game" && leg.marketType && leg.side && leg.period) {
+      const betTypeMap: Record<string, string> = { moneyline: "ml", spread: "sp", total: "ou", team_total: "ou" };
+      const bt = betTypeMap[leg.marketType] || leg.marketType;
+      const match = sgoOdds.find(o =>
+        o.bet_type === bt && o.side === leg.side && o.period === (leg.period === "full" ? "full" : leg.period) && !o.is_player_prop
+      );
+      if (match) {
+        onUpdate({
+          odds: match.odds?.toString() || "",
+          line: match.line?.toString() || "",
+        });
+      }
+    }
+  }, [leg.marketType, leg.side, leg.period, leg.category, sgoOdds]);
+
+  // Period options filtered by league
+  const leaguePeriods = useMemo(() => {
+    if (!selectedGame) return PERIOD_OPTIONS;
+    const league = selectedGame.league;
+    if (league === "NHL") return PERIOD_OPTIONS.filter(p => ["full", "1P", "2P", "3P"].includes(p.value));
+    if (league === "MLB") return [{ value: "full", label: "Full Game" }];
+    if (league === "NFL" || league === "NBA") return PERIOD_OPTIONS.filter(p => !["1P", "2P", "3P"].includes(p.value));
+    return PERIOD_OPTIONS;
+  }, [selectedGame]);
+
   return (
     <div className="space-y-3 cosmic-card rounded-xl p-3">
       <div className="flex items-center justify-between">
@@ -440,11 +537,25 @@ function LegForm({
         )}
       </div>
 
-      {/* Game Selector - hidden for SGP legs > 0 */}
+      {/* Step 1: Bet Category — Game or Player Prop */}
+      <div className="flex gap-2">
+        {BET_CATEGORIES.map(cat => (
+          <button key={cat.value}
+            onClick={() => onUpdate({ category: cat.value as BetLeg["category"], marketType: cat.value === "player_prop" ? "player_prop" : "moneyline", side: "", playerName: "", propType: "", selection: "" })}
+            className={`flex-1 py-1.5 rounded-lg text-[10px] font-semibold transition-colors flex items-center justify-center gap-1 ${
+              leg.category === cat.value ? "bg-accent text-accent-foreground" : "bg-secondary/40 text-muted-foreground hover:bg-secondary"
+            }`}>
+            <cat.icon className="h-3 w-3" />
+            {cat.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Step 2: Game Selector */}
       {(!sgpMode || legIndex === 0) && (
         <div className="space-y-1.5">
           <Label className="text-xs">Game *</Label>
-          <Select value={leg.gameId} onValueChange={(v) => onUpdate({ gameId: v })}>
+          <Select value={leg.gameId} onValueChange={(v) => onUpdate({ gameId: v, side: "", playerName: "", propType: "", selection: "" })}>
             <SelectTrigger><SelectValue placeholder="Select a game" /></SelectTrigger>
             <SelectContent>
               {games.map((g) => (
@@ -456,9 +567,7 @@ function LegForm({
                   </span>
                 </SelectItem>
               ))}
-              {games.length === 0 && (
-                <SelectItem value="none" disabled>No games found</SelectItem>
-              )}
+              {games.length === 0 && <SelectItem value="none" disabled>No games found</SelectItem>}
             </SelectContent>
           </Select>
         </div>
@@ -470,36 +579,131 @@ function LegForm({
         </p>
       )}
 
-      {/* Market Type */}
-      <div className="space-y-1.5">
-        <Label className="text-xs">Market Type</Label>
-        <Select value={leg.marketType} onValueChange={(v) => onUpdate({ marketType: v })}>
-          <SelectTrigger><SelectValue /></SelectTrigger>
-          <SelectContent>
-            {MARKET_TYPES.map((m) => (
-              <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+      {/* GAME BET FLOW */}
+      {leg.category === "game" && leg.gameId && (
+        <>
+          {/* Step 3: Period */}
+          <div className="space-y-1.5">
+            <Label className="text-xs">Period</Label>
+            <Select value={leg.period} onValueChange={(v) => onUpdate({ period: v })}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {leaguePeriods.map(p => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
 
-      {/* Selection */}
+          {/* Step 4: Market Type */}
+          <div className="space-y-1.5">
+            <Label className="text-xs">Market Type</Label>
+            <Select value={leg.marketType} onValueChange={(v) => onUpdate({ marketType: v })}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {GAME_MARKET_TYPES.map(m => <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Step 5: Side */}
+          <div className="space-y-1.5">
+            <Label className="text-xs">Side</Label>
+            <Select value={leg.side} onValueChange={(v) => onUpdate({ side: v })}>
+              <SelectTrigger><SelectValue placeholder="Select side" /></SelectTrigger>
+              <SelectContent>
+                {leg.marketType === "moneyline" || leg.marketType === "spread" || leg.marketType === "team_total" ? (
+                  <>
+                    <SelectItem value="home">{selectedGame?.home_abbr || "Home"}</SelectItem>
+                    <SelectItem value="away">{selectedGame?.away_abbr || "Away"}</SelectItem>
+                  </>
+                ) : leg.marketType === "total" ? (
+                  <>
+                    <SelectItem value="over">Over</SelectItem>
+                    <SelectItem value="under">Under</SelectItem>
+                  </>
+                ) : (
+                  SIDES_GAME.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)
+                )}
+              </SelectContent>
+            </Select>
+          </div>
+        </>
+      )}
+
+      {/* PLAYER PROP FLOW */}
+      {leg.category === "player_prop" && leg.gameId && (
+        <>
+          {/* Step 3: Player */}
+          <div className="space-y-1.5">
+            <Label className="text-xs">Player *</Label>
+            <Select value={leg.playerName || ""} onValueChange={(v) => {
+              const player = gamePlayers?.find(p => p.name === v);
+              onUpdate({ playerName: v, playerId: player?.id || "", propType: "", side: "", selection: "" });
+            }}>
+              <SelectTrigger><SelectValue placeholder="Select player" /></SelectTrigger>
+              <SelectContent>
+                {selectedGame && (
+                  <>
+                    <SelectItem value="" disabled className="text-[10px] text-muted-foreground font-semibold">— {selectedGame.home_abbr} —</SelectItem>
+                    {(gamePlayers || []).filter(p => p.team === selectedGame.home_abbr).map(p => (
+                      <SelectItem key={p.id} value={p.name}>
+                        {p.name} <span className="text-[10px] text-muted-foreground ml-1">{p.position}</span>
+                      </SelectItem>
+                    ))}
+                    <SelectItem value="" disabled className="text-[10px] text-muted-foreground font-semibold">— {selectedGame.away_abbr} —</SelectItem>
+                    {(gamePlayers || []).filter(p => p.team === selectedGame.away_abbr).map(p => (
+                      <SelectItem key={p.id} value={p.name}>
+                        {p.name} <span className="text-[10px] text-muted-foreground ml-1">{p.position}</span>
+                      </SelectItem>
+                    ))}
+                  </>
+                )}
+                {(!gamePlayers || gamePlayers.length === 0) && (
+                  <SelectItem value="none" disabled>No players found</SelectItem>
+                )}
+              </SelectContent>
+            </Select>
+            {/* Manual player name input as fallback */}
+            {(!gamePlayers || gamePlayers.length === 0) && (
+              <Input placeholder="Type player name" value={leg.playerName} onChange={(e) => onUpdate({ playerName: e.target.value })} className="mt-1" />
+            )}
+          </div>
+
+          {/* Step 4: Prop Type */}
+          {leg.playerName && (
+            <div className="space-y-1.5">
+              <Label className="text-xs">Prop Type</Label>
+              <Select value={leg.propType} onValueChange={(v) => onUpdate({ propType: v })}>
+                <SelectTrigger><SelectValue placeholder="Select prop" /></SelectTrigger>
+                <SelectContent>
+                  {PROP_STAT_TYPES.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {/* Step 5: Over/Under */}
+          {leg.propType && (
+            <div className="space-y-1.5">
+              <Label className="text-xs">Side</Label>
+              <Select value={leg.side} onValueChange={(v) => onUpdate({ side: v })}>
+                <SelectTrigger><SelectValue placeholder="Over / Under" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="over">Over</SelectItem>
+                  <SelectItem value="under">Under</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Selection preview (auto-generated, editable) */}
       <div className="space-y-1.5">
         <Label className="text-xs">Selection / Pick *</Label>
-        <Input placeholder='e.g. "Lakers -3.5"' value={leg.selection} onChange={(e) => onUpdate({ selection: e.target.value })} />
-      </div>
-
-      {/* Side */}
-      <div className="space-y-1.5">
-        <Label className="text-xs">Side</Label>
-        <Select value={leg.side} onValueChange={(v) => onUpdate({ side: v })}>
-          <SelectTrigger><SelectValue placeholder="Optional" /></SelectTrigger>
-          <SelectContent>
-            {SIDES.map((s) => (
-              <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <Input
+          placeholder={leg.category === "player_prop" ? 'e.g. "LeBron James PTS Over 27.5"' : 'e.g. "Lakers -3.5"'}
+          value={leg.selection} onChange={(e) => onUpdate({ selection: e.target.value })}
+        />
       </div>
 
       {/* Line + Odds row */}
