@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Star, Filter, ArrowUpDown, CheckSquare, Square, Zap, TrendingUp, AlertTriangle, ChevronDown, ChevronUp, Pin, PinOff, Trash2, CheckCircle, RefreshCw, Wallet, DollarSign, Edit2 } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -301,6 +301,7 @@ function LiveCard({ item, onRemove, onTogglePin }: {
 
 const SkySpreadPage = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const userId = user?.id ?? null;
@@ -314,6 +315,17 @@ const SkySpreadPage = () => {
   const [showLive, setShowLive] = useState(true);
   const [editingBet, setEditingBet] = useState<BetRow | null>(null);
   const settledRef = useRef<Set<string>>(new Set());
+
+  // Handle prefill from URL params (e.g. from "Add to SkySpread" button)
+  const prefillData = searchParams.get("prefill") === "true" ? {
+    player: searchParams.get("player") || "",
+    market: searchParams.get("market") || "",
+    line: searchParams.get("line") || "",
+    odds: searchParams.get("odds") || "",
+    gameId: searchParams.get("game_id") || "",
+    side: searchParams.get("side") || "",
+    period: searchParams.get("period") || "",
+  } : null;
 
   // Subscribe to realtime score updates + auto-settle notifications
   useEffect(() => {
@@ -542,7 +554,9 @@ const SkySpreadPage = () => {
             >
               <RefreshCw className={cn("h-4 w-4 text-muted-foreground", refreshing && "animate-spin")} />
             </button>
-            <CreateBetForm userId={userId} />
+            <CreateBetForm userId={userId} prefill={prefillData} onPrefillConsumed={() => {
+              setSearchParams({}, { replace: true });
+            }} />
           </div>
         </div>
 
