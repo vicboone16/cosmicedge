@@ -44,19 +44,20 @@ export default function TrendsPage() {
   const [selectedDate] = useState(new Date());
   const [search, setSearch] = useState("");
 
-  // Fetch today's games for the selected league
+  // Fetch upcoming/live games for the selected league (exclude finished games)
   const { data: games } = useQuery({
     queryKey: ["trends-games", leagueFilter, selectedDate.toDateString()],
     queryFn: async () => {
       const start = new Date(selectedDate);
       start.setHours(0, 0, 0, 0);
-      // Widen window: look back 1 day and forward 2 days to catch evening games across timezones
-      const lookBack = addDays(start, -1);
+      // Look back 4h for live games, forward 2 days for upcoming
+      const lookBack = new Date(Date.now() - 4 * 3600000);
       const end = addDays(start, 2);
       const { data } = await supabase
         .from("games")
         .select("id, home_abbr, away_abbr, home_team, away_team, start_time, league")
         .eq("league", leagueFilter)
+        .in("status", ["scheduled", "live", "in_progress"])
         .gte("start_time", lookBack.toISOString())
         .lte("start_time", end.toISOString())
         .order("start_time", { ascending: true });
