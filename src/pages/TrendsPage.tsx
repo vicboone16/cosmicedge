@@ -42,6 +42,7 @@ export default function TrendsPage() {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [filters, setFilters] = useState<TrendFilters>(DEFAULT_FILTERS);
   const [selectedDate] = useState(new Date());
+  const [search, setSearch] = useState("");
 
   // Fetch today's games for the selected league
   const { data: games } = useQuery({
