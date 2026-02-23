@@ -763,6 +763,8 @@ const PlayerPage = () => {
             </div>
           </section>
         )}
+          </>
+        )}
       </div>
     </div>
   );
