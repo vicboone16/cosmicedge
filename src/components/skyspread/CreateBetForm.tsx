@@ -99,6 +99,16 @@ function emptyLeg(): BetLeg {
 
 interface CreateBetFormProps {
   userId: string;
+  prefill?: {
+    player?: string;
+    market?: string;
+    line?: string;
+    odds?: string;
+    gameId?: string;
+    side?: string;
+    period?: string;
+  } | null;
+  onPrefillConsumed?: () => void;
 }
 
 function americanToDecimal(odds: number): number {
