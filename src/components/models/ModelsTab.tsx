@@ -57,8 +57,13 @@ export function ModelsTab({ overlayRows, isLoading, onRefresh, hasBaseProps = tr
         r.prop_type.toLowerCase().includes(q)
       );
     }
-    // Sort by edge_score desc
-    rows.sort((a, b) => Number(b.edge_score) - Number(a.edge_score));
+    // Sort by edge_score_v11 desc (nulls last), then edge_score desc
+    rows.sort((a, b) => {
+      const av11 = a.edge_score_v11 ?? -Infinity;
+      const bv11 = b.edge_score_v11 ?? -Infinity;
+      if (bv11 !== av11) return bv11 - av11;
+      return Number(b.edge_score) - Number(a.edge_score);
+    });
     return rows;
   }, [overlayRows, propFilter, minConfidence, search]);
 

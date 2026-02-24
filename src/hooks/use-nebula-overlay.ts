@@ -8,6 +8,7 @@ export interface NebulaOverlay {
   prop_type: string;
   book: string;
   edge_score: number;
+  edge_score_v11: number | null;
   confidence: number;
   risk: number;
   mu: number;
@@ -51,6 +52,7 @@ export function useNebulaOverlayByPlayer(playerId: string | undefined) {
         .eq("player_id", playerId!)
         .gte("game_start_time", now.toISOString())
         .lte("game_start_time", future.toISOString())
+        .order("edge_score_v11", { ascending: false, nullsFirst: false } as any)
         .order("edge_score", { ascending: false });
       return (data || []) as unknown as NebulaOverlay[];
     },
@@ -67,6 +69,7 @@ export function useNebulaOverlayByGame(gameId: string | undefined) {
         .from("np_v_prop_overlay" as any)
         .select("*")
         .eq("game_id", gameId!)
+        .order("edge_score_v11", { ascending: false, nullsFirst: false } as any)
         .order("edge_score", { ascending: false });
       return (data || []) as unknown as NebulaOverlay[];
     },
@@ -88,6 +91,7 @@ export function useNebulaOverlayByTeam(teamAbbr: string | undefined) {
         .eq("player_team", teamAbbr!)
         .gte("game_start_time", now.toISOString())
         .lte("game_start_time", future.toISOString())
+        .order("edge_score_v11", { ascending: false, nullsFirst: false } as any)
         .order("edge_score", { ascending: false });
       return (data || []) as unknown as NebulaOverlay[];
     },

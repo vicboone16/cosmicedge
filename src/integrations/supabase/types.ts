@@ -1432,6 +1432,7 @@ export type Database = {
           confidence: number
           created_at: string
           edge_score: number
+          edge_score_v11: number | null
           game_id: string
           hit_l10: number | null
           hit_l20: number | null
@@ -1456,6 +1457,7 @@ export type Database = {
           confidence?: number
           created_at?: string
           edge_score?: number
+          edge_score_v11?: number | null
           game_id: string
           hit_l10?: number | null
           hit_l20?: number | null
@@ -1480,6 +1482,7 @@ export type Database = {
           confidence?: number
           created_at?: string
           edge_score?: number
+          edge_score_v11?: number | null
           game_id?: string
           hit_l10?: number | null
           hit_l20?: number | null
