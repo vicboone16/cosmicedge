@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import type { Tables } from "@/integrations/supabase/types";
 import { useAuth } from "@/hooks/use-auth";
-import { TrackedPropsWidget } from "@/components/tracking/TrackedProps";
+
 import { toast } from "@/hooks/use-toast";
 
 type BetRow = Tables<"bets">;
@@ -260,8 +260,6 @@ const LiveBoardPage = () => {
           </section>
         )}
 
-        {/* Tracked Props Section */}
-        <TrackedPropsWidget />
       </div>
     </div>
   );
