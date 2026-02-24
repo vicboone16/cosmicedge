@@ -71,3 +71,6 @@ verify_jwt = false
 
 [functions.fetch-period-odds]
 verify_jwt = false
+
+[functions.nebula-prop-engine]
+verify_jwt = false
