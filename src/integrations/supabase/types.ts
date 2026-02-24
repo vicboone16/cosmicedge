@@ -4703,9 +4703,49 @@ export type Database = {
         Returns: undefined
       }
       np_apply_edgescore_v11: { Args: { hours_back?: number }; Returns: number }
+      np_build_prop_features: {
+        Args: {
+          p_game_id?: string
+          p_line: number
+          p_player_id: string
+          p_prop_type: string
+        }
+        Returns: {
+          coeff_of_var: number
+          delta_minutes: number
+          games_count: number
+          hit_l10: number
+          hit_l20: number
+          hit_l5: number
+          minutes_l5_avg: number
+          minutes_season_avg: number
+          mu_rolling_l10: number
+          mu_season: number
+          role_up: boolean
+          sigma_rolling_l10: number
+          sigma_season: number
+          std_dev_l10: number
+          usage_proxy_l10: number
+          usage_proxy_season: number
+        }[]
+      }
       np_norm_cdf: { Args: { z: number }; Returns: number }
       np_persist_edgescore_v11: {
         Args: { minutes_back?: number }
+        Returns: number
+      }
+      np_prop_stat_value: {
+        Args: {
+          p_assists: number
+          p_blocks: number
+          p_fg_attempted: number
+          p_points: number
+          p_prop_type: string
+          p_rebounds: number
+          p_steals: number
+          p_three_made: number
+          p_turnovers: number
+        }
         Returns: number
       }
       safe_delete_game: { Args: { p_game_id: string }; Returns: Json }
