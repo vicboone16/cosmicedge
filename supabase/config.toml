@@ -56,3 +56,6 @@ verify_jwt = false
 
 [functions.export-games-sql]
 verify_jwt = false
+
+[functions.fetch-player-props]
+verify_jwt = false
