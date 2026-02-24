@@ -3,8 +3,33 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { cn } from "@/lib/utils";
-import { Plus, Target, Check, X, Zap, Trash2 } from "lucide-react";
+import { Plus, Target, Check, X, Zap, Trash2, TrendingUp, TrendingDown } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+
+function getSettledDisplay(tp: any) {
+  const isFinal = tp.status === "hit" || tp.status === "missed" || tp.status === "final" || tp.status === "push";
+  if (!isFinal) return null;
+
+  // Determine actual result direction from result_direction column or live_stat_value vs line
+  let actualDir: "over" | "under" | "push" | null = tp.result_direction || null;
+  if (!actualDir && tp.live_stat_value != null && tp.line != null) {
+    const stat = Number(tp.live_stat_value);
+    const line = Number(tp.line);
+    if (stat > line) actualDir = "over";
+    else if (stat < line) actualDir = "under";
+    else actualDir = "push";
+  }
+
+  // Win/loss: only if user endorsed a direction
+  let verdict: "win" | "loss" | "push" | null = null;
+  if (tp.direction && actualDir) {
+    if (actualDir === "push") verdict = "push";
+    else if (tp.direction === actualDir) verdict = "win";
+    else verdict = "loss";
+  }
+
+  return { actualDir, verdict };
+}
 
 interface TrackPropFormProps {
   gameId: string;
@@ -159,13 +184,8 @@ export function TrackedPropsWidget({ gameId }: { gameId?: string } = {}) {
         {tracked.map(tp => {
           const progress = tp.line ? Math.min(((tp.live_stat_value as number) / (tp.line as number)) * 100, 100) : 0;
           const remaining = Math.max((tp.line as number) - (tp.live_stat_value as number), 0);
-          const statusColors: Record<string, string> = {
-            pregame: "text-muted-foreground",
-            live: "text-cosmic-cyan",
-            hit: "text-cosmic-green",
-            missed: "text-cosmic-red",
-            push: "text-cosmic-gold",
-          };
+          const settled = getSettledDisplay(tp);
+          const isFinal = !!settled;
 
           return (
             <div key={tp.id} className="cosmic-card rounded-xl p-3 space-y-2">
@@ -177,10 +197,44 @@ export function TrackedPropsWidget({ gameId }: { gameId?: string } = {}) {
                   </p>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  {tp.status === "hit" && <Check className="h-4 w-4 text-cosmic-green" />}
-                  <span className={cn("text-[10px] font-semibold uppercase", statusColors[tp.status || "pregame"])}>
-                    {tp.status}
-                  </span>
+                  {isFinal ? (
+                    <>
+                      {/* Actual result: Over/Under */}
+                      {settled.actualDir && settled.actualDir !== "push" && (
+                        <span className={cn(
+                          "flex items-center gap-0.5 text-[10px] font-semibold capitalize",
+                          settled.actualDir === "over" ? "text-cosmic-green" : "text-cosmic-red"
+                        )}>
+                          {settled.actualDir === "over" ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+                          {settled.actualDir}
+                        </span>
+                      )}
+                      {settled.actualDir === "push" && (
+                        <span className="text-[10px] font-semibold text-cosmic-gold">Push</span>
+                      )}
+                      {/* Win/Loss badge — only shown because user endorsed a direction */}
+                      {settled.verdict && settled.verdict !== "push" && (
+                        <span className={cn(
+                          "px-1.5 py-0.5 rounded-full text-[9px] font-bold uppercase",
+                          settled.verdict === "win"
+                            ? "bg-cosmic-green/15 text-cosmic-green"
+                            : "bg-cosmic-red/15 text-cosmic-red"
+                        )}>
+                          {settled.verdict}
+                        </span>
+                      )}
+                      <span className="text-[10px] font-semibold uppercase text-muted-foreground">Final</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className={cn(
+                        "text-[10px] font-semibold uppercase",
+                        tp.status === "live" ? "text-cosmic-cyan" : "text-muted-foreground"
+                      )}>
+                        {tp.status}
+                      </span>
+                    </>
+                  )}
                   <button
                     onClick={() => deleteMutation.mutate(tp.id)}
                     disabled={deleteMutation.isPending}
@@ -193,7 +247,7 @@ export function TrackedPropsWidget({ gameId }: { gameId?: string } = {}) {
               </div>
 
               {/* Live progress */}
-              {(tp.status === "live" || tp.status === "hit") && (
+              {tp.status === "live" && (
                 <div>
                   <div className="flex items-baseline gap-1 mb-1">
                     <span className="text-xl font-bold font-display tabular-nums text-foreground">
@@ -203,17 +257,21 @@ export function TrackedPropsWidget({ gameId }: { gameId?: string } = {}) {
                   </div>
                   <div className="h-2 bg-border rounded-full overflow-hidden">
                     <div
-                      className={cn(
-                        "h-full rounded-full transition-all",
-                        tp.status === "hit" ? "bg-cosmic-green" : "bg-primary"
-                      )}
+                      className="h-full rounded-full transition-all bg-primary"
                       style={{ width: `${progress}%` }}
                     />
                   </div>
-                  {tp.status === "live" && remaining > 0 && (
+                  {remaining > 0 && (
                     <p className="text-[10px] text-muted-foreground mt-1">Need {remaining.toFixed(1)} more</p>
                   )}
                 </div>
+              )}
+
+              {/* Final stat line */}
+              {isFinal && tp.live_stat_value != null && (
+                <p className="text-[10px] text-muted-foreground">
+                  Final stat: <span className="font-semibold text-foreground">{Number(tp.live_stat_value)}</span> / {Number(tp.line)} line
+                </p>
               )}
 
               {tp.notes && (
