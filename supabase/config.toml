@@ -59,3 +59,15 @@ verify_jwt = false
 
 [functions.fetch-player-props]
 verify_jwt = false
+
+[functions.fetch-live-props]
+verify_jwt = false
+
+[functions.fetch-team-props]
+verify_jwt = false
+
+[functions.fetch-alt-lines]
+verify_jwt = false
+
+[functions.fetch-period-odds]
+verify_jwt = false

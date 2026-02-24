@@ -275,6 +275,66 @@ SELECT cron.schedule(
 );
 ```
 
+### fetch-live-props-live (every 3 min) — Live in-game player props (self-gating: skips if no live games)
+```sql
+SELECT cron.schedule(
+  'fetch-live-props-live',
+  '*/3 * * * *',
+  $$
+  SELECT net.http_post(
+    url := 'https://gwfgmlfggeyxexclwybk.supabase.co/functions/v1/fetch-live-props',
+    headers := '{"Content-Type":"application/json","Authorization":"Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd3ZmdtbGZnZ2V5eGV4Y2x3eWJrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA5NDA1NDQsImV4cCI6MjA4NjUxNjU0NH0.oWZskdzWyLz_uO2VXUfGbbyasBhRs5HBRvTWFhMBrMA"}'::jsonb,
+    body := '{}'::jsonb
+  ) AS request_id;
+  $$
+);
+```
+
+### fetch-team-props-live (every 15 min) — Team-level props for NBA
+```sql
+SELECT cron.schedule(
+  'fetch-team-props-live',
+  '*/15 * * * *',
+  $$
+  SELECT net.http_post(
+    url := 'https://gwfgmlfggeyxexclwybk.supabase.co/functions/v1/fetch-team-props?league=NBA',
+    headers := '{"Content-Type":"application/json","Authorization":"Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd3ZmdtbGZnZ2V5eGV4Y2x3eWJrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA5NDA1NDQsImV4cCI6MjA4NjUxNjU0NH0.oWZskdzWyLz_uO2VXUfGbbyasBhRs5HBRvTWFhMBrMA"}'::jsonb,
+    body := '{}'::jsonb
+  ) AS request_id;
+  $$
+);
+```
+
+### fetch-alt-lines-live (every 30 min) — Alternate spreads/totals for NBA
+```sql
+SELECT cron.schedule(
+  'fetch-alt-lines-live',
+  '*/30 * * * *',
+  $$
+  SELECT net.http_post(
+    url := 'https://gwfgmlfggeyxexclwybk.supabase.co/functions/v1/fetch-alt-lines?league=NBA',
+    headers := '{"Content-Type":"application/json","Authorization":"Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd3ZmdtbGZnZ2V5eGV4Y2x3eWJrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA5NDA1NDQsImV4cCI6MjA4NjUxNjU0NH0.oWZskdzWyLz_uO2VXUfGbbyasBhRs5HBRvTWFhMBrMA"}'::jsonb,
+    body := '{}'::jsonb
+  ) AS request_id;
+  $$
+);
+```
+
+### fetch-period-odds-live (every 15 min) — Period markets (1Q, 1H, etc.) for NBA
+```sql
+SELECT cron.schedule(
+  'fetch-period-odds-live',
+  '*/15 * * * *',
+  $$
+  SELECT net.http_post(
+    url := 'https://gwfgmlfggeyxexclwybk.supabase.co/functions/v1/fetch-period-odds?league=NBA',
+    headers := '{"Content-Type":"application/json","Authorization":"Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd3ZmdtbGZnZ2V5eGV4Y2x3eWJrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA5NDA1NDQsImV4cCI6MjA4NjUxNjU0NH0.oWZskdzWyLz_uO2VXUfGbbyasBhRs5HBRvTWFhMBrMA"}'::jsonb,
+    body := '{}'::jsonb
+  ) AS request_id;
+  $$
+);
+```
+
 ### pbp-dispatcher-live (every 1 min) — CANONICAL live games + period scores
 ```sql
 SELECT cron.schedule(
