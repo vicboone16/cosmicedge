@@ -23,7 +23,7 @@ import { GameChartRulers } from "@/components/game/GameChartRulers";
 import { GameMatchupTab } from "@/components/game/GameMatchupTab";
 import { PlayByPlayTab } from "@/components/game/PlayByPlayTab";
 import { GameStatsTab } from "@/components/game/GameStatsTab";
-import { TrackedPropsWidget } from "@/components/tracking/TrackedProps";
+
 import { PeriodScoresTicker } from "@/components/game/PeriodScoresTicker";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { AlertSetupDialog } from "@/components/live/AlertSetupDialog";
@@ -601,8 +601,6 @@ const GameDetail = () => {
       </header>
 
       <div className="px-4 py-4 space-y-4">
-        {/* Tracked Props */}
-        <TrackedPropsWidget gameId={game.id} />
 
         {activeTab === "odds" && (
           <>

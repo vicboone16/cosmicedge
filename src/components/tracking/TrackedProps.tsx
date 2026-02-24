@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { cn } from "@/lib/utils";
-import { Plus, Target, Check, X, Zap } from "lucide-react";
+import { Plus, Target, Check, X, Zap, Trash2 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 
 interface TrackPropFormProps {
@@ -111,6 +111,7 @@ export function TrackPropButton({
 
 export function TrackedPropsWidget({ gameId }: { gameId?: string } = {}) {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
 
   const { data: tracked } = useQuery({
     queryKey: ["tracked-props", user?.id, gameId],
@@ -130,6 +131,20 @@ export function TrackedPropsWidget({ gameId }: { gameId?: string } = {}) {
     },
     enabled: !!user,
     refetchInterval: 15_000,
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (propId: string) => {
+      const { error } = await supabase.from("tracked_props").delete().eq("id", propId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["tracked-props"] });
+      toast({ title: "Prop removed" });
+    },
+    onError: (e: any) => {
+      toast({ title: "Error", description: e.message, variant: "destructive" });
+    },
   });
 
   if (!tracked || tracked.length === 0) return null;
@@ -166,6 +181,14 @@ export function TrackedPropsWidget({ gameId }: { gameId?: string } = {}) {
                   <span className={cn("text-[10px] font-semibold uppercase", statusColors[tp.status || "pregame"])}>
                     {tp.status}
                   </span>
+                  <button
+                    onClick={() => deleteMutation.mutate(tp.id)}
+                    disabled={deleteMutation.isPending}
+                    className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
+                    title="Remove tracked prop"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </button>
                 </div>
               </div>
 
