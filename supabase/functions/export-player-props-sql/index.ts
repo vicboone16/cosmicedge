@@ -14,10 +14,28 @@ Deno.serve(async (req) => {
   const offset = parseInt(searchParams.get("offset") || "0");
   const limit = parseInt(searchParams.get("limit") || "1000");
 
+  // Step 1: Get game IDs for the target date
+  const dayStart = `${date}T00:00:00+00`;
+  const dayEnd = `${date}T23:59:59+00`;
+
+  const { data: games, error: gErr } = await supabase
+    .from("games")
+    .select("id")
+    .gte("start_time", dayStart)
+    .lte("start_time", dayEnd);
+
+  if (gErr) return new Response(JSON.stringify({ error: gErr }), { status: 500, headers: corsHeaders });
+  if (!games || games.length === 0) {
+    return new Response(`-- No games found for ${date}\n`, { headers: { ...corsHeaders, "Content-Type": "text/plain" } });
+  }
+
+  const gameIds = games.map((g: any) => g.id);
+
+  // Step 2: Fetch props for those games
   const { data: props, error } = await supabase
     .from("player_props")
-    .select("*, games!inner(start_time)")
-    .eq("games.start_time::date", date)
+    .select("*")
+    .in("game_id", gameIds)
     .order("id")
     .range(offset, offset + limit - 1);
 
@@ -26,6 +44,7 @@ Deno.serve(async (req) => {
   const escSql = (v: any) => {
     if (v === null || v === undefined) return "NULL";
     if (typeof v === "number") return String(v);
+    if (typeof v === "boolean") return v ? "TRUE" : "FALSE";
     return `'${String(v).replace(/'/g, "''")}'`;
   };
 
@@ -43,7 +62,8 @@ Deno.serve(async (req) => {
     );
   }
 
-  const fullSql = `-- Player Props for ${date} (Offset: ${offset}, Limit: ${limit})\n\n${batches.join("\n")}`;
+  const totalCount = props!.length;
+  const fullSql = `-- Player Props for ${date} (Offset: ${offset}, Limit: ${limit}, Rows: ${totalCount})\n-- Run in Cloud View -> Run SQL -> select LIVE\n\n${batches.join("\n")}`;
 
   return new Response(fullSql, {
     headers: { ...corsHeaders, "Content-Type": "text/plain" },

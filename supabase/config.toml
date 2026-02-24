@@ -50,3 +50,9 @@ verify_jwt = false
 
 [functions.sgo-dispatcher]
 verify_jwt = false
+
+[functions.export-player-props-sql]
+verify_jwt = false
+
+[functions.export-games-sql]
+verify_jwt = false
