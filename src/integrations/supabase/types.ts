@@ -1839,6 +1839,48 @@ export type Database = {
           },
         ]
       }
+      np_player_prop_odds_history: {
+        Row: {
+          book: string
+          game_id: string
+          id: string
+          line: number | null
+          odds: number | null
+          player_id: string | null
+          prop_type: string
+          side: string | null
+          snapshot_minute: string
+          snapshot_ts: string
+          source: string
+        }
+        Insert: {
+          book: string
+          game_id: string
+          id?: string
+          line?: number | null
+          odds?: number | null
+          player_id?: string | null
+          prop_type: string
+          side?: string | null
+          snapshot_minute?: string
+          snapshot_ts?: string
+          source?: string
+        }
+        Update: {
+          book?: string
+          game_id?: string
+          id?: string
+          line?: number | null
+          odds?: number | null
+          player_id?: string | null
+          prop_type?: string
+          side?: string | null
+          snapshot_minute?: string
+          snapshot_ts?: string
+          source?: string
+        }
+        Relationships: []
+      }
       odds_snapshots: {
         Row: {
           away_price: number | null

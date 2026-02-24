@@ -485,6 +485,48 @@ Deno.serve(async (req) => {
           if (error) console.error("Insert error:", error.message);
         }
 
+        // Snapshot into odds history (minute-dedupe via ON CONFLICT DO NOTHING)
+        const snapshotMinute = new Date();
+        snapshotMinute.setSeconds(0, 0);
+        const historyRows = propsWithGameId.map(p => ({
+          game_id: p.game_id,
+          player_id: null as string | null,
+          prop_type: p.market_key,
+          book: p.bookmaker,
+          line: p.line,
+          side: p.over_price != null ? "over" : (p.under_price != null ? "under" : null),
+          odds: p.over_price ?? p.under_price ?? null,
+          snapshot_ts: new Date().toISOString(),
+          snapshot_minute: snapshotMinute.toISOString(),
+          source: "fetch-player-props",
+        }));
+        // Split over/under into separate rows
+        const expandedHistory: typeof historyRows = [];
+        for (const p of propsWithGameId) {
+          if (p.over_price != null) {
+            expandedHistory.push({
+              game_id: p.game_id, player_id: null, prop_type: p.market_key,
+              book: p.bookmaker, line: p.line, side: "over", odds: p.over_price,
+              snapshot_ts: new Date().toISOString(), snapshot_minute: snapshotMinute.toISOString(),
+              source: "fetch-player-props",
+            });
+          }
+          if (p.under_price != null) {
+            expandedHistory.push({
+              game_id: p.game_id, player_id: null, prop_type: p.market_key,
+              book: p.bookmaker, line: p.line, side: "under", odds: p.under_price,
+              snapshot_ts: new Date().toISOString(), snapshot_minute: snapshotMinute.toISOString(),
+              source: "fetch-player-props",
+            });
+          }
+        }
+        for (let i = 0; i < expandedHistory.length; i += 100) {
+          const chunk = expandedHistory.slice(i, i + 100);
+          const { error: hErr } = await supabase.from("np_player_prop_odds_history").insert(chunk);
+          if (hErr && !hErr.message?.includes("duplicate")) console.error("History insert error:", hErr.message);
+        }
+        console.log(`[SGO] Wrote ${expandedHistory.length} odds history rows for ${matchedGame.home_abbr} vs ${matchedGame.away_abbr}`);
+
         totalProps += propsWithGameId.length;
         // Remove matched game so we don't try SDIO fallback for it
         dbGames = dbGames.filter(g => g.id !== matchedGame.id);
@@ -513,6 +555,35 @@ Deno.serve(async (req) => {
           const { error } = await supabase.from("player_props").insert(chunk);
           if (error) console.error("Insert error:", error.message);
         }
+
+        // Snapshot into odds history (minute-dedupe via ON CONFLICT DO NOTHING)
+        const sdioSnapshotMinute = new Date();
+        sdioSnapshotMinute.setSeconds(0, 0);
+        const sdioHistory: any[] = [];
+        for (const p of propsWithGameId) {
+          if (p.over_price != null) {
+            sdioHistory.push({
+              game_id: p.game_id, player_id: null, prop_type: p.market_key,
+              book: p.bookmaker, line: p.line, side: "over", odds: p.over_price,
+              snapshot_ts: new Date().toISOString(), snapshot_minute: sdioSnapshotMinute.toISOString(),
+              source: "fetch-player-props",
+            });
+          }
+          if (p.under_price != null) {
+            sdioHistory.push({
+              game_id: p.game_id, player_id: null, prop_type: p.market_key,
+              book: p.bookmaker, line: p.line, side: "under", odds: p.under_price,
+              snapshot_ts: new Date().toISOString(), snapshot_minute: sdioSnapshotMinute.toISOString(),
+              source: "fetch-player-props",
+            });
+          }
+        }
+        for (let i = 0; i < sdioHistory.length; i += 100) {
+          const chunk = sdioHistory.slice(i, i + 100);
+          const { error: hErr } = await supabase.from("np_player_prop_odds_history").insert(chunk);
+          if (hErr && !hErr.message?.includes("duplicate")) console.error("SDIO history insert error:", hErr.message);
+        }
+        console.log(`[SDIO] Wrote ${sdioHistory.length} odds history rows for ${game.home_abbr} vs ${game.away_abbr}`);
 
         totalProps += propsWithGameId.length;
       }
