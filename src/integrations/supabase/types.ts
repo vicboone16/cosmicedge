@@ -3917,6 +3917,51 @@ export type Database = {
           },
         ]
       }
+      team_season_pace: {
+        Row: {
+          avg_pace: number
+          avg_points: number
+          avg_points_allowed: number
+          avg_possessions: number
+          def_rating: number | null
+          games_played: number
+          league: string
+          net_rating: number | null
+          off_rating: number | null
+          season: number
+          team_abbr: string
+          updated_at: string
+        }
+        Insert: {
+          avg_pace?: number
+          avg_points?: number
+          avg_points_allowed?: number
+          avg_possessions?: number
+          def_rating?: number | null
+          games_played?: number
+          league?: string
+          net_rating?: number | null
+          off_rating?: number | null
+          season?: number
+          team_abbr: string
+          updated_at?: string
+        }
+        Update: {
+          avg_pace?: number
+          avg_points?: number
+          avg_points_allowed?: number
+          avg_possessions?: number
+          def_rating?: number | null
+          games_played?: number
+          league?: string
+          net_rating?: number | null
+          off_rating?: number | null
+          season?: number
+          team_abbr?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       team_season_stats: {
         Row: {
           assists: number | null
@@ -4703,6 +4748,25 @@ export type Database = {
         Returns: undefined
       }
       np_apply_edgescore_v11: { Args: { hours_back?: number }; Returns: number }
+      np_build_pace_features: {
+        Args: { p_game_id: string }
+        Returns: {
+          away_avg_pace: number
+          away_def_rating: number
+          away_net_rating: number
+          away_off_rating: number
+          blowout_risk: number
+          expected_possessions: number
+          games_away: number
+          games_home: number
+          home_avg_pace: number
+          home_def_rating: number
+          home_net_rating: number
+          home_off_rating: number
+          matchup_pace_avg: number
+          team_pace_delta: number
+        }[]
+      }
       np_build_prop_features: {
         Args: {
           p_game_id?: string
@@ -4746,6 +4810,10 @@ export type Database = {
           p_three_made: number
           p_turnovers: number
         }
+        Returns: number
+      }
+      np_rebuild_team_pace: {
+        Args: { p_league?: string; p_season?: number }
         Returns: number
       }
       safe_delete_game: { Args: { p_game_id: string }; Returns: Json }
