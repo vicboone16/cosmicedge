@@ -602,7 +602,7 @@ const GameDetail = () => {
 
       <div className="px-4 py-4 space-y-4">
         {/* Tracked Props */}
-        <TrackedPropsWidget />
+        <TrackedPropsWidget gameId={game.id} />
 
         {activeTab === "odds" && (
           <>
