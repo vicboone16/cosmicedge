@@ -1182,6 +1182,349 @@ export type Database = {
           },
         ]
       }
+      model_backtest_results: {
+        Row: {
+          brier_score: number | null
+          calibration_json: Json | null
+          clv_pct: number | null
+          created_at: string
+          evaluated_at: string
+          extra_metrics: Json | null
+          id: string
+          log_loss: number | null
+          mae: number | null
+          model_key: string
+          prop_type: string | null
+          r_squared: number | null
+          roi_pct: number | null
+          sample_size: number
+          split_name: string
+        }
+        Insert: {
+          brier_score?: number | null
+          calibration_json?: Json | null
+          clv_pct?: number | null
+          created_at?: string
+          evaluated_at?: string
+          extra_metrics?: Json | null
+          id?: string
+          log_loss?: number | null
+          mae?: number | null
+          model_key: string
+          prop_type?: string | null
+          r_squared?: number | null
+          roi_pct?: number | null
+          sample_size?: number
+          split_name?: string
+        }
+        Update: {
+          brier_score?: number | null
+          calibration_json?: Json | null
+          clv_pct?: number | null
+          created_at?: string
+          evaluated_at?: string
+          extra_metrics?: Json | null
+          id?: string
+          log_loss?: number | null
+          mae?: number | null
+          model_key?: string
+          prop_type?: string | null
+          r_squared?: number | null
+          roi_pct?: number | null
+          sample_size?: number
+          split_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "model_backtest_results_model_key_fkey"
+            columns: ["model_key"]
+            isOneToOne: false
+            referencedRelation: "models_registry"
+            referencedColumns: ["model_key"]
+          },
+        ]
+      }
+      model_dataset_split: {
+        Row: {
+          actual_stat: number | null
+          closing_line: number | null
+          closing_odds: number | null
+          created_at: string
+          game_date: string
+          game_id: string
+          id: string
+          player_id: string
+          prop_type: string
+          split: string
+        }
+        Insert: {
+          actual_stat?: number | null
+          closing_line?: number | null
+          closing_odds?: number | null
+          created_at?: string
+          game_date: string
+          game_id: string
+          id?: string
+          player_id: string
+          prop_type: string
+          split: string
+        }
+        Update: {
+          actual_stat?: number | null
+          closing_line?: number | null
+          closing_odds?: number | null
+          created_at?: string
+          game_date?: string
+          game_id?: string
+          id?: string
+          player_id?: string
+          prop_type?: string
+          split?: string
+        }
+        Relationships: []
+      }
+      model_predictions: {
+        Row: {
+          astro_mu_adjust: number | null
+          astro_sigma_adjust: number | null
+          blowout_risk: number | null
+          coeff_of_var: number | null
+          created_at: string
+          current_line: number | null
+          delta_minutes: number | null
+          edge_astro: number | null
+          edge_hitl10: number | null
+          edge_line_move: number | null
+          edge_matchup: number | null
+          edge_minutes: number | null
+          edge_score: number | null
+          edge_season: number | null
+          edge_vol_penalty: number | null
+          expected_possessions: number | null
+          game_id: string
+          hit_l10: number | null
+          hit_l20: number | null
+          hit_l5: number | null
+          id: string
+          input_hash: string | null
+          line: number | null
+          line_delta: number | null
+          minutes_l5_avg: number | null
+          minutes_season_avg: number | null
+          model_key: string
+          mu_base: number | null
+          mu_final: number | null
+          odds: number | null
+          one_liner: string | null
+          open_line: number | null
+          p_over_base: number | null
+          p_over_final: number | null
+          player_id: string
+          prop_type: string
+          quality_flags: string[] | null
+          run_id: string | null
+          side: string | null
+          sigma_base: number | null
+          sigma_final: number | null
+          snapshot_ts: string
+          std_dev_l10: number | null
+          tags: string[] | null
+          team_pace_delta: number | null
+        }
+        Insert: {
+          astro_mu_adjust?: number | null
+          astro_sigma_adjust?: number | null
+          blowout_risk?: number | null
+          coeff_of_var?: number | null
+          created_at?: string
+          current_line?: number | null
+          delta_minutes?: number | null
+          edge_astro?: number | null
+          edge_hitl10?: number | null
+          edge_line_move?: number | null
+          edge_matchup?: number | null
+          edge_minutes?: number | null
+          edge_score?: number | null
+          edge_season?: number | null
+          edge_vol_penalty?: number | null
+          expected_possessions?: number | null
+          game_id: string
+          hit_l10?: number | null
+          hit_l20?: number | null
+          hit_l5?: number | null
+          id?: string
+          input_hash?: string | null
+          line?: number | null
+          line_delta?: number | null
+          minutes_l5_avg?: number | null
+          minutes_season_avg?: number | null
+          model_key: string
+          mu_base?: number | null
+          mu_final?: number | null
+          odds?: number | null
+          one_liner?: string | null
+          open_line?: number | null
+          p_over_base?: number | null
+          p_over_final?: number | null
+          player_id: string
+          prop_type: string
+          quality_flags?: string[] | null
+          run_id?: string | null
+          side?: string | null
+          sigma_base?: number | null
+          sigma_final?: number | null
+          snapshot_ts?: string
+          std_dev_l10?: number | null
+          tags?: string[] | null
+          team_pace_delta?: number | null
+        }
+        Update: {
+          astro_mu_adjust?: number | null
+          astro_sigma_adjust?: number | null
+          blowout_risk?: number | null
+          coeff_of_var?: number | null
+          created_at?: string
+          current_line?: number | null
+          delta_minutes?: number | null
+          edge_astro?: number | null
+          edge_hitl10?: number | null
+          edge_line_move?: number | null
+          edge_matchup?: number | null
+          edge_minutes?: number | null
+          edge_score?: number | null
+          edge_season?: number | null
+          edge_vol_penalty?: number | null
+          expected_possessions?: number | null
+          game_id?: string
+          hit_l10?: number | null
+          hit_l20?: number | null
+          hit_l5?: number | null
+          id?: string
+          input_hash?: string | null
+          line?: number | null
+          line_delta?: number | null
+          minutes_l5_avg?: number | null
+          minutes_season_avg?: number | null
+          model_key?: string
+          mu_base?: number | null
+          mu_final?: number | null
+          odds?: number | null
+          one_liner?: string | null
+          open_line?: number | null
+          p_over_base?: number | null
+          p_over_final?: number | null
+          player_id?: string
+          prop_type?: string
+          quality_flags?: string[] | null
+          run_id?: string | null
+          side?: string | null
+          sigma_base?: number | null
+          sigma_final?: number | null
+          snapshot_ts?: string
+          std_dev_l10?: number | null
+          tags?: string[] | null
+          team_pace_delta?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "model_predictions_model_key_fkey"
+            columns: ["model_key"]
+            isOneToOne: false
+            referencedRelation: "models_registry"
+            referencedColumns: ["model_key"]
+          },
+          {
+            foreignKeyName: "model_predictions_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "model_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      model_runs: {
+        Row: {
+          created_at: string
+          duration_ms: number | null
+          error_message: string | null
+          id: string
+          input_hash: string | null
+          model_key: string
+          rows_produced: number
+          run_meta: Json | null
+          snapshot_ts: string
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          duration_ms?: number | null
+          error_message?: string | null
+          id?: string
+          input_hash?: string | null
+          model_key: string
+          rows_produced?: number
+          run_meta?: Json | null
+          snapshot_ts?: string
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          duration_ms?: number | null
+          error_message?: string | null
+          id?: string
+          input_hash?: string | null
+          model_key?: string
+          rows_produced?: number
+          run_meta?: Json | null
+          snapshot_ts?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "model_runs_model_key_fkey"
+            columns: ["model_key"]
+            isOneToOne: false
+            referencedRelation: "models_registry"
+            referencedColumns: ["model_key"]
+          },
+        ]
+      }
+      models_registry: {
+        Row: {
+          config_json: Json | null
+          created_at: string
+          description: string | null
+          display_name: string
+          is_active: boolean
+          model_key: string
+          model_type: string
+          updated_at: string
+          version: string
+        }
+        Insert: {
+          config_json?: Json | null
+          created_at?: string
+          description?: string | null
+          display_name: string
+          is_active?: boolean
+          model_key: string
+          model_type: string
+          updated_at?: string
+          version?: string
+        }
+        Update: {
+          config_json?: Json | null
+          created_at?: string
+          description?: string | null
+          display_name?: string
+          is_active?: boolean
+          model_key?: string
+          model_type?: string
+          updated_at?: string
+          version?: string
+        }
+        Relationships: []
+      }
       nba_play_by_play_events: {
         Row: {
           a1: string | null
