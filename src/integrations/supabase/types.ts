@@ -4046,6 +4046,98 @@ export type Database = {
       }
     }
     Views: {
+      np_player_prop_stat_long: {
+        Row: {
+          game_id: string | null
+          player_id: string | null
+          prop_type: string | null
+          stat_value: number | null
+        }
+        Relationships: []
+      }
+      np_v_backtest_overlay: {
+        Row: {
+          book: string | null
+          closing_line: number | null
+          closing_odds: number | null
+          closing_ts: string | null
+          clv_line_diff: number | null
+          confidence: number | null
+          edge_score: number | null
+          game_id: string | null
+          player_id: string | null
+          pred_line: number | null
+          pred_odds: number | null
+          pred_ts: string | null
+          prop_type: string | null
+          side: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "nebula_prop_predictions_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "nebula_prop_predictions_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      np_v_backtest_results: {
+        Row: {
+          book: string | null
+          closing_line: number | null
+          closing_odds: number | null
+          closing_ts: string | null
+          clv_line_diff: number | null
+          confidence: number | null
+          edge_score: number | null
+          game_id: string | null
+          player_id: string | null
+          pred_line: number | null
+          pred_odds: number | null
+          pred_ts: string | null
+          prop_type: string | null
+          side: string | null
+          stat_value: number | null
+          win_flag: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "nebula_prop_predictions_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "nebula_prop_predictions_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      np_v_closing_lines: {
+        Row: {
+          book: string | null
+          closing_line: number | null
+          closing_odds: number | null
+          closing_ts: string | null
+          game_id: string | null
+          player_id: string | null
+          prop_type: string | null
+          side: string | null
+        }
+        Relationships: []
+      }
       np_v_latest_prop_predictions: {
         Row: {
           astro: Json | null
@@ -4263,6 +4355,12 @@ export type Database = {
       merge_players: {
         Args: { source_id: string; target_id: string }
         Returns: undefined
+      }
+      np_apply_edgescore_v11: { Args: { hours_back?: number }; Returns: number }
+      np_norm_cdf: { Args: { z: number }; Returns: number }
+      np_persist_edgescore_v11: {
+        Args: { minutes_back?: number }
+        Returns: number
       }
       safe_delete_game: { Args: { p_game_id: string }; Returns: Json }
       safe_delete_player: { Args: { p_player_id: string }; Returns: Json }
