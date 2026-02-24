@@ -3823,6 +3823,7 @@ export type Database = {
           player_id: string | null
           player_name: string
           progress: number | null
+          result_direction: string | null
           settled_at: string | null
           stake: number | null
           stake_unit: string | null
@@ -3844,6 +3845,7 @@ export type Database = {
           player_id?: string | null
           player_name: string
           progress?: number | null
+          result_direction?: string | null
           settled_at?: string | null
           stake?: number | null
           stake_unit?: string | null
@@ -3865,6 +3867,7 @@ export type Database = {
           player_id?: string | null
           player_name?: string
           progress?: number | null
+          result_direction?: string | null
           settled_at?: string | null
           stake?: number | null
           stake_unit?: string | null
