@@ -260,6 +260,21 @@ SELECT cron.schedule(
 );
 ```
 
+### fetch-player-props-live (every 30 min) — NBA player props refresh
+```sql
+SELECT cron.schedule(
+  'fetch-player-props-live',
+  '*/30 * * * *',
+  $$
+  SELECT net.http_post(
+    url := 'https://gwfgmlfggeyxexclwybk.supabase.co/functions/v1/fetch-player-props?league=NBA',
+    headers := '{"Content-Type":"application/json","Authorization":"Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd3ZmdtbGZnZ2V5eGV4Y2x3eWJrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA5NDA1NDQsImV4cCI6MjA4NjUxNjU0NH0.oWZskdzWyLz_uO2VXUfGbbyasBhRs5HBRvTWFhMBrMA"}'::jsonb,
+    body := '{}'::jsonb
+  ) AS request_id;
+  $$
+);
+```
+
 ### pbp-dispatcher-live (every 1 min) — CANONICAL live games + period scores
 ```sql
 SELECT cron.schedule(
