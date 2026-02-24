@@ -485,6 +485,45 @@ Deno.serve(async (req) => {
           if (error) console.error("Insert error:", error.message);
         }
 
+        // Also write to sgo_market_odds for the SGOPlayerPropsAnalyzer
+        const sgoRows: any[] = [];
+        for (const p of propsWithGameId) {
+          if (p.over_price != null) {
+            sgoRows.push({
+              game_id: p.game_id, event_id: p.external_event_id, league,
+              odd_id: `${p.market_key}-${p.player_name}-over`.replace(/\s+/g, "_").toLowerCase(),
+              bet_type: "over_under", side: "over", period: "full",
+              stat_entity_id: p.player_name?.replace(/\s+/g, "_").toLowerCase() || "unknown",
+              stat_id: p.market_key?.replace("player_", "") || null,
+              player_name: p.player_name, is_player_prop: true, is_alternate: false,
+              bookmaker: p.bookmaker, odds: p.over_price, line: p.line,
+              available: true, last_updated_at: new Date().toISOString(),
+              captured_at: new Date().toISOString(),
+            });
+          }
+          if (p.under_price != null) {
+            sgoRows.push({
+              game_id: p.game_id, event_id: p.external_event_id, league,
+              odd_id: `${p.market_key}-${p.player_name}-under`.replace(/\s+/g, "_").toLowerCase(),
+              bet_type: "over_under", side: "under", period: "full",
+              stat_entity_id: p.player_name?.replace(/\s+/g, "_").toLowerCase() || "unknown",
+              stat_id: p.market_key?.replace("player_", "") || null,
+              player_name: p.player_name, is_player_prop: true, is_alternate: false,
+              bookmaker: p.bookmaker, odds: p.under_price, line: p.line,
+              available: true, last_updated_at: new Date().toISOString(),
+              captured_at: new Date().toISOString(),
+            });
+          }
+        }
+        for (let i = 0; i < sgoRows.length; i += 100) {
+          const chunk = sgoRows.slice(i, i + 100);
+          const { error } = await supabase.from("sgo_market_odds").upsert(chunk, {
+            onConflict: "game_id,odd_id,bookmaker", ignoreDuplicates: false,
+          });
+          if (error) console.error("sgo_market_odds upsert error:", error.message);
+        }
+        console.log(`[SGO] Wrote ${sgoRows.length} sgo_market_odds rows for ${matchedGame.home_abbr} vs ${matchedGame.away_abbr}`);
+
         // Snapshot into odds history (minute-dedupe via ON CONFLICT DO NOTHING)
         const snapshotMinute = new Date();
         snapshotMinute.setSeconds(0, 0);
