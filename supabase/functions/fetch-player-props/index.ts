@@ -135,11 +135,14 @@ interface SGOEvent {
 async function discoverSGOEvents(apiKey: string, league: string): Promise<SGOEvent[]> {
   const allEvents: SGOEvent[] = [];
   let cursor: string | null = null;
+  let rateLimitHits = 0;
 
-  // Use proper SGO params: oddsAvailable, started=false, type=match
+  // Use proper SGO params per API docs: oddsAvailable, started=false, type=match
+  // Auth via apiKey query param (per securitySchemes.ApiKeyParam)
   for (let page = 0; page < 5; page++) {
     try {
       const params = new URLSearchParams({
+        apiKey,
         leagueID: league,
         oddsAvailable: "true",
         started: "false",
@@ -148,13 +151,19 @@ async function discoverSGOEvents(apiKey: string, league: string): Promise<SGOEve
       });
       if (cursor) params.set("cursor", cursor);
 
-      const url = `${SGO_BASE}/events/?${params}`;
-      console.log(`[SGO] Fetching: ${url.replace(apiKey, "***")}`);
-      const resp = await fetch(url, { headers: { "X-Api-Key": apiKey } });
+      const url = `${SGO_BASE}/events/?${params.toString().replace(apiKey, "***")}`;
+      console.log(`[SGO] Fetching: ${url}`);
+      const realUrl = `${SGO_BASE}/events/?${params}`;
+      const resp = await fetch(realUrl);
 
       if (resp.status === 429) {
-        console.warn("[SGO] Rate limited, backing off 5s...");
-        await delay(5000);
+        rateLimitHits++;
+        if (rateLimitHits >= 2) {
+          console.warn("[SGO] Rate limited twice, aborting to preserve budget");
+          break;
+        }
+        console.warn("[SGO] Rate limited, backing off 10s...");
+        await delay(10000);
         continue;
       }
       if (!resp.ok) {
@@ -165,6 +174,8 @@ async function discoverSGOEvents(apiKey: string, league: string): Promise<SGOEve
 
       const json = await resp.json();
       const events = json.data || [];
+      console.log(`[SGO] Page ${page}: got ${events.length} events`);
+      if (json.notice) console.warn(`[SGO] Notice: ${json.notice}`);
       allEvents.push(...events);
 
       // Use cursor for pagination
@@ -175,6 +186,8 @@ async function discoverSGOEvents(apiKey: string, league: string): Promise<SGOEve
       }
 
       if (events.length < 50) break;
+      // Small delay between pages to avoid rate limits
+      await delay(500);
     } catch (err) {
       console.error("[SGO] Event discovery error:", err);
       break;
