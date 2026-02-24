@@ -1,13 +1,14 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { SlidersHorizontal, Flame, TrendingUp, RefreshCw, Search } from "lucide-react";
-import { format, isToday, addDays } from "date-fns";
+import { SlidersHorizontal, Flame, TrendingUp, RefreshCw, Search, ChevronLeft, ChevronRight, Calendar } from "lucide-react";
+import { format, addDays, subDays, startOfDay } from "date-fns";
 import { cn } from "@/lib/utils";
 import { TrendCard, type TrendInsight } from "@/components/trends/TrendCard";
 import { TrendsFilterModal, type TrendFilters } from "@/components/trends/TrendsFilterModal";
 import { getMarketShort } from "@/lib/market-catalog";
 import { Input } from "@/components/ui/input";
+import { useNavigate } from "react-router-dom";
 
 const DEFAULT_FILTERS: TrendFilters = {
   scope: "all",
@@ -35,31 +36,44 @@ function generateInsightText(
   return `${playerName} has exceeded ${line} ${propLabel.toLowerCase()} in ${hitCount} of his last ${sampleSize} games (${avg.toFixed(1)} ${propLabel.toLowerCase()}/game average).`;
 }
 
+function formatDateLabel(d: Date): string {
+  const today = startOfDay(new Date());
+  const target = startOfDay(d);
+  if (target.getTime() === today.getTime()) return "Today";
+  if (target.getTime() === addDays(today, 1).getTime()) return "Tomorrow";
+  if (target.getTime() === subDays(today, 1).getTime()) return "Yesterday";
+  return format(d, "EEE, MMM d");
+}
+
 export default function TrendsPage() {
+  const navigate = useNavigate();
   const [leagueFilter, setLeagueFilter] = useState("NBA");
-  const [subTab, setSubTab] = useState<"insights" | "popular">("insights");
+  const [subTab, setSubTab] = useState<"games" | "insights">("games");
   const [sortBy, setSortBy] = useState<"date" | "hitRate">("hitRate");
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [filters, setFilters] = useState<TrendFilters>(DEFAULT_FILTERS);
-  const [selectedDate] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState(new Date());
   const [search, setSearch] = useState("");
 
-  // Fetch upcoming/live games for the selected league (exclude finished games)
-  const { data: games } = useQuery({
-    queryKey: ["trends-games", leagueFilter, selectedDate.toDateString()],
+  const dateStart = useMemo(() => {
+    const d = startOfDay(selectedDate);
+    return d.toISOString();
+  }, [selectedDate]);
+  const dateEnd = useMemo(() => {
+    const d = addDays(startOfDay(selectedDate), 1);
+    return d.toISOString();
+  }, [selectedDate]);
+
+  // Fetch games for selected date & league (all statuses)
+  const { data: games, isLoading: gamesLoading } = useQuery({
+    queryKey: ["trends-games", leagueFilter, dateStart],
     queryFn: async () => {
-      const start = new Date(selectedDate);
-      start.setHours(0, 0, 0, 0);
-      // Look back 4h for live games, forward 2 days for upcoming
-      const lookBack = new Date(Date.now() - 4 * 3600000);
-      const end = addDays(start, 2);
       const { data } = await supabase
         .from("games")
-        .select("id, home_abbr, away_abbr, home_team, away_team, start_time, league")
+        .select("id, home_abbr, away_abbr, home_team, away_team, start_time, league, status")
         .eq("league", leagueFilter)
-        .in("status", ["scheduled", "live", "in_progress"])
-        .gte("start_time", lookBack.toISOString())
-        .lte("start_time", end.toISOString())
+        .gte("start_time", dateStart)
+        .lt("start_time", dateEnd)
         .order("start_time", { ascending: true });
       return data || [];
     },
@@ -67,13 +81,35 @@ export default function TrendsPage() {
 
   const gameIds = games?.map(g => g.id) || [];
   const gameMap = useMemo(() => {
-    const m = new Map<string, typeof games extends (infer U)[] | undefined ? NonNullable<U> : never>();
+    const m = new Map<string, (typeof games extends (infer U)[] | undefined ? NonNullable<U> : never)>();
     for (const g of games || []) m.set(g.id, g);
     return m;
   }, [games]);
 
+  // Fetch players for teams in those games
+  const teamAbbrs = useMemo(() => {
+    const s = new Set<string>();
+    for (const g of games || []) { s.add(g.home_abbr); s.add(g.away_abbr); }
+    return [...s];
+  }, [games]);
+
+  const { data: teamPlayers } = useQuery({
+    queryKey: ["trends-team-players", teamAbbrs],
+    queryFn: async () => {
+      if (teamAbbrs.length === 0) return [];
+      const { data } = await supabase
+        .from("players")
+        .select("id, name, team, position, headshot_url")
+        .eq("league", leagueFilter)
+        .in("team", teamAbbrs)
+        .order("name");
+      return data || [];
+    },
+    enabled: teamAbbrs.length > 0,
+  });
+
   // Fetch player props for those games
-  const { data: props, isLoading, refetch, isFetching } = useQuery({
+  const { data: props, isLoading: propsLoading, refetch, isFetching } = useQuery({
     queryKey: ["trends-props", gameIds],
     queryFn: async () => {
       if (gameIds.length === 0) return [];
@@ -88,20 +124,18 @@ export default function TrendsPage() {
     refetchInterval: 60_000,
   });
 
-  // Fetch player stats to compute hit rates
+  // Fetch player stats for hit rate computation
   const playerNames = useMemo(() => [...new Set((props || []).map(p => p.player_name))], [props]);
 
   const { data: playerStats } = useQuery({
     queryKey: ["trends-player-stats", playerNames.slice(0, 30)],
     queryFn: async () => {
       if (playerNames.length === 0) return [];
-      // Get players by name to find IDs
       const { data: players } = await supabase
         .from("players")
         .select("id, name")
         .in("name", playerNames.slice(0, 30));
       if (!players || players.length === 0) return [];
-
       const playerIds = players.map(p => p.id);
       const { data: stats } = await supabase
         .from("player_game_stats")
@@ -109,7 +143,6 @@ export default function TrendsPage() {
         .in("player_id", playerIds)
         .order("created_at", { ascending: false })
         .limit(playerIds.length * 20);
-      
       return (stats || []).map(s => {
         const player = players.find(p => p.id === s.player_id);
         return { ...s, player_name: player?.name || "" };
@@ -121,8 +154,6 @@ export default function TrendsPage() {
   // Generate trend insights from props + stats
   const insights: TrendInsight[] = useMemo(() => {
     if (!props || props.length === 0) return [];
-
-    // Deduplicate props
     const seen = new Set<string>();
     const uniqueProps = props.filter(p => {
       const key = `${p.player_name}::${p.market_key}::${p.game_id}`;
@@ -130,46 +161,29 @@ export default function TrendsPage() {
       seen.add(key);
       return true;
     });
-
     const results: TrendInsight[] = [];
-
     for (const prop of uniqueProps) {
       if (prop.line == null) continue;
       const game = prop.game_id ? gameMap.get(prop.game_id) : null;
       if (!game) continue;
-
-      // Find player stats
       const pStats = (playerStats || []).filter(s => s.player_name === prop.player_name);
       const sampleSize = Math.min(pStats.length, filters.sampleWindow);
-      if (sampleSize === 0) {
-        // Still show the prop without hit-rate data
-        const direction: "over" | "under" = (prop.over_price ?? 0) < (prop.under_price ?? 0) ? "over" : "under";
-        const propLabel = getMarketShort(prop.market_key);
-        const timeStr = isToday(new Date(game.start_time))
-          ? `Today ${format(new Date(game.start_time), "HH:mm")}`
-          : format(new Date(game.start_time), "EEE HH:mm");
+      const propLabel = getMarketShort(prop.market_key);
+      const timeStr = format(new Date(game.start_time), "HH:mm");
 
+      if (sampleSize === 0) {
+        const direction: "over" | "under" = (prop.over_price ?? 0) < (prop.under_price ?? 0) ? "over" : "under";
         results.push({
-          id: prop.id,
-          playerName: prop.player_name,
-          teamAbbr: game.away_abbr,
-          matchup: `${game.away_abbr} vs ${game.home_abbr}`,
-          startTime: timeStr,
+          id: prop.id, playerName: prop.player_name, teamAbbr: game.away_abbr,
+          matchup: `${game.away_abbr} vs ${game.home_abbr}`, startTime: timeStr,
           insightText: `${prop.player_name} — ${propLabel} line at ${prop.line}.`,
-          direction,
-          propLabel,
-          line: prop.line,
+          direction, propLabel, line: prop.line,
           odds: direction === "over" ? prop.over_price : prop.under_price,
-          hitRate: 50,
-          sampleSize: 0,
-          hitGames: [],
-          gameId: game.id,
-          marketKey: prop.market_key,
+          hitRate: 50, sampleSize: 0, hitGames: [], gameId: game.id, marketKey: prop.market_key,
         });
         continue;
       }
 
-      // Determine which stat maps to this market
       const sample = pStats.slice(0, sampleSize);
       const marketKey = prop.market_key;
       let statFn: (s: typeof sample[0]) => number = () => 0;
@@ -185,11 +199,8 @@ export default function TrendsPage() {
       const avg = values.reduce((a, b) => a + b, 0) / values.length;
       const overHits = values.filter(v => v > prop.line!).length;
       const underHits = values.filter(v => v < prop.line!).length;
-
       const overRate = (overHits / sampleSize) * 100;
       const underRate = (underHits / sampleSize) * 100;
-
-      // Pick the stronger direction
       const direction: "over" | "under" = overRate >= underRate ? "over" : "under";
       const hitCount = direction === "over" ? overHits : underHits;
       const hitRate = direction === "over" ? overRate : underRate;
@@ -197,52 +208,54 @@ export default function TrendsPage() {
 
       if (hitRate < filters.hitRateMin) continue;
 
-      const propLabel = getMarketShort(prop.market_key);
-      const timeStr = isToday(new Date(game.start_time))
-        ? `Today ${format(new Date(game.start_time), "HH:mm")}`
-        : format(new Date(game.start_time), "EEE HH:mm");
-
       results.push({
-        id: prop.id,
-        playerName: prop.player_name,
-        teamAbbr: game.away_abbr,
-        matchup: `${game.away_abbr} vs ${game.home_abbr}`,
-        startTime: timeStr,
+        id: prop.id, playerName: prop.player_name, teamAbbr: game.away_abbr,
+        matchup: `${game.away_abbr} vs ${game.home_abbr}`, startTime: timeStr,
         insightText: generateInsightText(prop.player_name, direction, prop.line, propLabel, hitCount, sampleSize, avg),
-        direction,
-        propLabel,
-        line: prop.line,
+        direction, propLabel, line: prop.line,
         odds: direction === "over" ? prop.over_price : prop.under_price,
-        hitRate,
-        sampleSize,
-        hitGames,
-        statValues: values,
-        gameId: game.id,
-        marketKey: prop.market_key,
+        hitRate, sampleSize, hitGames, statValues: values, gameId: game.id, marketKey: prop.market_key,
       });
     }
 
-    // Apply filters
     let filtered = results;
-    if (filters.direction !== "all") {
-      filtered = filtered.filter(r => r.direction === filters.direction);
-    }
-
-    // Apply search filter
-    if (search) {
-      const q = search.toLowerCase();
-      filtered = filtered.filter(r => r.playerName.toLowerCase().includes(q));
-    }
-
-    // Sort
-    if (sortBy === "hitRate") {
-      filtered.sort((a, b) => b.hitRate - a.hitRate);
-    } else if (sortBy === "date") {
-      filtered.sort((a, b) => a.startTime.localeCompare(b.startTime));
-    }
-
+    if (filters.direction !== "all") filtered = filtered.filter(r => r.direction === filters.direction);
+    if (sortBy === "hitRate") filtered.sort((a, b) => b.hitRate - a.hitRate);
+    else if (sortBy === "date") filtered.sort((a, b) => a.startTime.localeCompare(b.startTime));
     return filtered;
-  }, [props, playerStats, gameMap, filters, sortBy, search]);
+  }, [props, playerStats, gameMap, filters, sortBy]);
+
+  // Filter games by search (player name or team abbr)
+  const filteredGames = useMemo(() => {
+    if (!games) return [];
+    if (!search) return games;
+    const q = search.toLowerCase();
+    // Filter by team abbreviation or team name
+    const teamMatch = games.filter(g =>
+      g.home_abbr.toLowerCase().includes(q) || g.away_abbr.toLowerCase().includes(q) ||
+      g.home_team.toLowerCase().includes(q) || g.away_team.toLowerCase().includes(q)
+    );
+    if (teamMatch.length > 0) return teamMatch;
+    // Filter by player name → find teams
+    const matchingTeams = new Set<string>();
+    for (const p of teamPlayers || []) {
+      if (p.name.toLowerCase().includes(q) && p.team) matchingTeams.add(p.team);
+    }
+    if (matchingTeams.size > 0) {
+      return games.filter(g => matchingTeams.has(g.home_abbr) || matchingTeams.has(g.away_abbr));
+    }
+    return [];
+  }, [games, search, teamPlayers]);
+
+  const filteredInsights = useMemo(() => {
+    if (!search) return insights;
+    const q = search.toLowerCase();
+    return insights.filter(r =>
+      r.playerName.toLowerCase().includes(q) ||
+      r.teamAbbr.toLowerCase().includes(q) ||
+      r.matchup.toLowerCase().includes(q)
+    );
+  }, [insights, search]);
 
   const handleRefresh = async () => {
     try {
@@ -262,6 +275,24 @@ export default function TrendsPage() {
     refetch();
   };
 
+  // Get players for a specific game
+  const getGamePlayers = (homeAbbr: string, awayAbbr: string) => {
+    if (!teamPlayers) return { home: [], away: [] };
+    return {
+      home: teamPlayers.filter(p => p.team === homeAbbr),
+      away: teamPlayers.filter(p => p.team === awayAbbr),
+    };
+  };
+
+  // Get props count per game
+  const propsPerGame = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const p of props || []) {
+      m.set(p.game_id, (m.get(p.game_id) || 0) + 1);
+    }
+    return m;
+  }, [props]);
+
   return (
     <div className="min-h-screen pb-24">
       <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-xl border-b border-border/50 px-4 pt-12 pb-3">
@@ -273,7 +304,7 @@ export default function TrendsPage() {
             className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 px-3 py-1.5 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors"
           >
             <RefreshCw className={cn("h-3 w-3", isFetching && "animate-spin")} />
-            {isFetching ? "..." : "Refresh"}
+            {isFetching ? "..." : "Refresh Props"}
           </button>
         </div>
 
@@ -295,9 +326,24 @@ export default function TrendsPage() {
           ))}
         </div>
 
+        {/* Date navigator */}
+        <div className="flex items-center justify-between mb-3 cosmic-card rounded-lg px-3 py-2">
+          <button onClick={() => setSelectedDate(d => subDays(d, 1))} className="p-1 rounded hover:bg-secondary">
+            <ChevronLeft className="h-4 w-4 text-muted-foreground" />
+          </button>
+          <div className="flex items-center gap-1.5">
+            <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+            <span className="text-sm font-semibold">{formatDateLabel(selectedDate)}</span>
+            <span className="text-xs text-muted-foreground">{format(selectedDate, "MMM d, yyyy")}</span>
+          </div>
+          <button onClick={() => setSelectedDate(d => addDays(d, 1))} className="p-1 rounded hover:bg-secondary">
+            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+          </button>
+        </div>
+
         {/* Sub tabs */}
         <div className="flex gap-4 border-b border-border -mx-4 px-4">
-          {(["insights", "popular"] as const).map(t => (
+          {(["games", "insights"] as const).map(t => (
             <button
               key={t}
               onClick={() => setSubTab(t)}
@@ -308,72 +354,161 @@ export default function TrendsPage() {
                   : "text-muted-foreground border-transparent hover:text-foreground"
               )}
             >
-              {t === "insights" ? "Insights" : "Popular"}
+              {t === "games" ? `Games (${filteredGames.length})` : `Insights (${filteredInsights.length})`}
             </button>
           ))}
         </div>
       </header>
 
+      {/* Search bar */}
       <div className="px-4 pt-3 pb-1">
         <div className="relative">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-          <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search players..." className="pl-8 h-8 text-xs" />
+          <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search players or teams..." className="pl-8 h-8 text-xs" />
         </div>
       </div>
 
       <div className="px-4 py-3 space-y-3">
-        {isLoading ? (
+        {gamesLoading ? (
           <div className="text-center py-12">
             <Flame className="h-6 w-6 text-primary mx-auto mb-2 animate-pulse" />
-            <p className="text-sm text-muted-foreground">Loading trends...</p>
+            <p className="text-sm text-muted-foreground">Loading games...</p>
           </div>
-        ) : insights.length === 0 ? (
-          <div className="text-center py-12">
-            <TrendingUp className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
-            <p className="text-sm font-medium text-foreground">No trends found</p>
-            <p className="text-xs text-muted-foreground mt-1">
-              Props haven't populated yet for {leagueFilter}. Tap Refresh or check back closer to game time.
-            </p>
-          </div>
+        ) : subTab === "games" ? (
+          filteredGames.length === 0 ? (
+            <div className="text-center py-12">
+              <TrendingUp className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
+              <p className="text-sm font-medium text-foreground">No {leagueFilter} games on {format(selectedDate, "MMM d")}</p>
+              <p className="text-xs text-muted-foreground mt-1">Try a different date or league.</p>
+            </div>
+          ) : (
+            filteredGames.map(game => {
+              const { home, away } = getGamePlayers(game.home_abbr, game.away_abbr);
+              const propCount = propsPerGame.get(game.id) || 0;
+              const statusLabel = game.status === "final" ? "Final" : game.status === "live" || game.status === "in_progress" ? "Live" : format(new Date(game.start_time), "h:mm a");
+              return (
+                <div
+                  key={game.id}
+                  className="cosmic-card rounded-xl p-4 space-y-3 cursor-pointer hover:border-primary/30 transition-colors"
+                  onClick={() => navigate(`/game/${game.id}`)}
+                >
+                  {/* Matchup header */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-bold">{game.away_abbr}</span>
+                      <span className="text-xs text-muted-foreground">@</span>
+                      <span className="text-sm font-bold">{game.home_abbr}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {propCount > 0 && (
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-semibold">
+                          {propCount} props
+                        </span>
+                      )}
+                      <span className={cn(
+                        "text-xs font-semibold",
+                        game.status === "final" ? "text-muted-foreground" :
+                        game.status === "live" || game.status === "in_progress" ? "text-cosmic-green" :
+                        "text-foreground"
+                      )}>
+                        {statusLabel}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Team full names */}
+                  <div className="text-xs text-muted-foreground">
+                    {game.away_team} @ {game.home_team}
+                  </div>
+
+                  {/* Player roster preview */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <p className="text-[10px] text-muted-foreground font-semibold mb-1">{game.away_abbr} Roster</p>
+                      <div className="space-y-0.5 max-h-24 overflow-y-auto">
+                        {away.length > 0 ? away.slice(0, 8).map(p => (
+                          <p key={p.id} className="text-[11px] text-foreground truncate">{p.name} <span className="text-muted-foreground">{p.position}</span></p>
+                        )) : <p className="text-[10px] text-muted-foreground italic">No roster data</p>}
+                        {away.length > 8 && <p className="text-[10px] text-muted-foreground">+{away.length - 8} more</p>}
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-muted-foreground font-semibold mb-1">{game.home_abbr} Roster</p>
+                      <div className="space-y-0.5 max-h-24 overflow-y-auto">
+                        {home.length > 0 ? home.slice(0, 8).map(p => (
+                          <p key={p.id} className="text-[11px] text-foreground truncate">{p.name} <span className="text-muted-foreground">{p.position}</span></p>
+                        )) : <p className="text-[10px] text-muted-foreground italic">No roster data</p>}
+                        {home.length > 8 && <p className="text-[10px] text-muted-foreground">+{home.length - 8} more</p>}
+                      </div>
+                    </div>
+                  </div>
+
+                  {propCount === 0 && (
+                    <p className="text-[10px] text-muted-foreground italic text-center">No props available yet — tap Refresh Props to fetch</p>
+                  )}
+                </div>
+              );
+            })
+          )
         ) : (
-          insights.map(insight => (
-            <TrendCard key={insight.id} insight={insight} />
-          ))
+          /* Insights tab */
+          propsLoading ? (
+            <div className="text-center py-12">
+              <Flame className="h-6 w-6 text-primary mx-auto mb-2 animate-pulse" />
+              <p className="text-sm text-muted-foreground">Loading insights...</p>
+            </div>
+          ) : filteredInsights.length === 0 ? (
+            <div className="text-center py-12">
+              <TrendingUp className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
+              <p className="text-sm font-medium text-foreground">No insights available</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                {(props || []).length === 0
+                  ? `No props loaded for ${leagueFilter} on ${format(selectedDate, "MMM d")}. Tap Refresh Props to fetch.`
+                  : "Adjust filters or try a different date."}
+              </p>
+            </div>
+          ) : (
+            filteredInsights.map(insight => (
+              <TrendCard key={insight.id} insight={insight} />
+            ))
+          )
         )}
       </div>
 
-      {/* Bottom sort bar */}
-      <div className="fixed bottom-20 left-0 right-0 z-50 px-4 pb-2 pointer-events-none">
-        <div className="max-w-lg mx-auto flex items-center justify-center gap-2 pointer-events-auto">
-          <button
-            onClick={() => setFiltersOpen(true)}
-            className="p-2.5 rounded-xl bg-secondary/80 backdrop-blur border border-border text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <SlidersHorizontal className="h-4 w-4" />
-          </button>
-          {(["date", "hitRate"] as const).map(s => (
+      {/* Bottom sort bar (insights tab only) */}
+      {subTab === "insights" && (
+        <div className="fixed bottom-20 left-0 right-0 z-50 px-4 pb-2 pointer-events-none">
+          <div className="max-w-lg mx-auto flex items-center justify-center gap-2 pointer-events-auto">
             <button
-              key={s}
-              onClick={() => setSortBy(s)}
-              className={cn(
-                "px-4 py-2.5 rounded-xl text-xs font-semibold transition-colors backdrop-blur border border-border",
-                sortBy === s
-                  ? "bg-foreground text-background"
-                  : "bg-secondary/80 text-muted-foreground hover:text-foreground"
-              )}
+              onClick={() => setFiltersOpen(true)}
+              className="p-2.5 rounded-xl bg-secondary/80 backdrop-blur border border-border text-muted-foreground hover:text-foreground transition-colors"
             >
-              {s === "hitRate" ? "Hit Rate" : "Date"}
+              <SlidersHorizontal className="h-4 w-4" />
             </button>
-          ))}
+            {(["date", "hitRate"] as const).map(s => (
+              <button
+                key={s}
+                onClick={() => setSortBy(s)}
+                className={cn(
+                  "px-4 py-2.5 rounded-xl text-xs font-semibold transition-colors backdrop-blur border border-border",
+                  sortBy === s
+                    ? "bg-foreground text-background"
+                    : "bg-secondary/80 text-muted-foreground hover:text-foreground"
+                )}
+              >
+                {s === "hitRate" ? "Hit Rate" : "Time"}
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       <TrendsFilterModal
         open={filtersOpen}
         onClose={() => setFiltersOpen(false)}
         filters={filters}
         onApply={setFilters}
-        resultCount={insights.length}
+        resultCount={filteredInsights.length}
       />
     </div>
   );
