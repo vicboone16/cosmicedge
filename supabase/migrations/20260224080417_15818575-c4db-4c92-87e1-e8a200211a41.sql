@@ -1,0 +1,1 @@
+ALTER TABLE public.nebula_prop_predictions ADD COLUMN IF NOT EXISTS edge_score_v11 numeric DEFAULT NULL;

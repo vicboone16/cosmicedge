@@ -1,6 +1,8 @@
 import { cn } from "@/lib/utils";
 import { TrendingUp, TrendingDown } from "lucide-react";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 import { ModelOverlayRow } from "./ModelOverlayRow";
 import { ModelDetailsDrawer } from "./ModelDetailsDrawer";
 import type { NebulaOverlay, SelectedModel } from "@/hooks/use-nebula-overlay";
@@ -63,6 +65,20 @@ export function ModelPropCard({ overlay, selectedModel, isAdmin, onPlayerClick }
         <div className="flex items-center gap-2">
           <span className="text-[10px] font-semibold text-muted-foreground uppercase">{propLabel}</span>
           <span className="text-sm font-bold tabular-nums">{overlay.line != null ? Number(overlay.line) : "—"}</span>
+          {overlay.edge_score_v11 != null && (
+            <TooltipProvider delayDuration={200}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge variant="secondary" className="text-[9px] px-1.5 py-0 h-4 bg-primary/15 text-primary border-primary/30">
+                    EV v1.1
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="max-w-[200px] text-xs">
+                  EV-based EdgeScore (uses mu/sigma vs line + implied odds).
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
         </div>
         <div className="flex items-center gap-2">
           <span className={cn(
