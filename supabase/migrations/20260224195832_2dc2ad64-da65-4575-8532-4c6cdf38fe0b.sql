@@ -1,0 +1,2 @@
+ALTER TABLE public.model_runs DROP CONSTRAINT model_runs_status_check;
+ALTER TABLE public.model_runs ADD CONSTRAINT model_runs_status_check CHECK (status IN ('pending', 'running', 'done', 'error', 'success', 'partial'));
