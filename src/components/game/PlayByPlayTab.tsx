@@ -114,18 +114,25 @@ export function PlayByPlayTab({ gameId, homeAbbr, awayAbbr, league }: PlayByPlay
         }
       }
 
-      // 4. Fallback: match by home_team + away_team + date
-      const gameDate = gameData.start_time ? gameData.start_time.split("T")[0] : null;
-      if (gameDate && gameData.home_abbr && gameData.away_abbr) {
-        const { data: eventsByTeam } = await supabase
-          .from("nba_play_by_play_events")
-          .select("*")
-          .eq("home_team", gameData.home_abbr)
-          .eq("away_team", gameData.away_abbr)
-          .eq("date", gameDate)
-          .order("play_id", { ascending: true })
-          .limit(1000);
-        if (eventsByTeam && eventsByTeam.length > 0) return eventsByTeam;
+      // 4. Fallback: match by home_team + away_team + date (try ±1 day for UTC/local mismatches)
+      if (gameData.start_time && gameData.home_abbr && gameData.away_abbr) {
+        const gameDate = gameData.start_time.split("T")[0];
+        const d = new Date(gameData.start_time);
+        const prevDay = new Date(d.getTime() - 86400000).toISOString().split("T")[0];
+        const nextDay = new Date(d.getTime() + 86400000).toISOString().split("T")[0];
+        const dateCandidates = [gameDate, prevDay, nextDay];
+
+        for (const dateCandidate of dateCandidates) {
+          const { data: eventsByTeam } = await supabase
+            .from("nba_play_by_play_events")
+            .select("*")
+            .eq("home_team", gameData.home_abbr)
+            .eq("away_team", gameData.away_abbr)
+            .eq("date", dateCandidate)
+            .order("play_id", { ascending: true })
+            .limit(1000);
+          if (eventsByTeam && eventsByTeam.length > 0) return eventsByTeam;
+        }
       }
 
       return [];

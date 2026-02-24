@@ -109,19 +109,23 @@ export function TrackPropButton({
   );
 }
 
-export function TrackedPropsWidget() {
+export function TrackedPropsWidget({ gameId }: { gameId?: string } = {}) {
   const { user } = useAuth();
 
   const { data: tracked } = useQuery({
-    queryKey: ["tracked-props", user?.id],
+    queryKey: ["tracked-props", user?.id, gameId],
     queryFn: async () => {
       if (!user) return [];
-      const { data } = await supabase
+      let query = supabase
         .from("tracked_props")
         .select("*")
         .eq("user_id", user.id)
         .order("created_at", { ascending: false })
         .limit(20);
+      if (gameId) {
+        query = query.eq("game_id", gameId);
+      }
+      const { data } = await query;
       return data || [];
     },
     enabled: !!user,
