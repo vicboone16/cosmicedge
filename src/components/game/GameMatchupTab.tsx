@@ -8,12 +8,14 @@ export function GameMatchupTab({
   awayAbbr,
   homeTeam,
   awayTeam,
+  league = "NBA",
 }: {
   gameId: string;
   homeAbbr: string;
   awayAbbr: string;
   homeTeam: string;
   awayTeam: string;
+  league?: string;
 }) {
   // Fetch standings
   const { data: standings } = useQuery({
@@ -41,7 +43,7 @@ export function GameMatchupTab({
       const { data: games } = await supabase
         .from("games")
         .select("home_abbr, away_abbr, home_score, away_score, start_time")
-        .eq("league", "NBA")
+        .eq("league", league)
         .eq("status", "final")
         .gte("start_time", seasonStart)
         .or(`home_abbr.in.(${homeAbbr},${awayAbbr}),away_abbr.in.(${homeAbbr},${awayAbbr})`)
@@ -137,7 +139,7 @@ export function GameMatchupTab({
       const { data: seasonGames } = await supabase
         .from("games")
         .select("id")
-        .eq("league", "NBA")
+        .eq("league", league)
         .eq("status", "final")
         .gte("start_time", seasonStart)
         .or(`home_abbr.in.(${homeAbbr},${awayAbbr}),away_abbr.in.(${homeAbbr},${awayAbbr})`);
@@ -219,7 +221,7 @@ export function GameMatchupTab({
         .from("team_season_pace")
         .select("team_abbr, avg_pace, off_rating, def_rating, net_rating, games_played")
         .in("team_abbr", [homeAbbr, awayAbbr])
-        .eq("league", "NBA")
+        .eq("league", league)
         .order("season", { ascending: false })
         .limit(2);
       return data || [];
