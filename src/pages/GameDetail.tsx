@@ -813,6 +813,7 @@ const GameDetail = () => {
               awayAbbr={game.away_abbr}
               homeTeam={game.home_team}
               awayTeam={game.away_team}
+              league={game.league}
             />
 
             {/* Injury Report */}
