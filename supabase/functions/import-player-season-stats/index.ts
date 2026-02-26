@@ -236,7 +236,10 @@ Deno.serve(async (req) => {
         const { data: pRow } = await supabase.from("players").select("team").eq("id", playerId!).single();
         effectiveTeam = pRow?.team || "UNK";
       } else {
-        await supabase.from("players").update({ team, position: vals[posCol] || null }).eq("id", playerId!);
+        // Only update position, NOT team — team assignments are manually curated
+        if (vals[posCol]) {
+          await supabase.from("players").update({ position: vals[posCol] }).eq("id", playerId!);
+        }
       }
 
       // Build the row based on format

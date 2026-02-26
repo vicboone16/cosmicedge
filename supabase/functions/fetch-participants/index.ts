@@ -126,21 +126,25 @@ Deno.serve(async (req) => {
     for (const [, record] of playersSeen) {
       if (!record.name) continue;
 
-      const { data: existing } = await supabase.from("players").select("id")
-        .eq("name", record.name).eq("team", record.team).maybeSingle();
+      // Check if player already exists by name (any team) — NEVER overwrite team assignments
+      const { data: existingByName } = await supabase.from("players").select("id, team")
+        .eq("name", record.name).eq("league", record.league).maybeSingle();
 
-      if (existing) {
-        await supabase.from("players").update({ team: record.team, league: record.league }).eq("id", existing.id);
-      } else {
-        const { error } = await supabase.from("players").insert({
-          name: record.name, team: record.team, league: record.league,
-          external_id: `sgo_${record.name.replace(/\s+/g, "_").toLowerCase()}`,
-        });
-        if (error && !error.message.includes("duplicate")) {
-          console.error(`Insert error for ${record.name}:`, error.message);
-          skippedPlayers.push(record.name);
-          continue;
-        }
+      if (existingByName) {
+        // Player exists — do NOT update team. Team assignments are manually curated.
+        playersUpserted++;
+        continue;
+      }
+
+      // Only insert truly new players
+      const { error } = await supabase.from("players").insert({
+        name: record.name, team: record.team, league: record.league,
+        external_id: `sgo_${record.name.replace(/\s+/g, "_").toLowerCase()}`,
+      });
+      if (error && !error.message.includes("duplicate")) {
+        console.error(`Insert error for ${record.name}:`, error.message);
+        skippedPlayers.push(record.name);
+        continue;
       }
       playersUpserted++;
     }

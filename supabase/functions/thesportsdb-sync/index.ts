@@ -197,7 +197,9 @@ async function syncRosters(
           nameMap.get(playerName);
 
         if (existing) {
-          toUpdate.push({ id: existing.id, record });
+          // Do NOT overwrite team — manual curation takes priority
+          const { team: _dropTeam, ...updateRecord } = record;
+          toUpdate.push({ id: existing.id, record: updateRecord });
         } else {
           toInsert.push(record);
         }

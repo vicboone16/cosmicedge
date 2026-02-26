@@ -185,9 +185,10 @@ Deno.serve(async (req) => {
         natal_data_quality: p.BirthDate ? "B" : "C",
       }));
 
+      // Use ignoreDuplicates: true to only insert NEW players, never overwrite existing team assignments
       const { error } = await supabase
         .from("players")
-        .upsert(records, { onConflict: "external_id", ignoreDuplicates: false });
+        .upsert(records, { onConflict: "external_id", ignoreDuplicates: true });
 
       if (error) {
         console.error(`Batch upsert error at offset ${i}:`, error.message);
