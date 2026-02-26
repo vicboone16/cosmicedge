@@ -3,7 +3,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Search, Save, Loader2 } from "lucide-react";
+import { Search, Save, Loader2, Trash2, Plus } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 
@@ -53,8 +53,13 @@ export default function PlayerGameStatsEditor() {
   const [search, setSearch] = useState("");
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
   const [selectedPlayerName, setSelectedPlayerName] = useState("");
+  const [selectedPlayerTeam, setSelectedPlayerTeam] = useState("");
   const [editedCells, setEditedCells] = useState<Record<string, Record<string, string>>>({});
   const [saving, setSaving] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState<string | null>(null);
+  const [showAddGame, setShowAddGame] = useState(false);
+  const [addGameDate, setAddGameDate] = useState("");
+  const [addingGame, setAddingGame] = useState(false);
   const queryClient = useQueryClient();
 
   const { data: searchResults } = useQuery({
@@ -78,6 +83,7 @@ export default function PlayerGameStatsEditor() {
         .from("player_game_stats")
         .select("*, games!player_game_stats_game_id_fkey(start_time, home_abbr, away_abbr)")
         .eq("player_id", selectedPlayerId!)
+        .eq("period", "full")
         .not("points", "is", null)
         .order("created_at", { ascending: false })
         .limit(82);
@@ -91,11 +97,32 @@ export default function PlayerGameStatsEditor() {
     enabled: !!selectedPlayerId,
   });
 
-  const selectPlayer = useCallback((id: string, name: string) => {
+  // Available games for the player's team (for adding stats)
+  const { data: availableGames } = useQuery({
+    queryKey: ["admin-available-games", selectedPlayerTeam, addGameDate],
+    queryFn: async () => {
+      if (!selectedPlayerTeam || !addGameDate) return [];
+      const dateStart = `${addGameDate}T00:00:00Z`;
+      const dateEnd = `${addGameDate}T23:59:59Z`;
+      const { data } = await supabase
+        .from("games")
+        .select("id, home_abbr, away_abbr, start_time, status")
+        .or(`home_abbr.eq.${selectedPlayerTeam},away_abbr.eq.${selectedPlayerTeam}`)
+        .gte("start_time", dateStart)
+        .lte("start_time", dateEnd)
+        .limit(5);
+      return data || [];
+    },
+    enabled: !!selectedPlayerTeam && addGameDate.length === 10,
+  });
+
+  const selectPlayer = useCallback((id: string, name: string, team: string) => {
     setSelectedPlayerId(id);
     setSelectedPlayerName(name);
+    setSelectedPlayerTeam(team || "");
     setSearch("");
     setEditedCells({});
+    setShowAddGame(false);
   }, []);
 
   const handleCellChange = (rowId: string, key: string, value: string) => {
@@ -116,19 +143,16 @@ export default function PlayerGameStatsEditor() {
   const saveRow = async (row: GameStat) => {
     const edits = editedCells[row.id];
     if (!edits) return;
-
     setSaving(row.id);
     const update: Record<string, number | null> = {};
     for (const [key, val] of Object.entries(edits)) {
       update[key] = val === "" ? null : Number(val);
     }
-
     const { error } = await supabase
       .from("player_game_stats")
       .update(update)
       .eq("id", row.id)
       .select("id");
-
     if (error) {
       console.error("Save failed:", error.message);
     } else {
@@ -143,9 +167,98 @@ export default function PlayerGameStatsEditor() {
     setSaving(null);
   };
 
+  const deleteRow = async (row: GameStat) => {
+    if (!confirm(`Delete stat row for ${row.team_abbr} on this game?`)) return;
+    setDeleting(row.id);
+    const { error } = await supabase
+      .from("player_game_stats")
+      .delete()
+      .eq("id", row.id);
+    if (error) {
+      console.error("Delete failed:", error.message);
+    } else {
+      refetch();
+      queryClient.invalidateQueries({ queryKey: ["player-game-logs", selectedPlayerId] });
+    }
+    setDeleting(null);
+  };
+
+  const addGameStat = async (gameId: string, homeAbbr: string, awayAbbr: string) => {
+    if (!selectedPlayerId || !selectedPlayerTeam) return;
+    setAddingGame(true);
+    // Check if stat already exists
+    const { data: existing } = await supabase
+      .from("player_game_stats")
+      .select("id")
+      .eq("player_id", selectedPlayerId)
+      .eq("game_id", gameId)
+      .eq("period", "full")
+      .maybeSingle();
+    if (existing) {
+      alert("Stat row already exists for this game.");
+      setAddingGame(false);
+      return;
+    }
+    const { error } = await supabase
+      .from("player_game_stats")
+      .insert({
+        player_id: selectedPlayerId,
+        game_id: gameId,
+        team_abbr: selectedPlayerTeam,
+        period: "full",
+        points: 0,
+        rebounds: 0,
+        assists: 0,
+        steals: 0,
+        blocks: 0,
+        turnovers: 0,
+        fg_made: 0,
+        fg_attempted: 0,
+        three_made: 0,
+        three_attempted: 0,
+        ft_made: 0,
+        ft_attempted: 0,
+        plus_minus: 0,
+        fouls: 0,
+        minutes: 0,
+      });
+    if (error) {
+      console.error("Add game stat failed:", error.message);
+      alert(`Failed: ${error.message}`);
+    } else {
+      setShowAddGame(false);
+      setAddGameDate("");
+      refetch();
+    }
+    setAddingGame(false);
+  };
+
+  // Detect duplicate matchups (same game date + matchup appearing more than once)
+  const duplicateGameIds = new Set<string>();
+  if (gameLogs) {
+    const seen = new Map<string, string>();
+    for (const row of gameLogs) {
+      const game = row.games as any;
+      const key = `${game?.start_time?.slice(0, 10)}_${game?.home_abbr}_${game?.away_abbr}`;
+      if (seen.has(key)) {
+        duplicateGameIds.add(row.game_id);
+        duplicateGameIds.add(seen.get(key)!);
+      } else {
+        seen.set(key, row.game_id);
+      }
+    }
+  }
+
   return (
     <div className="space-y-4">
-      <h3 className="text-sm font-bold text-foreground">Edit Player Game Stats</h3>
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-bold text-foreground">Edit Player Game Stats</h3>
+        {selectedPlayerId && (
+          <Button size="sm" variant="outline" onClick={() => setShowAddGame(!showAddGame)} className="h-7 text-xs gap-1">
+            <Plus className="h-3 w-3" /> Add Game
+          </Button>
+        )}
+      </div>
 
       {/* Search */}
       <div className="relative">
@@ -161,7 +274,7 @@ export default function PlayerGameStatsEditor() {
             {searchResults.map((p) => (
               <button
                 key={p.id}
-                onClick={() => selectPlayer(p.id, p.name)}
+                onClick={() => selectPlayer(p.id, p.name, p.team || "")}
                 className="w-full text-left px-3 py-2 text-sm hover:bg-accent flex justify-between"
               >
                 <span className="font-medium">{p.name}</span>
@@ -178,6 +291,35 @@ export default function PlayerGameStatsEditor() {
         </p>
       )}
 
+      {/* Add Game Panel */}
+      {showAddGame && selectedPlayerId && (
+        <div className="border border-border rounded-md p-3 bg-secondary/30 space-y-2">
+          <p className="text-xs font-semibold text-foreground">Add Game Stat</p>
+          <Input
+            type="date"
+            value={addGameDate}
+            onChange={(e) => setAddGameDate(e.target.value)}
+            className="h-8 text-xs w-48"
+            placeholder="Game date"
+          />
+          {availableGames && availableGames.length > 0 && (
+            <div className="space-y-1">
+              {availableGames.map((g) => (
+                <div key={g.id} className="flex items-center justify-between bg-background rounded px-2 py-1.5 text-xs">
+                  <span>{g.away_abbr} @ {g.home_abbr} · {g.status}</span>
+                  <Button size="sm" variant="outline" className="h-6 text-[10px]" disabled={addingGame} onClick={() => addGameStat(g.id, g.home_abbr, g.away_abbr)}>
+                    {addingGame ? <Loader2 className="h-3 w-3 animate-spin" /> : "Add"}
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+          {availableGames && availableGames.length === 0 && addGameDate.length === 10 && (
+            <p className="text-[10px] text-muted-foreground">No games found for {selectedPlayerTeam} on {addGameDate}</p>
+          )}
+        </div>
+      )}
+
       {/* Stats table */}
       {gameLogs && gameLogs.length > 0 && (
         <div className="overflow-x-auto border border-border rounded-md">
@@ -189,7 +331,7 @@ export default function PlayerGameStatsEditor() {
                 {STAT_COLS.map((c) => (
                   <th key={c.key} className="px-1 py-1.5 text-center font-medium text-muted-foreground w-14">{c.label}</th>
                 ))}
-                <th className="px-1 py-1.5 w-12" />
+                <th className="px-1 py-1.5 w-20" />
               </tr>
             </thead>
             <tbody>
@@ -198,10 +340,18 @@ export default function PlayerGameStatsEditor() {
                 const dateStr = game?.start_time ? format(new Date(game.start_time), "M/d") : "—";
                 const matchup = game ? `${game.away_abbr}@${game.home_abbr}` : "";
                 const edited = hasEdits(row.id);
+                const isDupe = duplicateGameIds.has(row.game_id);
 
                 return (
-                  <tr key={row.id} className={cn("border-b border-border/30", edited && "bg-primary/5")}>
-                    <td className="px-2 py-1 text-[10px] font-medium sticky left-0 bg-background">{dateStr}</td>
+                  <tr key={row.id} className={cn(
+                    "border-b border-border/30",
+                    edited && "bg-primary/5",
+                    isDupe && "bg-destructive/10"
+                  )}>
+                    <td className="px-2 py-1 text-[10px] font-medium sticky left-0 bg-background">
+                      {dateStr}
+                      {isDupe && <span className="ml-1 text-destructive text-[8px]">DUP</span>}
+                    </td>
                     <td className="px-2 py-1 text-[10px] text-muted-foreground">{matchup}</td>
                     {STAT_COLS.map((c) => (
                       <td key={c.key} className="px-0.5 py-0.5">
@@ -212,18 +362,15 @@ export default function PlayerGameStatsEditor() {
                         />
                       </td>
                     ))}
-                    <td className="px-1 py-0.5">
+                    <td className="px-1 py-0.5 flex items-center gap-0.5">
                       {edited && (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => saveRow(row)}
-                          disabled={saving === row.id}
-                          className="h-6 w-6 p-0"
-                        >
+                        <Button size="sm" variant="ghost" onClick={() => saveRow(row)} disabled={saving === row.id} className="h-6 w-6 p-0">
                           {saving === row.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3 text-primary" />}
                         </Button>
                       )}
+                      <Button size="sm" variant="ghost" onClick={() => deleteRow(row)} disabled={deleting === row.id} className="h-6 w-6 p-0">
+                        {deleting === row.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3 text-destructive" />}
+                      </Button>
                     </td>
                   </tr>
                 );
