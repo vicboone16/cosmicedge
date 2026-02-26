@@ -145,7 +145,7 @@ export function OracleTab({
                   source === "live" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
                 )}
               >
-                <Cpu className="h-3 w-3" /> On-Device
+                <Cpu className="h-3 w-3" /> Instant
               </button>
               <button
                 onClick={() => setSource("stored")}
@@ -154,7 +154,7 @@ export function OracleTab({
                   source === "stored" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
                 )}
               >
-                <Database className="h-3 w-3" /> Pre-Computed ({storedPredictions.length})
+                <Database className="h-3 w-3" /> StellarLine ({storedPredictions.length})
               </button>
             </div>
             {source === "stored" && availableVersions.length > 1 && (
@@ -176,7 +176,7 @@ export function OracleTab({
           </>
         ) : (
           <p className="text-[9px] text-muted-foreground flex items-center gap-1">
-            <Cpu className="h-3 w-3" /> On-Device Projection
+            <Cpu className="h-3 w-3" /> Instant Projection
           </p>
         )}
       </div>
