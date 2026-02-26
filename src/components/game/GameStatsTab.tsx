@@ -137,12 +137,17 @@ export function GameStatsTab({ gameId, homeAbbr, awayAbbr, homeTeam, awayTeam, h
         .maybeSingle();
       const extId = gameRow?.external_id;
       if (!extId) return [];
-      const { data } = await supabase
-        .from("nba_play_by_play_events")
-        .select("event_type, player, team, points, result, type, assist, steal, block, period")
-        .eq("game_id", extId)
-        .limit(5000);
-      return data || [];
+      // Try multiple ID formats: raw, with "00" prefix, with "002" prefix
+      const candidates = [...new Set([extId, "00" + extId, "002" + extId])];
+      for (const eid of candidates) {
+        const { data } = await supabase
+          .from("nba_play_by_play_events")
+          .select("event_type, player, team, points, result, type, assist, steal, block, period")
+          .eq("game_id", eid)
+          .limit(5000);
+        if (data && data.length > 0) return data;
+      }
+      return [];
     },
     enabled: !!playerStats && playerStats.length === 0,
   });
