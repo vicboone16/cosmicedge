@@ -862,15 +862,15 @@ function LegForm({
             }}>
               <SelectTrigger><SelectValue placeholder="Select player" /></SelectTrigger>
               <SelectContent>
-                {selectedGame && (
+               {selectedGame && (
                   <>
-                    <SelectItem value="" disabled className="text-[10px] text-muted-foreground font-semibold">— {selectedGame.home_abbr} —</SelectItem>
+                    <SelectItem value="__header_home" disabled className="text-[10px] text-muted-foreground font-semibold">— {selectedGame.home_abbr} —</SelectItem>
                     {(gamePlayers || []).filter(p => p.team === selectedGame.home_abbr).map(p => (
                       <SelectItem key={p.id} value={p.name}>
                         {p.name} <span className="text-[10px] text-muted-foreground ml-1">{p.position}</span>
                       </SelectItem>
                     ))}
-                    <SelectItem value="" disabled className="text-[10px] text-muted-foreground font-semibold">— {selectedGame.away_abbr} —</SelectItem>
+                    <SelectItem value="__header_away" disabled className="text-[10px] text-muted-foreground font-semibold">— {selectedGame.away_abbr} —</SelectItem>
                     {(gamePlayers || []).filter(p => p.team === selectedGame.away_abbr).map(p => (
                       <SelectItem key={p.id} value={p.name}>
                         {p.name} <span className="text-[10px] text-muted-foreground ml-1">{p.position}</span>
