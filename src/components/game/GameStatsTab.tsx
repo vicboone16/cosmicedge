@@ -273,7 +273,7 @@ export function GameStatsTab({ gameId, homeAbbr, awayAbbr, homeTeam, awayTeam, h
           )}
 
           {/* Team comparison stats */}
-          {playerStats && playerStats.length > 0 && (
+          {effectivePlayerStats && effectivePlayerStats.length > 0 && (
             <div className="cosmic-card rounded-xl overflow-hidden">
               <div className="flex items-center justify-between px-4 py-2.5 border-b border-border">
                 <span className="text-[10px] text-muted-foreground" />
