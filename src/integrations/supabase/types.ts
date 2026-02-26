@@ -1411,6 +1411,101 @@ export type Database = {
         }
         Relationships: []
       }
+      model_game_predictions: {
+        Row: {
+          blowout_risk: number | null
+          book_implied_home: number | null
+          created_at: string
+          edge_away: number | null
+          edge_home: number | null
+          expected_possessions: number | null
+          fair_ml_away: number | null
+          fair_ml_home: number | null
+          features_json: Json | null
+          game_id: string
+          id: string
+          model_name: string
+          model_version: string
+          mu_away: number | null
+          mu_home: number | null
+          mu_spread_home: number | null
+          mu_total: number | null
+          notes_json: Json | null
+          p_away_win: number | null
+          p_home_win: number | null
+          p_home_win_ci_high: number | null
+          p_home_win_ci_low: number | null
+          qtr_fair_ml: Json | null
+          qtr_wp_home: Json | null
+          run_ts: string
+          sport: string
+        }
+        Insert: {
+          blowout_risk?: number | null
+          book_implied_home?: number | null
+          created_at?: string
+          edge_away?: number | null
+          edge_home?: number | null
+          expected_possessions?: number | null
+          fair_ml_away?: number | null
+          fair_ml_home?: number | null
+          features_json?: Json | null
+          game_id: string
+          id?: string
+          model_name?: string
+          model_version?: string
+          mu_away?: number | null
+          mu_home?: number | null
+          mu_spread_home?: number | null
+          mu_total?: number | null
+          notes_json?: Json | null
+          p_away_win?: number | null
+          p_home_win?: number | null
+          p_home_win_ci_high?: number | null
+          p_home_win_ci_low?: number | null
+          qtr_fair_ml?: Json | null
+          qtr_wp_home?: Json | null
+          run_ts?: string
+          sport: string
+        }
+        Update: {
+          blowout_risk?: number | null
+          book_implied_home?: number | null
+          created_at?: string
+          edge_away?: number | null
+          edge_home?: number | null
+          expected_possessions?: number | null
+          fair_ml_away?: number | null
+          fair_ml_home?: number | null
+          features_json?: Json | null
+          game_id?: string
+          id?: string
+          model_name?: string
+          model_version?: string
+          mu_away?: number | null
+          mu_home?: number | null
+          mu_spread_home?: number | null
+          mu_total?: number | null
+          notes_json?: Json | null
+          p_away_win?: number | null
+          p_home_win?: number | null
+          p_home_win_ci_high?: number | null
+          p_home_win_ci_low?: number | null
+          qtr_fair_ml?: Json | null
+          qtr_wp_home?: Json | null
+          run_ts?: string
+          sport?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "model_game_predictions_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       model_predictions: {
         Row: {
           astro_mu_adjust: number | null
@@ -4871,6 +4966,194 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "nfl_games"
             referencedColumns: ["game_id"]
+          },
+        ]
+      }
+      v_oracle_ml_mlb_v1: {
+        Row: {
+          away_abbr: string | null
+          away_score: number | null
+          away_team: string | null
+          blowout_risk: number | null
+          book_implied_home: number | null
+          created_at: string | null
+          edge_away: number | null
+          edge_home: number | null
+          expected_possessions: number | null
+          fair_ml_away: number | null
+          fair_ml_home: number | null
+          features_json: Json | null
+          game_id: string | null
+          home_abbr: string | null
+          home_score: number | null
+          home_team: string | null
+          id: string | null
+          model_name: string | null
+          model_version: string | null
+          mu_away: number | null
+          mu_home: number | null
+          mu_spread_home: number | null
+          mu_total: number | null
+          notes_json: Json | null
+          p_away_win: number | null
+          p_home_win: number | null
+          p_home_win_ci_high: number | null
+          p_home_win_ci_low: number | null
+          qtr_fair_ml: Json | null
+          qtr_wp_home: Json | null
+          run_ts: string | null
+          sport: string | null
+          start_time: string | null
+          status: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "model_game_predictions_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      v_oracle_ml_nba_v1: {
+        Row: {
+          away_abbr: string | null
+          away_score: number | null
+          away_team: string | null
+          blowout_risk: number | null
+          book_implied_home: number | null
+          created_at: string | null
+          edge_away: number | null
+          edge_home: number | null
+          expected_possessions: number | null
+          fair_ml_away: number | null
+          fair_ml_home: number | null
+          features_json: Json | null
+          game_id: string | null
+          home_abbr: string | null
+          home_score: number | null
+          home_team: string | null
+          id: string | null
+          model_name: string | null
+          model_version: string | null
+          mu_away: number | null
+          mu_home: number | null
+          mu_spread_home: number | null
+          mu_total: number | null
+          notes_json: Json | null
+          p_away_win: number | null
+          p_home_win: number | null
+          p_home_win_ci_high: number | null
+          p_home_win_ci_low: number | null
+          qtr_fair_ml: Json | null
+          qtr_wp_home: Json | null
+          run_ts: string | null
+          sport: string | null
+          start_time: string | null
+          status: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "model_game_predictions_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      v_oracle_ml_nfl_v1: {
+        Row: {
+          away_abbr: string | null
+          away_score: number | null
+          away_team: string | null
+          blowout_risk: number | null
+          book_implied_home: number | null
+          created_at: string | null
+          edge_away: number | null
+          edge_home: number | null
+          expected_possessions: number | null
+          fair_ml_away: number | null
+          fair_ml_home: number | null
+          features_json: Json | null
+          game_id: string | null
+          home_abbr: string | null
+          home_score: number | null
+          home_team: string | null
+          id: string | null
+          model_name: string | null
+          model_version: string | null
+          mu_away: number | null
+          mu_home: number | null
+          mu_spread_home: number | null
+          mu_total: number | null
+          notes_json: Json | null
+          p_away_win: number | null
+          p_home_win: number | null
+          p_home_win_ci_high: number | null
+          p_home_win_ci_low: number | null
+          qtr_fair_ml: Json | null
+          qtr_wp_home: Json | null
+          run_ts: string | null
+          sport: string | null
+          start_time: string | null
+          status: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "model_game_predictions_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      v_oracle_ml_nhl_v1: {
+        Row: {
+          away_abbr: string | null
+          away_score: number | null
+          away_team: string | null
+          blowout_risk: number | null
+          book_implied_home: number | null
+          created_at: string | null
+          edge_away: number | null
+          edge_home: number | null
+          expected_possessions: number | null
+          fair_ml_away: number | null
+          fair_ml_home: number | null
+          features_json: Json | null
+          game_id: string | null
+          home_abbr: string | null
+          home_score: number | null
+          home_team: string | null
+          id: string | null
+          model_name: string | null
+          model_version: string | null
+          mu_away: number | null
+          mu_home: number | null
+          mu_spread_home: number | null
+          mu_total: number | null
+          notes_json: Json | null
+          p_away_win: number | null
+          p_home_win: number | null
+          p_home_win_ci_high: number | null
+          p_home_win_ci_low: number | null
+          qtr_fair_ml: Json | null
+          qtr_wp_home: Json | null
+          run_ts: string | null
+          sport: string | null
+          start_time: string | null
+          status: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "model_game_predictions_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
           },
         ]
       }

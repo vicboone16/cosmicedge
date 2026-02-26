@@ -1,11 +1,12 @@
 /**
  * OracleTab — Full pregame prediction breakdown + live WP + quarter ML
+ * Now includes model/version selector and stored server-side predictions
  */
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
-import { useOracle } from "@/hooks/use-oracle";
+import { useOracle, type StoredPrediction } from "@/hooks/use-oracle";
 import { classifyEdge, wpToAmericanOdds } from "@/lib/oracle-engine";
-import { TrendingUp, TrendingDown, Zap, Target, BarChart3, Clock, Activity } from "lucide-react";
+import { TrendingUp, TrendingDown, Zap, Target, BarChart3, Clock, Activity, Database, Cpu } from "lucide-react";
 
 function formatOdds(odds: number): string {
   if (!odds) return "—";
@@ -15,6 +16,8 @@ function formatOdds(odds: number): string {
 function formatPct(val: number): string {
   return `${(val * 100).toFixed(1)}%`;
 }
+
+type PredSource = "live" | "stored";
 
 interface Props {
   gameId: string;
@@ -27,7 +30,6 @@ interface Props {
   bookMLAway?: number;
   bookSpread?: number;
   bookTotal?: number;
-  // Live state
   homeScore?: number | null;
   awayScore?: number | null;
   isLive?: boolean;
@@ -38,26 +40,80 @@ export function OracleTab({
   bookMLHome, bookMLAway, bookSpread, bookTotal,
   homeScore, awayScore, isLive,
 }: Props) {
+  const [source, setSource] = useState<PredSource>("live");
+  const [selectedVersion, setSelectedVersion] = useState("v1");
   const scoreDiff = (homeScore ?? 0) - (awayScore ?? 0);
 
   const {
     pregame, quarters, liveWP, isLoading, homeRatings, awayRatings,
+    storedPredictions, storedLoading,
   } = useOracle(
     gameId, homeAbbr, awayAbbr, league,
     bookMLHome, bookMLAway, bookSpread, bookTotal,
     scoreDiff,
-    isLive ? 1440 : undefined, // ~halfway through game as default
-    0,
-    undefined,
-    isLive,
+    isLive ? 1440 : undefined,
+    0, undefined, isLive,
   );
 
-  const homeEdgeInfo = useMemo(() => {
-    if (!pregame || pregame.edgeHome == null) return null;
-    return classifyEdge(Math.abs(pregame.edgeHome), pregame.blowoutRisk);
-  }, [pregame]);
+  // Get available versions from stored predictions
+  const availableVersions = useMemo(() => {
+    const versions = [...new Set(storedPredictions.map(p => p.model_version))];
+    return versions.length > 0 ? versions : ["v1"];
+  }, [storedPredictions]);
 
-  if (isLoading) {
+  // Get the latest stored prediction for selected version
+  const selectedStored = useMemo(() => {
+    return storedPredictions.find(p => p.model_version === selectedVersion) || null;
+  }, [storedPredictions, selectedVersion]);
+
+  // Build a unified display object from either source
+  const display = useMemo(() => {
+    if (source === "stored" && selectedStored) {
+      return {
+        muHome: selectedStored.mu_home ?? 0,
+        muAway: selectedStored.mu_away ?? 0,
+        muTotal: selectedStored.mu_total ?? 0,
+        muSpreadHome: selectedStored.mu_spread_home ?? 0,
+        pHomeWin: selectedStored.p_home_win ?? 0.5,
+        pAwayWin: selectedStored.p_away_win ?? 0.5,
+        fairMLHome: selectedStored.fair_ml_home ?? 0,
+        fairMLAway: selectedStored.fair_ml_away ?? 0,
+        expectedPossessions: selectedStored.expected_possessions ?? 0,
+        blowoutRisk: selectedStored.blowout_risk ?? 0,
+        bookImpliedHome: selectedStored.book_implied_home,
+        edgeHome: selectedStored.edge_home,
+        edgeAway: selectedStored.edge_away,
+        pHomeWinCILow: selectedStored.p_home_win_ci_low ?? 0,
+        pHomeWinCIHigh: selectedStored.p_home_win_ci_high ?? 1,
+        runTs: selectedStored.run_ts,
+        features: selectedStored.features_json,
+      };
+    }
+    if (pregame) {
+      return { ...pregame, runTs: null, features: null };
+    }
+    return null;
+  }, [source, selectedStored, pregame]);
+
+  const homeEdgeInfo = useMemo(() => {
+    if (!display || display.edgeHome == null) return null;
+    return classifyEdge(Math.abs(display.edgeHome), display.blowoutRisk);
+  }, [display]);
+
+  // Quarter data from stored or live
+  const displayQuarters = useMemo(() => {
+    if (source === "stored" && selectedStored?.qtr_wp_home && selectedStored?.qtr_fair_ml) {
+      return selectedStored.qtr_wp_home.map((wp, i) => ({
+        quarter: i + 1,
+        wpHome: wp,
+        fairMLHome: selectedStored.qtr_fair_ml![i]?.home ?? 0,
+        fairMLAway: selectedStored.qtr_fair_ml![i]?.away ?? 0,
+      }));
+    }
+    return quarters;
+  }, [source, selectedStored, quarters]);
+
+  if (isLoading && storedLoading) {
     return (
       <div className="flex items-center justify-center py-12">
         <span className="text-sm text-muted-foreground">Computing Oracle predictions...</span>
@@ -65,7 +121,7 @@ export function OracleTab({
     );
   }
 
-  if (!pregame) {
+  if (!display) {
     return (
       <div className="cosmic-card rounded-xl p-6 text-center">
         <p className="text-sm text-muted-foreground">
@@ -77,6 +133,53 @@ export function OracleTab({
 
   return (
     <div className="space-y-4">
+      {/* ── Source + Version Selector ── */}
+      <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1 bg-secondary rounded-lg p-0.5 flex-1">
+          <button
+            onClick={() => setSource("live")}
+            className={cn(
+              "flex-1 py-1.5 rounded-md text-[11px] font-semibold transition-colors text-center flex items-center justify-center gap-1",
+              source === "live" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            <Cpu className="h-3 w-3" /> Live Compute
+          </button>
+          <button
+            onClick={() => setSource("stored")}
+            className={cn(
+              "flex-1 py-1.5 rounded-md text-[11px] font-semibold transition-colors text-center flex items-center justify-center gap-1",
+              source === "stored" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            <Database className="h-3 w-3" /> Server ({storedPredictions.length})
+          </button>
+        </div>
+        {source === "stored" && availableVersions.length > 1 && (
+          <div className="flex items-center gap-1 bg-secondary rounded-lg p-0.5">
+            {availableVersions.map(v => (
+              <button
+                key={v}
+                onClick={() => setSelectedVersion(v)}
+                className={cn(
+                  "px-2 py-1.5 rounded-md text-[11px] font-semibold transition-colors",
+                  selectedVersion === v ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                {v}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Run timestamp for stored */}
+      {source === "stored" && display.runTs && (
+        <p className="text-[9px] text-muted-foreground text-center">
+          Run: {new Date(display.runTs).toLocaleString()} · Model: oracle_ml {selectedVersion}
+        </p>
+      )}
+
       {/* ── Projected Score ── */}
       <section>
         <h3 className="text-xs font-semibold text-primary uppercase tracking-widest mb-3 flex items-center gap-1.5">
@@ -87,20 +190,20 @@ export function OracleTab({
           <div className="flex items-center justify-between">
             <div className="text-center flex-1">
               <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">{awayAbbr}</p>
-              <p className="text-3xl font-bold font-display tabular-nums text-foreground">{pregame.muAway}</p>
+              <p className="text-3xl font-bold font-display tabular-nums text-foreground">{display.muAway}</p>
             </div>
             <div className="text-center px-4">
               <p className="text-[10px] text-muted-foreground uppercase">vs</p>
-              <p className="text-xs font-semibold text-muted-foreground mt-1">O/U {pregame.muTotal}</p>
+              <p className="text-xs font-semibold text-muted-foreground mt-1">O/U {display.muTotal}</p>
             </div>
             <div className="text-center flex-1">
               <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">{homeAbbr}</p>
-              <p className="text-3xl font-bold font-display tabular-nums text-foreground">{pregame.muHome}</p>
+              <p className="text-3xl font-bold font-display tabular-nums text-foreground">{display.muHome}</p>
             </div>
           </div>
           <div className="mt-3 pt-3 border-t border-border/30 flex items-center justify-between text-[10px] text-muted-foreground">
-            <span>Spread: {pregame.muSpreadHome > 0 ? `${homeAbbr} -${Math.abs(pregame.muSpreadHome)}` : `${awayAbbr} -${Math.abs(pregame.muSpreadHome)}`}</span>
-            <span>{pregame.expectedPossessions} est. possessions</span>
+            <span>Spread: {display.muSpreadHome > 0 ? `${homeAbbr} -${Math.abs(display.muSpreadHome)}` : `${awayAbbr} -${Math.abs(display.muSpreadHome)}`}</span>
+            {display.expectedPossessions ? <span>{display.expectedPossessions} est. possessions</span> : null}
           </div>
         </div>
       </section>
@@ -117,55 +220,43 @@ export function OracleTab({
               <p className="text-[10px] font-bold text-muted-foreground uppercase">{awayAbbr}</p>
               <p className={cn(
                 "text-xl font-bold font-display tabular-nums",
-                pregame.pAwayWin > pregame.pHomeWin ? "text-cosmic-green" : "text-muted-foreground"
+                display.pAwayWin > display.pHomeWin ? "text-cosmic-green" : "text-muted-foreground"
               )}>
-                {formatPct(pregame.pAwayWin)}
+                {formatPct(display.pAwayWin)}
               </p>
             </div>
             <div className="text-center">
               <p className="text-[10px] font-bold text-muted-foreground uppercase">{homeAbbr}</p>
               <p className={cn(
                 "text-xl font-bold font-display tabular-nums",
-                pregame.pHomeWin > pregame.pAwayWin ? "text-cosmic-green" : "text-muted-foreground"
+                display.pHomeWin > display.pAwayWin ? "text-cosmic-green" : "text-muted-foreground"
               )}>
-                {formatPct(pregame.pHomeWin)}
+                {formatPct(display.pHomeWin)}
               </p>
             </div>
           </div>
-
-          {/* WP Bar */}
           <div className="h-3 rounded-full overflow-hidden flex bg-secondary">
-            <div
-              className="bg-destructive/70 transition-all duration-500"
-              style={{ width: `${pregame.pAwayWin * 100}%` }}
-            />
-            <div
-              className="bg-primary transition-all duration-500"
-              style={{ width: `${pregame.pHomeWin * 100}%` }}
-            />
+            <div className="bg-destructive/70 transition-all duration-500" style={{ width: `${display.pAwayWin * 100}%` }} />
+            <div className="bg-primary transition-all duration-500" style={{ width: `${display.pHomeWin * 100}%` }} />
           </div>
-
-          {/* Fair ML */}
           <div className="mt-3 flex items-center justify-between text-[10px]">
             <div>
               <span className="text-muted-foreground">Fair ML: </span>
-              <span className="font-semibold text-foreground tabular-nums">{formatOdds(pregame.fairMLAway)}</span>
+              <span className="font-semibold text-foreground tabular-nums">{formatOdds(display.fairMLAway)}</span>
             </div>
             <div>
               <span className="text-muted-foreground">Fair ML: </span>
-              <span className="font-semibold text-foreground tabular-nums">{formatOdds(pregame.fairMLHome)}</span>
+              <span className="font-semibold text-foreground tabular-nums">{formatOdds(display.fairMLHome)}</span>
             </div>
           </div>
-
-          {/* CI */}
           <div className="mt-1 text-[9px] text-muted-foreground text-center">
-            90% CI: {formatPct(pregame.pHomeWinCILow)} – {formatPct(pregame.pHomeWinCIHigh)} ({homeAbbr})
+            90% CI: {formatPct(display.pHomeWinCILow)} – {formatPct(display.pHomeWinCIHigh)} ({homeAbbr})
           </div>
         </div>
       </section>
 
       {/* ── Edge vs Book ── */}
-      {(pregame.edgeHome != null || pregame.edgeAway != null) && (
+      {(display.edgeHome != null || display.edgeAway != null) && (
         <section>
           <h3 className="text-xs font-semibold text-primary uppercase tracking-widest mb-3 flex items-center gap-1.5">
             <Zap className="h-3.5 w-3.5" />
@@ -173,37 +264,35 @@ export function OracleTab({
           </h3>
           <div className="cosmic-card rounded-xl p-4 space-y-3">
             <div className="grid grid-cols-2 gap-4">
-              {pregame.edgeAway != null && (
+              {display.edgeAway != null && (
                 <div className="text-center">
                   <p className="text-[10px] font-bold text-muted-foreground uppercase">{awayAbbr}</p>
                   <p className={cn(
                     "text-lg font-bold font-display tabular-nums",
-                    pregame.edgeAway > 0.02 ? "text-cosmic-green" : pregame.edgeAway < -0.02 ? "text-destructive" : "text-muted-foreground"
+                    display.edgeAway > 0.02 ? "text-cosmic-green" : display.edgeAway < -0.02 ? "text-destructive" : "text-muted-foreground"
                   )}>
-                    {pregame.edgeAway > 0 ? "+" : ""}{(pregame.edgeAway * 100).toFixed(1)}%
+                    {display.edgeAway > 0 ? "+" : ""}{(display.edgeAway * 100).toFixed(1)}%
                   </p>
                   <p className="text-[9px] text-muted-foreground">
-                    Model: {formatPct(pregame.pAwayWin)} vs Book: {pregame.bookImpliedHome != null ? formatPct(1 - pregame.bookImpliedHome) : "—"}
+                    Model: {formatPct(display.pAwayWin)} vs Book: {display.bookImpliedHome != null ? formatPct(1 - display.bookImpliedHome) : "—"}
                   </p>
                 </div>
               )}
-              {pregame.edgeHome != null && (
+              {display.edgeHome != null && (
                 <div className="text-center">
                   <p className="text-[10px] font-bold text-muted-foreground uppercase">{homeAbbr}</p>
                   <p className={cn(
                     "text-lg font-bold font-display tabular-nums",
-                    pregame.edgeHome > 0.02 ? "text-cosmic-green" : pregame.edgeHome < -0.02 ? "text-destructive" : "text-muted-foreground"
+                    display.edgeHome > 0.02 ? "text-cosmic-green" : display.edgeHome < -0.02 ? "text-destructive" : "text-muted-foreground"
                   )}>
-                    {pregame.edgeHome > 0 ? "+" : ""}{(pregame.edgeHome * 100).toFixed(1)}%
+                    {display.edgeHome > 0 ? "+" : ""}{(display.edgeHome * 100).toFixed(1)}%
                   </p>
                   <p className="text-[9px] text-muted-foreground">
-                    Model: {formatPct(pregame.pHomeWin)} vs Book: {pregame.bookImpliedHome != null ? formatPct(pregame.bookImpliedHome) : "—"}
+                    Model: {formatPct(display.pHomeWin)} vs Book: {display.bookImpliedHome != null ? formatPct(display.bookImpliedHome) : "—"}
                   </p>
                 </div>
               )}
             </div>
-
-            {/* Edge Tier Badge */}
             {homeEdgeInfo && (
               <div className="flex justify-center">
                 <span className={cn(
@@ -217,25 +306,24 @@ export function OracleTab({
                 </span>
               </div>
             )}
-
-            {pregame.blowoutRisk > 0.3 && (
-              <p className="text-[9px] text-cosmic-red text-center">
-                ⚠ Blowout risk: {(pregame.blowoutRisk * 100).toFixed(0)}% — reduced edge reliability
+            {display.blowoutRisk > 0.3 && (
+              <p className="text-[9px] text-destructive text-center">
+                ⚠ Blowout risk: {(display.blowoutRisk * 100).toFixed(0)}% — reduced edge reliability
               </p>
             )}
           </div>
         </section>
       )}
 
-      {/* ── Quarter Predictions ── */}
-      {quarters.length > 0 && (
+      {/* ── Quarter/Period Predictions ── */}
+      {displayQuarters.length > 0 && (
         <section>
           <h3 className="text-xs font-semibold text-primary uppercase tracking-widest mb-3 flex items-center gap-1.5">
             <Clock className="h-3.5 w-3.5" />
             {league === "NHL" ? "Period" : "Quarter"} Win Probability
           </h3>
           <div className="grid grid-cols-2 gap-2">
-            {quarters.map(q => {
+            {displayQuarters.map(q => {
               const label = league === "NHL" ? `P${q.quarter}` : league === "MLB" ? `Inn ${q.quarter}` : `Q${q.quarter}`;
               const favHome = q.wpHome >= 0.5;
               return (
@@ -300,7 +388,7 @@ export function OracleTab({
       )}
 
       {/* ── Model Inputs (Ratings) ── */}
-      {(homeRatings || awayRatings) && (
+      {source === "live" && (homeRatings || awayRatings) && (
         <section>
           <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-3">
             Model Inputs
@@ -331,6 +419,25 @@ export function OracleTab({
               </div>
               <div className="tabular-nums">{homeRatings?.pace.toFixed(1) ?? "—"}</div>
               <div className="tabular-nums">{homeRatings?.gamesPlayed ?? "—"}</div>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ── Server Features (when stored is selected) ── */}
+      {source === "stored" && display.features && (
+        <section>
+          <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-3">
+            Features (Server)
+          </h3>
+          <div className="cosmic-card rounded-xl p-3">
+            <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[9px]">
+              {Object.entries(display.features).map(([k, v]) => (
+                <div key={k} className="flex justify-between">
+                  <span className="text-muted-foreground">{k.replace(/_/g, " ")}</span>
+                  <span className="font-semibold tabular-nums text-foreground">{typeof v === "number" ? v.toFixed(2) : String(v)}</span>
+                </div>
+              ))}
             </div>
           </div>
         </section>
