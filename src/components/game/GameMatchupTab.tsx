@@ -231,33 +231,6 @@ export function GameMatchupTab({
     ? `${homeStats.games}G vs ${awayStats.games}G season avg`
     : homeStats.games ? `${homeStats.games}G season avg` : awayStats.games ? `${awayStats.games}G season avg` : "";
 
-  // Fetch rosters
-  const { data: homePlayers } = useQuery({
-    queryKey: ["matchup-roster", homeAbbr],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("players")
-        .select("id, name, position, headshot_url")
-        .eq("team", homeAbbr)
-        .eq("league", "NBA")
-        .order("name");
-      return data || [];
-    },
-  });
-
-  const { data: awayPlayers } = useQuery({
-    queryKey: ["matchup-roster", awayAbbr],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("players")
-        .select("id, name, position, headshot_url")
-        .eq("team", awayAbbr)
-        .eq("league", "NBA")
-        .order("name");
-      return data || [];
-    },
-  });
-
   return (
     <div className="space-y-4">
       {/* Team Records */}
@@ -318,34 +291,6 @@ export function GameMatchupTab({
         </div>
       )}
 
-      {/* Rosters */}
-      {(homePlayers?.length || awayPlayers?.length) ? (
-        <div>
-          <h3 className="text-xs font-semibold text-primary uppercase tracking-widest mb-3 flex items-center gap-1.5">
-            👥 Rosters
-          </h3>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <p className="text-[10px] font-bold text-muted-foreground mb-2">{awayAbbr}</p>
-              {(awayPlayers || []).slice(0, 15).map(p => (
-                <div key={p.id} className="flex items-center gap-1.5 py-1">
-                  <span className="text-[10px] text-foreground">{p.name}</span>
-                  {p.position && <span className="text-[8px] text-muted-foreground">{p.position}</span>}
-                </div>
-              ))}
-            </div>
-            <div>
-              <p className="text-[10px] font-bold text-muted-foreground mb-2">{homeAbbr}</p>
-              {(homePlayers || []).slice(0, 15).map(p => (
-                <div key={p.id} className="flex items-center gap-1.5 py-1">
-                  <span className="text-[10px] text-foreground">{p.name}</span>
-                  {p.position && <span className="text-[8px] text-muted-foreground">{p.position}</span>}
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      ) : null}
     </div>
   );
 }

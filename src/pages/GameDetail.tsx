@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Star, MapPin, Orbit, Moon, Zap, Users, ChevronDown, ChevronUp, TrendingUp, TrendingDown, BarChart3, Lightbulb, Swords, Flame, AlertTriangle, Shield, ListOrdered, TableProperties } from "lucide-react";
+import { ArrowLeft, Star, MapPin, Orbit, Moon, Zap, Users, ChevronDown, ChevronUp, TrendingUp, TrendingDown, Lightbulb, Swords, Flame, AlertTriangle, Shield, ListOrdered, TableProperties } from "lucide-react";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { useQuery } from "@tanstack/react-query";
@@ -414,34 +414,6 @@ const GameDetail = () => {
     enabled: !!game,
   });
 
-  // Fetch team game stats for both teams (season averages)
-  const { data: teamStats } = useQuery({
-    queryKey: ["game-team-stats", game?.home_abbr, game?.away_abbr],
-    queryFn: async () => {
-      if (!game) return { home: null, away: null };
-      const [{ data: homeData }, { data: awayData }] = await Promise.all([
-        supabase.from("team_game_stats").select("*").eq("team_abbr", game.home_abbr).order("created_at", { ascending: false }),
-        supabase.from("team_game_stats").select("*").eq("team_abbr", game.away_abbr).order("created_at", { ascending: false }),
-      ]);
-      const avg = (rows: any[] | null) => {
-        if (!rows || rows.length === 0) return null;
-        const n = rows.length;
-        const mean = (key: string) => {
-          const vals = rows.map(r => r[key]).filter((v: any) => v != null);
-          return vals.length ? vals.reduce((a: number, b: number) => a + b, 0) / vals.length : null;
-        };
-        return {
-          games: n, ppg: mean("points"), off_rating: mean("off_rating"), def_rating: mean("def_rating"),
-          pace: mean("pace"), ts_pct: mean("ts_pct"), efg_pct: mean("efg_pct"), tov_pct: mean("tov_pct"),
-          orb_pct: mean("orb_pct"), ft_per_fga: mean("ft_per_fga"),
-          opp_efg_pct: mean("opp_efg_pct"), opp_tov_pct: mean("opp_tov_pct"),
-          opp_orb_pct: mean("opp_orb_pct"), opp_ft_per_fga: mean("opp_ft_per_fga"),
-        };
-      };
-      return { home: avg(homeData), away: avg(awayData) };
-    },
-    enabled: !!game,
-  });
 
   if (isLoading) {
     return (
@@ -840,55 +812,6 @@ const GameDetail = () => {
               homeTeam={game.home_team}
               awayTeam={game.away_team}
             />
-
-            {/* Team Advanced Stats Comparison */}
-            {(teamStats?.home || teamStats?.away) && (
-              <section>
-                <h3 className="text-xs font-semibold text-primary uppercase tracking-widest mb-3 flex items-center gap-1.5">
-                  <BarChart3 className="h-3.5 w-3.5" />
-                  Team Stats
-                </h3>
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider w-16 text-right">{game.away_abbr}</span>
-                  <span className="text-[9px] text-muted-foreground flex-1 text-center"></span>
-                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider w-16">{game.home_abbr}</span>
-                </div>
-                <div className="space-y-2">
-                  {[
-                    { label: "PPG", key: "ppg", fmt: (v: number | null) => v?.toFixed(1) ?? "—" },
-                    { label: "ORtg", key: "off_rating", fmt: (v: number | null) => v?.toFixed(1) ?? "—" },
-                    { label: "DRtg", key: "def_rating", fmt: (v: number | null) => v?.toFixed(1) ?? "—" },
-                    { label: "Pace", key: "pace", fmt: (v: number | null) => v?.toFixed(1) ?? "—" },
-                    { label: "TS%", key: "ts_pct", fmt: (v: number | null) => v != null ? (v * 100).toFixed(1) + "%" : "—" },
-                    { label: "eFG%", key: "efg_pct", fmt: (v: number | null) => v != null ? (v * 100).toFixed(1) + "%" : "—" },
-                    { label: "TOV%", key: "tov_pct", fmt: (v: number | null) => v?.toFixed(1) ?? "—" },
-                    { label: "ORB%", key: "orb_pct", fmt: (v: number | null) => v?.toFixed(1) ?? "—" },
-                  ].map(stat => {
-                    const awayVal = teamStats?.away?.[stat.key as keyof typeof teamStats.away] as number | null;
-                    const homeVal = teamStats?.home?.[stat.key as keyof typeof teamStats.home] as number | null;
-                    const isBetter = (key: string, a: number | null, b: number | null) => {
-                      if (a == null || b == null) return false;
-                      if (key === "def_rating" || key === "tov_pct") return a < b; // lower is better
-                      return a > b;
-                    };
-                    return (
-                      <div key={stat.label} className="flex items-center gap-2">
-                        <span className={cn("text-xs font-semibold tabular-nums w-16 text-right", isBetter(stat.key, awayVal, homeVal) && "text-cosmic-green")}>
-                          {stat.fmt(awayVal)}
-                        </span>
-                        <span className="text-[9px] text-muted-foreground flex-1 text-center uppercase tracking-wider">{stat.label}</span>
-                        <span className={cn("text-xs font-semibold tabular-nums w-16", isBetter(stat.key, homeVal, awayVal) && "text-cosmic-green")}>
-                          {stat.fmt(homeVal)}
-                        </span>
-                      </div>
-                    );
-                  })}
-                  <p className="text-[9px] text-muted-foreground text-center mt-1">
-                    {teamStats?.away?.games ?? 0}G vs {teamStats?.home?.games ?? 0}G season avg
-                  </p>
-                </div>
-              </section>
-            )}
 
             {/* Injury Report */}
             {(awayInjuries.length > 0 || homeInjuries.length > 0) && (
