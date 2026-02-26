@@ -145,6 +145,7 @@ const PlayerPage = () => {
         .from("player_game_stats")
         .select("*, games!player_game_stats_game_id_fkey(start_time, home_abbr, away_abbr, league)")
         .eq("player_id", id!)
+        .eq("period", "full")
         .not("points", "is", null)
         .order("created_at", { ascending: false })
         .limit(82);
