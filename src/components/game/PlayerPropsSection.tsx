@@ -58,7 +58,27 @@ export function PlayerPropsSection({ gameId }: PlayerPropsProps) {
         .order("player_name", { ascending: true })
         .order("market_key", { ascending: true });
       if (error) throw error;
+      
+      // If no props found, auto-trigger a fetch attempt (fire-and-forget)
+      if (!data || data.length === 0) {
+        fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/fetch-player-props?game_id=${gameId}`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+              apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+            },
+          }
+        ).catch(() => {}); // fire-and-forget
+      }
+      
       return (data || []) as PropRow[];
+    },
+    refetchInterval: (query) => {
+      // Refetch every 60s if no props yet (waiting for auto-fetch)
+      const d = query.state.data;
+      return (!d || d.length === 0) ? 60_000 : false;
     },
   });
 

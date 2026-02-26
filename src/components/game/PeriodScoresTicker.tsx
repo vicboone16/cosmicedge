@@ -96,7 +96,7 @@ export function PeriodScoresTicker({ gameId, league, isLive }: { gameId: string;
         const qMatch = snap.quarter?.match(/Q?(\d+)/i);
         if (!qMatch) continue;
         const qNum = parseInt(qMatch[1]);
-        if (qNum < 1 || qNum > 10) continue; // skip anomalous values
+        if (qNum < 1 || qNum > 20) continue; // allow OT periods (5+)
         qNums.push({ q: qNum, home: snap.home_score ?? 0, away: snap.away_score ?? 0 });
       }
 

@@ -19,7 +19,7 @@ export function GameMatchupTab({
     queryKey: ["matchup-standings", homeAbbr, awayAbbr],
     queryFn: async () => {
       const { data } = await supabase
-        .from("standings")
+        .from("nba_standings")
         .select("*")
         .in("team_abbr", [homeAbbr, awayAbbr])
         .order("season", { ascending: false })
@@ -32,9 +32,9 @@ export function GameMatchupTab({
   const awayStanding = standings?.find(s => s.team_abbr === awayAbbr);
 
   const records = [
-    { label: "Overall", home: homeStanding ? `${homeStanding.wins}-${homeStanding.losses}${homeStanding.ties ? `-${homeStanding.ties}` : ""}` : "—", away: awayStanding ? `${awayStanding.wins}-${awayStanding.losses}${awayStanding.ties ? `-${awayStanding.ties}` : ""}` : "—" },
-    { label: "Home", home: homeStanding?.home_record || "—", away: awayStanding?.home_record || "—" },
-    { label: "Away", home: homeStanding?.away_record || "—", away: awayStanding?.away_record || "—" },
+    { label: "Overall", home: homeStanding ? `${homeStanding.wins ?? 0}-${homeStanding.losses ?? 0}` : "—", away: awayStanding ? `${awayStanding.wins ?? 0}-${awayStanding.losses ?? 0}` : "—" },
+    { label: "Home", home: homeStanding ? `${homeStanding.home_wins ?? 0}-${homeStanding.home_losses ?? 0}` : "—", away: awayStanding ? `${awayStanding.home_wins ?? 0}-${awayStanding.home_losses ?? 0}` : "—" },
+    { label: "Away", home: homeStanding ? `${homeStanding.road_wins ?? 0}-${homeStanding.road_losses ?? 0}` : "—", away: awayStanding ? `${awayStanding.road_wins ?? 0}-${awayStanding.road_losses ?? 0}` : "—" },
     { label: "Streak", home: homeStanding?.streak || "—", away: awayStanding?.streak || "—" },
     { label: "Last 10", home: homeStanding?.last_10 || "—", away: awayStanding?.last_10 || "—" },
   ];
