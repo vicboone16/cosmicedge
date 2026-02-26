@@ -20,7 +20,7 @@ Deno.serve(async (req) => {
 
     if (error) {
       console.error("Aggregation error:", error);
-      return new Response(JSON.stringify({ error: error.message }), {
+      return new Response(JSON.stringify({ error: "Aggregation failed." }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -31,7 +31,8 @@ Deno.serve(async (req) => {
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (e) {
-    return new Response(JSON.stringify({ error: e.message }), {
+    console.error("aggregate-period-stats error:", e);
+    return new Response(JSON.stringify({ error: "An internal error occurred." }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

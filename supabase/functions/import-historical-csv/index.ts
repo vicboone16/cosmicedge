@@ -126,8 +126,27 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Validate file size (10MB max)
+    const MAX_FILE_SIZE = 10 * 1024 * 1024;
+    if (file.size > MAX_FILE_SIZE) {
+      return new Response(
+        JSON.stringify({ success: false, error: "File too large. Maximum 10MB." }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const text = await file.text();
     const rows = parse(text, { skipFirstRow: false }) as string[][];
+
+    // Validate row count (50k max)
+    const MAX_ROWS = 50000;
+    if (rows.length > MAX_ROWS) {
+      return new Response(
+        JSON.stringify({ success: false, error: `Too many rows. Maximum ${MAX_ROWS}.` }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     if (rows.length < 2) {
       return new Response(
         JSON.stringify({ success: false, error: "File has no data rows" }),
