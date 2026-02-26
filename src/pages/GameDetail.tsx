@@ -414,34 +414,6 @@ const GameDetail = () => {
     enabled: !!game,
   });
 
-  // Fetch team game stats for both teams (season averages)
-  const { data: teamStats } = useQuery({
-    queryKey: ["game-team-stats", game?.home_abbr, game?.away_abbr],
-    queryFn: async () => {
-      if (!game) return { home: null, away: null };
-      const [{ data: homeData }, { data: awayData }] = await Promise.all([
-        supabase.from("team_game_stats").select("*").eq("team_abbr", game.home_abbr).order("created_at", { ascending: false }),
-        supabase.from("team_game_stats").select("*").eq("team_abbr", game.away_abbr).order("created_at", { ascending: false }),
-      ]);
-      const avg = (rows: any[] | null) => {
-        if (!rows || rows.length === 0) return null;
-        const n = rows.length;
-        const mean = (key: string) => {
-          const vals = rows.map(r => r[key]).filter((v: any) => v != null);
-          return vals.length ? vals.reduce((a: number, b: number) => a + b, 0) / vals.length : null;
-        };
-        return {
-          games: n, ppg: mean("points"), off_rating: mean("off_rating"), def_rating: mean("def_rating"),
-          pace: mean("pace"), ts_pct: mean("ts_pct"), efg_pct: mean("efg_pct"), tov_pct: mean("tov_pct"),
-          orb_pct: mean("orb_pct"), ft_per_fga: mean("ft_per_fga"),
-          opp_efg_pct: mean("opp_efg_pct"), opp_tov_pct: mean("opp_tov_pct"),
-          opp_orb_pct: mean("opp_orb_pct"), opp_ft_per_fga: mean("opp_ft_per_fga"),
-        };
-      };
-      return { home: avg(homeData), away: avg(awayData) };
-    },
-    enabled: !!game,
-  });
 
   if (isLoading) {
     return (
