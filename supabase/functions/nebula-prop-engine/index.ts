@@ -236,6 +236,15 @@ Deno.serve(async (req) => {
     let errors = 0;
     let skippedNoPlayer = 0;
 
+    // 6a. Fetch PacePulse features for the game
+    let paceFeatures: any = null;
+    try {
+      const { data: paceRows } = await sb.rpc("np_build_pace_features", { p_game_id: gameId });
+      if (paceRows && paceRows.length > 0) paceFeatures = paceRows[0];
+    } catch (_) {
+      console.warn("PacePulse features unavailable for game", gameId);
+    }
+
     for (const prop of mappedProps) {
       const player = playerMap[prop.player_name];
       if (!player) {
@@ -271,7 +280,16 @@ Deno.serve(async (req) => {
           1.0,
         );
 
-        const mu_final = mu_base; // TransitLift not yet applied
+        // Apply PacePulse adjustment: fast-paced games boost counting stats
+        let paceAdjust = 0;
+        if (paceFeatures && paceFeatures.team_pace_delta) {
+          // +1% mu per pace delta point for counting stats
+          const countingProps = ["points", "rebounds", "assists", "threes", "pts_reb_ast", "pts_reb", "pts_ast", "reb_ast"];
+          if (countingProps.includes(prop.prop_type)) {
+            paceAdjust = (paceFeatures.team_pace_delta / 100) * mu_base;
+          }
+        }
+        const mu_final = mu_base + paceAdjust;
         const sigma_final = Math.max(sigma_base, 0.5);
 
         const line = prop.line;
@@ -344,6 +362,9 @@ Deno.serve(async (req) => {
           edge_season: components.edge_season,
           edge_vol_penalty: components.edge_vol_penalty,
           edge_astro: components.edge_astro,
+          expected_possessions: paceFeatures?.expected_possessions ?? null,
+          blowout_risk: paceFeatures?.blowout_risk ?? null,
+          team_pace_delta: paceFeatures?.team_pace_delta ?? null,
         });
 
         nebulaPredictions.push({

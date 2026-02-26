@@ -70,8 +70,9 @@ Deno.serve(async (req) => {
     const dateFrom = body.date_from || body.date || yesterday.toISOString().slice(0, 10);
     const dateTo = body.date_to || body.date || now.toISOString().slice(0, 10);
     const limit = parseInt(body.limit || "20");
+    const force = body.force === true || body.force === "true";
 
-    console.log(`[normalize-boxscores] Date range: ${dateFrom} to ${dateTo}, limit=${limit}`);
+    console.log(`[normalize-boxscores] Date range: ${dateFrom} to ${dateTo}, limit=${limit}, force=${force}`);
 
     // 1. Find finalized NBA games missing player stats
     const { data: finalGames, error: gErr } = await supabase
@@ -90,15 +91,19 @@ Deno.serve(async (req) => {
       return respond({ ok: true, processed: 0 });
     }
 
-    // Check which already have stats
-    const gameIds = finalGames.map(g => g.id);
-    const { data: existing } = await supabase
-      .from("player_game_stats")
-      .select("game_id")
-      .in("game_id", gameIds);
+    let toProcess = finalGames;
 
-    const hasStats = new Set((existing || []).map(s => s.game_id));
-    const toProcess = finalGames.filter(g => !hasStats.has(g.id));
+    if (!force) {
+      // Check which already have stats — skip those
+      const gameIds = finalGames.map(g => g.id);
+      const { data: existing } = await supabase
+        .from("player_game_stats")
+        .select("game_id")
+        .in("game_id", gameIds);
+
+      const hasStats = new Set((existing || []).map(s => s.game_id));
+      toProcess = finalGames.filter(g => !hasStats.has(g.id));
+    }
 
     if (!toProcess.length) {
       console.log(`[normalize-boxscores] All ${finalGames.length} games already have stats`);
