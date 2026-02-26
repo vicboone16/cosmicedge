@@ -22,6 +22,13 @@ const BET_CATEGORIES = [
   { value: "player_prop", label: "Player Prop", icon: User },
 ];
 
+const BET_TYPE_OPTIONS = [
+  { value: "straight", label: "Straight" },
+  { value: "parlay", label: "Parlay" },
+  { value: "same_game_parlay", label: "SGP" },
+  { value: "round_robin", label: "Round Robin" },
+];
+
 const GAME_MARKET_TYPES = [
   { value: "moneyline", label: "Moneyline" },
   { value: "spread", label: "Spread" },
@@ -111,6 +118,33 @@ interface CreateBetFormProps {
   onPrefillConsumed?: () => void;
 }
 
+/** Compute C(n, k) */
+function combinations(n: number, k: number): number {
+  if (k > n || k < 0) return 0;
+  if (k === 0 || k === n) return 1;
+  let result = 1;
+  for (let i = 0; i < k; i++) {
+    result = result * (n - i) / (i + 1);
+  }
+  return Math.round(result);
+}
+
+/** Generate all k-sized subsets of indices [0..n-1] */
+function generateCombinations(n: number, k: number): number[][] {
+  const result: number[][] = [];
+  const combo: number[] = [];
+  function backtrack(start: number) {
+    if (combo.length === k) { result.push([...combo]); return; }
+    for (let i = start; i < n; i++) {
+      combo.push(i);
+      backtrack(i + 1);
+      combo.pop();
+    }
+  }
+  backtrack(0);
+  return result;
+}
+
 function americanToDecimal(odds: number): number {
   if (odds > 0) return (odds / 100) + 1;
   return (100 / Math.abs(odds)) + 1;
@@ -123,8 +157,12 @@ export default function CreateBetForm({ userId, prefill, onPrefillConsumed }: Cr
 
   const [selectedDate, setSelectedDate] = useState<string>("all");
   const [legs, setLegs] = useState<BetLeg[]>([emptyLeg()]);
-  const [sgpMode, setSgpMode] = useState(false);
+  const [betType, setBetType] = useState<"straight" | "parlay" | "same_game_parlay" | "round_robin">("straight");
+  const sgpMode = betType === "same_game_parlay";
   const isParlay = legs.length > 1;
+  const isRoundRobin = betType === "round_robin";
+  const [rrKLeg, setRrKLeg] = useState(2);
+  const [rrStakeMode, setRrStakeMode] = useState<"per_parlay" | "total_stake">("per_parlay");
 
   const [book, setBook] = useState("");
   const [stakeAmount, setStakeAmount] = useState("");
@@ -251,7 +289,8 @@ export default function CreateBetForm({ userId, prefill, onPrefillConsumed }: Cr
     setLegs([emptyLeg()]);
     setBook(""); setStakeAmount(""); setStakeUnit("$");
     setConfidence([50]); setEdgeScore([50]);
-    setWhySummary(""); setNotes(""); setSelectedDate("all"); setSgpMode(false);
+    setWhySummary(""); setNotes(""); setSelectedDate("all"); setBetType("straight");
+    setRrKLeg(2); setRrStakeMode("per_parlay");
   };
 
   const calculateParlayOdds = (): number | null => {
@@ -263,9 +302,23 @@ export default function CreateBetForm({ userId, prefill, onPrefillConsumed }: Cr
     return Math.round(-100 / (combinedDecimal - 1));
   };
 
+  // Round Robin computed values
+  const rrNumSubParlays = useMemo(() => isRoundRobin ? combinations(legs.length, rrKLeg) : 0, [legs.length, rrKLeg, isRoundRobin]);
+  const rrTotalStake = useMemo(() => {
+    const stake = parseFloat(stakeAmount);
+    if (!stake || isNaN(stake) || !isRoundRobin) return 0;
+    return rrStakeMode === "per_parlay" ? stake * rrNumSubParlays : stake;
+  }, [stakeAmount, rrNumSubParlays, rrStakeMode, isRoundRobin]);
+  const rrStakePerParlay = useMemo(() => {
+    const stake = parseFloat(stakeAmount);
+    if (!stake || isNaN(stake) || !isRoundRobin || rrNumSubParlays === 0) return 0;
+    return rrStakeMode === "per_parlay" ? stake : Math.round((stake / rrNumSubParlays) * 100) / 100;
+  }, [stakeAmount, rrNumSubParlays, rrStakeMode, isRoundRobin]);
+
   const projectedWin = useMemo(() => {
     const stake = parseFloat(stakeAmount);
     if (!stake || isNaN(stake)) return null;
+    if (isRoundRobin) return null; // RR shows total stake instead
     if (isParlay) {
       const parlayOdds = calculateParlayOdds();
       if (!parlayOdds) return null;
@@ -277,7 +330,7 @@ export default function CreateBetForm({ userId, prefill, onPrefillConsumed }: Cr
       if (odds > 0) return (stake * odds / 100).toFixed(2);
       return (stake * 100 / Math.abs(odds)).toFixed(2);
     }
-  }, [stakeAmount, legs, isParlay]);
+  }, [stakeAmount, legs, isParlay, isRoundRobin]);
 
   const handleSubmit = async () => {
     for (let i = 0; i < legs.length; i++) {
@@ -292,9 +345,55 @@ export default function CreateBetForm({ userId, prefill, onPrefillConsumed }: Cr
       }
     }
 
+    if (isRoundRobin) {
+      if (legs.length < rrKLeg || rrKLeg < 2) {
+        toast.error(`Round Robin requires at least ${rrKLeg} picks (you have ${legs.length}).`);
+        return;
+      }
+      if (!stakeAmount || isNaN(parseFloat(stakeAmount))) {
+        toast.error("Enter a stake amount for Round Robin.");
+        return;
+      }
+    }
+
     setSubmitting(true);
 
-    if (isParlay) {
+    if (isRoundRobin) {
+      // Generate all sub-parlays
+      const combos = generateCombinations(legs.length, rrKLeg);
+      const rrId = `rr_${rrKLeg}_${Date.now()}`;
+      const inserts: any[] = [];
+
+      combos.forEach((combo, comboIdx) => {
+        const subParlayId = `RR-${rrKLeg}-${String(comboIdx + 1).padStart(3, "0")}`;
+        const comboLegs = combo.map(i => legs[i]);
+        const comboOdds = comboLegs.map(l => americanToDecimal(parseInt(l.odds, 10)));
+        const combinedDec = comboOdds.reduce((a, d) => a * d, 1);
+        const combinedAmerican = combinedDec >= 2 ? Math.round((combinedDec - 1) * 100) : Math.round(-100 / (combinedDec - 1));
+
+        comboLegs.forEach((leg, legIdx) => {
+          const game = games?.find(g => g.id === leg.gameId);
+          inserts.push({
+            user_id: userId, game_id: leg.gameId,
+            home_team: game?.home_team ?? null, away_team: game?.away_team ?? null,
+            start_time: game?.start_time ?? null,
+            market_type: leg.category === "player_prop" ? "player_prop" : leg.marketType,
+            selection: leg.selection, side: leg.side || null,
+            line: leg.line ? parseFloat(leg.line) : null,
+            odds: parseInt(leg.odds, 10), book: book || null,
+            stake_amount: rrStakePerParlay,
+            stake_unit: stakeUnit, confidence: confidence[0], edge_score: edgeScore[0],
+            why_summary: whySummary || null,
+            notes: `${rrId} | ${subParlayId} Leg ${legIdx + 1}/${rrKLeg} | Combined: ${combinedAmerican > 0 ? "+" : ""}${combinedAmerican} | RR ${rrKLeg}'s (${combos.length} sub-parlays, total $${rrTotalStake.toFixed(2)})${notes ? ` | ${notes}` : ""}`,
+          });
+        });
+      });
+
+      const { error } = await supabase.from("bets").insert(inserts);
+      setSubmitting(false);
+      if (error) { toast.error("Failed: " + error.message); }
+      else { toast.success(`Round Robin ${rrKLeg}'s: ${combos.length} sub-parlays created!`); resetForm(); setOpen(false); queryClient.invalidateQueries({ queryKey: ["skyspread-bets"] }); }
+    } else if (isParlay) {
       const parlayId = `parlay_${Date.now()}`;
       const parlayOdds = calculateParlayOdds();
       const inserts = legs.map((leg, i) => {
@@ -350,21 +449,26 @@ export default function CreateBetForm({ userId, prefill, onPrefillConsumed }: Cr
       <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="font-display">
-            {sgpMode ? "Same Game Parlay" : isParlay ? `Create Parlay (${legs.length} legs)` : "Create Bet"}
+            {betType === "same_game_parlay" ? "Same Game Parlay" : betType === "round_robin" ? `Round Robin (${rrKLeg}'s)` : isParlay ? `Create Parlay (${legs.length} legs)` : "Create Bet"}
           </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4 pt-2">
-          {/* SGP Toggle */}
-          <div className="flex gap-2">
-            <button onClick={() => setSgpMode(false)}
-              className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition-colors ${!sgpMode ? "bg-primary text-primary-foreground" : "bg-secondary/60 text-muted-foreground"}`}>
-              Standard
-            </button>
-            <button onClick={() => { setSgpMode(true); if (legs.length < 2) addLeg(); }}
-              className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center justify-center gap-1 ${sgpMode ? "bg-primary text-primary-foreground" : "bg-secondary/60 text-muted-foreground"}`}>
-              <Zap className="h-3 w-3" /> SGP
-            </button>
+          {/* Bet Type Selector */}
+          <div className="flex gap-1">
+            {BET_TYPE_OPTIONS.map(opt => (
+              <button key={opt.value}
+                onClick={() => {
+                  const newType = opt.value as typeof betType;
+                  setBetType(newType);
+                  if ((newType === "same_game_parlay" || newType === "parlay" || newType === "round_robin") && legs.length < 2) addLeg();
+                }}
+                className={`flex-1 py-1.5 rounded-lg text-[10px] font-semibold transition-colors ${
+                  betType === opt.value ? "bg-primary text-primary-foreground" : "bg-secondary/60 text-muted-foreground"
+                }`}>
+                {opt.label}
+              </button>
+            ))}
           </div>
 
           {/* Date Filter */}
@@ -402,11 +506,85 @@ export default function CreateBetForm({ userId, prefill, onPrefillConsumed }: Cr
 
           {/* Add Leg Button */}
           <Button variant="outline" size="sm" onClick={addLeg} className="w-full text-xs">
-            <Plus className="h-3 w-3 mr-1" /> Add Leg {sgpMode ? "(SGP)" : "(Parlay)"}
+            <Plus className="h-3 w-3 mr-1" /> Add Leg {sgpMode ? "(SGP)" : betType === "round_robin" ? "(RR)" : "(Parlay)"}
           </Button>
 
+          {/* Round Robin Configuration */}
+          {isRoundRobin && legs.length >= 2 && (
+            <div className="cosmic-card rounded-xl p-3 space-y-3 border-primary/20">
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Round Robin Settings</h4>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">K-Leg (combo size)</Label>
+                  <Select value={String(rrKLeg)} onValueChange={(v) => setRrKLeg(parseInt(v, 10))}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {Array.from({ length: Math.max(legs.length - 1, 1) }, (_, i) => i + 2)
+                        .filter(k => k <= legs.length)
+                        .map(k => (
+                          <SelectItem key={k} value={String(k)}>{k}'s ({combinations(legs.length, k)} parlays)</SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Stake Mode</Label>
+                  <Select value={rrStakeMode} onValueChange={(v) => setRrStakeMode(v as "per_parlay" | "total_stake")}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="per_parlay">Per Parlay</SelectItem>
+                      <SelectItem value="total_stake">Total Stake</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {/* RR Summary */}
+              <div className="bg-primary/10 rounded-lg p-2 space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] text-muted-foreground">Sub-parlays</span>
+                  <span className="text-xs font-bold tabular-nums">{rrNumSubParlays}</span>
+                </div>
+                {stakeAmount && (
+                  <>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] text-muted-foreground">Per parlay</span>
+                      <span className="text-xs font-bold tabular-nums">${rrStakePerParlay.toFixed(2)}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] text-muted-foreground">Total stake</span>
+                      <span className="text-xs font-bold text-primary tabular-nums">${rrTotalStake.toFixed(2)}</span>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* Expandable combo list */}
+              {legs.length >= rrKLeg && (
+                <details className="text-[10px]">
+                  <summary className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors">
+                    View {rrNumSubParlays} combinations
+                  </summary>
+                  <div className="mt-1 space-y-0.5 max-h-32 overflow-y-auto">
+                    {generateCombinations(legs.length, rrKLeg).map((combo, ci) => (
+                      <div key={ci} className="flex items-center gap-1 text-muted-foreground">
+                        <span className="text-primary font-mono">RR-{rrKLeg}-{String(ci + 1).padStart(3, "0")}</span>
+                        <span>→</span>
+                        {combo.map(i => (
+                          <span key={i} className="bg-secondary px-1 rounded text-foreground">
+                            {legs[i]?.selection?.slice(0, 20) || `Leg ${i + 1}`}
+                          </span>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                </details>
+              )}
+            </div>
+          )}
+
           {/* Parlay odds preview */}
-          {isParlay && calculateParlayOdds() && (
+          {isParlay && !isRoundRobin && calculateParlayOdds() && (
             <div className="cosmic-card rounded-lg p-2 text-center">
               <p className="text-[10px] text-muted-foreground">Combined {sgpMode ? "SGP" : "Parlay"} Odds</p>
               <p className="text-sm font-bold font-display text-primary tabular-nums">
@@ -484,7 +662,7 @@ export default function CreateBetForm({ userId, prefill, onPrefillConsumed }: Cr
           </div>
 
           <Button onClick={handleSubmit} disabled={submitting} className="w-full">
-            {submitting ? "Creating..." : sgpMode ? `Create SGP (${legs.length} legs)` : isParlay ? `Create ${legs.length}-Leg Parlay` : "Create Bet"}
+            {submitting ? "Creating..." : isRoundRobin ? `Create RR ${rrKLeg}'s (${rrNumSubParlays} parlays)` : sgpMode ? `Create SGP (${legs.length} legs)` : isParlay ? `Create ${legs.length}-Leg Parlay` : "Create Bet"}
           </Button>
         </div>
       </DialogContent>

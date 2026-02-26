@@ -190,6 +190,12 @@ Deno.serve(async (req) => {
       return await syncStandings(supabase, apiKey, season, writeMode, addLog, t0);
     }
 
+    // ── MODE: sync_players ───────────────────────────────────────────────
+    if (mode === "sync_players") {
+      const teamIds = body.team_ids as string[] | undefined;
+      return await syncPlayers(supabase, apiKey, season, teamIds, writeMode, addLog, t0);
+    }
+
     // ── MODE: backfill — fetch all past games for the season ─────────────
     if (mode === "backfill") {
       const startDate = (body.start_date as string) || `${seasonYear}-11-01`;
@@ -1002,6 +1008,166 @@ async function backfillH2H(
     JSON.stringify({
       success: true, mode: "backfill_h2h",
       team_id: teamId, total_games: games.length, processed,
+      write_mode: writeMode, log, latency_ms: Date.now() - t0,
+    }),
+    { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+  );
+}
+
+// ── MODE: sync_players — fetch rosters for NCAAB teams and upsert players ─
+async function syncPlayers(
+  supabase: ReturnType<typeof createClient>,
+  apiKey: string,
+  season: string,
+  teamIds: string[] | undefined,
+  writeMode: string,
+  addLog: (msg: string) => void,
+  t0: number
+) {
+  // If no team_ids provided, fetch all teams from api_cache
+  let targetTeamIds: string[] = [];
+
+  if (teamIds && teamIds.length > 0) {
+    targetTeamIds = teamIds;
+  } else {
+    // Fetch cached team mappings
+    const { data: cached } = await supabase
+      .from("api_cache")
+      .select("cache_key, payload")
+      .like("cache_key", "ncaab_team_%")
+      .limit(500);
+
+    targetTeamIds = (cached || [])
+      .map(c => (c.payload as any)?.api_team_id)
+      .filter(Boolean)
+      .map(String);
+    addLog(`Found ${targetTeamIds.length} cached NCAAB teams`);
+  }
+
+  if (targetTeamIds.length === 0) {
+    addLog("No team IDs to sync players for. Run sync_teams first.");
+    return new Response(
+      JSON.stringify({ success: false, error: "No teams. Run sync_teams first.", log, latency_ms: Date.now() - t0 }),
+      { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+
+  // Process in batches of 4 to avoid rate limits
+  const BATCH_SIZE = 4;
+  let totalPlayers = 0;
+  let upserted = 0;
+  const errors: string[] = [];
+
+  for (let batchStart = 0; batchStart < targetTeamIds.length; batchStart += BATCH_SIZE) {
+    const batch = targetTeamIds.slice(batchStart, batchStart + BATCH_SIZE);
+    addLog(`Processing teams ${batchStart + 1}-${Math.min(batchStart + BATCH_SIZE, targetTeamIds.length)} of ${targetTeamIds.length}`);
+
+    for (const teamId of batch) {
+      try {
+        const resp = await fetch(
+          `${API_BASKETBALL_BASE}/players?team=${teamId}&season=${season}`,
+          { headers: { "x-apisports-key": apiKey } }
+        );
+
+        if (resp.status === 429) {
+          addLog(`Rate limited on team ${teamId}, waiting 10s...`);
+          await new Promise(r => setTimeout(r, 10000));
+          continue;
+        }
+
+        if (!resp.ok) {
+          addLog(`Players fetch for team ${teamId} failed: ${resp.status}`);
+          errors.push(`team_${teamId}: ${resp.status}`);
+          continue;
+        }
+
+        const json = await resp.json();
+        const players = json.response || [];
+        totalPlayers += players.length;
+
+        // Resolve team abbreviation
+        const cacheKey = `ncaab_team_${teamId}`;
+        const { data: teamCache } = await supabase
+          .from("api_cache").select("payload").eq("cache_key", cacheKey).maybeSingle();
+        const teamAbbr = (teamCache?.payload as any)?.abbr || `T${teamId}`;
+        const teamName = (teamCache?.payload as any)?.team_name || "";
+
+        if (writeMode === "dry_run") {
+          addLog(`[DRY] Team ${teamAbbr}: ${players.length} players`);
+          continue;
+        }
+
+        // Upsert players
+        const playerRows = players.map((p: any) => ({
+          name: `${p.firstname || ""} ${p.lastname || ""}`.trim() || p.name || `Player ${p.id}`,
+          team: teamAbbr,
+          league: "NCAAB",
+          position: p.position || null,
+          external_id: `api-basketball-${p.id}`,
+          status: "active",
+          birth_date: p.birth?.date || null,
+          height: p.height ? String(p.height) : null,
+          weight: p.weight ? String(p.weight) : null,
+          updated_at: new Date().toISOString(),
+        }));
+
+        // Batch upsert by external_id
+        for (let i = 0; i < playerRows.length; i += 50) {
+          const chunk = playerRows.slice(i, i + 50);
+          // Check which players already exist
+          const extIds = chunk.map((r: any) => r.external_id);
+          const { data: existing } = await supabase
+            .from("players")
+            .select("id, external_id")
+            .in("external_id", extIds);
+
+          const existingMap = new Map((existing || []).map(e => [e.external_id, e.id]));
+
+          const toInsert = chunk.filter((r: any) => !existingMap.has(r.external_id));
+          const toUpdate = chunk.filter((r: any) => existingMap.has(r.external_id));
+
+          if (toInsert.length > 0) {
+            const { error: insertErr } = await supabase.from("players").insert(toInsert);
+            if (insertErr) {
+              addLog(`Insert error for team ${teamAbbr}: ${insertErr.message}`);
+            } else {
+              upserted += toInsert.length;
+            }
+          }
+
+          for (const upd of toUpdate) {
+            const existingId = existingMap.get(upd.external_id);
+            if (existingId) {
+              await supabase.from("players").update({
+                team: upd.team,
+                position: upd.position,
+                status: upd.status,
+                updated_at: upd.updated_at,
+              }).eq("id", existingId);
+              upserted++;
+            }
+          }
+        }
+
+        addLog(`Team ${teamAbbr} (${teamName}): ${players.length} players synced`);
+      } catch (e: any) {
+        addLog(`Error syncing team ${teamId}: ${e.message}`);
+        errors.push(`team_${teamId}: ${e.message}`);
+      }
+    }
+
+    // Brief pause between batches to respect rate limits
+    if (batchStart + BATCH_SIZE < targetTeamIds.length) {
+      await new Promise(r => setTimeout(r, 2000));
+    }
+  }
+
+  return new Response(
+    JSON.stringify({
+      success: true, mode: "sync_players",
+      teams_processed: targetTeamIds.length,
+      total_players: totalPlayers, upserted,
+      errors: errors.length > 0 ? errors : undefined,
       write_mode: writeMode, log, latency_ms: Date.now() - t0,
     }),
     { headers: { ...corsHeaders, "Content-Type": "application/json" } }
