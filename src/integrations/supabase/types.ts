@@ -1289,6 +1289,7 @@ export type Database = {
           astro_sigma_adjust: number | null
           blowout_risk: number | null
           coeff_of_var: number | null
+          confidence_tier: string | null
           created_at: string
           current_line: number | null
           delta_minutes: number | null
@@ -1297,7 +1298,9 @@ export type Database = {
           edge_line_move: number | null
           edge_matchup: number | null
           edge_minutes: number | null
+          edge_raw: number | null
           edge_score: number | null
+          edge_score_v20: number | null
           edge_season: number | null
           edge_vol_penalty: number | null
           expected_possessions: number | null
@@ -1317,8 +1320,12 @@ export type Database = {
           odds: number | null
           one_liner: string | null
           open_line: number | null
+          p_implied: number | null
+          p_model: number | null
           p_over_base: number | null
           p_over_final: number | null
+          pace_mu_adjust: number | null
+          pace_sigma_adjust: number | null
           player_id: string
           prop_type: string
           quality_flags: string[] | null
@@ -1336,6 +1343,7 @@ export type Database = {
           astro_sigma_adjust?: number | null
           blowout_risk?: number | null
           coeff_of_var?: number | null
+          confidence_tier?: string | null
           created_at?: string
           current_line?: number | null
           delta_minutes?: number | null
@@ -1344,7 +1352,9 @@ export type Database = {
           edge_line_move?: number | null
           edge_matchup?: number | null
           edge_minutes?: number | null
+          edge_raw?: number | null
           edge_score?: number | null
+          edge_score_v20?: number | null
           edge_season?: number | null
           edge_vol_penalty?: number | null
           expected_possessions?: number | null
@@ -1364,8 +1374,12 @@ export type Database = {
           odds?: number | null
           one_liner?: string | null
           open_line?: number | null
+          p_implied?: number | null
+          p_model?: number | null
           p_over_base?: number | null
           p_over_final?: number | null
+          pace_mu_adjust?: number | null
+          pace_sigma_adjust?: number | null
           player_id: string
           prop_type: string
           quality_flags?: string[] | null
@@ -1383,6 +1397,7 @@ export type Database = {
           astro_sigma_adjust?: number | null
           blowout_risk?: number | null
           coeff_of_var?: number | null
+          confidence_tier?: string | null
           created_at?: string
           current_line?: number | null
           delta_minutes?: number | null
@@ -1391,7 +1406,9 @@ export type Database = {
           edge_line_move?: number | null
           edge_matchup?: number | null
           edge_minutes?: number | null
+          edge_raw?: number | null
           edge_score?: number | null
+          edge_score_v20?: number | null
           edge_season?: number | null
           edge_vol_penalty?: number | null
           expected_possessions?: number | null
@@ -1411,8 +1428,12 @@ export type Database = {
           odds?: number | null
           one_liner?: string | null
           open_line?: number | null
+          p_implied?: number | null
+          p_model?: number | null
           p_over_base?: number | null
           p_over_final?: number | null
+          pace_mu_adjust?: number | null
+          pace_sigma_adjust?: number | null
           player_id?: string
           prop_type?: string
           quality_flags?: string[] | null
@@ -1773,9 +1794,13 @@ export type Database = {
           astro: Json | null
           book: string
           confidence: number
+          confidence_adjustment: number | null
+          confidence_tier: string | null
           created_at: string
+          edge_raw: number | null
           edge_score: number
           edge_score_v11: number | null
+          edge_score_v20: number | null
           game_id: string
           hit_l10: number | null
           hit_l20: number | null
@@ -1785,6 +1810,10 @@ export type Database = {
           mu: number
           odds: number | null
           one_liner: string | null
+          p_implied: number | null
+          p_model: number | null
+          pace_mu_adjust: number | null
+          pace_sigma_adjust: number | null
           player_id: string
           pred_ts: string
           prop_type: string
@@ -1792,15 +1821,21 @@ export type Database = {
           side: string | null
           sigma: number
           streak: number | null
+          transit_boost_factor: number | null
           updated_at: string
+          volatility_shift: number | null
         }
         Insert: {
           astro?: Json | null
           book?: string
           confidence?: number
+          confidence_adjustment?: number | null
+          confidence_tier?: string | null
           created_at?: string
+          edge_raw?: number | null
           edge_score?: number
           edge_score_v11?: number | null
+          edge_score_v20?: number | null
           game_id: string
           hit_l10?: number | null
           hit_l20?: number | null
@@ -1810,6 +1845,10 @@ export type Database = {
           mu?: number
           odds?: number | null
           one_liner?: string | null
+          p_implied?: number | null
+          p_model?: number | null
+          pace_mu_adjust?: number | null
+          pace_sigma_adjust?: number | null
           player_id: string
           pred_ts?: string
           prop_type: string
@@ -1817,15 +1856,21 @@ export type Database = {
           side?: string | null
           sigma?: number
           streak?: number | null
+          transit_boost_factor?: number | null
           updated_at?: string
+          volatility_shift?: number | null
         }
         Update: {
           astro?: Json | null
           book?: string
           confidence?: number
+          confidence_adjustment?: number | null
+          confidence_tier?: string | null
           created_at?: string
+          edge_raw?: number | null
           edge_score?: number
           edge_score_v11?: number | null
+          edge_score_v20?: number | null
           game_id?: string
           hit_l10?: number | null
           hit_l20?: number | null
@@ -1835,6 +1880,10 @@ export type Database = {
           mu?: number
           odds?: number | null
           one_liner?: string | null
+          p_implied?: number | null
+          p_model?: number | null
+          pace_mu_adjust?: number | null
+          pace_sigma_adjust?: number | null
           player_id?: string
           pred_ts?: string
           prop_type?: string
@@ -1842,7 +1891,9 @@ export type Database = {
           side?: string | null
           sigma?: number
           streak?: number | null
+          transit_boost_factor?: number | null
           updated_at?: string
+          volatility_shift?: number | null
         }
         Relationships: [
           {

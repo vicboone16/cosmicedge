@@ -40,7 +40,7 @@ const MARKET_TO_PROP: Record<string, string> = {
   player_reb_ast: "reb_ast",
 };
 
-/* ──────────── EdgeScore computation ──────────── */
+/* ──────────── EdgeScore v1 computation (legacy) ──────────── */
 
 interface Features {
   hit_l5: number;
@@ -66,7 +66,7 @@ function computeEdgeScore(
 ): { edge_score: number; components: Record<string, number> } {
   const hitRateScore = (f.hit_l10 ?? 0) * 100;
   const minutesTrendScore = clamp(50 + (f.delta_minutes ?? 0) * (50 / 3), 0, 100);
-  const matchupScore = 50; // placeholder
+  const matchupScore = 50;
   const lmDelta = lineMoveDelta ?? 0;
   const lineMovementScore = clamp(50 + lmDelta * 10, 0, 100);
   const seasonHitRateScore = (f.hit_l20 ?? f.hit_l10 ?? 0) * 100;
@@ -96,49 +96,77 @@ function computeEdgeScore(
   };
 }
 
+/* ──────────── PacePulse Adjustments (exact user formulas) ──────────── */
+// α = 0.6 (pace impacts mean), β = 0.25 (blowout suppresses mean), γ = 0.35 (minutes vol bumps variance)
+const PACE_ALPHA = 0.6;
+const PACE_BETA = 0.25;
+const PACE_GAMMA = 0.35;
+
+interface PaceAdjustments {
+  mu_adjusted: number;
+  sigma_adjusted: number;
+  pace_mu_adjust: number;
+  pace_sigma_adjust: number;
+}
+
+function applyPacePulse(
+  mu0: number,
+  sigma0: number,
+  teamPaceDelta: number | null,
+  blowoutRisk: number | null,
+  minutesVolatility: number | null,
+): PaceAdjustments {
+  const paceDelta = (teamPaceDelta ?? 0) / 100; // convert percentage
+  const blowout = blowoutRisk ?? 0;
+  const minVol = minutesVolatility ?? 0;
+
+  // μ₁ = μ₀ · (1 + α·pace_delta) · (1 - β·blowout_risk)
+  const mu1 = mu0 * (1 + PACE_ALPHA * paceDelta) * (1 - PACE_BETA * blowout);
+  // σ₁ = σ₀ · (1 + γ·minutes_volatility)
+  const sigma1 = sigma0 * (1 + PACE_GAMMA * minVol);
+
+  return {
+    mu_adjusted: mu1,
+    sigma_adjusted: Math.max(sigma1, 0.5),
+    pace_mu_adjust: +(mu1 - mu0).toFixed(6),
+    pace_sigma_adjust: +(sigma1 - sigma0).toFixed(6),
+  };
+}
+
 /* ──────────── TransitLift (Phase 1E) ──────────── */
 
 interface TransitLiftResult {
   astro_mu_adjust: number;
   astro_sigma_adjust: number;
-  astro_boost: number;   // 0-1 for edge score
+  astro_boost: number;
+  transit_boost_factor: number;   // [-0.03, +0.03]
+  volatility_shift: number;      // [-0.08, +0.12]
+  confidence_adjustment: number; // [-0.10, +0.10]
   astro_summary: Record<string, any> | null;
 }
 
 function computeTransitLift(
   transits: Array<{ aspect: string; planet: string; natal_planet?: string; orb?: number }>,
 ): TransitLiftResult {
-  if (!transits || transits.length === 0) {
-    return { astro_mu_adjust: 0, astro_sigma_adjust: 0, astro_boost: 0, astro_summary: null };
-  }
-
-  // Aspect weights: positive = boost, negative = drag
-  const ASPECT_WEIGHTS: Record<string, number> = {
-    conjunction: 0.6,
-    trine: 0.5,
-    sextile: 0.3,
-    square: -0.4,
-    opposition: -0.3,
-    quincunx: -0.15,
+  const empty: TransitLiftResult = {
+    astro_mu_adjust: 0, astro_sigma_adjust: 0, astro_boost: 0,
+    transit_boost_factor: 0, volatility_shift: 0, confidence_adjustment: 0,
+    astro_summary: null,
   };
+  if (!transits || transits.length === 0) return empty;
 
-  // Planet relevance to athletic performance
+  const ASPECT_WEIGHTS: Record<string, number> = {
+    conjunction: 0.6, trine: 0.5, sextile: 0.3,
+    square: -0.4, opposition: -0.3, quincunx: -0.15,
+  };
   const PLANET_WEIGHTS: Record<string, number> = {
-    mars: 1.0,     // energy, aggression
-    jupiter: 0.8,  // expansion, luck
-    sun: 0.7,      // vitality
-    moon: 0.5,     // emotion, rhythm
-    venus: 0.3,    // finesse
-    mercury: 0.4,  // agility, decisions
-    saturn: -0.6,  // restriction, fatigue
-    neptune: -0.3, // confusion
-    uranus: 0.2,   // unpredictability (adds sigma)
-    pluto: 0.4,    // intensity
+    mars: 1.0, jupiter: 0.8, sun: 0.7, moon: 0.5, venus: 0.3,
+    mercury: 0.4, saturn: -0.6, neptune: -0.3, uranus: 0.2, pluto: 0.4,
   };
 
   let muSignal = 0;
   let sigmaSignal = 0;
-  let totalWeight = 0;
+  let confSignal = 0;
 
   for (const t of transits) {
     const aspectKey = (t.aspect || "").toLowerCase().replace(/\s+/g, "");
@@ -149,30 +177,103 @@ function computeTransitLift(
 
     const signal = aspectW * planetW * orbDecay;
     muSignal += signal;
-    totalWeight += Math.abs(signal);
 
-    // Uranus transits increase volatility
-    if (planetKey === "uranus") {
-      sigmaSignal += Math.abs(aspectW) * orbDecay * 0.5;
-    }
-    // Saturn squares/oppositions increase volatility
-    if (planetKey === "saturn" && aspectW < 0) {
-      sigmaSignal += Math.abs(aspectW) * orbDecay * 0.3;
-    }
+    // Confidence: positive aspects boost confidence, negative drag it
+    confSignal += signal * 0.3;
+
+    if (planetKey === "uranus") sigmaSignal += Math.abs(aspectW) * orbDecay * 0.5;
+    if (planetKey === "saturn" && aspectW < 0) sigmaSignal += Math.abs(aspectW) * orbDecay * 0.3;
   }
 
-  // Cap adjustments: ±3% mu, ±10% sigma
-  const mu_adjust = clamp(muSignal * 0.01, -0.03, 0.03);
-  const sigma_adjust = clamp(sigmaSignal * 0.05, 0, 0.10);
+  // Exact bounds from spec:
+  // transit_boost_factor: [-0.03, +0.03]
+  const transit_boost_factor = clamp(muSignal * 0.01, -0.03, 0.03);
+  // volatility_shift: [-0.08, +0.12]
+  const volatility_shift = clamp(sigmaSignal * 0.05 - 0.02, -0.08, 0.12);
+  // confidence_adjustment: [-0.10, +0.10]
+  const confidence_adjustment = clamp(confSignal * 0.05, -0.10, 0.10);
 
-  // Boost for edge score (0-1 scale, centered at 0.5)
   const astro_boost = clamp(0.5 + muSignal * 0.1, 0, 1);
 
   return {
-    astro_mu_adjust: mu_adjust,
-    astro_sigma_adjust: sigma_adjust,
+    astro_mu_adjust: transit_boost_factor,  // fractional, applied as μ₂ = μ₁ · (1 + transit_boost_factor)
+    astro_sigma_adjust: volatility_shift,   // fractional, applied as σ₂ = σ₁ · (1 + volatility_shift)
     astro_boost,
-    astro_summary: { transit_count: transits.length, mu_signal: +muSignal.toFixed(4), sigma_signal: +sigmaSignal.toFixed(4) },
+    transit_boost_factor,
+    volatility_shift,
+    confidence_adjustment,
+    astro_summary: {
+      transit_count: transits.length,
+      mu_signal: +muSignal.toFixed(4),
+      sigma_signal: +sigmaSignal.toFixed(4),
+      conf_signal: +confSignal.toFixed(4),
+    },
+  };
+}
+
+/* ──────────── EdgeScore v2.0 (EV-based) ──────────── */
+
+function americanToImplied(odds: number | null): number | null {
+  if (odds == null) return null;
+  if (odds < 0) return Math.abs(odds) / (Math.abs(odds) + 100);
+  return 100 / (odds + 100);
+}
+
+interface EdgeScoreV2Result {
+  edge_score_v20: number;
+  confidence_tier: string;
+  p_model: number;
+  p_implied: number | null;
+  edge_raw: number;
+}
+
+function computeEdgeScoreV2(
+  pModel: number,
+  odds: number | null,
+  blowoutRisk: number,
+  minutesVolatility: number,
+  teamPaceDelta: number,
+  confidenceAdjustment: number,
+  sigma2: number,
+  volatilityShift: number,
+): EdgeScoreV2Result {
+  // Step 1: implied probability
+  const pImp = americanToImplied(odds);
+
+  // Step 2: raw edge
+  const edgeRaw = pImp != null ? pModel - pImp : pModel - 0.5;
+
+  // Step 3: environment penalty multiplier [0.6, 1.05]
+  const mEnvRaw = 1 - 0.25 * blowoutRisk - 0.15 * minutesVolatility + 0.05 * (teamPaceDelta / 100);
+  const mEnv = clamp(mEnvRaw, 0.6, 1.05);
+  const edgeAdj = edgeRaw * mEnv;
+
+  // Step 4: cosmic confidence boost [0.9, 1.1]
+  const mAstro = clamp(1 + confidenceAdjustment, 0.9, 1.1);
+
+  // Step 5: EdgeScore = 100 · edge_adj · m_astro
+  const edgeScore = 100 * edgeAdj * mAstro;
+
+  // Step 6: confidence tiers
+  let tier = "No Bet";
+  if (blowoutRisk > 0.65) {
+    tier = "No Bet";
+  } else if (edgeScore >= 6 && volatilityShift < 0.08) {
+    tier = "S";
+  } else if (edgeScore >= 4) {
+    tier = "A";
+  } else if (edgeScore >= 2) {
+    tier = "B";
+  } else if (edgeScore >= 1) {
+    tier = "C";
+  }
+
+  return {
+    edge_score_v20: +edgeScore.toFixed(4),
+    confidence_tier: tier,
+    p_model: +pModel.toFixed(6),
+    p_implied: pImp != null ? +pImp.toFixed(6) : null,
+    edge_raw: +edgeRaw.toFixed(6),
   };
 }
 
@@ -200,6 +301,12 @@ function computeStreak(hits: boolean[]): number {
   }
   return first ? count : -count;
 }
+
+/* ──────────── Counting prop types (pace-sensitive) ──────────── */
+const COUNTING_PROPS = new Set([
+  "points", "rebounds", "assists", "threes", "steals", "blocks",
+  "pts_reb_ast", "pts_reb", "pts_ast", "reb_ast", "turnovers",
+]);
 
 /* ──────────── Main handler ──────────── */
 
@@ -238,12 +345,12 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 2. Fetch player_props for this game — use consensus/first book per player+market
+    // 2. Fetch player_props for this game
     const { data: rawProps } = await sb
       .from("player_props")
       .select("id, game_id, player_name, market_key, line, over_price, under_price, bookmaker")
       .eq("game_id", gameId)
-      .order("bookmaker", { ascending: true }); // consensus sorts first
+      .order("bookmaker", { ascending: true });
 
     if (!rawProps || rawProps.length === 0) {
       return new Response(
@@ -284,7 +391,6 @@ Deno.serve(async (req) => {
     const uniqueNames = [...new Set(mappedProps.map((p) => p.player_name))];
     const playerMap: Record<string, { id: string; team: string }> = {};
 
-    // Batch lookup in chunks
     for (let i = 0; i < uniqueNames.length; i += 50) {
       const batch = uniqueNames.slice(i, i + 50);
       const { data: players } = await sb
@@ -325,7 +431,7 @@ Deno.serve(async (req) => {
       console.warn("PacePulse features unavailable for game", gameId);
     }
 
-    // 6b. Batch-fetch transit data for all players from astro_calculations
+    // 6b. Batch-fetch transit data for all players
     const playerIds = Object.values(playerMap).map(p => p.id);
     const transitMap: Record<string, Array<{ aspect: string; planet: string; natal_planet?: string; orb?: number }>> = {};
     if (playerIds.length > 0) {
@@ -342,7 +448,6 @@ Deno.serve(async (req) => {
           if (astroRows) {
             for (const row of astroRows) {
               if (!transitMap[row.entity_id]) {
-                // Only use the most recent transit calc per player
                 const result = row.result as any;
                 if (result?.transits && Array.isArray(result.transits)) {
                   transitMap[row.entity_id] = result.transits;
@@ -357,6 +462,9 @@ Deno.serve(async (req) => {
         console.warn("TransitLift: could not fetch astro data");
       }
     }
+
+    // Compute minutes volatility from CoV as a proxy
+    // (We'll use per-player CoV; if none, default 0)
 
     for (const prop of mappedProps) {
       const player = playerMap[prop.player_name];
@@ -385,43 +493,74 @@ Deno.serve(async (req) => {
 
         if (f.games_count < 3) continue;
 
-        // ── NebulaProp Distribution ──
+        // ── A. NebulaProp Baseline Distribution ──
         const wL10 = Math.min(f.games_count, 10) / 10;
-        const mu_base = f.mu_rolling_l10 * wL10 + f.mu_season * (1 - wL10);
-        const sigma_base = Math.max(
+        const mu0 = f.mu_rolling_l10 * wL10 + f.mu_season * (1 - wL10);
+        const sigma0 = Math.max(
           f.sigma_rolling_l10 * wL10 + f.sigma_season * (1 - wL10),
           1.0,
         );
 
-        // Apply PacePulse adjustment
-        let paceAdjust = 0;
-        if (paceFeatures && paceFeatures.team_pace_delta) {
-          const countingProps = ["points", "rebounds", "assists", "threes", "pts_reb_ast", "pts_reb", "pts_ast", "reb_ast"];
-          if (countingProps.includes(prop.prop_type)) {
-            paceAdjust = (paceFeatures.team_pace_delta / 100) * mu_base;
-          }
+        // ── B. PacePulse Environment Adjustments ──
+        // Only apply to counting stats
+        let mu1 = mu0;
+        let sigma1 = sigma0;
+        let paceMuAdj = 0;
+        let paceSigmaAdj = 0;
+        const minutesVolatility = clamp(f.coeff_of_var ?? 0, 0, 1);
+
+        if (paceFeatures && COUNTING_PROPS.has(prop.prop_type)) {
+          const pace = applyPacePulse(
+            mu0, sigma0,
+            paceFeatures.team_pace_delta,
+            paceFeatures.blowout_risk,
+            minutesVolatility,
+          );
+          mu1 = pace.mu_adjusted;
+          sigma1 = pace.sigma_adjusted;
+          paceMuAdj = pace.pace_mu_adjust;
+          paceSigmaAdj = pace.pace_sigma_adjust;
         }
 
-        // ── TransitLift (Phase 1E) ──
+        // ── C. TransitLift Astrological Overlay (bounded) ──
         const playerTransits = transitMap[player.id] || [];
         const transitLift = computeTransitLift(playerTransits);
-        const astro_mu_adjust = transitLift.astro_mu_adjust * mu_base;
-        const astro_sigma_adjust = transitLift.astro_sigma_adjust * sigma_base;
 
-        const mu_final = mu_base + paceAdjust + astro_mu_adjust;
-        const sigma_final = Math.max(sigma_base + astro_sigma_adjust, 0.5);
+        // μ₂ = μ₁ · (1 + transit_boost_factor)
+        const mu2 = mu1 * (1 + transitLift.transit_boost_factor);
+        // σ₂ = σ₁ · (1 + volatility_shift)
+        const sigma2 = Math.max(sigma1 * (1 + transitLift.volatility_shift), 0.5);
 
+        const mu_final = mu2;
+        const sigma_final = sigma2;
+
+        // Recompute probability
         const line = prop.line;
         const z = (line - mu_final) / sigma_final;
         const p_over_final = clamp(1 - normCdf(z), 0.001, 0.999);
 
+        // ── EdgeScore v1 (legacy) ──
         const { edge_score, components } = computeEdgeScore(f, null, transitLift.astro_boost);
+
+        // ── EdgeScore v2.0 (EV-based) ──
+        const sideOdds = p_over_final >= 0.5 ? (prop.over_price ?? null) : (prop.under_price ?? null);
+        const pModelForSide = p_over_final >= 0.5 ? p_over_final : 1 - p_over_final;
+        const v2 = computeEdgeScoreV2(
+          pModelForSide,
+          sideOdds,
+          paceFeatures?.blowout_risk ?? 0,
+          minutesVolatility,
+          paceFeatures?.team_pace_delta ?? 0,
+          transitLift.confidence_adjustment,
+          sigma_final,
+          transitLift.volatility_shift,
+        );
 
         const side = determineSide(p_over_final);
         const confidence = computeConfidence(p_over_final);
         const risk = computeRisk(f.coeff_of_var ?? 0, sigma_final);
 
-        // Microbars approximation
+        // Microbars
         const microbarsCount = Math.min(f.games_count, 10);
         const hitCount = Math.round((f.hit_l10 ?? 0) * microbarsCount);
         const microbars: any[] = [];
@@ -430,8 +569,7 @@ Deno.serve(async (req) => {
         }
         const streak = computeStreak(microbars.map((b) => b.hit));
 
-        const odds =
-          side === "over" ? (prop.over_price ?? null) : (prop.under_price ?? null);
+        const odds = side === "over" ? (prop.over_price ?? null) : (prop.under_price ?? null);
 
         const oneLiner = `μ=${mu_final.toFixed(1)} σ=${sigma_final.toFixed(1)} → ${(p_over_final * 100).toFixed(0)}% over ${line}`;
 
@@ -444,6 +582,8 @@ Deno.serve(async (req) => {
         const tags: string[] = [];
         if (f.role_up) tags.push("RoleUp");
         if (edge_score >= 70) tags.push("HighEdge");
+        if (v2.confidence_tier === "S") tags.push("CelestialLock");
+        if (v2.confidence_tier === "A") tags.push("StarSignal");
         if (risk >= 0.6) tags.push("HighRisk");
         if (playerTransits.length > 0) tags.push("TransitActive");
 
@@ -455,16 +595,23 @@ Deno.serve(async (req) => {
           model_key: modelKey,
           run_id: runId,
           snapshot_ts: snapshotTs,
-          mu_base: +mu_base.toFixed(4),
+          mu_base: +mu0.toFixed(4),
           mu_final: +mu_final.toFixed(4),
-          sigma_base: +sigma_base.toFixed(4),
+          sigma_base: +sigma0.toFixed(4),
           sigma_final: +sigma_final.toFixed(4),
-          p_over_base: +p_over_final.toFixed(6),
+          p_over_base: +(1 - normCdf((line - mu0) / sigma0)).toFixed(6),
           p_over_final: +p_over_final.toFixed(6),
           line,
           odds,
           side,
           edge_score,
+          edge_score_v20: v2.edge_score_v20,
+          confidence_tier: v2.confidence_tier,
+          p_model: v2.p_model,
+          p_implied: v2.p_implied,
+          edge_raw: v2.edge_raw,
+          pace_mu_adjust: paceMuAdj,
+          pace_sigma_adjust: paceSigmaAdj,
           hit_l5: f.hit_l5 != null ? +Number(f.hit_l5).toFixed(4) : null,
           hit_l10: f.hit_l10 != null ? +Number(f.hit_l10).toFixed(4) : null,
           hit_l20: f.hit_l20 != null ? +Number(f.hit_l20).toFixed(4) : null,
@@ -486,8 +633,8 @@ Deno.serve(async (req) => {
           expected_possessions: paceFeatures?.expected_possessions ?? null,
           blowout_risk: paceFeatures?.blowout_risk ?? null,
           team_pace_delta: paceFeatures?.team_pace_delta ?? null,
-          astro_mu_adjust: +astro_mu_adjust.toFixed(6),
-          astro_sigma_adjust: +astro_sigma_adjust.toFixed(6),
+          astro_mu_adjust: +(transitLift.transit_boost_factor).toFixed(6),
+          astro_sigma_adjust: +(transitLift.volatility_shift).toFixed(6),
         });
 
         nebulaPredictions.push({
@@ -502,6 +649,16 @@ Deno.serve(async (req) => {
           odds,
           side,
           edge_score,
+          edge_score_v20: v2.edge_score_v20,
+          confidence_tier: v2.confidence_tier,
+          p_model: v2.p_model,
+          p_implied: v2.p_implied,
+          edge_raw: v2.edge_raw,
+          pace_mu_adjust: paceMuAdj,
+          pace_sigma_adjust: paceSigmaAdj,
+          transit_boost_factor: transitLift.transit_boost_factor,
+          volatility_shift: transitLift.volatility_shift,
+          confidence_adjustment: transitLift.confidence_adjustment,
           confidence: +confidence.toFixed(4),
           risk: +risk.toFixed(4),
           hit_l10: f.hit_l10 != null ? +Number(f.hit_l10).toFixed(4) : null,
@@ -520,7 +677,6 @@ Deno.serve(async (req) => {
 
     // 7. Upsert predictions
     if (modelPredictions.length > 0) {
-      // Insert in batches of 100
       for (let i = 0; i < modelPredictions.length; i += 100) {
         const batch = modelPredictions.slice(i, i + 100);
         const { error: mpErr } = await sb.from("model_predictions").insert(batch);
