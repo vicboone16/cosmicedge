@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 import { ModelOverlayRow } from "./ModelOverlayRow";
 import { ModelDetailsDrawer } from "./ModelDetailsDrawer";
+import { ModelStackPanel } from "./ModelStackPanel";
 import type { NebulaOverlay, SelectedModel } from "@/hooks/use-nebula-overlay";
 
 interface Props {
@@ -58,6 +59,18 @@ export function ModelPropCard({ overlay, selectedModel, isAdmin, onPlayerClick }
             )}
           </div>
         </div>
+        {/* Confidence tier badge */}
+        {overlay.confidence_tier && overlay.confidence_tier !== "No Bet" && (
+          <Badge variant="secondary" className={cn(
+            "text-[9px] px-1.5 py-0 h-4 font-bold",
+            overlay.confidence_tier === "S" ? "bg-cosmic-green/15 text-cosmic-green border-cosmic-green/30" :
+            overlay.confidence_tier === "A" ? "bg-primary/15 text-primary border-primary/30" :
+            overlay.confidence_tier === "B" ? "bg-yellow-500/15 text-yellow-500 border-yellow-500/30" :
+            "bg-muted text-muted-foreground"
+          )}>
+            {overlay.confidence_tier} Tier
+          </Badge>
+        )}
       </div>
 
       {/* Prop line */}
@@ -92,7 +105,10 @@ export function ModelPropCard({ overlay, selectedModel, isAdmin, onPlayerClick }
         </div>
       </div>
 
-      {/* Model overlay row */}
+      {/* 3-Model Stack Panel */}
+      <ModelStackPanel overlay={overlay} />
+
+      {/* Legacy model overlay row */}
       <ModelOverlayRow overlay={overlay} selectedModel={selectedModel} />
 
       {/* Details drawer */}

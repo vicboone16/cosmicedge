@@ -9,6 +9,16 @@ export interface NebulaOverlay {
   book: string;
   edge_score: number;
   edge_score_v11: number | null;
+  edge_score_v20: number | null;
+  confidence_tier: string | null;
+  p_model: number | null;
+  p_implied: number | null;
+  edge_raw: number | null;
+  pace_mu_adjust: number | null;
+  pace_sigma_adjust: number | null;
+  transit_boost_factor: number | null;
+  volatility_shift: number | null;
+  confidence_adjustment: number | null;
   confidence: number;
   risk: number;
   mu: number;
