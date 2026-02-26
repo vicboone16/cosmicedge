@@ -1,0 +1,1 @@
+DELETE FROM public.api_cache WHERE cache_key = 'ncaab_backfill_cursor';
