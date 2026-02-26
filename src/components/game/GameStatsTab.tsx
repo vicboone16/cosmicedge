@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
@@ -12,6 +12,87 @@ interface GameStatsTabProps {
   homeScore: number | null;
   awayScore: number | null;
   league: string;
+}
+
+/**
+ * Aggregate nba_play_by_play_events into per-player stat lines.
+ */
+function aggregatePbpToPlayerStats(events: any[], homeAbbr: string, awayAbbr: string) {
+  const playerMap = new Map<string, any>();
+
+  const getOrCreate = (name: string, team: string) => {
+    const key = `${team}::${name}`;
+    if (!playerMap.has(key)) {
+      playerMap.set(key, {
+        id: key,
+        team_abbr: team,
+        players: { name, position: null, headshot_url: null },
+        points: 0, rebounds: 0, assists: 0, steals: 0, blocks: 0, turnovers: 0,
+        fg_made: 0, fg_attempted: 0, three_made: 0, three_attempted: 0,
+        ft_made: 0, ft_attempted: 0, off_rebounds: 0,
+        minutes: null, plus_minus: null, starter: false,
+      });
+    }
+    return playerMap.get(key)!;
+  };
+
+  for (const e of events) {
+    if (!e.player || !e.team) continue;
+    const team = e.team;
+    const p = getOrCreate(e.player, team);
+
+    switch (e.event_type) {
+      case "shot":
+      case "miss":
+        p.fg_attempted++;
+        if (e.result === "made") {
+          p.fg_made++;
+          p.points += e.points ?? 2;
+          if (e.type?.toLowerCase().includes("3") || (e.points ?? 0) === 3) {
+            p.three_made++;
+            p.three_attempted++;
+          }
+        } else {
+          if (e.type?.toLowerCase().includes("3")) {
+            p.three_attempted++;
+          }
+        }
+        break;
+      case "free throw":
+        p.ft_attempted++;
+        if (e.result === "made") {
+          p.ft_made++;
+          p.points += 1;
+        }
+        break;
+      case "rebound":
+        p.rebounds++;
+        if (e.type?.toLowerCase().includes("offensive") || e.type?.toLowerCase().includes("off")) {
+          p.off_rebounds++;
+        }
+        break;
+      case "turnover":
+        p.turnovers++;
+        break;
+    }
+
+    if (e.assist) {
+      const assistPlayer = getOrCreate(e.assist, team);
+      assistPlayer.assists++;
+    }
+    if (e.steal) {
+      const stealTeam = team === homeAbbr ? awayAbbr : homeAbbr;
+      const stealPlayer = getOrCreate(e.steal, stealTeam);
+      stealPlayer.steals++;
+    }
+    if (e.block) {
+      const blockTeam = team === homeAbbr ? awayAbbr : homeAbbr;
+      const blockPlayer = getOrCreate(e.block, blockTeam);
+      blockPlayer.blocks++;
+    }
+  }
+
+  return Array.from(playerMap.values()).sort((a, b) => b.points - a.points);
 }
 
 export function GameStatsTab({ gameId, homeAbbr, awayAbbr, homeTeam, awayTeam, homeScore, awayScore, league }: GameStatsTabProps) {
@@ -43,6 +124,29 @@ export function GameStatsTab({ gameId, homeAbbr, awayAbbr, homeTeam, awayTeam, h
       return data || [];
     },
   });
+
+  // Fallback: fetch PBP events to derive stats when player_game_stats is empty
+  const { data: pbpEvents } = useQuery({
+    queryKey: ["game-pbp-stats-fallback", gameId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("nba_play_by_play_events")
+        .select("event_type, player, team, points, result, type, assist, steal, block, period")
+        .eq("game_id", gameId)
+        .limit(5000);
+      return data || [];
+    },
+    enabled: !!playerStats && playerStats.length === 0,
+  });
+
+  // Use PBP-derived stats as fallback
+  const effectivePlayerStats = useMemo(() => {
+    if (playerStats && playerStats.length > 0) return playerStats;
+    if (pbpEvents && pbpEvents.length > 0) {
+      return aggregatePbpToPlayerStats(pbpEvents, homeAbbr, awayAbbr);
+    }
+    return [];
+  }, [playerStats, pbpEvents, homeAbbr, awayAbbr]);
 
   const periodLabel = (q: number) => {
     if (league === "NHL") return q <= 3 ? `P${q}` : q === 4 ? "OT" : `${q - 3}OT`;
