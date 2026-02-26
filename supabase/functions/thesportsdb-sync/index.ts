@@ -500,6 +500,115 @@ async function syncSchedule(
   };
 }
 
+// ─── MODE: schedule_season — full season schedule via eventsseason.php ───────
+
+async function syncScheduleSeason(
+  apiKey: string,
+  supabase: any,
+  league: string,
+  season: string,
+) {
+  const leagueId = LEAGUE_IDS[league];
+  const data = await apiFetch(apiKey, `eventsseason.php?id=${leagueId}&s=${season}`);
+  const events = data.events || [];
+  console.log(`[schedule_season] ${league} season ${season}: ${events.length} events`);
+
+  let gamesUpserted = 0;
+  let skipped = 0;
+
+  // Pre-fetch ALL games for this league from DB
+  const allGames: any[] = [];
+  let page = 0;
+  const PAGE_SIZE = 1000;
+  while (true) {
+    const { data: batch } = await supabase
+      .from("games")
+      .select("id, home_abbr, away_abbr, start_time, external_id")
+      .eq("league", league)
+      .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+    if (!batch || batch.length === 0) break;
+    allGames.push(...batch);
+    if (batch.length < PAGE_SIZE) break;
+    page++;
+  }
+
+  // Build lookup indexes
+  const existingByExtId = new Set<string>();
+  const existingByFingerprint = new Set<string>();
+  for (const g of allGames) {
+    if (g.external_id) existingByExtId.add(g.external_id);
+    const d = g.start_time.split(/[T ]/)[0];
+    const dt = new Date(d);
+    for (let offset = -1; offset <= 1; offset++) {
+      const day = new Date(dt.getTime() + offset * 86400000).toISOString().split("T")[0];
+      existingByFingerprint.add(`${g.home_abbr}|${g.away_abbr}|${day}`);
+    }
+  }
+
+  const toInsert: Record<string, any>[] = [];
+
+  for (const ev of events) {
+    const homeTeam = ev.strHomeTeam;
+    const awayTeam = ev.strAwayTeam;
+    const homeAbbr = getAbbr(league, homeTeam);
+    const awayAbbr = getAbbr(league, awayTeam);
+
+    if (!homeAbbr || !awayAbbr) { skipped++; continue; }
+
+    const extId = `tsdb_${ev.idEvent}`;
+    if (existingByExtId.has(extId)) continue;
+
+    const eventDate = ev.dateEvent;
+    const fpKey = `${homeAbbr}|${awayAbbr}|${eventDate}`;
+    if (existingByFingerprint.has(fpKey)) continue;
+
+    const startTime = ev.strTimestamp
+      ? new Date(ev.strTimestamp + "+00:00").toISOString()
+      : `${ev.dateEvent}T${ev.strTime || "00:00:00"}Z`;
+
+    // Determine status
+    let status = "scheduled";
+    if (ev.strStatus === "FT" || ev.strStatus === "AOT" || ev.strStatus === "AP") {
+      status = "final";
+    } else if (ev.strStatus === "NS" || ev.strStatus === "Not Started") {
+      status = "scheduled";
+    }
+
+    toInsert.push({
+      home_team: homeTeam,
+      away_team: awayTeam,
+      home_abbr: homeAbbr,
+      away_abbr: awayAbbr,
+      league,
+      start_time: startTime,
+      status,
+      source: "thesportsdb",
+      external_id: extId,
+      venue: ev.strVenue || null,
+      home_score: ev.intHomeScore != null ? parseInt(ev.intHomeScore) : null,
+      away_score: ev.intAwayScore != null ? parseInt(ev.intAwayScore) : null,
+    });
+  }
+
+  // Batch insert
+  for (let i = 0; i < toInsert.length; i += 50) {
+    const { error } = await supabase.from("games").insert(toInsert.slice(i, i + 50));
+    if (error) {
+      console.error(`Schedule season insert error at ${i}:`, error.message);
+      skipped += Math.min(50, toInsert.length - i);
+    } else {
+      gamesUpserted += Math.min(50, toInsert.length - i);
+    }
+  }
+
+  return {
+    events_fetched: events.length,
+    games_inserted: gamesUpserted,
+    already_existed: events.length - gamesUpserted - skipped,
+    skipped,
+  };
+}
+
 // ─── MAIN HANDLER ───────────────────────────────────────────────────────────
 
 Deno.serve(async (req) => {
@@ -577,9 +686,20 @@ Deno.serve(async (req) => {
       case "schedule":
         result = await syncSchedule(apiKey, supabase, league);
         break;
+      case "schedule_season": {
+        const schedSeason = bodyParams.season || url.searchParams.get("season");
+        if (!schedSeason) {
+          return new Response(
+            JSON.stringify({ error: "season param required for schedule_season mode (e.g. 2025-2026 or 2026)" }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+          );
+        }
+        result = await syncScheduleSeason(apiKey, supabase, league, schedSeason);
+        break;
+      }
       default:
         return new Response(
-          JSON.stringify({ error: `Unknown mode: ${mode}. Use: teams, rosters, scores, scores_all, schedule` }),
+          JSON.stringify({ error: `Unknown mode: ${mode}. Use: teams, rosters, scores, scores_all, schedule, schedule_season` }),
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
         );
     }
