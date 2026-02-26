@@ -155,8 +155,8 @@ export function GameStatsTab({ gameId, homeAbbr, awayAbbr, homeTeam, awayTeam, h
   };
 
   // Team totals from player stats
-  const homePlayerStats = playerStats?.filter(p => p.team_abbr === homeAbbr) || [];
-  const awayPlayerStats = playerStats?.filter(p => p.team_abbr === awayAbbr) || [];
+  const homePlayerStats = effectivePlayerStats?.filter(p => p.team_abbr === homeAbbr) || [];
+  const awayPlayerStats = effectivePlayerStats?.filter(p => p.team_abbr === awayAbbr) || [];
 
   const sumStat = (players: typeof homePlayerStats, key: string) =>
     players.reduce((sum, p) => sum + ((p as any)[key] ?? 0), 0);
