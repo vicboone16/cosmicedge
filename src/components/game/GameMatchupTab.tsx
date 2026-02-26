@@ -231,33 +231,6 @@ export function GameMatchupTab({
     ? `${homeStats.games}G vs ${awayStats.games}G season avg`
     : homeStats.games ? `${homeStats.games}G season avg` : awayStats.games ? `${awayStats.games}G season avg` : "";
 
-  // Fetch rosters
-  const { data: homePlayers } = useQuery({
-    queryKey: ["matchup-roster", homeAbbr],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("players")
-        .select("id, name, position, headshot_url")
-        .eq("team", homeAbbr)
-        .eq("league", "NBA")
-        .order("name");
-      return data || [];
-    },
-  });
-
-  const { data: awayPlayers } = useQuery({
-    queryKey: ["matchup-roster", awayAbbr],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("players")
-        .select("id, name, position, headshot_url")
-        .eq("team", awayAbbr)
-        .eq("league", "NBA")
-        .order("name");
-      return data || [];
-    },
-  });
-
   return (
     <div className="space-y-4">
       {/* Team Records */}
