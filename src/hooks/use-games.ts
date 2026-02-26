@@ -63,11 +63,8 @@ async function fetchGamesFromDB(date?: Date, userTimezone?: string): Promise<Gam
   const startOfDay = new Date(Date.UTC(y, m, d, -offsetHours, 0, 0, 0));
   const endOfDay = new Date(startOfDay.getTime() + 24 * 60 * 60 * 1000);
 
-  // Only refresh odds for today, with dedup
-  const isToday = !date || date.toDateString() === new Date().toDateString();
-  if (isToday) {
-    maybeRefreshOdds(); // fire-and-forget, don't await
-  }
+  // Odds refresh is handled by backend cron jobs to avoid SGO rate limits.
+  // Do NOT call maybeRefreshOdds() from the frontend.
 
   // Fetch games with only required columns
   const { data: games, error: gamesError } = await supabase
