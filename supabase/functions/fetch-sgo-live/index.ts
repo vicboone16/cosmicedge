@@ -329,7 +329,6 @@ Deno.serve(async (req) => {
     let gamesUpserted = 0;
     let snapshotsStored = 0;
     let marketOddsStored = 0;
-    let marketOddsStored = 0;
 
     for (const event of events) {
       const eventLeague = event.leagueID || "";
