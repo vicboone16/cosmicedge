@@ -11,6 +11,7 @@ import AdminPlayerManager from "@/components/admin/AdminPlayerManager";
 import AdminExportPanel from "@/components/admin/AdminExportPanel";
 import PlayerGameStatsEditor from "@/components/admin/PlayerGameStatsEditor";
 import AdminTeamStatsEditor from "@/components/admin/AdminTeamStatsEditor";
+import AdminModelRunner from "@/components/admin/AdminModelRunner";
 export default function AdminPage() {
   const { isAdmin, isLoading } = useIsAdmin();
 
@@ -73,8 +74,11 @@ export default function AdminPage() {
             <AdminBacktest />
           </TabsContent>
 
-          <TabsContent value="backend" className="mt-4">
-            <AdminBackend />
+          <TabsContent value="backend" className="mt-4 space-y-6">
+            <AdminModelRunner />
+            <div className="border-t border-border/50 pt-4">
+              <AdminBackend />
+            </div>
           </TabsContent>
         </Tabs>
       </div>
