@@ -4747,6 +4747,7 @@ export type Database = {
         Args: { source_id: string; target_id: string }
         Returns: undefined
       }
+      nba_team_conference: { Args: { p_abbr: string }; Returns: string }
       np_apply_edgescore_v11: { Args: { hours_back?: number }; Returns: number }
       np_build_pace_features: {
         Args: { p_game_id: string }
@@ -4816,6 +4817,7 @@ export type Database = {
         Args: { p_league?: string; p_season?: number }
         Returns: number
       }
+      rebuild_nba_standings: { Args: { p_season?: number }; Returns: number }
       safe_delete_game: { Args: { p_game_id: string }; Returns: Json }
       safe_delete_player: { Args: { p_player_id: string }; Returns: Json }
       search_players_unaccent: {

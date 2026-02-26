@@ -210,7 +210,19 @@ Deno.serve(async (req) => {
           for (const entry of playerEntries) {
             const pName = entry.player?.name || "";
             const teamName = entry.team?.name || "";
-            const teamAbbr = CANONICAL.NBA?.[teamName] || game.home_abbr;
+            const resolvedAbbr = CANONICAL.NBA?.[teamName];
+            // Determine team: resolved abbr must match home or away, else infer from API team id
+            let teamAbbr: string;
+            if (resolvedAbbr === game.home_abbr || resolvedAbbr === game.away_abbr) {
+              teamAbbr = resolvedAbbr;
+            } else if (entry.team?.id === apiGame.teams?.home?.id) {
+              teamAbbr = game.home_abbr;
+            } else if (entry.team?.id === apiGame.teams?.away?.id) {
+              teamAbbr = game.away_abbr;
+            } else {
+              // Last resort: check if player is on a known team
+              teamAbbr = resolvedAbbr || game.home_abbr;
+            }
 
             const nameKey = normName(pName);
             // Try: team+name, name, team+reversed, reversed, initial matching
