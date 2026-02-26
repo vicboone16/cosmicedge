@@ -503,6 +503,30 @@ async function processGame(
     updated_at: new Date().toISOString(),
   }, { onConflict: "external_id" });
 
+  // ── I) Also write to game_quarters for UI PeriodScoresTicker ────────
+  const externalId = `api-basketball-ncaab-${apiGameId}`;
+  const { data: gamesRow } = await supabase
+    .from("games")
+    .select("id")
+    .eq("external_id", externalId)
+    .maybeSingle();
+
+  if (gamesRow?.id) {
+    for (const [key, period] of Object.entries(periodMap)) {
+      const homePts = homeScores[key];
+      const awayPts = awayScores[key];
+      if (homePts == null && awayPts == null) continue;
+      if (homePts === 0 && awayPts === 0 && currentPeriod !== null && period > currentPeriod) continue;
+
+      await supabase.from("game_quarters").upsert({
+        game_id: gamesRow.id,
+        quarter: period,
+        home_score: homePts ?? 0,
+        away_score: awayPts ?? 0,
+      }, { onConflict: "game_id,quarter" });
+    }
+  }
+
   return {
     api_game_id: apiGameId, game_key: gameKey, home: homeAbbr, away: awayAbbr,
     status: ourStatus, period: currentPeriod, periods_written: periodsWritten,

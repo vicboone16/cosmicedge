@@ -69,7 +69,7 @@ export function PeriodScoresTicker({ gameId, league, isLive }: { gameId: string;
         .map(([p, scores]) => ({ quarter: Number(p), ...scores }))
         .sort((a, b) => a.quarter - b.quarter);
     },
-    enabled: isLive && league === "NBA",
+    enabled: isLive && (league === "NBA" || league === "NCAAB"),
     staleTime: 15_000,
     refetchInterval: 15_000,
   });
@@ -140,6 +140,7 @@ export function PeriodScoresTicker({ gameId, league, isLive }: { gameId: string;
   const formatPeriodLabel = (p: number) => {
     if (league === "NHL") return `P${p}`;
     if (league === "MLB") return `${p}`;
+    if (league === "NCAAB") return p <= 2 ? `H${p}` : `OT${p - 2}`;
     // NBA/NFL: 1-4 = Q1-Q4, >4 = OT1+
     return p <= 4 ? `Q${p}` : `OT${p - 4}`;
   };
