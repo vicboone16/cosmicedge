@@ -74,3 +74,6 @@ verify_jwt = false
 
 [functions.nebula-prop-engine]
 verify_jwt = false
+
+[functions.backfill-player-stats]
+verify_jwt = false

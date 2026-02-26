@@ -25,7 +25,7 @@ export function PlayByPlayTab({ gameId, homeAbbr, awayAbbr, league }: PlayByPlay
         .eq("id", gameId)
         .maybeSingle();
       if (!game) return null;
-      const dateStr = game.start_time?.slice(0, 10);
+      const dateStr = game.start_time?.split(/[T ]/)[0];
       // Look up cosmic_games by fingerprint
       const { data: cosmic } = await supabase
         .from("cosmic_games")
@@ -116,7 +116,7 @@ export function PlayByPlayTab({ gameId, homeAbbr, awayAbbr, league }: PlayByPlay
 
       // 4. Fallback: match by home_team + away_team + date (try ±1 day for UTC/local mismatches)
       if (gameData.start_time && gameData.home_abbr && gameData.away_abbr) {
-        const gameDate = gameData.start_time.split("T")[0];
+        const gameDate = gameData.start_time.split(/[T ]/)[0];
         const d = new Date(gameData.start_time);
         const prevDay = new Date(d.getTime() - 86400000).toISOString().split("T")[0];
         const nextDay = new Date(d.getTime() + 86400000).toISOString().split("T")[0];
