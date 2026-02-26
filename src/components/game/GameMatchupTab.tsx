@@ -30,14 +30,20 @@ export function GameMatchupTab({
   });
 
   // Compute records directly from games table for reliability
+  // Filter to current season only (Oct start)
   const { data: computedRecords } = useQuery({
     queryKey: ["matchup-computed-records", homeAbbr, awayAbbr],
     queryFn: async () => {
+      const now = new Date();
+      const seasonStartYear = now.getMonth() >= 9 ? now.getFullYear() : now.getFullYear() - 1;
+      const seasonStart = `${seasonStartYear}-10-01T00:00:00Z`;
+
       const { data: games } = await supabase
         .from("games")
         .select("home_abbr, away_abbr, home_score, away_score, start_time")
         .eq("league", "NBA")
         .eq("status", "final")
+        .gte("start_time", seasonStart)
         .or(`home_abbr.in.(${homeAbbr},${awayAbbr}),away_abbr.in.(${homeAbbr},${awayAbbr})`)
         .order("start_time", { ascending: false });
 
@@ -119,17 +125,40 @@ export function GameMatchupTab({
     { label: "Last 10", home: homeRec?.last10 || "—", away: awayRec?.last10 || "—" },
   ];
 
-  // Compute advanced stats from player_game_stats
+  // Compute advanced stats from player_game_stats (current season only)
   const { data: advancedStats } = useQuery({
     queryKey: ["matchup-advanced", homeAbbr, awayAbbr],
     queryFn: async () => {
-      const { data } = await supabase
-        .from("player_game_stats")
-        .select("team_abbr, game_id, points, rebounds, assists, steals, blocks, turnovers, fg_made, fg_attempted, three_made, three_attempted, ft_made, ft_attempted, off_rebounds, minutes")
-        .in("team_abbr", [homeAbbr, awayAbbr])
-        .eq("period", "full")
-        .order("created_at", { ascending: false })
-        .limit(1000);
+      const now = new Date();
+      const seasonStartYear = now.getMonth() >= 9 ? now.getFullYear() : now.getFullYear() - 1;
+      const seasonStart = `${seasonStartYear}-10-01T00:00:00Z`;
+
+      // Get current-season game IDs for these teams
+      const { data: seasonGames } = await supabase
+        .from("games")
+        .select("id")
+        .eq("league", "NBA")
+        .eq("status", "final")
+        .gte("start_time", seasonStart)
+        .or(`home_abbr.in.(${homeAbbr},${awayAbbr}),away_abbr.in.(${homeAbbr},${awayAbbr})`);
+
+      if (!seasonGames?.length) return {};
+      const gameIds = seasonGames.map(g => g.id);
+
+      // Fetch in batches of 500 game IDs
+      const allData: any[] = [];
+      for (let i = 0; i < gameIds.length; i += 200) {
+        const batch = gameIds.slice(i, i + 200);
+        const { data } = await supabase
+          .from("player_game_stats")
+          .select("team_abbr, game_id, points, rebounds, assists, steals, blocks, turnovers, fg_made, fg_attempted, three_made, three_attempted, ft_made, ft_attempted, off_rebounds, minutes")
+          .in("team_abbr", [homeAbbr, awayAbbr])
+          .in("game_id", batch)
+          .eq("period", "full");
+        if (data) allData.push(...data);
+      }
+
+      const data = allData;
 
       if (!data?.length) return {};
 

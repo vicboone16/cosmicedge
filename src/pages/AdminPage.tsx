@@ -10,6 +10,7 @@ import AdminNbaPbpImport from "@/components/admin/AdminNbaPbpImport";
 import AdminPlayerManager from "@/components/admin/AdminPlayerManager";
 import AdminExportPanel from "@/components/admin/AdminExportPanel";
 import PlayerGameStatsEditor from "@/components/admin/PlayerGameStatsEditor";
+import AdminTeamStatsEditor from "@/components/admin/AdminTeamStatsEditor";
 export default function AdminPage() {
   const { isAdmin, isLoading } = useIsAdmin();
 
@@ -27,10 +28,11 @@ export default function AdminPage() {
 
       <div className="px-4 py-4">
         <Tabs defaultValue="imports" className="w-full">
-          <TabsList className="w-full grid grid-cols-7 h-9">
+          <TabsList className="w-full grid grid-cols-8 h-9">
             <TabsTrigger value="imports" className="text-[10px]">Imports</TabsTrigger>
             <TabsTrigger value="games" className="text-[10px]">Games</TabsTrigger>
             <TabsTrigger value="players" className="text-[10px]">Players</TabsTrigger>
+            <TabsTrigger value="teams" className="text-[10px]">Teams</TabsTrigger>
             <TabsTrigger value="pbp" className="text-[10px]">PBP</TabsTrigger>
             <TabsTrigger value="nba-pbp" className="text-[10px]">NBA PBP</TabsTrigger>
             <TabsTrigger value="backtest" className="text-[10px]">Backtest</TabsTrigger>
@@ -53,6 +55,10 @@ export default function AdminPage() {
             <div className="border-t border-border/50 pt-4">
               <PlayerGameStatsEditor />
             </div>
+          </TabsContent>
+
+          <TabsContent value="teams" className="mt-4">
+            <AdminTeamStatsEditor />
           </TabsContent>
 
           <TabsContent value="pbp" className="mt-4">
