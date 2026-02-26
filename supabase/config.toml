@@ -80,3 +80,15 @@ verify_jwt = false
 
 [functions.oracle-pregame]
 verify_jwt = false
+
+[functions.oracle-ml-nba]
+verify_jwt = false
+
+[functions.oracle-ml-nfl]
+verify_jwt = false
+
+[functions.oracle-ml-nhl]
+verify_jwt = false
+
+[functions.oracle-ml-mlb]
+verify_jwt = false

@@ -1,5 +1,6 @@
 /**
- * Hook: useOracle — Fetches team ratings and computes Oracle predictions for a game
+ * Hook: useOracle — Fetches team ratings and computes Oracle predictions for a game.
+ * Also fetches persisted model_game_predictions for server-side results.
  */
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -16,6 +17,34 @@ import {
   type LiveWPOutput,
 } from "@/lib/oracle-engine";
 
+export interface StoredPrediction {
+  id: string;
+  game_id: string;
+  sport: string;
+  model_name: string;
+  model_version: string;
+  run_ts: string;
+  mu_home: number | null;
+  mu_away: number | null;
+  mu_total: number | null;
+  mu_spread_home: number | null;
+  p_home_win: number | null;
+  p_away_win: number | null;
+  fair_ml_home: number | null;
+  fair_ml_away: number | null;
+  expected_possessions: number | null;
+  blowout_risk: number | null;
+  book_implied_home: number | null;
+  edge_home: number | null;
+  edge_away: number | null;
+  p_home_win_ci_low: number | null;
+  p_home_win_ci_high: number | null;
+  qtr_wp_home: number[] | null;
+  qtr_fair_ml: { home: number; away: number }[] | null;
+  features_json: Record<string, any> | null;
+  notes_json: Record<string, any> | null;
+}
+
 interface OracleResult {
   pregame: PregameOutput | null;
   quarters: QuarterPrediction[];
@@ -23,6 +52,9 @@ interface OracleResult {
   isLoading: boolean;
   homeRatings: TeamRatings | null;
   awayRatings: TeamRatings | null;
+  // Persisted server-side predictions
+  storedPredictions: StoredPrediction[];
+  storedLoading: boolean;
 }
 
 function getCurrentSeason(): number {
@@ -69,8 +101,25 @@ export function useOracle(
         .in("team_abbr", [homeAbbr, awayAbbr]);
       return data || [];
     },
-    staleTime: 300_000, // 5 min cache
+    staleTime: 300_000,
     enabled: !!gameId && !!homeAbbr && !!awayAbbr,
+  });
+
+  // Fetch persisted predictions from model_game_predictions
+  const { data: storedPredictions = [], isLoading: storedLoading } = useQuery({
+    queryKey: ["model-game-predictions", gameId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("model_game_predictions")
+        .select("*")
+        .eq("game_id", gameId!)
+        .eq("model_name", "oracle_ml")
+        .order("run_ts", { ascending: false })
+        .limit(10);
+      return (data || []) as unknown as StoredPrediction[];
+    },
+    staleTime: 60_000,
+    enabled: !!gameId,
   });
 
   const homeRatings = useMemo(() => {
@@ -99,7 +148,6 @@ export function useOracle(
 
   const pregame = useMemo(() => {
     if (!homeRatings || !awayRatings) return null;
-    // Need at least some data
     if (homeRatings.gamesPlayed < 1 && awayRatings.gamesPlayed < 1) return null;
     
     return computePregame({
@@ -138,5 +186,7 @@ export function useOracle(
     isLoading,
     homeRatings,
     awayRatings,
+    storedPredictions,
+    storedLoading,
   };
 }
