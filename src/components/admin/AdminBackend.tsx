@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Database, Server, HardDrive, Wrench, Loader2, Trophy, ShieldCheck } from "lucide-react";
+import { Database, Server, HardDrive, Wrench, Loader2, Trophy, ShieldCheck, GraduationCap } from "lucide-react";
 import { toast } from "sonner";
 
 export default function AdminBackend() {
@@ -15,9 +15,31 @@ export default function AdminBackend() {
   const [statusFixLog, setStatusFixLog] = useState<{ fixed_capitalization: number; fixed_has_scores: number; log: string[] } | null>(null);
   const [backfillLog, setBackfillLog] = useState<{ log: string[]; total_updated: number; leagues: any[]; status_fixes?: any } | null>(null);
   const [backfillLeagues, setBackfillLeagues] = useState<string[]>(["NBA", "NFL", "NHL", "MLB"]);
+  const [ncaabLoading, setNcaabLoading] = useState<string | null>(null);
+  const [ncaabLog, setNcaabLog] = useState<any>(null);
 
   const toggleLeague = (l: string) =>
     setBackfillLeagues(prev => prev.includes(l) ? prev.filter(x => x !== l) : [...prev, l]);
+
+  const runNcaab = async (mode: string) => {
+    setNcaabLoading(mode);
+    setNcaabLog(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("ncaab-dispatcher", {
+        body: { mode },
+      });
+      if (error) throw error;
+      setNcaabLog(data);
+      toast.success(`NCAAB ${mode} complete`);
+    } catch (e: any) {
+      toast.error(e.message || `NCAAB ${mode} failed`);
+      setNcaabLog({ error: e.message });
+    } finally {
+      setNcaabLoading(null);
+    }
+  };
+
+  // ... keep existing code (runFixStatuses, runBackfill, runNormalize, tableStats, edgeFns queries)
 
   const runFixStatuses = async () => {
     setFixingStatuses(true);
@@ -90,13 +112,12 @@ export default function AdminBackend() {
   const { data: edgeFns } = useQuery({
     queryKey: ["admin-edge-functions"],
     queryFn: async () => {
-      // List known edge functions
       return [
         "fetch-odds", "fetch-live-scores", "fetch-player-props", "fetch-injuries-lineups",
         "fetch-news", "fetch-stats", "fetch-historical-odds", "fetch-projections",
         "quant-engine", "astro-batch", "astro-interpret", "check-alerts",
         "import-historical-csv", "import-sdio-bulk", "import-schedule-xlsx",
-        "backfill-scores", "aggregate-period-stats",
+        "backfill-scores", "aggregate-period-stats", "ncaab-dispatcher",
       ];
     },
   });
@@ -146,6 +167,44 @@ export default function AdminBackend() {
           </div>
         </div>
       </Card>
+
+      {/* ── NCAAB Dispatcher ── */}
+      <Card className="p-4">
+        <h2 className="text-sm font-semibold text-foreground flex items-center gap-2 mb-1">
+          <GraduationCap className="h-4 w-4 text-primary" />
+          NCAAB Dispatcher
+        </h2>
+        <p className="text-xs text-muted-foreground mb-3">
+          Sync NCAA Basketball schedules, live games, and standings from API-Basketball.
+        </p>
+        <div className="flex gap-2 flex-wrap mb-3">
+          {[
+            { mode: "live", label: "Fetch Live" },
+            { mode: "sync_schedule", label: "Sync Schedule" },
+            { mode: "sync_standings", label: "Sync Standings" },
+            { mode: "sync_teams", label: "Sync Teams" },
+          ].map(({ mode, label }) => (
+            <Button
+              key={mode}
+              size="sm"
+              variant="outline"
+              onClick={() => runNcaab(mode)}
+              disabled={ncaabLoading !== null}
+            >
+              {ncaabLoading === mode ? <Loader2 className="h-3 w-3 animate-spin mr-1.5" /> : null}
+              {label}
+            </Button>
+          ))}
+        </div>
+        {ncaabLog && (
+          <div className="bg-secondary/30 rounded-lg p-3 max-h-48 overflow-y-auto">
+            <pre className="text-[10px] text-foreground font-mono whitespace-pre-wrap">
+              {JSON.stringify(ncaabLog, null, 2).slice(0, 2000)}
+            </pre>
+          </div>
+        )}
+      </Card>
+
       <Card className="p-4">
         <h2 className="text-sm font-semibold text-foreground flex items-center gap-2 mb-3">
           <Wrench className="h-4 w-4 text-primary" />
@@ -222,7 +281,7 @@ export default function AdminBackend() {
 
         {/* League toggles */}
         <div className="flex gap-2 flex-wrap mb-3">
-          {["NBA", "NFL", "NHL", "MLB"].map(l => (
+          {["NBA", "NFL", "NHL", "MLB", "NCAAB"].map(l => (
             <button
               key={l}
               onClick={() => toggleLeague(l)}

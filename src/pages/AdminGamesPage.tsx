@@ -204,6 +204,7 @@ export default function AdminGamesPage() {
             <SelectItem value="NHL">NHL</SelectItem>
             <SelectItem value="NFL">NFL</SelectItem>
             <SelectItem value="MLB">MLB</SelectItem>
+            <SelectItem value="NCAAB">NCAAB</SelectItem>
           </SelectContent>
         </Select>
         <div className="relative flex-1 min-w-[150px]">
