@@ -129,10 +129,18 @@ export function GameStatsTab({ gameId, homeAbbr, awayAbbr, homeTeam, awayTeam, h
   const { data: pbpEvents } = useQuery({
     queryKey: ["game-pbp-stats-fallback", gameId],
     queryFn: async () => {
+      // PBP uses external game_id, not UUID — look up external_id first
+      const { data: gameRow } = await supabase
+        .from("games")
+        .select("external_id")
+        .eq("id", gameId)
+        .maybeSingle();
+      const extId = gameRow?.external_id;
+      if (!extId) return [];
       const { data } = await supabase
         .from("nba_play_by_play_events")
         .select("event_type, player, team, points, result, type, assist, steal, block, period")
-        .eq("game_id", gameId)
+        .eq("game_id", extId)
         .limit(5000);
       return data || [];
     },
