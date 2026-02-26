@@ -122,28 +122,32 @@ export function useOracle(
     enabled: !!gameId,
   });
 
+  // Sanity-check ratings: if ORTG/DRTG > 150 or pace < 50, the data is corrupt — use defaults
+  const sanitizeRatings = (row: any): TeamRatings => {
+    const offRtg = Number(row.off_rating) || 110;
+    const defRtg = Number(row.def_rating) || 110;
+    const pace = Number(row.avg_pace) || 100;
+    const netRtg = Number(row.net_rating) || 0;
+    const gamesPlayed = row.games_played || 0;
+
+    const isCorrupt = offRtg > 150 || defRtg > 150 || pace < 50 || pace > 120;
+    if (isCorrupt) {
+      console.warn(`[Oracle] Corrupt ratings for ${row.team_abbr}: ORTG=${offRtg}, DRTG=${defRtg}, Pace=${pace}. Using defaults.`);
+      return DEFAULT_RATINGS;
+    }
+    return { offRtg, defRtg, netRtg, pace, gamesPlayed };
+  };
+
   const homeRatings = useMemo(() => {
     const row = paceData?.find(r => r.team_abbr === homeAbbr);
     if (!row) return null;
-    return {
-      offRtg: Number(row.off_rating) || 110,
-      defRtg: Number(row.def_rating) || 110,
-      netRtg: Number(row.net_rating) || 0,
-      pace: Number(row.avg_pace) || 100,
-      gamesPlayed: row.games_played || 0,
-    } as TeamRatings;
+    return sanitizeRatings(row);
   }, [paceData, homeAbbr]);
 
   const awayRatings = useMemo(() => {
     const row = paceData?.find(r => r.team_abbr === awayAbbr);
     if (!row) return null;
-    return {
-      offRtg: Number(row.off_rating) || 110,
-      defRtg: Number(row.def_rating) || 110,
-      netRtg: Number(row.net_rating) || 0,
-      pace: Number(row.avg_pace) || 100,
-      gamesPlayed: row.games_played || 0,
-    } as TeamRatings;
+    return sanitizeRatings(row);
   }, [paceData, awayAbbr]);
 
   const pregame = useMemo(() => {

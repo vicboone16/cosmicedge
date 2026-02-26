@@ -135,41 +135,49 @@ export function OracleTab({
     <div className="space-y-4">
       {/* ── Source + Version Selector ── */}
       <div className="flex items-center gap-2">
-        <div className="flex items-center gap-1 bg-secondary rounded-lg p-0.5 flex-1">
-          <button
-            onClick={() => setSource("live")}
-            className={cn(
-              "flex-1 py-1.5 rounded-md text-[11px] font-semibold transition-colors text-center flex items-center justify-center gap-1",
-              source === "live" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
-            )}
-          >
-            <Cpu className="h-3 w-3" /> Live Compute
-          </button>
-          <button
-            onClick={() => setSource("stored")}
-            className={cn(
-              "flex-1 py-1.5 rounded-md text-[11px] font-semibold transition-colors text-center flex items-center justify-center gap-1",
-              source === "stored" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
-            )}
-          >
-            <Database className="h-3 w-3" /> Server ({storedPredictions.length})
-          </button>
-        </div>
-        {source === "stored" && availableVersions.length > 1 && (
-          <div className="flex items-center gap-1 bg-secondary rounded-lg p-0.5">
-            {availableVersions.map(v => (
+        {storedPredictions.length > 0 ? (
+          <>
+            <div className="flex items-center gap-1 bg-secondary rounded-lg p-0.5 flex-1">
               <button
-                key={v}
-                onClick={() => setSelectedVersion(v)}
+                onClick={() => setSource("live")}
                 className={cn(
-                  "px-2 py-1.5 rounded-md text-[11px] font-semibold transition-colors",
-                  selectedVersion === v ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                  "flex-1 py-1.5 rounded-md text-[11px] font-semibold transition-colors text-center flex items-center justify-center gap-1",
+                  source === "live" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
                 )}
               >
-                {v}
+                <Cpu className="h-3 w-3" /> On-Device
               </button>
-            ))}
-          </div>
+              <button
+                onClick={() => setSource("stored")}
+                className={cn(
+                  "flex-1 py-1.5 rounded-md text-[11px] font-semibold transition-colors text-center flex items-center justify-center gap-1",
+                  source === "stored" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <Database className="h-3 w-3" /> Pre-Computed ({storedPredictions.length})
+              </button>
+            </div>
+            {source === "stored" && availableVersions.length > 1 && (
+              <div className="flex items-center gap-1 bg-secondary rounded-lg p-0.5">
+                {availableVersions.map(v => (
+                  <button
+                    key={v}
+                    onClick={() => setSelectedVersion(v)}
+                    className={cn(
+                      "px-2 py-1.5 rounded-md text-[11px] font-semibold transition-colors",
+                      selectedVersion === v ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    {v}
+                  </button>
+                ))}
+              </div>
+            )}
+          </>
+        ) : (
+          <p className="text-[9px] text-muted-foreground flex items-center gap-1">
+            <Cpu className="h-3 w-3" /> On-Device Projection
+          </p>
         )}
       </div>
 

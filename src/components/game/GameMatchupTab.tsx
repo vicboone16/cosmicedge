@@ -200,11 +200,15 @@ export function GameMatchupTab({
   const getTeamStats = (abbr: string) => {
     const adv = advancedStats?.[abbr];
     const pace = paceData?.find(p => p.team_abbr === abbr);
+
+    // Sanity check: if pace data has ORTG > 150 or pace < 50, it's corrupt — ignore it
+    const paceIsValid = pace && Number(pace.off_rating) <= 150 && Number(pace.avg_pace) >= 50;
+
     return {
       ppg: adv?.ppg ?? null,
-      ortg: pace?.off_rating ?? adv?.ortg ?? null,
-      drtg: pace?.def_rating ?? null,
-      pace: pace?.avg_pace ?? adv?.pace ?? null,
+      ortg: (paceIsValid ? Number(pace.off_rating) : null) ?? adv?.ortg ?? null,
+      drtg: (paceIsValid ? Number(pace.def_rating) : null) ?? null,
+      pace: (paceIsValid ? Number(pace.avg_pace) : null) ?? adv?.pace ?? null,
       ts: adv?.ts ?? null,
       efg: adv?.efg ?? null,
       tovPct: adv?.tovPct ?? null,
