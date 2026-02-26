@@ -694,7 +694,8 @@ const GameDetail = () => {
                 <div className="celestial-gradient rounded-xl p-4">
                   <div className="flex items-center justify-between mb-3">
                     <div className="text-center flex-1">
-                      <span className="text-2xl">{awayZodiac.symbol}</span>
+                      <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">{game.away_abbr}</span>
+                      <span className="text-2xl block">{awayZodiac.symbol}</span>
                       <p className="text-xs font-semibold text-foreground mt-1">{awayZodiacSign}</p>
                       <p className="text-[10px] text-muted-foreground">{awayZodiac.element} · {awayZodiac.quality}</p>
                     </div>
@@ -708,7 +709,8 @@ const GameDetail = () => {
                       <p className="text-[10px] font-semibold text-foreground">{elementCompat.label}</p>
                     </div>
                     <div className="text-center flex-1">
-                      <span className="text-2xl">{homeZodiac.symbol}</span>
+                      <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">{game.home_abbr}</span>
+                      <span className="text-2xl block">{homeZodiac.symbol}</span>
                       <p className="text-xs font-semibold text-foreground mt-1">{homeZodiacSign}</p>
                       <p className="text-[10px] text-muted-foreground">{homeZodiac.element} · {homeZodiac.quality}</p>
                     </div>
@@ -846,6 +848,11 @@ const GameDetail = () => {
                   <BarChart3 className="h-3.5 w-3.5" />
                   Team Stats
                 </h3>
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider w-16 text-right">{game.away_abbr}</span>
+                  <span className="text-[9px] text-muted-foreground flex-1 text-center"></span>
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider w-16">{game.home_abbr}</span>
+                </div>
                 <div className="space-y-2">
                   {[
                     { label: "PPG", key: "ppg", fmt: (v: number | null) => v?.toFixed(1) ?? "—" },

@@ -105,15 +105,15 @@ export function GameMatchupTab({
       {/* Team Records */}
       <div className="cosmic-card rounded-xl overflow-hidden">
         <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-          <span className="text-xs font-bold text-foreground">{homeAbbr}</span>
-          <span className="text-xs font-semibold text-muted-foreground">Team Records</span>
           <span className="text-xs font-bold text-foreground">{awayAbbr}</span>
+          <span className="text-xs font-semibold text-muted-foreground">Team Records</span>
+          <span className="text-xs font-bold text-foreground">{homeAbbr}</span>
         </div>
         {records.map(r => (
           <div key={r.label} className="flex items-center justify-between px-4 py-2.5 border-b border-border/50 last:border-b-0">
-            <span className="text-xs font-semibold text-foreground tabular-nums">{r.home}</span>
-            <span className="text-[10px] text-muted-foreground">{r.label}</span>
             <span className="text-xs font-semibold text-foreground tabular-nums">{r.away}</span>
+            <span className="text-[10px] text-muted-foreground">{r.label}</span>
+            <span className="text-xs font-semibold text-foreground tabular-nums">{r.home}</span>
           </div>
         ))}
       </div>
@@ -121,8 +121,10 @@ export function GameMatchupTab({
       {/* Stat Comparison — from team_game_stats averages */}
       {statComparisons.length > 0 && (
         <div className="cosmic-card rounded-xl overflow-hidden">
-          <div className="px-4 py-3 border-b border-border">
-            <h4 className="text-xs font-bold text-foreground">Team Rankings</h4>
+          <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+            <span className="text-xs font-bold text-foreground">{awayAbbr}</span>
+            <span className="text-xs font-semibold text-muted-foreground">Team Rankings</span>
+            <span className="text-xs font-bold text-foreground">{homeAbbr}</span>
           </div>
           {statComparisons.map(s => {
             const hVal = s.home != null ? parseFloat(s.home) : null;
@@ -134,18 +136,18 @@ export function GameMatchupTab({
 
             return (
               <div key={s.label} className="flex items-center justify-between px-4 py-2.5 border-b border-border/50 last:border-b-0">
-                <span className={cn("text-xs tabular-nums font-semibold", homeWins && "text-cosmic-green")}>
-                  {s.home ?? "—"}
+                <span className={cn("text-xs tabular-nums font-semibold", awayWins && "text-cosmic-green")}>
+                  {s.away ?? "—"}
                 </span>
                 <div className="flex-1 mx-3">
                   <div className="flex items-center gap-1">
-                    <div className={cn("h-1 rounded-full flex-1", homeWins ? "bg-cosmic-green" : "bg-cosmic-red/30")} />
-                    <span className="text-[10px] text-muted-foreground whitespace-nowrap">{s.label}</span>
                     <div className={cn("h-1 rounded-full flex-1", awayWins ? "bg-cosmic-green" : "bg-cosmic-red/30")} />
+                    <span className="text-[10px] text-muted-foreground whitespace-nowrap">{s.label}</span>
+                    <div className={cn("h-1 rounded-full flex-1", homeWins ? "bg-cosmic-green" : "bg-cosmic-red/30")} />
                   </div>
                 </div>
-                <span className={cn("text-xs tabular-nums font-semibold", awayWins && "text-cosmic-green")}>
-                  {s.away ?? "—"}
+                <span className={cn("text-xs tabular-nums font-semibold", homeWins && "text-cosmic-green")}>
+                  {s.home ?? "—"}
                 </span>
               </div>
             );

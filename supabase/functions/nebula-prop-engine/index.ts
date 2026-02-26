@@ -96,6 +96,86 @@ function computeEdgeScore(
   };
 }
 
+/* ──────────── TransitLift (Phase 1E) ──────────── */
+
+interface TransitLiftResult {
+  astro_mu_adjust: number;
+  astro_sigma_adjust: number;
+  astro_boost: number;   // 0-1 for edge score
+  astro_summary: Record<string, any> | null;
+}
+
+function computeTransitLift(
+  transits: Array<{ aspect: string; planet: string; natal_planet?: string; orb?: number }>,
+): TransitLiftResult {
+  if (!transits || transits.length === 0) {
+    return { astro_mu_adjust: 0, astro_sigma_adjust: 0, astro_boost: 0, astro_summary: null };
+  }
+
+  // Aspect weights: positive = boost, negative = drag
+  const ASPECT_WEIGHTS: Record<string, number> = {
+    conjunction: 0.6,
+    trine: 0.5,
+    sextile: 0.3,
+    square: -0.4,
+    opposition: -0.3,
+    quincunx: -0.15,
+  };
+
+  // Planet relevance to athletic performance
+  const PLANET_WEIGHTS: Record<string, number> = {
+    mars: 1.0,     // energy, aggression
+    jupiter: 0.8,  // expansion, luck
+    sun: 0.7,      // vitality
+    moon: 0.5,     // emotion, rhythm
+    venus: 0.3,    // finesse
+    mercury: 0.4,  // agility, decisions
+    saturn: -0.6,  // restriction, fatigue
+    neptune: -0.3, // confusion
+    uranus: 0.2,   // unpredictability (adds sigma)
+    pluto: 0.4,    // intensity
+  };
+
+  let muSignal = 0;
+  let sigmaSignal = 0;
+  let totalWeight = 0;
+
+  for (const t of transits) {
+    const aspectKey = (t.aspect || "").toLowerCase().replace(/\s+/g, "");
+    const planetKey = (t.planet || "").toLowerCase();
+    const aspectW = ASPECT_WEIGHTS[aspectKey] ?? 0;
+    const planetW = PLANET_WEIGHTS[planetKey] ?? 0;
+    const orbDecay = t.orb != null ? Math.max(0, 1 - t.orb / 10) : 0.7;
+
+    const signal = aspectW * planetW * orbDecay;
+    muSignal += signal;
+    totalWeight += Math.abs(signal);
+
+    // Uranus transits increase volatility
+    if (planetKey === "uranus") {
+      sigmaSignal += Math.abs(aspectW) * orbDecay * 0.5;
+    }
+    // Saturn squares/oppositions increase volatility
+    if (planetKey === "saturn" && aspectW < 0) {
+      sigmaSignal += Math.abs(aspectW) * orbDecay * 0.3;
+    }
+  }
+
+  // Cap adjustments: ±3% mu, ±10% sigma
+  const mu_adjust = clamp(muSignal * 0.01, -0.03, 0.03);
+  const sigma_adjust = clamp(sigmaSignal * 0.05, 0, 0.10);
+
+  // Boost for edge score (0-1 scale, centered at 0.5)
+  const astro_boost = clamp(0.5 + muSignal * 0.1, 0, 1);
+
+  return {
+    astro_mu_adjust: mu_adjust,
+    astro_sigma_adjust: sigma_adjust,
+    astro_boost,
+    astro_summary: { transit_count: transits.length, mu_signal: +muSignal.toFixed(4), sigma_signal: +sigmaSignal.toFixed(4) },
+  };
+}
+
 function determineSide(pOver: number): string {
   return pOver >= 0.5 ? "over" : "under";
 }
@@ -245,6 +325,39 @@ Deno.serve(async (req) => {
       console.warn("PacePulse features unavailable for game", gameId);
     }
 
+    // 6b. Batch-fetch transit data for all players from astro_calculations
+    const playerIds = Object.values(playerMap).map(p => p.id);
+    const transitMap: Record<string, Array<{ aspect: string; planet: string; natal_planet?: string; orb?: number }>> = {};
+    if (playerIds.length > 0) {
+      try {
+        for (let i = 0; i < playerIds.length; i += 50) {
+          const batch = playerIds.slice(i, i + 50);
+          const { data: astroRows } = await sb
+            .from("astro_calculations")
+            .select("entity_id, result")
+            .in("entity_id", batch)
+            .eq("entity_type", "player")
+            .eq("calc_type", "transits")
+            .order("created_at", { ascending: false });
+          if (astroRows) {
+            for (const row of astroRows) {
+              if (!transitMap[row.entity_id]) {
+                // Only use the most recent transit calc per player
+                const result = row.result as any;
+                if (result?.transits && Array.isArray(result.transits)) {
+                  transitMap[row.entity_id] = result.transits;
+                } else if (result?.aspects && Array.isArray(result.aspects)) {
+                  transitMap[row.entity_id] = result.aspects;
+                }
+              }
+            }
+          }
+        }
+      } catch (_) {
+        console.warn("TransitLift: could not fetch astro data");
+      }
+    }
+
     for (const prop of mappedProps) {
       const player = playerMap[prop.player_name];
       if (!player) {
@@ -280,23 +393,29 @@ Deno.serve(async (req) => {
           1.0,
         );
 
-        // Apply PacePulse adjustment: fast-paced games boost counting stats
+        // Apply PacePulse adjustment
         let paceAdjust = 0;
         if (paceFeatures && paceFeatures.team_pace_delta) {
-          // +1% mu per pace delta point for counting stats
           const countingProps = ["points", "rebounds", "assists", "threes", "pts_reb_ast", "pts_reb", "pts_ast", "reb_ast"];
           if (countingProps.includes(prop.prop_type)) {
             paceAdjust = (paceFeatures.team_pace_delta / 100) * mu_base;
           }
         }
-        const mu_final = mu_base + paceAdjust;
-        const sigma_final = Math.max(sigma_base, 0.5);
+
+        // ── TransitLift (Phase 1E) ──
+        const playerTransits = transitMap[player.id] || [];
+        const transitLift = computeTransitLift(playerTransits);
+        const astro_mu_adjust = transitLift.astro_mu_adjust * mu_base;
+        const astro_sigma_adjust = transitLift.astro_sigma_adjust * sigma_base;
+
+        const mu_final = mu_base + paceAdjust + astro_mu_adjust;
+        const sigma_final = Math.max(sigma_base + astro_sigma_adjust, 0.5);
 
         const line = prop.line;
         const z = (line - mu_final) / sigma_final;
         const p_over_final = clamp(1 - normCdf(z), 0.001, 0.999);
 
-        const { edge_score, components } = computeEdgeScore(f, null, 0);
+        const { edge_score, components } = computeEdgeScore(f, null, transitLift.astro_boost);
 
         const side = determineSide(p_over_final);
         const confidence = computeConfidence(p_over_final);
@@ -320,11 +439,13 @@ Deno.serve(async (req) => {
         if (f.games_count < 5) qualityFlags.push("low_sample");
         if (f.role_up) qualityFlags.push("role_up");
         if ((f.coeff_of_var ?? 0) > 0.4) qualityFlags.push("high_volatility");
+        if (playerTransits.length > 0) qualityFlags.push("transit_active");
 
         const tags: string[] = [];
         if (f.role_up) tags.push("RoleUp");
         if (edge_score >= 70) tags.push("HighEdge");
         if (risk >= 0.6) tags.push("HighRisk");
+        if (playerTransits.length > 0) tags.push("TransitActive");
 
         modelPredictions.push({
           id: crypto.randomUUID(),
@@ -365,6 +486,8 @@ Deno.serve(async (req) => {
           expected_possessions: paceFeatures?.expected_possessions ?? null,
           blowout_risk: paceFeatures?.blowout_risk ?? null,
           team_pace_delta: paceFeatures?.team_pace_delta ?? null,
+          astro_mu_adjust: +astro_mu_adjust.toFixed(6),
+          astro_sigma_adjust: +astro_sigma_adjust.toFixed(6),
         });
 
         nebulaPredictions.push({
@@ -387,7 +510,7 @@ Deno.serve(async (req) => {
           microbars,
           one_liner: oneLiner,
           pred_ts: snapshotTs,
-          astro: null,
+          astro: transitLift.astro_summary,
         });
       } catch (e) {
         errors++;
