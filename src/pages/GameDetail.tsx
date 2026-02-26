@@ -841,55 +841,6 @@ const GameDetail = () => {
               awayTeam={game.away_team}
             />
 
-            {/* Team Advanced Stats Comparison */}
-            {(teamStats?.home || teamStats?.away) && (
-              <section>
-                <h3 className="text-xs font-semibold text-primary uppercase tracking-widest mb-3 flex items-center gap-1.5">
-                  <BarChart3 className="h-3.5 w-3.5" />
-                  Team Stats
-                </h3>
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider w-16 text-right">{game.away_abbr}</span>
-                  <span className="text-[9px] text-muted-foreground flex-1 text-center"></span>
-                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider w-16">{game.home_abbr}</span>
-                </div>
-                <div className="space-y-2">
-                  {[
-                    { label: "PPG", key: "ppg", fmt: (v: number | null) => v?.toFixed(1) ?? "—" },
-                    { label: "ORtg", key: "off_rating", fmt: (v: number | null) => v?.toFixed(1) ?? "—" },
-                    { label: "DRtg", key: "def_rating", fmt: (v: number | null) => v?.toFixed(1) ?? "—" },
-                    { label: "Pace", key: "pace", fmt: (v: number | null) => v?.toFixed(1) ?? "—" },
-                    { label: "TS%", key: "ts_pct", fmt: (v: number | null) => v != null ? (v * 100).toFixed(1) + "%" : "—" },
-                    { label: "eFG%", key: "efg_pct", fmt: (v: number | null) => v != null ? (v * 100).toFixed(1) + "%" : "—" },
-                    { label: "TOV%", key: "tov_pct", fmt: (v: number | null) => v?.toFixed(1) ?? "—" },
-                    { label: "ORB%", key: "orb_pct", fmt: (v: number | null) => v?.toFixed(1) ?? "—" },
-                  ].map(stat => {
-                    const awayVal = teamStats?.away?.[stat.key as keyof typeof teamStats.away] as number | null;
-                    const homeVal = teamStats?.home?.[stat.key as keyof typeof teamStats.home] as number | null;
-                    const isBetter = (key: string, a: number | null, b: number | null) => {
-                      if (a == null || b == null) return false;
-                      if (key === "def_rating" || key === "tov_pct") return a < b; // lower is better
-                      return a > b;
-                    };
-                    return (
-                      <div key={stat.label} className="flex items-center gap-2">
-                        <span className={cn("text-xs font-semibold tabular-nums w-16 text-right", isBetter(stat.key, awayVal, homeVal) && "text-cosmic-green")}>
-                          {stat.fmt(awayVal)}
-                        </span>
-                        <span className="text-[9px] text-muted-foreground flex-1 text-center uppercase tracking-wider">{stat.label}</span>
-                        <span className={cn("text-xs font-semibold tabular-nums w-16", isBetter(stat.key, homeVal, awayVal) && "text-cosmic-green")}>
-                          {stat.fmt(homeVal)}
-                        </span>
-                      </div>
-                    );
-                  })}
-                  <p className="text-[9px] text-muted-foreground text-center mt-1">
-                    {teamStats?.away?.games ?? 0}G vs {teamStats?.home?.games ?? 0}G season avg
-                  </p>
-                </div>
-              </section>
-            )}
-
             {/* Injury Report */}
             {(awayInjuries.length > 0 || homeInjuries.length > 0) && (
               <section>

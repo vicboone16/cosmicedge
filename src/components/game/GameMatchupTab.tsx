@@ -318,34 +318,6 @@ export function GameMatchupTab({
         </div>
       )}
 
-      {/* Rosters */}
-      {(homePlayers?.length || awayPlayers?.length) ? (
-        <div>
-          <h3 className="text-xs font-semibold text-primary uppercase tracking-widest mb-3 flex items-center gap-1.5">
-            👥 Rosters
-          </h3>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <p className="text-[10px] font-bold text-muted-foreground mb-2">{awayAbbr}</p>
-              {(awayPlayers || []).slice(0, 15).map(p => (
-                <div key={p.id} className="flex items-center gap-1.5 py-1">
-                  <span className="text-[10px] text-foreground">{p.name}</span>
-                  {p.position && <span className="text-[8px] text-muted-foreground">{p.position}</span>}
-                </div>
-              ))}
-            </div>
-            <div>
-              <p className="text-[10px] font-bold text-muted-foreground mb-2">{homeAbbr}</p>
-              {(homePlayers || []).slice(0, 15).map(p => (
-                <div key={p.id} className="flex items-center gap-1.5 py-1">
-                  <span className="text-[10px] text-foreground">{p.name}</span>
-                  {p.position && <span className="text-[8px] text-muted-foreground">{p.position}</span>}
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      ) : null}
     </div>
   );
 }
