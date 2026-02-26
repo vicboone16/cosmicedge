@@ -4198,12 +4198,15 @@ export type Database = {
           avg_points_allowed: number
           avg_possessions: number
           def_rating: number | null
+          efg_pct: number | null
           games_played: number
           league: string
           net_rating: number | null
           off_rating: number | null
           season: number
           team_abbr: string
+          tov_pct: number | null
+          ts_pct: number | null
           updated_at: string
         }
         Insert: {
@@ -4212,12 +4215,15 @@ export type Database = {
           avg_points_allowed?: number
           avg_possessions?: number
           def_rating?: number | null
+          efg_pct?: number | null
           games_played?: number
           league?: string
           net_rating?: number | null
           off_rating?: number | null
           season?: number
           team_abbr: string
+          tov_pct?: number | null
+          ts_pct?: number | null
           updated_at?: string
         }
         Update: {
@@ -4226,12 +4232,15 @@ export type Database = {
           avg_points_allowed?: number
           avg_possessions?: number
           def_rating?: number | null
+          efg_pct?: number | null
           games_played?: number
           league?: string
           net_rating?: number | null
           off_rating?: number | null
           season?: number
           team_abbr?: string
+          tov_pct?: number | null
+          ts_pct?: number | null
           updated_at?: string
         }
         Relationships: []
