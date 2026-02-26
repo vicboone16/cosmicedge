@@ -79,32 +79,32 @@ export interface CosmicEdgeResponse {
 /* ── Helpers ── */
 
 const TAG_COLORS: Record<string, string> = {
-  transits: "bg-purple-500/20 text-purple-300 border-purple-500/30",
-  natal: "bg-blue-500/20 text-blue-300 border-blue-500/30",
-  aspects: "bg-indigo-500/20 text-indigo-300 border-indigo-500/30",
-  location: "bg-green-500/20 text-green-300 border-green-500/30",
-  chemistry: "bg-pink-500/20 text-pink-300 border-pink-500/30",
-  role_usage: "bg-teal-500/20 text-teal-300 border-teal-500/30",
-  matchup: "bg-amber-500/20 text-amber-300 border-amber-500/30",
-  injury_news: "bg-orange-500/20 text-orange-300 border-orange-500/30",
-  market: "bg-cyan-500/20 text-cyan-300 border-cyan-500/30",
-  stats: "bg-slate-500/20 text-slate-300 border-slate-500/30",
-  combustion: "bg-red-500/20 text-red-300 border-red-500/30",
-  injury_risk: "bg-orange-500/20 text-orange-300 border-orange-500/30",
+  transits: "bg-purple-500/20 text-purple-700 dark:text-purple-300 border-purple-500/30",
+  natal: "bg-blue-500/20 text-blue-700 dark:text-blue-300 border-blue-500/30",
+  aspects: "bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 border-indigo-500/30",
+  location: "bg-green-500/20 text-green-700 dark:text-green-300 border-green-500/30",
+  chemistry: "bg-pink-500/20 text-pink-700 dark:text-pink-300 border-pink-500/30",
+  role_usage: "bg-teal-500/20 text-teal-700 dark:text-teal-300 border-teal-500/30",
+  matchup: "bg-amber-500/20 text-amber-700 dark:text-amber-300 border-amber-500/30",
+  injury_news: "bg-orange-500/20 text-orange-700 dark:text-orange-300 border-orange-500/30",
+  market: "bg-cyan-500/20 text-cyan-700 dark:text-cyan-300 border-cyan-500/30",
+  stats: "bg-slate-500/20 text-slate-700 dark:text-slate-300 border-slate-500/30",
+  combustion: "bg-red-500/20 text-red-700 dark:text-red-300 border-red-500/30",
+  injury_risk: "bg-orange-500/20 text-orange-700 dark:text-orange-300 border-orange-500/30",
   other: "bg-muted text-muted-foreground border-border",
 };
 
 const LEVEL_COLORS: Record<string, string> = {
-  low: "bg-green-500/20 text-green-300 border-green-500/30",
-  medium: "bg-amber-500/20 text-amber-300 border-amber-500/30",
-  high: "bg-red-500/20 text-red-300 border-red-500/30",
+  low: "bg-green-500/20 text-green-700 dark:text-green-300 border-green-500/30",
+  medium: "bg-amber-500/20 text-amber-700 dark:text-amber-300 border-amber-500/30",
+  high: "bg-red-500/20 text-red-700 dark:text-red-300 border-red-500/30",
 };
 
 const DECISION_COLORS: Record<string, string> = {
-  support: "bg-green-500/20 text-green-300 border-green-500/40",
-  fade: "bg-red-500/20 text-red-300 border-red-500/40",
+  support: "bg-green-500/20 text-green-700 dark:text-green-300 border-green-500/40",
+  fade: "bg-red-500/20 text-red-700 dark:text-red-300 border-red-500/40",
   neutral: "bg-muted text-muted-foreground border-border",
-  watchlist: "bg-amber-500/20 text-amber-300 border-amber-500/40",
+  watchlist: "bg-amber-500/20 text-amber-700 dark:text-amber-300 border-amber-500/40",
 };
 
 const SIGNAL_ICONS: Record<string, string> = {
@@ -395,7 +395,7 @@ export default function AstraStructuredResponse({ data, compact, onFollowUpClick
       {/* Takeaways */}
       {takeaways?.strengtheners?.length > 0 && (
         <div className="cosmic-card rounded-xl p-3 space-y-1.5">
-          <h4 className="text-[10px] font-bold text-green-400 flex items-center gap-1">
+          <h4 className="text-[10px] font-bold text-green-600 dark:text-green-400 flex items-center gap-1">
             <TrendingUp className="h-3 w-3" /> What would strengthen this read
           </h4>
           <BulletList items={takeaways.strengtheners} icon={TrendingUp} activeTag={activeTag} onTagClick={handleTagClick} />
@@ -404,7 +404,7 @@ export default function AstraStructuredResponse({ data, compact, onFollowUpClick
 
       {takeaways?.weakeners?.length > 0 && (
         <div className="cosmic-card rounded-xl p-3 space-y-1.5">
-          <h4 className="text-[10px] font-bold text-red-400 flex items-center gap-1">
+          <h4 className="text-[10px] font-bold text-red-600 dark:text-red-400 flex items-center gap-1">
             <TrendingDown className="h-3 w-3" /> What would weaken this read
           </h4>
           <BulletList items={takeaways.weakeners} icon={TrendingDown} activeTag={activeTag} onTagClick={handleTagClick} />
@@ -413,7 +413,7 @@ export default function AstraStructuredResponse({ data, compact, onFollowUpClick
 
       {takeaways?.team_vs_player?.length > 0 && (
         <div className="cosmic-card rounded-xl p-3 space-y-1.5">
-          <h4 className="text-[10px] font-bold text-blue-400 flex items-center gap-1">
+          <h4 className="text-[10px] font-bold text-blue-600 dark:text-blue-400 flex items-center gap-1">
             <Users className="h-3 w-3" /> Team vs Player lens
           </h4>
           <BulletList items={takeaways.team_vs_player} icon={Users} activeTag={activeTag} onTagClick={handleTagClick} />
@@ -422,7 +422,7 @@ export default function AstraStructuredResponse({ data, compact, onFollowUpClick
 
       {(takeaways as any)?.actionable_next_steps?.length > 0 && (
         <div className="cosmic-card rounded-xl p-3 space-y-1.5">
-          <h4 className="text-[10px] font-bold text-amber-400 flex items-center gap-1">
+          <h4 className="text-[10px] font-bold text-amber-600 dark:text-amber-400 flex items-center gap-1">
             <Lightbulb className="h-3 w-3" /> Next steps
           </h4>
           <BulletList items={(takeaways as any).actionable_next_steps} icon={Lightbulb} activeTag={activeTag} onTagClick={handleTagClick} />

@@ -45,9 +45,9 @@ export function GameStatsTab({ gameId, homeAbbr, awayAbbr, homeTeam, awayTeam, h
   });
 
   const periodLabel = (q: number) => {
-    if (league === "NHL") return q <= 3 ? `P${q}` : "OT";
+    if (league === "NHL") return q <= 3 ? `P${q}` : q === 4 ? "OT" : `${q - 3}OT`;
     if (league === "MLB") return `${q}`;
-    return q <= 4 ? `${q === 1 ? "1ST" : q === 2 ? "2ND" : q === 3 ? "3RD" : "4TH"}` : `OT${q - 4}`;
+    return q <= 4 ? `${q === 1 ? "1ST" : q === 2 ? "2ND" : q === 3 ? "3RD" : "4TH"}` : `OT${q - 4 > 1 ? q - 4 : ""}`;
   };
 
   // Team totals from player stats
