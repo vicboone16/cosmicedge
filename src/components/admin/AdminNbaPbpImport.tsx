@@ -9,6 +9,7 @@ import { Progress } from "@/components/ui/progress";
 interface ImportResult {
   status: string;
   game_id?: string;
+  matched_game_uuid?: string | null;
   away_team?: string;
   home_team?: string;
   date?: string;
@@ -242,6 +243,7 @@ export default function AdminNbaPbpImport() {
                   {f.status === "done" && f.result && (
                     <div className="text-[10px] text-green-600">
                       ✓ {f.result.plays_imported} plays · {f.result.final_score}
+                      {f.result.matched_game_uuid ? " · ✓ Linked" : " · ⚠ No match"}
                     </div>
                   )}
                   {f.status === "error" && (

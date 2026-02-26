@@ -160,6 +160,38 @@ Deno.serve(async (req) => {
       inserted += batch.length;
     }
 
+    // ── Auto-match to internal game UUID ──
+    // Try to find the matching game in our games table by home/away team + date (±1 day)
+    let matchedGameUuid: string | null = null;
+    if (homeTeam && awayTeam && gameDate) {
+      const d = new Date(gameDate);
+      const prevDay = new Date(d.getTime() - 86400000).toISOString().slice(0, 10);
+      const nextDay = new Date(d.getTime() + 86400000).toISOString().slice(0, 10);
+
+      const { data: matchedGame } = await sb
+        .from("games")
+        .select("id, external_id")
+        .eq("league", "NBA")
+        .eq("home_abbr", homeTeam)
+        .eq("away_abbr", awayTeam)
+        .gte("start_time", `${prevDay}T00:00:00Z`)
+        .lte("start_time", `${nextDay}T23:59:59Z`)
+        .maybeSingle();
+
+      if (matchedGame) {
+        matchedGameUuid = matchedGame.id;
+
+        // If the game's external_id doesn't already contain the NBA game ID, update it
+        // Strip leading zeros for comparison: 0022500831 → 22500831
+        const shortNbaId = gameId.replace(/^0+/, "");
+        const existingExtId = matchedGame.external_id || "";
+        if (!existingExtId.includes(shortNbaId) && !existingExtId.startsWith("00" + shortNbaId)) {
+          // Store the NBA numeric ID as external_id for direct lookup
+          await sb.from("games").update({ external_id: shortNbaId }).eq("id", matchedGame.id);
+        }
+      }
+    }
+
     // Get final score from last row
     const lastRow = deduped[deduped.length - 1];
     const finalScore = `${lastRow.away_score ?? "?"}-${lastRow.home_score ?? "?"}`;
@@ -168,6 +200,7 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({
       status: "success",
       game_id: gameId,
+      matched_game_uuid: matchedGameUuid,
       away_team: awayTeam,
       home_team: homeTeam,
       date: gameDate,

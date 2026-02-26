@@ -102,12 +102,18 @@ export function PlayByPlayTab({ gameId, homeAbbr, awayAbbr, league }: PlayByPlay
 
       // 3. Try external_id (and with leading zeros for NBA format)
       if (gameData.external_id) {
-        const extIds = [gameData.external_id, "00" + gameData.external_id];
-        for (const extId of extIds) {
+        const extId = gameData.external_id;
+        // Build candidate IDs: raw, with "00" prefix, and with "002" prefix
+        const extIds = [extId, "00" + extId, "002" + extId];
+        // Also try if extId is already a full NBA ID
+        if (!extId.startsWith("00")) extIds.push("00" + extId);
+        const uniqueIds = [...new Set(extIds)];
+        
+        for (const eid of uniqueIds) {
           const { data: eventsById } = await supabase
             .from("nba_play_by_play_events")
             .select("*")
-            .eq("game_id", extId)
+            .eq("game_id", eid)
             .order("play_id", { ascending: true })
             .limit(1000);
           if (eventsById && eventsById.length > 0) return eventsById;
