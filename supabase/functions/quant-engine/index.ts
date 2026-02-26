@@ -1102,8 +1102,29 @@ Deno.serve(async (req) => {
       models.push(computePace(homeAvg, awayAvg, window));
     }
 
-    // Season stats for net rating
+    // Season stats for net rating — prefer team_season_pace (computed from boxscores) over SportsData.io
     const fetchSeasonStats = async (abbr: string) => {
+      // First try our computed pace table (more accurate, derived from actual boxscores)
+      const { data: paceData } = await sb
+        .from("team_season_pace")
+        .select("*")
+        .eq("team_abbr", abbr)
+        .eq("league", game.league)
+        .order("season", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (paceData && paceData.games_played >= 3) {
+        return {
+          off_rating: paceData.off_rating,
+          def_rating: paceData.def_rating,
+          net_rating: paceData.net_rating,
+          pace: paceData.avg_pace,
+          _source: "team_season_pace",
+        };
+      }
+
+      // Fallback to SportsData.io team_season_stats
       const { data } = await sb
         .from("team_season_stats")
         .select("*")
@@ -1112,7 +1133,7 @@ Deno.serve(async (req) => {
         .order("season", { ascending: false })
         .limit(1)
         .maybeSingle();
-      return data;
+      return data ? { ...data, _source: "team_season_stats" } : null;
     };
 
     const [homeSeasonStats, awaySeasonStats] = await Promise.all([
