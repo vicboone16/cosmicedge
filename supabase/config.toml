@@ -77,3 +77,6 @@ verify_jwt = false
 
 [functions.backfill-player-stats]
 verify_jwt = false
+
+[functions.oracle-pregame]
+verify_jwt = false
