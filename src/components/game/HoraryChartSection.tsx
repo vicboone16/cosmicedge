@@ -146,13 +146,31 @@ export function HoraryChartSection({ gameId, startTime, venueLat, venueLng, home
   const awayLord = getTraditionalRuler(descSign);
   const homeDignity = getEssentialDignity(homeLord, ascSign);
   const awayDignity = getEssentialDignity(awayLord, descSign);
-  const verdict = getHoraryVerdict(homeDignity, awayDignity);
 
-  // Enhanced analysis data
+  // Enhanced analysis data — must be before verdict computation
   const enhancedResult = enhancedHorary?.result;
   const lunarResult = lunarData?.result;
   const voc = lunarResult?.void_of_course || lunarResult?.voc;
   const moonPhase = lunarResult?.moon_phase || lunarResult?.phase;
+
+  // Determine moon sign from lunar data
+  const moonSign = lunarResult?.moon_sign || lunarResult?.sign || null;
+  const moonPhaseStr = moonPhase ? (typeof moonPhase === "string" ? moonPhase : moonPhase.name || moonPhase.phase || "") : undefined;
+  const isVoc = voc === true || voc?.is_voc === true;
+
+  const verdict = getHoraryVerdict(homeDignity, awayDignity, undefined, {
+    homeLord,
+    awayLord,
+    homeLordSign: ascSign,
+    awayLordSign: descSign,
+    ascSign,
+    descSign,
+    mcSign,
+    icSign,
+    moonSign: moonSign || undefined,
+    moonPhase: moonPhaseStr,
+    voc: isVoc,
+  });
 
   return (
     <section>
@@ -254,11 +272,17 @@ export function HoraryChartSection({ gameId, startTime, venueLat, venueLng, home
         <div className="border-t border-border/50 pt-3">
           <div className="flex items-center gap-2 mb-1">
             <Star className="h-3 w-3 text-cosmic-gold" />
-            <p className="text-[10px] font-semibold text-foreground">Horary Verdict</p>
+            <p className="text-[10px] font-semibold text-foreground">
+              Horary Verdict — {verdict.strength === "strong" ? "🔥 Strong" : verdict.strength === "moderate" ? "⚡ Moderate" : "~ Slight"} {verdict.favoredTeam === "home" ? homeAbbr : verdict.favoredTeam === "away" ? awayAbbr : "Neutral"}
+            </p>
           </div>
-          <p className="text-[10px] text-muted-foreground leading-relaxed italic">
-            ✦ {verdict.reason}
-          </p>
+          <div className="space-y-1">
+            {verdict.reason.split(". ").filter(Boolean).map((line, i) => (
+              <p key={i} className="text-[9px] text-muted-foreground leading-relaxed">
+                {i === 0 ? "✦ " : "• "}{line.replace(/\.$/, "")}
+              </p>
+            ))}
+          </div>
         </div>
       </div>
     </section>

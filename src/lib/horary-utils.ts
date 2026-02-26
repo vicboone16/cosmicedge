@@ -55,10 +55,32 @@ export function getEssentialDignity(planet: string, sign: string): string {
   return "Peregrine";
 }
 
+/** Triplicity rulers (day chart assumed for simplicity) */
+const TRIPLICITY_DAY: Record<string, string> = {
+  Aries: "Sun", Leo: "Sun", Sagittarius: "Sun",       // Fire
+  Taurus: "Venus", Virgo: "Venus", Capricorn: "Venus", // Earth
+  Gemini: "Saturn", Libra: "Saturn", Aquarius: "Saturn",// Air
+  Cancer: "Mars", Scorpio: "Mars", Pisces: "Mars",      // Water
+};
+
+/** Check if planet has triplicity in the sign */
+export function hasTriplicity(planet: string, sign: string): boolean {
+  return TRIPLICITY_DAY[sign] === planet;
+}
+
+/** Mutual reception: two planets each in the other's domicile */
+export function hasMutualReception(
+  planet1: string, sign1: string,
+  planet2: string, sign2: string
+): boolean {
+  return TRADITIONAL_RULERS[sign1] === planet2 && TRADITIONAL_RULERS[sign2] === planet1;
+}
+
 export function getDignityColor(dignity: string): string {
   switch (dignity) {
     case "Domicile": return "text-cosmic-green";
     case "Exaltation": return "text-cosmic-gold";
+    case "Triplicity": return "text-cosmic-gold/80";
     case "Detriment": case "Fall": return "text-destructive";
     default: return "text-muted-foreground";
   }
@@ -68,6 +90,7 @@ export function getDignityScore(dignity: string): number {
   switch (dignity) {
     case "Domicile": return 5;
     case "Exaltation": return 4;
+    case "Triplicity": return 3;
     case "Peregrine": return 0;
     case "Detriment": return -4;
     case "Fall": return -5;
@@ -76,30 +99,126 @@ export function getDignityScore(dignity: string): number {
 }
 
 /**
- * Produce a horary verdict comparing home (1st house) vs away (7th house).
+ * Enhanced horary verdict with multiple factors beyond just dignity.
  */
 export function getHoraryVerdict(
   homeLordDignity: string,
   awayLordDignity: string,
-  moonApplyingTo?: "home" | "away" | "neither"
+  moonApplyingTo?: "home" | "away" | "neither",
+  extras?: {
+    homeLord?: string;
+    awayLord?: string;
+    homeLordSign?: string;
+    awayLordSign?: string;
+    ascSign?: string;
+    descSign?: string;
+    mcSign?: string;
+    icSign?: string;
+    moonSign?: string;
+    moonPhase?: string;
+    voc?: boolean;
+  }
 ): HoraryVerdict {
-  const homeScore = getDignityScore(homeLordDignity) + (moonApplyingTo === "home" ? 2 : 0);
-  const awayScore = getDignityScore(awayLordDignity) + (moonApplyingTo === "away" ? 2 : 0);
+  let homeScore = getDignityScore(homeLordDignity);
+  let awayScore = getDignityScore(awayLordDignity);
+  const reasons: string[] = [];
+
+  // 1. Base dignity
+  reasons.push(`Home Lord in ${homeLordDignity} (${homeScore > 0 ? "+" : ""}${homeScore}), Away Lord in ${awayLordDignity} (${awayScore > 0 ? "+" : ""}${awayScore})`);
+
+  // 2. Moon applying
+  if (moonApplyingTo === "home") {
+    homeScore += 2;
+    reasons.push("Moon applying to Home Lord (+2 home)");
+  } else if (moonApplyingTo === "away") {
+    awayScore += 2;
+    reasons.push("Moon applying to Away Lord (+2 away)");
+  }
+
+  if (extras) {
+    const { homeLord, awayLord, homeLordSign, awayLordSign, ascSign, descSign, mcSign, icSign, moonSign, moonPhase, voc } = extras;
+
+    // 3. Triplicity bonus
+    if (homeLord && homeLordSign && hasTriplicity(homeLord, homeLordSign)) {
+      homeScore += 2;
+      reasons.push(`${homeLord} has triplicity in ${homeLordSign} (+2 home)`);
+    }
+    if (awayLord && awayLordSign && hasTriplicity(awayLord, awayLordSign)) {
+      awayScore += 2;
+      reasons.push(`${awayLord} has triplicity in ${awayLordSign} (+2 away)`);
+    }
+
+    // 4. Mutual reception
+    if (homeLord && awayLord && homeLordSign && awayLordSign &&
+        hasMutualReception(homeLord, homeLordSign, awayLord, awayLordSign)) {
+      reasons.push("Mutual reception between Lords — game could go either way");
+    }
+
+    // 5. MC ruler affinity — which Lord rules the 10th (outcome)?
+    if (mcSign) {
+      const mcRuler = getTraditionalRuler(mcSign);
+      if (mcRuler === homeLord) {
+        homeScore += 2;
+        reasons.push(`MC (outcome) ruled by ${mcRuler} = Home Lord (+2 home)`);
+      } else if (mcRuler === awayLord) {
+        awayScore += 2;
+        reasons.push(`MC (outcome) ruled by ${mcRuler} = Away Lord (+2 away)`);
+      }
+    }
+
+    // 6. IC ruler (end of matter)
+    if (icSign) {
+      const icRuler = getTraditionalRuler(icSign);
+      if (icRuler === homeLord) {
+        homeScore += 1;
+        reasons.push(`IC (end of matter) aligns with Home Lord (+1 home)`);
+      } else if (icRuler === awayLord) {
+        awayScore += 1;
+        reasons.push(`IC (end of matter) aligns with Away Lord (+1 away)`);
+      }
+    }
+
+    // 7. Moon sign advantage — Moon in a sign ruled by one of the Lords
+    if (moonSign) {
+      const moonRuler = getTraditionalRuler(moonSign);
+      if (moonRuler === homeLord) {
+        homeScore += 1;
+        reasons.push(`Moon in ${moonSign} (${moonRuler}'s sign) favors Home (+1)`);
+      } else if (moonRuler === awayLord) {
+        awayScore += 1;
+        reasons.push(`Moon in ${moonSign} (${moonRuler}'s sign) favors Away (+1)`);
+      }
+    }
+
+    // 8. Void of Course penalty
+    if (voc) {
+      reasons.push("⚠ Moon Void of Course — outcome uncertain, caution advised");
+    }
+
+    // 9. Moon phase context
+    if (moonPhase) {
+      reasons.push(`Moon phase: ${moonPhase}`);
+    }
+  }
+
   const diff = homeScore - awayScore;
 
   if (Math.abs(diff) <= 1) {
-    return { favoredTeam: "neutral", strength: "slight", reason: "Significators are nearly equal in strength — a toss-up." };
+    return {
+      favoredTeam: "neutral",
+      strength: "slight",
+      reason: reasons.join(". ") + ". Significators nearly balanced — lean caution.",
+    };
   }
 
   const favored = diff > 0 ? "home" : "away";
   const strength = Math.abs(diff) >= 6 ? "strong" : Math.abs(diff) >= 3 ? "moderate" : "slight";
   const winner = favored === "home" ? "Home" : "Away";
-  const loser = favored === "home" ? "Away" : "Home";
 
   return {
     favoredTeam: favored,
     strength,
-    reason: `${winner} Lord in ${favored === "home" ? homeLordDignity : awayLordDignity} vs ${loser} Lord in ${favored === "home" ? awayLordDignity : homeLordDignity}${moonApplyingTo === favored ? " + Moon applying" : ""} → ${strength} ${winner.toLowerCase()} advantage.`,
+    reason: reasons.join(". ") + `. → ${strength} ${winner.toLowerCase()} advantage.`,
   };
 }
 

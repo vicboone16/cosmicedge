@@ -17,6 +17,9 @@ interface TeamPaceRow {
   off_rating: number | null;
   def_rating: number | null;
   net_rating: number | null;
+  ts_pct: number | null;
+  efg_pct: number | null;
+  tov_pct: number | null;
   updated_at: string | null;
 }
 
@@ -28,6 +31,9 @@ const FIELDS: { key: keyof TeamPaceRow; label: string; step: string }[] = [
   { key: "def_rating", label: "DRTG", step: "0.1" },
   { key: "net_rating", label: "NET", step: "0.1" },
   { key: "avg_pace", label: "PACE", step: "0.1" },
+  { key: "ts_pct", label: "TS%", step: "0.001" },
+  { key: "efg_pct", label: "eFG%", step: "0.001" },
+  { key: "tov_pct", label: "TOV%", step: "0.1" },
 ];
 
 export default function AdminTeamStatsEditor() {
@@ -82,8 +88,11 @@ export default function AdminTeamStatsEditor() {
         off_rating: row.off_rating,
         def_rating: row.def_rating,
         net_rating: row.net_rating,
+        ts_pct: row.ts_pct,
+        efg_pct: row.efg_pct,
+        tov_pct: row.tov_pct,
         updated_at: new Date().toISOString(),
-      }, { onConflict: "team_abbr,season,league" });
+      } as any, { onConflict: "team_abbr,season,league" });
 
     if (error) {
       toast({ title: "Save failed", description: error.message, variant: "destructive" });
@@ -104,7 +113,8 @@ export default function AdminTeamStatsEditor() {
       team_abbr: abbr, season, league,
       games_played: 0, avg_pace: 100, avg_points: 110,
       avg_points_allowed: 110, off_rating: 110, def_rating: 110,
-      net_rating: 0, updated_at: null,
+      net_rating: 0, ts_pct: null, efg_pct: null, tov_pct: null,
+      updated_at: null,
     };
     setRows(prev => [...prev, newRow].sort((a, b) => a.team_abbr.localeCompare(b.team_abbr)));
   };
@@ -142,7 +152,7 @@ export default function AdminTeamStatsEditor() {
       ) : (
         <>
           {/* Header */}
-          <div className="grid grid-cols-[60px_repeat(7,1fr)_40px] gap-1 text-[9px] text-muted-foreground font-semibold uppercase px-1">
+           <div className="grid grid-cols-[60px_repeat(10,1fr)_40px] gap-1 text-[9px] text-muted-foreground font-semibold uppercase px-1">
             <div>Team</div>
             {FIELDS.map(f => <div key={f.key} className="text-center">{f.label}</div>)}
             <div></div>
@@ -152,7 +162,7 @@ export default function AdminTeamStatsEditor() {
             {filtered.map(row => (
               <div
                 key={row.team_abbr}
-                className="grid grid-cols-[60px_repeat(7,1fr)_40px] gap-1 items-center p-1 rounded border border-border bg-card"
+                className="grid grid-cols-[60px_repeat(10,1fr)_40px] gap-1 items-center p-1 rounded border border-border bg-card"
               >
                 <span className="text-xs font-bold text-foreground">{row.team_abbr}</span>
                 {FIELDS.map(f => (
