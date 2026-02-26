@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from "react";
+import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -256,10 +257,13 @@ export default function PlayerPropsPage() {
     refetchInterval: 30_000,
   });
 
+  const [isManualFetching, setIsManualFetching] = useState(false);
+
   const handleRefreshAll = async () => {
     const leagues = ["NBA", "NHL", "MLB"];
+    setIsManualFetching(true);
     try {
-      await Promise.allSettled(
+      const results = await Promise.allSettled(
         leagues.map((league) =>
           fetch(
             `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/fetch-player-props?league=${league}${includeAlternates ? "&alternates=true" : ""}`,
@@ -273,9 +277,17 @@ export default function PlayerPropsPage() {
           )
         )
       );
+      const failed = results.filter(r => r.status === "rejected" || (r.status === "fulfilled" && !r.value.ok));
+      if (failed.length === leagues.length) {
+        toast.error("Failed to fetch props — check API quota");
+      } else {
+        toast.success(`Props refresh triggered for ${leagues.join(", ")}`);
+      }
     } catch (e) {
       console.warn("Props refresh error:", e);
+      toast.error("Props refresh failed");
     }
+    setIsManualFetching(false);
     refetch();
   };
 
@@ -355,11 +367,11 @@ export default function PlayerPropsPage() {
           </h1>
           <button
             onClick={handleRefreshAll}
-            disabled={isFetching}
+            disabled={isFetching || isManualFetching}
             className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1 px-3 py-1.5 rounded-lg bg-secondary/50 hover:bg-secondary"
           >
-            <RefreshCw className={`h-3 w-3 ${isFetching ? "animate-spin" : ""}`} />
-            {isFetching ? "Fetching..." : "Refresh"}
+            <RefreshCw className={`h-3 w-3 ${(isFetching || isManualFetching) ? "animate-spin" : ""}`} />
+            {isManualFetching ? "Fetching..." : isFetching ? "Loading..." : "Refresh"}
           </button>
         </div>
 

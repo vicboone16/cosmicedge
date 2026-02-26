@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { SlidersHorizontal, Flame, TrendingUp, RefreshCw, Search, ChevronLeft, ChevronRight, Calendar } from "lucide-react";
@@ -257,9 +258,12 @@ export default function TrendsPage() {
     );
   }, [insights, search]);
 
+  const [isManualFetching, setIsManualFetching] = useState(false);
+
   const handleRefresh = async () => {
+    setIsManualFetching(true);
     try {
-      await fetch(
+      const resp = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/fetch-player-props?league=${leagueFilter}`,
         {
           method: "POST",
@@ -269,9 +273,16 @@ export default function TrendsPage() {
           },
         }
       );
+      if (resp.ok) {
+        toast.success(`Props refresh triggered for ${leagueFilter}`);
+      } else {
+        toast.error(`Props refresh failed (${resp.status})`);
+      }
     } catch (e) {
       console.warn("Refresh error:", e);
+      toast.error("Props refresh failed — network error");
     }
+    setIsManualFetching(false);
     refetch();
   };
 
@@ -300,11 +311,11 @@ export default function TrendsPage() {
           <h1 className="text-2xl font-bold font-display">Trends</h1>
           <button
             onClick={handleRefresh}
-            disabled={isFetching}
+            disabled={isFetching || isManualFetching}
             className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 px-3 py-1.5 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors"
           >
-            <RefreshCw className={cn("h-3 w-3", isFetching && "animate-spin")} />
-            {isFetching ? "..." : "Refresh Props"}
+            <RefreshCw className={cn("h-3 w-3", (isFetching || isManualFetching) && "animate-spin")} />
+            {isManualFetching ? "Fetching..." : isFetching ? "..." : "Refresh Props"}
           </button>
         </div>
 
