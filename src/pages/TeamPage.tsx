@@ -199,7 +199,26 @@ const TeamPage = () => {
     refetchInterval: 180_000,
   });
 
-  // Fetch advanced game stats
+  // Primary source: team_season_pace (authoritative ratings)
+  const { data: paceRow } = useQuery({
+    queryKey: ["team-pace-profile", abbr, leagueParam],
+    queryFn: async () => {
+      const lg = standings?.league || leagueParam?.toUpperCase() || "NBA";
+      const now = new Date();
+      const season = now.getMonth() >= 9 ? now.getFullYear() : now.getFullYear() - 1;
+      const { data } = await supabase
+        .from("team_season_pace")
+        .select("*")
+        .eq("team_abbr", abbr!)
+        .eq("league", lg)
+        .eq("season", season)
+        .maybeSingle();
+      return data;
+    },
+    enabled: !!abbr,
+  });
+
+  // Fallback: team_game_stats for four factors detail
   const { data: advancedStats } = useQuery({
     queryKey: ["team-advanced-stats", abbr],
     queryFn: async () => {
@@ -213,10 +232,9 @@ const TeamPage = () => {
     enabled: !!abbr,
   });
 
-  // Compute season averages from game logs
-  const seasonAvg = advancedStats && advancedStats.length > 0
+  // Compute four factors from game logs (for detailed breakdown)
+  const fourFactors = advancedStats && advancedStats.length > 0
     ? (() => {
-        const n = advancedStats.length;
         const avg = (key: string) => {
           const vals = advancedStats
             .map((r: any) => r[key])
@@ -224,11 +242,6 @@ const TeamPage = () => {
           return vals.length ? (vals.reduce((a: number, b: number) => a + b, 0) / vals.length) : null;
         };
         return {
-          games: n,
-          ppg: avg("points"),
-          off_rating: avg("off_rating"),
-          def_rating: avg("def_rating"),
-          pace: avg("pace"),
           ts_pct: avg("ts_pct"),
           efg_pct: avg("efg_pct"),
           tov_pct: avg("tov_pct"),
@@ -244,6 +257,36 @@ const TeamPage = () => {
           ast_pct: avg("ast_pct"),
           stl_pct: avg("stl_pct"),
           blk_pct: avg("blk_pct"),
+        };
+      })()
+    : null;
+
+  // Unified season averages: prefer team_season_pace, fallback to team_game_stats
+  const seasonAvg = paceRow
+    ? {
+        games: paceRow.games_played ?? 0,
+        ppg: paceRow.avg_points != null ? Number(paceRow.avg_points) : null,
+        off_rating: paceRow.off_rating != null ? Number(paceRow.off_rating) : null,
+        def_rating: paceRow.def_rating != null ? Number(paceRow.def_rating) : null,
+        pace: paceRow.avg_pace != null ? Number(paceRow.avg_pace) : null,
+        net_rating: paceRow.net_rating != null ? Number(paceRow.net_rating) : null,
+      }
+    : advancedStats && advancedStats.length > 0
+    ? (() => {
+        const n = advancedStats.length;
+        const avg = (key: string) => {
+          const vals = advancedStats
+            .map((r: any) => r[key])
+            .filter((v: any) => v !== null && v !== undefined);
+          return vals.length ? (vals.reduce((a: number, b: number) => a + b, 0) / vals.length) : null;
+        };
+        return {
+          games: n,
+          ppg: avg("points"),
+          off_rating: avg("off_rating"),
+          def_rating: avg("def_rating"),
+          pace: avg("pace"),
+          net_rating: null as number | null,
         };
       })()
     : null;
@@ -316,14 +359,26 @@ const TeamPage = () => {
               <StatCell label="Pace" value={seasonAvg.pace?.toFixed(1)} />
             </div>
 
-            {showAdvanced && (
+            {/* Net Rating row */}
+            {seasonAvg.net_rating != null && (
+              <div className="grid grid-cols-2 gap-2 mt-2">
+                <StatCell label="NRtg" value={seasonAvg.net_rating.toFixed(1)} />
+                <StatCell label="PPG Allowed" value={
+                  seasonAvg.off_rating != null && seasonAvg.def_rating != null && seasonAvg.pace != null
+                    ? (seasonAvg.def_rating * seasonAvg.pace / 100).toFixed(1)
+                    : null
+                } />
+              </div>
+            )}
+
+            {showAdvanced && fourFactors && (
               <div className="space-y-3 mt-3 animate-in fade-in slide-in-from-top-2 duration-200">
                 {/* Shooting */}
                 <div className="grid grid-cols-4 gap-2">
-                  <StatCell label="TS%" value={seasonAvg.ts_pct != null ? (seasonAvg.ts_pct * 100).toFixed(1) + "%" : null} />
-                  <StatCell label="eFG%" value={seasonAvg.efg_pct != null ? (seasonAvg.efg_pct * 100).toFixed(1) + "%" : null} />
-                  <StatCell label="FTr" value={seasonAvg.ftr?.toFixed(3)} />
-                  <StatCell label="3PAr" value={seasonAvg.three_par?.toFixed(3)} />
+                  <StatCell label="TS%" value={fourFactors.ts_pct != null ? (fourFactors.ts_pct * 100).toFixed(1) + "%" : null} />
+                  <StatCell label="eFG%" value={fourFactors.efg_pct != null ? (fourFactors.efg_pct * 100).toFixed(1) + "%" : null} />
+                  <StatCell label="FTr" value={fourFactors.ftr?.toFixed(3)} />
+                  <StatCell label="3PAr" value={fourFactors.three_par?.toFixed(3)} />
                 </div>
 
                 {/* Offensive Four Factors */}
@@ -332,10 +387,10 @@ const TeamPage = () => {
                   Offensive Four Factors
                 </h4>
                 <div className="grid grid-cols-4 gap-2">
-                  <StatCell label="eFG%" value={seasonAvg.efg_pct != null ? (seasonAvg.efg_pct * 100).toFixed(1) + "%" : null} />
-                  <StatCell label="TOV%" value={seasonAvg.tov_pct?.toFixed(1)} />
-                  <StatCell label="ORB%" value={seasonAvg.orb_pct?.toFixed(1)} />
-                  <StatCell label="FT/FGA" value={seasonAvg.ft_per_fga?.toFixed(3)} />
+                  <StatCell label="eFG%" value={fourFactors.efg_pct != null ? (fourFactors.efg_pct * 100).toFixed(1) + "%" : null} />
+                  <StatCell label="TOV%" value={fourFactors.tov_pct?.toFixed(1)} />
+                  <StatCell label="ORB%" value={fourFactors.orb_pct?.toFixed(1)} />
+                  <StatCell label="FT/FGA" value={fourFactors.ft_per_fga?.toFixed(3)} />
                 </div>
 
                 {/* Defensive Four Factors */}
@@ -344,18 +399,18 @@ const TeamPage = () => {
                   Defensive Four Factors
                 </h4>
                 <div className="grid grid-cols-4 gap-2">
-                  <StatCell label="Opp eFG%" value={seasonAvg.opp_efg_pct != null ? (seasonAvg.opp_efg_pct * 100).toFixed(1) + "%" : null} />
-                  <StatCell label="Opp TOV%" value={seasonAvg.opp_tov_pct?.toFixed(1)} />
-                  <StatCell label="Opp ORB%" value={seasonAvg.opp_orb_pct?.toFixed(1)} />
-                  <StatCell label="Opp FT/FGA" value={seasonAvg.opp_ft_per_fga?.toFixed(3)} />
+                  <StatCell label="Opp eFG%" value={fourFactors.opp_efg_pct != null ? (fourFactors.opp_efg_pct * 100).toFixed(1) + "%" : null} />
+                  <StatCell label="Opp TOV%" value={fourFactors.opp_tov_pct?.toFixed(1)} />
+                  <StatCell label="Opp ORB%" value={fourFactors.opp_orb_pct?.toFixed(1)} />
+                  <StatCell label="Opp FT/FGA" value={fourFactors.opp_ft_per_fga?.toFixed(3)} />
                 </div>
 
                 {/* Other Advanced */}
                 <div className="grid grid-cols-4 gap-2">
-                  <StatCell label="TRB%" value={seasonAvg.trb_pct?.toFixed(1)} />
-                  <StatCell label="AST%" value={seasonAvg.ast_pct?.toFixed(1)} />
-                  <StatCell label="STL%" value={seasonAvg.stl_pct?.toFixed(1)} />
-                  <StatCell label="BLK%" value={seasonAvg.blk_pct?.toFixed(1)} />
+                  <StatCell label="TRB%" value={fourFactors.trb_pct?.toFixed(1)} />
+                  <StatCell label="AST%" value={fourFactors.ast_pct?.toFixed(1)} />
+                  <StatCell label="STL%" value={fourFactors.stl_pct?.toFixed(1)} />
+                  <StatCell label="BLK%" value={fourFactors.blk_pct?.toFixed(1)} />
                 </div>
               </div>
             )}
