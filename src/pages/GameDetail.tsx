@@ -23,6 +23,7 @@ import { GameChartRulers } from "@/components/game/GameChartRulers";
 import { GameMatchupTab } from "@/components/game/GameMatchupTab";
 import { PlayByPlayTab } from "@/components/game/PlayByPlayTab";
 import { GameStatsTab } from "@/components/game/GameStatsTab";
+import { OracleTab } from "@/components/game/OracleTab";
 
 import { PeriodScoresTicker } from "@/components/game/PeriodScoresTicker";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -340,7 +341,7 @@ const GameDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { formatInUserTZ, getTZAbbrev } = useTimezone();
-  const [activeTab, setActiveTab] = useState<"odds" | "insights" | "matchup" | "pbp" | "stats">("insights");
+  const [activeTab, setActiveTab] = useState<"odds" | "insights" | "matchup" | "pbp" | "stats" | "oracle">("insights");
   const [gameSubTab, setGameSubTab] = useState<"gamelines" | "player_props" | "team_props" | "game_props">("gamelines");
   const [transitSelectedPlayer, setTransitSelectedPlayer] = useState<{ id: string; name: string; position: string | null; team: string | null; birth_date: string | null } | null>(null);
 
@@ -550,6 +551,7 @@ const GameDetail = () => {
         {/* Tab bar - ESPN style underline tabs */}
         <div className="flex gap-1 justify-center border-b border-border/50 -mx-4 px-4 overflow-x-auto no-scrollbar">
         {([
+            { val: "oracle" as const, label: "Oracle" },
             { val: "insights" as const, label: "Insights" },
             { val: "matchup" as const, label: "Matchup" },
             { val: "odds" as const, label: "Odds" },
@@ -942,6 +944,24 @@ const GameDetail = () => {
             homeAbbr={game.home_abbr}
             awayAbbr={game.away_abbr}
             league={game.league}
+          />
+        )}
+
+        {activeTab === "oracle" && (
+          <OracleTab
+            gameId={game.id}
+            homeAbbr={game.home_abbr}
+            awayAbbr={game.away_abbr}
+            homeTeam={game.home_team}
+            awayTeam={game.away_team}
+            league={game.league}
+            bookMLHome={game.odds.moneyline.home}
+            bookMLAway={game.odds.moneyline.away}
+            bookSpread={game.odds.spread.line}
+            bookTotal={game.odds.total.line}
+            homeScore={game.home_score}
+            awayScore={game.away_score}
+            isLive={game.status === "live"}
           />
         )}
 

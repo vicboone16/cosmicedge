@@ -7,6 +7,7 @@ import { getPlanetaryHourAt } from "@/lib/planetary-hours";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { PeriodScoresTicker } from "@/components/game/PeriodScoresTicker";
+import { useOracle } from "@/hooks/use-oracle";
 
 function formatOdds(odds: number): string {
   if (!odds) return "—";
@@ -46,6 +47,15 @@ export const GameCard = memo(function GameCard({ game }: { game: GameWithOdds })
   const isLive = game.status === "live";
   const isFinal = game.status === "final";
   const hasScores = game.home_score != null && game.away_score != null;
+
+  const { pregame } = useOracle(
+    game.id,
+    game.home_abbr,
+    game.away_abbr,
+    game.league,
+    game.odds.moneyline.home || undefined,
+    game.odds.moneyline.away || undefined,
+  );
 
   // Memoize planetary hour computation
   const planetaryHour = useMemo(() => {
@@ -160,6 +170,38 @@ export const GameCard = memo(function GameCard({ game }: { game: GameWithOdds })
       {(isLive || isFinal || hasScores) && (
         <div className="mt-2 pt-2 border-t border-border/30">
           <PeriodScoresTicker gameId={game.id} league={game.league} isLive={isLive || hasScores} />
+        </div>
+      )}
+
+      {/* Oracle Prediction Strip */}
+      {pregame && !isFinal && (
+        <div className="mt-2 pt-2 border-t border-border/30">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-[9px] text-cosmic-indigo font-semibold uppercase tracking-wider">✦ Oracle</span>
+              <span className="text-[10px] font-bold text-foreground tabular-nums">
+                {pregame.muAway} – {pregame.muHome}
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className={cn(
+                "text-[9px] font-bold tabular-nums",
+                pregame.pHomeWin > 0.55 ? "text-cosmic-green" : pregame.pHomeWin < 0.45 ? "text-destructive" : "text-muted-foreground"
+              )}>
+                {game.home_abbr} {(pregame.pHomeWin * 100).toFixed(0)}%
+              </span>
+              {pregame.edgeHome != null && Math.abs(pregame.edgeHome) > 0.01 && (
+                <span className={cn(
+                  "px-1.5 py-0.5 rounded text-[8px] font-bold",
+                  pregame.edgeHome > 0.03 ? "bg-cosmic-green/20 text-cosmic-green" :
+                  pregame.edgeHome < -0.03 ? "bg-destructive/20 text-destructive" :
+                  "bg-secondary text-muted-foreground"
+                )}>
+                  {pregame.edgeHome > 0 ? "+" : ""}{(pregame.edgeHome * 100).toFixed(1)}%
+                </span>
+              )}
+            </div>
+          </div>
         </div>
       )}
 

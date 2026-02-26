@@ -743,6 +743,134 @@ export type Database = {
         }
         Relationships: []
       }
+      game_predictions: {
+        Row: {
+          away_def_rtg: number | null
+          away_off_rtg: number | null
+          away_pace: number | null
+          blowout_risk: number | null
+          book_implied_home: number | null
+          created_at: string
+          edge_away: number | null
+          edge_home: number | null
+          expected_possessions: number | null
+          fair_ml_away: number | null
+          fair_ml_home: number | null
+          game_id: string
+          home_def_rtg: number | null
+          home_off_rtg: number | null
+          home_pace: number | null
+          id: string
+          is_live: boolean | null
+          live_possession: string | null
+          live_quarter: number | null
+          live_score_diff: number | null
+          live_time_remaining: number | null
+          live_wp_home: number | null
+          model_key: string
+          mu_away: number | null
+          mu_home: number | null
+          mu_spread_home: number | null
+          mu_total: number | null
+          notes_json: Json | null
+          p_away_win: number | null
+          p_home_win: number | null
+          p_home_win_ci_high: number | null
+          p_home_win_ci_low: number | null
+          qtr_fair_ml: Json | null
+          qtr_wp_home: Json | null
+          run_ts: string
+          sport: string
+          updated_at: string
+        }
+        Insert: {
+          away_def_rtg?: number | null
+          away_off_rtg?: number | null
+          away_pace?: number | null
+          blowout_risk?: number | null
+          book_implied_home?: number | null
+          created_at?: string
+          edge_away?: number | null
+          edge_home?: number | null
+          expected_possessions?: number | null
+          fair_ml_away?: number | null
+          fair_ml_home?: number | null
+          game_id: string
+          home_def_rtg?: number | null
+          home_off_rtg?: number | null
+          home_pace?: number | null
+          id?: string
+          is_live?: boolean | null
+          live_possession?: string | null
+          live_quarter?: number | null
+          live_score_diff?: number | null
+          live_time_remaining?: number | null
+          live_wp_home?: number | null
+          model_key?: string
+          mu_away?: number | null
+          mu_home?: number | null
+          mu_spread_home?: number | null
+          mu_total?: number | null
+          notes_json?: Json | null
+          p_away_win?: number | null
+          p_home_win?: number | null
+          p_home_win_ci_high?: number | null
+          p_home_win_ci_low?: number | null
+          qtr_fair_ml?: Json | null
+          qtr_wp_home?: Json | null
+          run_ts?: string
+          sport?: string
+          updated_at?: string
+        }
+        Update: {
+          away_def_rtg?: number | null
+          away_off_rtg?: number | null
+          away_pace?: number | null
+          blowout_risk?: number | null
+          book_implied_home?: number | null
+          created_at?: string
+          edge_away?: number | null
+          edge_home?: number | null
+          expected_possessions?: number | null
+          fair_ml_away?: number | null
+          fair_ml_home?: number | null
+          game_id?: string
+          home_def_rtg?: number | null
+          home_off_rtg?: number | null
+          home_pace?: number | null
+          id?: string
+          is_live?: boolean | null
+          live_possession?: string | null
+          live_quarter?: number | null
+          live_score_diff?: number | null
+          live_time_remaining?: number | null
+          live_wp_home?: number | null
+          model_key?: string
+          mu_away?: number | null
+          mu_home?: number | null
+          mu_spread_home?: number | null
+          mu_total?: number | null
+          notes_json?: Json | null
+          p_away_win?: number | null
+          p_home_win?: number | null
+          p_home_win_ci_high?: number | null
+          p_home_win_ci_low?: number | null
+          qtr_fair_ml?: Json | null
+          qtr_wp_home?: Json | null
+          run_ts?: string
+          sport?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "game_predictions_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       game_quarters: {
         Row: {
           away_score: number | null
