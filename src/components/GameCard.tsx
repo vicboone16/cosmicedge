@@ -88,6 +88,17 @@ export const GameCard = memo(function GameCard({ game }: { game: GameWithOdds })
       {/* Status bar */}
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
+          <span className={cn(
+            "text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded",
+            game.league === "NBA" ? "bg-orange-500/15 text-orange-400" :
+            game.league === "NHL" ? "bg-blue-500/15 text-blue-400" :
+            game.league === "NFL" ? "bg-green-500/15 text-green-400" :
+            game.league === "MLB" ? "bg-red-500/15 text-red-400" :
+            game.league === "NCAAB" ? "bg-purple-500/15 text-purple-400" :
+            "bg-secondary text-muted-foreground"
+          )}>
+            {game.league}
+          </span>
           {isLive && (
             <span className="flex items-center gap-1.5">
               <span className="h-2 w-2 rounded-full bg-cosmic-green animate-pulse-glow" />

@@ -24,6 +24,7 @@ Deno.serve(async (req) => {
     const season = body.season || 2025;
 
     console.log(`[rebuild-team-pace] Starting for ${league} season ${season}`);
+    console.log(`[rebuild-team-pace] ⚠️ This function computes from player_game_stats. For authoritative ratings, use seed-team-pace with Basketball Reference data.`);
 
     // Step 1: Get all player game stats with game info
     const allStats: any[] = [];
