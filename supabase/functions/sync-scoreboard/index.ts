@@ -6,6 +6,15 @@ function todayISO(): string {
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
 }
 
+// Normalize ESPN abbreviations to canonical DB abbreviations
+const ABBR_NORMALIZE: Record<string, Record<string, string>> = {
+  NHL: { NJ: "NJD", TB: "TBL", LA: "LAK", SJ: "SJS", VEG: "VGK", WAS: "WSH", UM: "UTA" },
+  NFL: { JAC: "JAX" },
+};
+function normalizeAbbr(league: string, abbr: string): string {
+  return ABBR_NORMALIZE[league]?.[abbr] || abbr;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -109,8 +118,8 @@ Deno.serve(async (req) => {
       const homeComp = competitors.find((c: any) => c.homeAway === "home" || c.home_away === "home") ?? competitors[0];
       const awayComp = competitors.find((c: any) => c.homeAway === "away" || c.home_away === "away") ?? competitors[1];
 
-      const homeAbbr = home?.abbreviation ?? homeComp?.team?.abbreviation ?? homeComp?.abbreviation ?? "";
-      const awayAbbr = away?.abbreviation ?? awayComp?.team?.abbreviation ?? awayComp?.abbreviation ?? "";
+      const homeAbbr = normalizeAbbr(league, home?.abbreviation ?? homeComp?.team?.abbreviation ?? homeComp?.abbreviation ?? "");
+      const awayAbbr = normalizeAbbr(league, away?.abbreviation ?? awayComp?.team?.abbreviation ?? awayComp?.abbreviation ?? "");
       const homeName = home?.name ?? homeComp?.team?.displayName ?? homeComp?.displayName ?? homeAbbr;
       const awayName = away?.name ?? awayComp?.team?.displayName ?? awayComp?.displayName ?? awayAbbr;
 
