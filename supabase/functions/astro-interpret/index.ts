@@ -38,9 +38,54 @@ const COSMIC_EDGE_TOOL = {
               required: ["strengtheners", "weakeners", "team_vs_player"],
               additionalProperties: false,
               properties: {
-                strengtheners: { type: "array", items: { $ref: "#/$defs/bullet" } },
-                weakeners: { type: "array", items: { $ref: "#/$defs/bullet" } },
-                team_vs_player: { type: "array", items: { $ref: "#/$defs/bullet" } },
+                strengtheners: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    required: ["text"],
+                    additionalProperties: false,
+                    properties: {
+                      text: { type: "string" },
+                      tag: {
+                        type: "string",
+                        enum: ["transits", "natal", "aspects", "location", "chemistry", "role_usage", "matchup", "injury_news", "market", "stats", "other"],
+                      },
+                      priority: { type: "integer", minimum: 1, maximum: 5 },
+                    },
+                  },
+                },
+                weakeners: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    required: ["text"],
+                    additionalProperties: false,
+                    properties: {
+                      text: { type: "string" },
+                      tag: {
+                        type: "string",
+                        enum: ["transits", "natal", "aspects", "location", "chemistry", "role_usage", "matchup", "injury_news", "market", "stats", "other"],
+                      },
+                      priority: { type: "integer", minimum: 1, maximum: 5 },
+                    },
+                  },
+                },
+                team_vs_player: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    required: ["text"],
+                    additionalProperties: false,
+                    properties: {
+                      text: { type: "string" },
+                      tag: {
+                        type: "string",
+                        enum: ["transits", "natal", "aspects", "location", "chemistry", "role_usage", "matchup", "injury_news", "market", "stats", "other"],
+                      },
+                      priority: { type: "integer", minimum: 1, maximum: 5 },
+                    },
+                  },
+                },
               },
             },
             confidence: { type: "string", enum: ["low", "medium", "high"] },
@@ -57,21 +102,6 @@ const COSMIC_EDGE_TOOL = {
           },
         },
         disclaimers: { type: "array", minItems: 1, items: { type: "string" } },
-      },
-      $defs: {
-        bullet: {
-          type: "object",
-          required: ["text"],
-          additionalProperties: false,
-          properties: {
-            text: { type: "string" },
-            tag: {
-              type: "string",
-              enum: ["transits", "natal", "aspects", "location", "chemistry", "role_usage", "matchup", "injury_news", "market", "stats", "other"],
-            },
-            priority: { type: "integer", minimum: 1, maximum: 5 },
-          },
-        },
       },
     },
   },
