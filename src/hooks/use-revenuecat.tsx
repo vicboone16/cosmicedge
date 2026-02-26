@@ -11,7 +11,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { logger } from "@/lib/logger";
 
 // ─── Constants ────────────────────────────────────────────────
-const RC_API_KEY = "test_iXjheJZETkHFRkFuSHpIrLiUafI";
+const RC_API_KEY = import.meta.env.VITE_REVENUECAT_API_KEY || "";
 const ENTITLEMENT_ID = "CosmicEdge Premium";
 
 export type SubscriptionTier = "free" | "premium";

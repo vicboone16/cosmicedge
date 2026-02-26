@@ -40,8 +40,33 @@ Deno.serve(async (req) => {
     const formData = await req.formData();
     const league = (formData.get("league") as string || "NFL").toUpperCase();
     const file = formData.get("file") as File | null;
+
+    // Validate file size (10MB max)
+    const MAX_FILE_SIZE = 10 * 1024 * 1024;
+    if (file && file.size > MAX_FILE_SIZE) {
+      return new Response(
+        JSON.stringify({ error: "File too large. Maximum 10MB." }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const csvText = file ? await file.text() : (formData.get("csv") as string);
-    if (!csvText) throw new Error("No CSV data provided");
+    if (!csvText) {
+      return new Response(
+        JSON.stringify({ error: "No CSV data provided" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Validate row count (50k max)
+    const MAX_ROWS = 50000;
+    const lineCount = csvText.split("\n").length;
+    if (lineCount > MAX_ROWS) {
+      return new Response(
+        JSON.stringify({ error: `Too many rows. Maximum ${MAX_ROWS}.` }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     const sb = createClient(
       Deno.env.get("SUPABASE_URL")!,

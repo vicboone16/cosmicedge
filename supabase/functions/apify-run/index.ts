@@ -70,7 +70,7 @@ Deno.serve(async (req) => {
     if (!apifyRes.ok) {
       const errText = await apifyRes.text();
       console.error(`[apify-run] Actor failed: ${apifyRes.status}`, errText);
-      return new Response(JSON.stringify({ error: "Apify call failed", status: apifyRes.status, detail: errText }), {
+      return new Response(JSON.stringify({ error: "External service call failed." }), {
         status: 502,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -102,7 +102,7 @@ Deno.serve(async (req) => {
     });
   } catch (e) {
     console.error("[apify-run] Error:", e);
-    return new Response(JSON.stringify({ error: "Unexpected", detail: String(e) }), {
+    return new Response(JSON.stringify({ error: "An internal error occurred." }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
