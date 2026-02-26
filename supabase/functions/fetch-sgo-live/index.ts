@@ -125,27 +125,9 @@ function resolveStatus(event: RawEvent): string {
 }
 
 // ---------------------------------------------------------------------------
-// Extract scores
+// NOTE: Score extraction and period info are handled by fetch-live-scores
+// (TheSportsDB). SGO is odds-only to preserve API quota.
 // ---------------------------------------------------------------------------
-
-function extractScores(event: RawEvent): { home: number | null; away: number | null } {
-  const homeScore = event.teams?.home?.score ?? null;
-  const awayScore = event.teams?.away?.score ?? null;
-  if (homeScore != null || awayScore != null) {
-    return { home: homeScore, away: awayScore };
-  }
-  return { home: null, away: null };
-}
-
-// ---------------------------------------------------------------------------
-// Extract current period info for game_state_snapshots
-// ---------------------------------------------------------------------------
-
-function extractPeriodInfo(event: RawEvent) {
-  const periodId = event.status?.currentPeriodID ?? event.currentPeriodID ?? null;
-  const displayShort = event.status?.displayShort ?? null;
-  return { periodId, displayShort };
-}
 
 // ---------------------------------------------------------------------------
 // Parse odds from the event.odds map (legacy — for odds_snapshots)
@@ -346,7 +328,7 @@ Deno.serve(async (req) => {
     // Step 2: Process each event
     let gamesUpserted = 0;
     let snapshotsStored = 0;
-    let stateSnapshotsStored = 0;
+    let marketOddsStored = 0;
     let marketOddsStored = 0;
 
     for (const event of events) {
@@ -398,25 +380,8 @@ Deno.serve(async (req) => {
       }
       gamesUpserted++;
 
-      // Update scores
-      const scores = extractScores(event);
-      if (scores.home != null || scores.away != null) {
-        await supabase.from("games").update({ home_score: scores.home, away_score: scores.away }).eq("id", gameId);
-      }
-
-      // Store game_state_snapshot for live/final games
-      if (status === "live" || status === "final") {
-        const { periodId, displayShort } = extractPeriodInfo(event);
-        const { error: snapErr } = await supabase.from("game_state_snapshots").insert({
-          game_id: gameId,
-          status,
-          home_score: scores.home,
-          away_score: scores.away,
-          quarter: periodId ? String(periodId) : null,
-          clock: displayShort,
-        });
-        if (!snapErr) stateSnapshotsStored++;
-      }
+      // NOTE: Scores & game_state_snapshots are handled by fetch-live-scores (TheSportsDB)
+      // SGO is used exclusively for odds data to avoid rate-limit exhaustion
 
       // Parse & store odds
       if (event.odds && typeof event.odds === "object") {
@@ -461,7 +426,6 @@ Deno.serve(async (req) => {
         events_found: events.length,
         games_upserted: gamesUpserted,
         odds_snapshots_stored: snapshotsStored,
-        state_snapshots_stored: stateSnapshotsStored,
         market_odds_stored: marketOddsStored,
         fetched_at: new Date().toISOString(),
       }),
