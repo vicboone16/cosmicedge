@@ -387,8 +387,14 @@ const TeamPage = () => {
                   Offensive Four Factors
                 </h4>
                 <div className="grid grid-cols-4 gap-2">
-                  <StatCell label="eFG%" value={fourFactors.efg_pct != null ? (fourFactors.efg_pct * 100).toFixed(1) + "%" : null} />
-                  <StatCell label="TOV%" value={fourFactors.tov_pct?.toFixed(1)} />
+                  <StatCell label="Off eFG%" value={
+                    paceRow?.off_efg_pct != null ? (Number(paceRow.off_efg_pct) * 100).toFixed(1) + "%" 
+                    : fourFactors.efg_pct != null ? (fourFactors.efg_pct * 100).toFixed(1) + "%" : null
+                  } />
+                  <StatCell label="Off TOV%" value={
+                    paceRow?.off_tov_pct != null ? Number(paceRow.off_tov_pct).toFixed(1)
+                    : fourFactors.tov_pct?.toFixed(1)
+                  } />
                   <StatCell label="ORB%" value={fourFactors.orb_pct?.toFixed(1)} />
                   <StatCell label="FT/FGA" value={fourFactors.ft_per_fga?.toFixed(3)} />
                 </div>
@@ -399,8 +405,14 @@ const TeamPage = () => {
                   Defensive Four Factors
                 </h4>
                 <div className="grid grid-cols-4 gap-2">
-                  <StatCell label="Opp eFG%" value={fourFactors.opp_efg_pct != null ? (fourFactors.opp_efg_pct * 100).toFixed(1) + "%" : null} />
-                  <StatCell label="Opp TOV%" value={fourFactors.opp_tov_pct?.toFixed(1)} />
+                  <StatCell label="Def eFG%" value={
+                    paceRow?.def_efg_pct != null ? (Number(paceRow.def_efg_pct) * 100).toFixed(1) + "%"
+                    : fourFactors.opp_efg_pct != null ? (fourFactors.opp_efg_pct * 100).toFixed(1) + "%" : null
+                  } />
+                  <StatCell label="Def TOV%" value={
+                    paceRow?.def_tov_pct != null ? Number(paceRow.def_tov_pct).toFixed(1)
+                    : fourFactors.opp_tov_pct?.toFixed(1)
+                  } />
                   <StatCell label="Opp ORB%" value={fourFactors.opp_orb_pct?.toFixed(1)} />
                   <StatCell label="Opp FT/FGA" value={fourFactors.opp_ft_per_fga?.toFixed(3)} />
                 </div>
