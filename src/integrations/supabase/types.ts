@@ -133,6 +133,27 @@ export type Database = {
         }
         Relationships: []
       }
+      app_handshake: {
+        Row: {
+          app_slug: string
+          created_at: string
+          id: number
+          updated_at: string
+        }
+        Insert: {
+          app_slug?: string
+          created_at?: string
+          id?: number
+          updated_at?: string
+        }
+        Update: {
+          app_slug?: string
+          created_at?: string
+          id?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       astro_calculations: {
         Row: {
           calc_date: string | null

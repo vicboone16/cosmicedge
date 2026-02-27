@@ -14,6 +14,7 @@ import SplashScreen from "@/components/SplashScreen";
 import { initErrorCapture } from "@/lib/error-capture";
 import { logger, rotateCorrelationId } from "@/lib/logger";
 import { EnvironmentGuard } from "@/components/EnvironmentGuard";
+import { BackendGuard } from "@/components/BackendGuard";
 
 // Critical path: eager load
 import Index from "./pages/Index";
@@ -89,6 +90,7 @@ const App = () => {
   }, []);
 
   return (
+    <BackendGuard>
     <EnvironmentGuard>
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
     <QueryClientProvider client={queryClient}>
@@ -146,6 +148,7 @@ const App = () => {
     </QueryClientProvider>
     </ThemeProvider>
     </EnvironmentGuard>
+    </BackendGuard>
   );
 };
 
