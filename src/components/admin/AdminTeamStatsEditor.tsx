@@ -36,12 +36,12 @@ const FIELDS: { key: keyof TeamPaceRow; label: string; step: string }[] = [
   { key: "net_rating", label: "NET", step: "0.1" },
   { key: "avg_pace", label: "PACE", step: "0.1" },
   { key: "ts_pct", label: "TS%", step: "0.001" },
-  { key: "efg_pct", label: "eFG%", step: "0.001" },
-  { key: "off_efg_pct", label: "OFG%", step: "0.001" },
-  { key: "def_efg_pct", label: "DFG%", step: "0.001" },
-  { key: "tov_pct", label: "TOV%", step: "0.1" },
-  { key: "off_tov_pct", label: "OTOV%", step: "0.1" },
-  { key: "def_tov_pct", label: "DTOV%", step: "0.1" },
+  { key: "efg_pct", label: "eFG Diff", step: "0.001" },
+  { key: "off_efg_pct", label: "O-eFG%", step: "0.001" },
+  { key: "def_efg_pct", label: "D-eFG%", step: "0.001" },
+  { key: "tov_pct", label: "TOV Diff", step: "0.1" },
+  { key: "off_tov_pct", label: "O-TOV", step: "0.1" },
+  { key: "def_tov_pct", label: "D-TOV", step: "0.1" },
 ];
 
 export default function AdminTeamStatsEditor() {

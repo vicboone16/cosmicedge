@@ -12,6 +12,7 @@ import AdminExportPanel from "@/components/admin/AdminExportPanel";
 import PlayerGameStatsEditor from "@/components/admin/PlayerGameStatsEditor";
 import AdminTeamStatsEditor from "@/components/admin/AdminTeamStatsEditor";
 import AdminModelRunner from "@/components/admin/AdminModelRunner";
+import AdminManualPropsEntry from "@/components/admin/AdminManualPropsEntry";
 export default function AdminPage() {
   const { isAdmin, isLoading } = useIsAdmin();
 
@@ -55,6 +56,9 @@ export default function AdminPage() {
             <AdminPlayerManager />
             <div className="border-t border-border/50 pt-4">
               <PlayerGameStatsEditor />
+            </div>
+            <div className="border-t border-border/50 pt-4">
+              <AdminManualPropsEntry />
             </div>
           </TabsContent>
 
