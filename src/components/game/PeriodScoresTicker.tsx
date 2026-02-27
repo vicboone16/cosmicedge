@@ -87,34 +87,78 @@ export function PeriodScoresTicker({ gameId, league, isLive }: { gameId: string;
 
       if (!snapshots || snapshots.length === 0) return [];
 
-      const quarterMap: Record<number, { home_score: number; away_score: number }> = {};
-      let prevHome = 0;
-      let prevAway = 0;
+      // Parse quarter labels into numeric values
+      // "Q1"-"Q4" → 1-4, "OT"/"OT1" → 5+, "0" → baseline
+      // Skip: "Final", "HT", "10" (API artifacts), non-standard
+      const SKIP_LABELS = new Set(["final", "ht", "halftime", "half", "pregame"]);
+
+      let baselineHome = 0;
+      let baselineAway = 0;
+      let hasBaseline = false;
 
       const qNums: { q: number; home: number; away: number }[] = [];
       for (const snap of snapshots) {
-        const qMatch = snap.quarter?.match(/Q?(\d+)/i);
+        const raw = (snap.quarter ?? "").trim();
+        const lower = raw.toLowerCase();
+
+        // Use "0" snapshots as baseline (cumulative score before tracking started)
+        if (raw === "0") {
+          baselineHome = snap.home_score ?? 0;
+          baselineAway = snap.away_score ?? 0;
+          hasBaseline = true;
+          continue;
+        }
+
+        // Skip non-period labels
+        if (SKIP_LABELS.has(lower)) continue;
+
+        // Parse OT variants: "OT", "OT1", "OT2"
+        const otMatch = lower.match(/^ot(\d*)$/);
+        if (otMatch) {
+          const otNum = otMatch[1] ? parseInt(otMatch[1]) : 1;
+          qNums.push({ q: 4 + otNum, home: snap.home_score ?? 0, away: snap.away_score ?? 0 });
+          continue;
+        }
+
+        // Parse standard quarter: "Q1", "Q2", "1", "2", etc.
+        const qMatch = raw.match(/^Q?(\d+)$/i);
         if (!qMatch) continue;
         const qNum = parseInt(qMatch[1]);
-        if (qNum < 1 || qNum > 20) continue; // allow OT periods (5+)
+        // Skip artifact values like "10" that aren't real quarters
+        if (qNum < 1 || qNum > 8) continue;
         qNums.push({ q: qNum, home: snap.home_score ?? 0, away: snap.away_score ?? 0 });
       }
 
-      // Get last snapshot per quarter (cumulative total at end)
+      if (qNums.length === 0) return [];
+
+      // Get last snapshot per quarter (cumulative total at that point)
       const lastByQ: Record<number, { home: number; away: number }> = {};
       for (const item of qNums) {
         lastByQ[item.q] = { home: item.home, away: item.away };
       }
 
       // Convert cumulative to per-period
+      // Use baseline from "0" snapshots if available (handles mid-game tracking start)
+      let prevHome = hasBaseline ? baselineHome : 0;
+      let prevAway = hasBaseline ? baselineAway : 0;
+
+      const quarterMap: Record<number, { home_score: number; away_score: number }> = {};
       const sortedQs = Object.keys(lastByQ).map(Number).sort((a, b) => a - b);
+
       for (const q of sortedQs) {
         const cumHome = lastByQ[q].home;
         const cumAway = lastByQ[q].away;
-        quarterMap[q] = {
-          home_score: cumHome - prevHome,
-          away_score: cumAway - prevAway,
-        };
+        const periodHome = cumHome - prevHome;
+        const periodAway = cumAway - prevAway;
+
+        // Only add if scores are non-negative (sanity check)
+        if (periodHome >= 0 && periodAway >= 0) {
+          quarterMap[q] = {
+            home_score: periodHome,
+            away_score: periodAway,
+          };
+        }
+
         prevHome = cumHome;
         prevAway = cumAway;
       }
