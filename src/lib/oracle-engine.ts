@@ -33,6 +33,12 @@ export interface PregameInput {
   bookTotal?: number;
 }
 
+export interface PeriodAverages {
+  period: string; // Q1, Q2, Q3, Q4, 1H, 2H, OT
+  avgPoints: number;
+  avgPointsAllowed: number;
+}
+
 export interface PregameOutput {
   muHome: number;
   muAway: number;
@@ -81,6 +87,11 @@ export interface LiveWPOutput {
 
 export interface QuarterPrediction {
   quarter: number;
+  label: string; // "Q1", "1H", etc.
+  muHome: number;
+  muAway: number;
+  muTotal: number;
+  muSpread: number;
   wpHome: number;
   fairMLHome: number;
   fairMLAway: number;
@@ -384,24 +395,90 @@ const LIVE_BETAS: Record<Sport, {
 export function computeQuarterPredictions(
   pregame: PregameOutput,
   sport: Sport,
-  numPeriods?: number
+  numPeriods?: number,
+  homePeriodAvgs?: PeriodAverages[],
+  awayPeriodAvgs?: PeriodAverages[],
 ): QuarterPrediction[] {
   const defs = SPORT_DEFAULTS[sport];
   const periods = numPeriods ?? defs.periodsPerGame;
   const predictions: QuarterPrediction[] = [];
 
+  const periodLabels = sport === "NHL"
+    ? ["P1", "P2", "P3"]
+    : sport === "MLB"
+    ? Array.from({ length: 9 }, (_, i) => `${i + 1}`)
+    : ["Q1", "Q2", "Q3", "Q4"];
+
   for (let q = 1; q <= periods; q++) {
-    // Quarter scoring is roughly pregame / periods, with slight Q1 boost
-    const qFactor = q === 1 ? 1.05 : q === 4 ? 0.95 : 1.0; // Q1 slightly higher pace
-    const muDiffQ = (pregame.muSpreadHome / periods) * qFactor;
+    const label = periodLabels[q - 1] || `Q${q}`;
+    const periodKey = label;
+
+    // Try to use period averages if available
+    const hAvg = homePeriodAvgs?.find(p => p.period === periodKey);
+    const aAvg = awayPeriodAvgs?.find(p => p.period === periodKey);
+
+    let muHomeQ: number, muAwayQ: number;
+
+    if (hAvg && aAvg) {
+      // Use actual period averages: adjust for opponent
+      muHomeQ = (hAvg.avgPoints + aAvg.avgPointsAllowed) / 2;
+      muAwayQ = (aAvg.avgPoints + hAvg.avgPointsAllowed) / 2;
+    } else {
+      // Fallback: divide full-game projection evenly with Q1/Q4 factors
+      const qFactor = q === 1 ? 1.05 : q === periods ? 0.95 : 1.0;
+      muHomeQ = (pregame.muHome / periods) * qFactor;
+      muAwayQ = (pregame.muAway / periods) * qFactor;
+    }
+
+    const muTotalQ = muHomeQ + muAwayQ;
+    const muSpreadQ = muHomeQ - muAwayQ;
     const sigmaQ = (sport === "NHL" || sport === "MLB")
-      ? Math.sqrt(pregame.muTotal / periods)
+      ? Math.sqrt(muTotalQ)
       : defs.sigma / Math.sqrt(periods) * 0.8;
     
-    const wpHome = normCDF(muDiffQ / Math.max(sigmaQ, 0.5));
+    const wpHome = normCDF(muSpreadQ / Math.max(sigmaQ, 0.5));
 
     predictions.push({
       quarter: q,
+      label,
+      muHome: +muHomeQ.toFixed(1),
+      muAway: +muAwayQ.toFixed(1),
+      muTotal: +muTotalQ.toFixed(1),
+      muSpread: +muSpreadQ.toFixed(1),
+      wpHome: +wpHome.toFixed(4),
+      fairMLHome: wpToAmericanOdds(wpHome),
+      fairMLAway: wpToAmericanOdds(1 - wpHome),
+    });
+  }
+
+  // Also add half predictions
+  const halfLabels = sport === "NHL" ? [] : ["1H", "2H"];
+  for (const halfLabel of halfLabels) {
+    const hAvg = homePeriodAvgs?.find(p => p.period === halfLabel);
+    const aAvg = awayPeriodAvgs?.find(p => p.period === halfLabel);
+
+    let muHomeH: number, muAwayH: number;
+
+    if (hAvg && aAvg) {
+      muHomeH = (hAvg.avgPoints + aAvg.avgPointsAllowed) / 2;
+      muAwayH = (aAvg.avgPoints + hAvg.avgPointsAllowed) / 2;
+    } else {
+      muHomeH = pregame.muHome / 2;
+      muAwayH = pregame.muAway / 2;
+    }
+
+    const muTotalH = muHomeH + muAwayH;
+    const muSpreadH = muHomeH - muAwayH;
+    const sigmaH = defs.sigma / Math.sqrt(2) * 0.8;
+    const wpHome = normCDF(muSpreadH / Math.max(sigmaH, 0.5));
+
+    predictions.push({
+      quarter: halfLabel === "1H" ? 10 : 11, // special identifiers
+      label: halfLabel,
+      muHome: +muHomeH.toFixed(1),
+      muAway: +muAwayH.toFixed(1),
+      muTotal: +muTotalH.toFixed(1),
+      muSpread: +muSpreadH.toFixed(1),
       wpHome: +wpHome.toFixed(4),
       fairMLHome: wpToAmericanOdds(wpHome),
       fairMLAway: wpToAmericanOdds(1 - wpHome),

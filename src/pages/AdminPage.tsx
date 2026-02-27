@@ -13,6 +13,7 @@ import PlayerGameStatsEditor from "@/components/admin/PlayerGameStatsEditor";
 import AdminTeamStatsEditor from "@/components/admin/AdminTeamStatsEditor";
 import AdminModelRunner from "@/components/admin/AdminModelRunner";
 import AdminManualPropsEntry from "@/components/admin/AdminManualPropsEntry";
+import AdminPeriodAveragesEditor from "@/components/admin/AdminPeriodAveragesEditor";
 export default function AdminPage() {
   const { isAdmin, isLoading } = useIsAdmin();
 
@@ -62,8 +63,11 @@ export default function AdminPage() {
             </div>
           </TabsContent>
 
-          <TabsContent value="teams" className="mt-4">
+          <TabsContent value="teams" className="mt-4 space-y-6">
             <AdminTeamStatsEditor />
+            <div className="border-t border-border/50 pt-4">
+              <AdminPeriodAveragesEditor />
+            </div>
           </TabsContent>
 
           <TabsContent value="pbp" className="mt-4">
