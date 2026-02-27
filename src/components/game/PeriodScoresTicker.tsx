@@ -151,7 +151,8 @@ export function PeriodScoresTicker({ gameId, league, isLive }: { gameId: string;
         const periodHome = cumHome - prevHome;
         const periodAway = cumAway - prevAway;
 
-        // Only add if scores are non-negative (sanity check)
+        // Always advance prev to keep cumulative tracking correct
+        // but only display non-negative period scores
         if (periodHome >= 0 && periodAway >= 0) {
           quarterMap[q] = {
             home_score: periodHome,
@@ -159,6 +160,7 @@ export function PeriodScoresTicker({ gameId, league, isLive }: { gameId: string;
           };
         }
 
+        // Always update prev regardless of whether we displayed the period
         prevHome = cumHome;
         prevAway = cumAway;
       }
