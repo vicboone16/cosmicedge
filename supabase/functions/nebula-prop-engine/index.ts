@@ -38,6 +38,11 @@ const MARKET_TO_PROP: Record<string, string> = {
   player_pts_reb: "pts_reb",
   player_pts_ast: "pts_ast",
   player_reb_ast: "reb_ast",
+  // Alternative formats from some providers
+  "points+rebounds+assists": "pts_reb_ast",
+  "points+rebounds": "pts_reb",
+  "points+assists": "pts_ast",
+  "rebounds+assists": "reb_ast",
 };
 
 /* ──────────── EdgeScore v1 computation (legacy) ──────────── */
