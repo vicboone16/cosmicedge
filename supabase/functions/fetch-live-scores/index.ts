@@ -170,7 +170,7 @@ Deno.serve(async (req) => {
     const { data: games, error: gamesError } = await supabase
       .from("games")
       .select("id, external_id, status, home_team, away_team, home_abbr, away_abbr, league, start_time, home_score, away_score")
-      .or(`status.eq.live,and(status.eq.scheduled,start_time.gte.${todayISO}T00:00:00Z,start_time.lte.${todayISO}T23:59:59Z)`);
+      .or(`status.eq.live,status.eq.in_progress,and(status.eq.scheduled,start_time.gte.${todayISO}T00:00:00Z,start_time.lte.${todayISO}T23:59:59Z)`);
 
     if (gamesError) {
       console.error(`[fetch-live-scores] Games query error: ${gamesError.message}`);
