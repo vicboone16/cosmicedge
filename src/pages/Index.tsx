@@ -5,13 +5,17 @@ import { LeagueFilter } from "@/components/LeagueFilter";
 import { AstroHeader } from "@/components/AstroHeader";
 import { useGames } from "@/hooks/use-games";
 import { useTimezone } from "@/hooks/use-timezone";
+import { useIsAdmin } from "@/hooks/use-admin";
+import { Switch } from "@/components/ui/switch";
 import type { League } from "@/lib/mock-data";
 import { format, addDays, isToday } from "date-fns";
 
 const Index = () => {
   const [selectedLeague, setSelectedLeague] = useState<League | "ALL">("ALL");
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const [showNcaab, setShowNcaab] = useState(false);
   const { userTimezone } = useTimezone();
+  const { isAdmin } = useIsAdmin();
   const { data: games, isLoading, isError, refetch, isFetching } = useGames(selectedLeague, selectedDate, userTimezone);
 
   const canGoForward = selectedDate < addDays(new Date(), 7);
@@ -20,11 +24,21 @@ const Index = () => {
   const goToday = useCallback(() => setSelectedDate(new Date()), []);
   const handleRefresh = useCallback(() => refetch(), [refetch]);
 
+  // Filter out NCAAB for non-admins, or when admin has toggle off
+  const filteredGames = useMemo(() => {
+    if (!games) return [];
+    if (selectedLeague === "NCAAB" && isAdmin) return games;
+    if (isAdmin && showNcaab) return games;
+    return games.filter(g => g.league !== "NCAAB");
+  }, [games, isAdmin, showNcaab, selectedLeague]);
+
   const { liveGames, upcoming, final: finalGames } = useMemo(() => ({
-    liveGames: games?.filter((g) => g.status === "live" || g.status === "in_progress") || [],
-    upcoming: games?.filter((g) => g.status === "scheduled") || [],
-    final: games?.filter((g) => g.status === "final") || [],
-  }), [games]);
+    liveGames: filteredGames.filter((g) => g.status === "live" || g.status === "in_progress"),
+    upcoming: filteredGames.filter((g) => g.status === "scheduled"),
+    final: filteredGames.filter((g) => g.status === "final"),
+  }), [filteredGames]);
+
+  const isBlockedLeague = selectedLeague === "NCAAF" || selectedLeague === "NFL" || (selectedLeague === "NCAAB" && !isAdmin);
 
   return (
     <div className="min-h-screen">
@@ -79,12 +93,14 @@ const Index = () => {
 
       {/* Content */}
       <div className="px-4 py-4 space-y-6">
-        {(selectedLeague === "NCAAF" || selectedLeague === "NFL") ? (
+        {isBlockedLeague ? (
           <div className="flex flex-col items-center justify-center py-20 gap-4 text-center px-6">
             <span className="text-4xl">🔮✨</span>
             <p className="text-lg font-semibold font-display text-foreground">The Stars Are Still Charting This One…</p>
             <p className="text-sm text-muted-foreground max-w-xs">
-              {selectedLeague === "NFL"
+              {selectedLeague === "NCAAB"
+                ? "Coming soon — College Chaos access. The charts are still figuring this one out."
+                : selectedLeague === "NFL"
                 ? "NFL coverage is aligning — the offseason cosmos are recalibrating. The celestial edge returns when the season kicks off."
                 : "NCAA Football coverage is aligning in the cosmos. Stay tuned — the celestial edge is coming to college football soon."}
             </p>
@@ -96,7 +112,7 @@ const Index = () => {
           </div>
         ) : null}
 
-        {selectedLeague !== "NCAAF" && selectedLeague !== "NFL" && isError && (
+        {!isBlockedLeague && isError && (
           <div className="text-center py-16">
             <p className="text-sm text-destructive mb-2">The cosmos are misaligned</p>
             <button onClick={() => refetch()} className="text-xs text-primary hover:underline">
@@ -105,8 +121,16 @@ const Index = () => {
           </div>
         )}
 
-        {selectedLeague !== "NCAAF" && selectedLeague !== "NFL" && !isLoading && !isError && (
+        {!isBlockedLeague && !isLoading && !isError && (
           <>
+            {/* Admin NCAAB toggle when viewing ALL */}
+            {isAdmin && selectedLeague === "ALL" && (
+              <div className="flex items-center gap-2 justify-end">
+                <span className="text-[10px] text-muted-foreground uppercase tracking-wider">NCAAB</span>
+                <Switch checked={showNcaab} onCheckedChange={setShowNcaab} />
+              </div>
+            )}
+
             {liveGames.length > 0 && (
               <section>
                 <h2 className="text-xs font-semibold text-cosmic-green uppercase tracking-widest mb-3 flex items-center gap-2">
@@ -148,7 +172,7 @@ const Index = () => {
               </section>
             )}
 
-            {!games?.length && (
+            {!filteredGames.length && (
               <div className="text-center py-16">
                 <p className="text-2xl mb-2">✦</p>
                 <p className="text-muted-foreground text-sm">No games aligned for today</p>
