@@ -27,7 +27,7 @@ interface TeamPaceRow {
   updated_at: string | null;
 }
 
-const FIELDS: { key: keyof TeamPaceRow; label: string; step: string }[] = [
+const EDITABLE_FIELDS: { key: keyof TeamPaceRow; label: string; step: string }[] = [
   { key: "games_played", label: "GP", step: "1" },
   { key: "avg_points", label: "PPG", step: "0.1" },
   { key: "avg_points_allowed", label: "OPP PPG", step: "0.1" },
@@ -36,12 +36,15 @@ const FIELDS: { key: keyof TeamPaceRow; label: string; step: string }[] = [
   { key: "net_rating", label: "NET", step: "0.1" },
   { key: "avg_pace", label: "PACE", step: "0.1" },
   { key: "ts_pct", label: "TS%", step: "0.001" },
-  { key: "efg_pct", label: "eFG Diff", step: "0.001" },
-  { key: "off_efg_pct", label: "O-eFG%", step: "0.001" },
-  { key: "def_efg_pct", label: "D-eFG%", step: "0.001" },
-  { key: "tov_pct", label: "TOV Diff", step: "0.1" },
-  { key: "off_tov_pct", label: "O-TOV", step: "0.1" },
-  { key: "def_tov_pct", label: "D-TOV", step: "0.1" },
+  { key: "off_efg_pct", label: "OFG%", step: "0.001" },
+  { key: "def_efg_pct", label: "DFG%", step: "0.001" },
+  { key: "off_tov_pct", label: "Off TOV%", step: "0.1" },
+  { key: "def_tov_pct", label: "Def TOV%", step: "0.1" },
+];
+
+const COMPUTED_FIELDS: { key: keyof TeamPaceRow; label: string }[] = [
+  { key: "efg_pct", label: "eFG% Diff" },
+  { key: "tov_pct", label: "TOV% Diff" },
 ];
 
 export default function AdminTeamStatsEditor() {
@@ -72,11 +75,23 @@ export default function AdminTeamStatsEditor() {
 
   const updateField = (abbr: string, field: keyof TeamPaceRow, value: string) => {
     setRows(prev =>
-      prev.map(r =>
-        r.team_abbr === abbr
-          ? { ...r, [field]: value === "" ? null : Number(value) }
-          : r
-      )
+      prev.map(r => {
+        if (r.team_abbr !== abbr) return r;
+        const updated = { ...r, [field]: value === "" ? null : Number(value) };
+        // Auto-calc eFG% Diff = OFG% - DFG%
+        if (field === "off_efg_pct" || field === "def_efg_pct") {
+          const o = field === "off_efg_pct" ? (value === "" ? null : Number(value)) : updated.off_efg_pct;
+          const d = field === "def_efg_pct" ? (value === "" ? null : Number(value)) : updated.def_efg_pct;
+          updated.efg_pct = o != null && d != null ? Number((o - d).toFixed(4)) : null;
+        }
+        // Auto-calc TOV% Diff = Def TOV% - Off TOV%
+        if (field === "off_tov_pct" || field === "def_tov_pct") {
+          const o = field === "off_tov_pct" ? (value === "" ? null : Number(value)) : updated.off_tov_pct;
+          const d = field === "def_tov_pct" ? (value === "" ? null : Number(value)) : updated.def_tov_pct;
+          updated.tov_pct = o != null && d != null ? Number((d - o).toFixed(4)) : null;
+        }
+        return updated;
+      })
     );
   };
 
@@ -166,7 +181,8 @@ export default function AdminTeamStatsEditor() {
           {/* Header */}
            <div className="grid grid-cols-[60px_repeat(14,1fr)_40px] gap-1 text-[9px] text-muted-foreground font-semibold uppercase px-1">
             <div>Team</div>
-            {FIELDS.map(f => <div key={f.key} className="text-center">{f.label}</div>)}
+            {EDITABLE_FIELDS.map(f => <div key={f.key} className="text-center">{f.label}</div>)}
+            {COMPUTED_FIELDS.map(f => <div key={f.key} className="text-center">{f.label}</div>)}
             <div></div>
           </div>
 
@@ -177,7 +193,7 @@ export default function AdminTeamStatsEditor() {
                 className="grid grid-cols-[60px_repeat(14,1fr)_40px] gap-1 items-center p-1 rounded border border-border bg-card"
               >
                 <span className="text-xs font-bold text-foreground">{row.team_abbr}</span>
-                {FIELDS.map(f => (
+                {EDITABLE_FIELDS.map(f => (
                   <Input
                     key={f.key}
                     type="number"
@@ -186,6 +202,11 @@ export default function AdminTeamStatsEditor() {
                     onChange={e => updateField(row.team_abbr, f.key, e.target.value)}
                     className="h-7 text-[11px] text-center px-1 tabular-nums"
                   />
+                ))}
+                {COMPUTED_FIELDS.map(f => (
+                  <div key={f.key} className="h-7 flex items-center justify-center text-[11px] tabular-nums text-muted-foreground">
+                    {row[f.key] != null ? (row[f.key] as number).toFixed(4) : "—"}
+                  </div>
                 ))}
                 <Button
                   variant="ghost"
