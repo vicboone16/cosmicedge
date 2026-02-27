@@ -129,7 +129,7 @@ export function useGames(league?: string, date?: Date, userTimezone?: string) {
     staleTime: 5 * 60 * 1000,
     refetchInterval: (query) => {
       const games = query.state.data;
-      const hasLive = games?.some((g) => g.status === "live");
+      const hasLive = games?.some((g) => g.status === "live" || g.status === "in_progress");
       return hasLive ? 30_000 : false;
     },
     select: (games) =>

@@ -21,7 +21,7 @@ const Index = () => {
   const handleRefresh = useCallback(() => refetch(), [refetch]);
 
   const { liveGames, upcoming, final: finalGames } = useMemo(() => ({
-    liveGames: games?.filter((g) => g.status === "live") || [],
+    liveGames: games?.filter((g) => g.status === "live" || g.status === "in_progress") || [],
     upcoming: games?.filter((g) => g.status === "scheduled") || [],
     final: games?.filter((g) => g.status === "final") || [],
   }), [games]);
