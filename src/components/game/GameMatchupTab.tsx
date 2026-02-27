@@ -240,7 +240,7 @@ export function GameMatchupTab({
     queryFn: async () => {
       const { data } = await supabase
         .from("team_season_pace")
-        .select("team_abbr, avg_pace, off_rating, def_rating, net_rating, games_played, off_efg_pct, def_efg_pct, off_tov_pct, def_tov_pct")
+        .select("team_abbr, avg_pace, avg_points, avg_points_allowed, off_rating, def_rating, net_rating, games_played, ts_pct, efg_pct, off_efg_pct, def_efg_pct, tov_pct, off_tov_pct, def_tov_pct")
         .in("team_abbr", [homeAbbr, awayAbbr])
         .eq("league", league)
         .order("season", { ascending: false })
@@ -256,19 +256,20 @@ export function GameMatchupTab({
     // Sanity check: if pace data has ORTG > 150 or pace < 50, it's corrupt — ignore it
     const paceIsValid = pace && Number(pace.off_rating) <= 150 && Number(pace.avg_pace) >= 50;
 
+    // Prioritize team_season_pace (manually curated) over computed stats
     return {
-      ppg: adv?.ppg ?? null,
+      ppg: (paceIsValid && pace.avg_points != null ? Number(pace.avg_points) : null) ?? adv?.ppg ?? null,
       ortg: (paceIsValid ? Number(pace.off_rating) : null) ?? adv?.ortg ?? null,
       drtg: (paceIsValid ? Number(pace.def_rating) : null) ?? null,
       pace: (paceIsValid ? Number(pace.avg_pace) : null) ?? adv?.pace ?? null,
-      ts: adv?.ts ?? null,
-      efg: adv?.efg ?? null,
+      ts: (pace?.ts_pct != null ? Number(pace.ts_pct) * 100 : null) ?? adv?.ts ?? null,
+      efg: (pace?.efg_pct != null ? Number(pace.efg_pct) * 100 : null) ?? adv?.efg ?? null,
       offEfg: pace?.off_efg_pct != null ? Number(pace.off_efg_pct) : null,
       defEfg: pace?.def_efg_pct != null ? Number(pace.def_efg_pct) : null,
-      tovPct: adv?.tovPct ?? null,
+      tovPct: (pace?.tov_pct != null ? Number(pace.tov_pct) : null) ?? adv?.tovPct ?? null,
       offTov: pace?.off_tov_pct != null ? Number(pace.off_tov_pct) : null,
       defTov: pace?.def_tov_pct != null ? Number(pace.def_tov_pct) : null,
-      games: adv?.games ?? pace?.games_played ?? 0,
+      games: (paceIsValid ? pace.games_played : null) ?? adv?.games ?? 0,
     };
   };
 
