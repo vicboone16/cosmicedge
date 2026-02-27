@@ -60,6 +60,7 @@ export function LiveOddsTracker({ gameId, homeAbbr, awayAbbr, league }: LiveOdds
   const { data: odds, isLoading, refetch, isFetching } = useQuery({
     queryKey: ["sgo-market-odds", gameId],
     queryFn: async () => {
+      // Primary: SGO market odds
       const { data, error } = await supabase
         .from("sgo_market_odds")
         .select("*")
@@ -70,6 +71,47 @@ export function LiveOddsTracker({ gameId, homeAbbr, awayAbbr, league }: LiveOdds
         .order("side")
         .limit(5000);
       if (error) throw error;
+
+      // Also fetch BDL odds as supplementary
+      const { data: bdlOdds } = await (supabase as any)
+        .from("nba_game_odds")
+        .select("*")
+        .eq("game_key", gameId)
+        .limit(500);
+
+      // Merge BDL odds into SGO format if SGO is empty
+      if ((!data || data.length === 0) && bdlOdds && bdlOdds.length > 0) {
+        return (bdlOdds as any[]).flatMap((o: any) => {
+          const rows: MarketOdd[] = [];
+          const base = {
+            id: `bdl-${o.id}`,
+            odd_id: `bdl-${o.id}`,
+            period: "full",
+            stat_entity_id: "",
+            stat_id: null,
+            player_name: null,
+            is_player_prop: false,
+            is_alternate: false,
+            available: true,
+            last_updated_at: o.updated_at,
+            updated_at: o.updated_at,
+          };
+          if (o.market === "moneyline" || o.market === "h2h") {
+            rows.push({ ...base, bet_type: "ml", side: "home", bookmaker: o.vendor, odds: o.home_odds, line: null });
+            rows.push({ ...base, bet_type: "ml", side: "away", bookmaker: o.vendor, odds: o.away_odds, line: null });
+          }
+          if (o.market === "spread" || o.market === "spreads") {
+            rows.push({ ...base, bet_type: "sp", side: "home", bookmaker: o.vendor, odds: o.home_odds, line: o.home_line });
+            rows.push({ ...base, bet_type: "sp", side: "away", bookmaker: o.vendor, odds: o.away_odds, line: o.away_line });
+          }
+          if (o.market === "total" || o.market === "totals") {
+            rows.push({ ...base, bet_type: "ou", side: "over", bookmaker: o.vendor, odds: o.over_odds, line: o.total });
+            rows.push({ ...base, bet_type: "ou", side: "under", bookmaker: o.vendor, odds: o.under_odds, line: o.total });
+          }
+          return rows;
+        });
+      }
+
       return (data || []) as MarketOdd[];
     },
     refetchInterval: 30_000,
