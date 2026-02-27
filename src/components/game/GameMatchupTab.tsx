@@ -219,7 +219,7 @@ export function GameMatchupTab({
     queryFn: async () => {
       const { data } = await supabase
         .from("team_season_pace")
-        .select("team_abbr, avg_pace, off_rating, def_rating, net_rating, games_played")
+        .select("team_abbr, avg_pace, off_rating, def_rating, net_rating, games_played, off_efg_pct, def_efg_pct, off_tov_pct, def_tov_pct")
         .in("team_abbr", [homeAbbr, awayAbbr])
         .eq("league", league)
         .order("season", { ascending: false })
@@ -242,7 +242,11 @@ export function GameMatchupTab({
       pace: (paceIsValid ? Number(pace.avg_pace) : null) ?? adv?.pace ?? null,
       ts: adv?.ts ?? null,
       efg: adv?.efg ?? null,
+      offEfg: pace?.off_efg_pct != null ? Number(pace.off_efg_pct) : null,
+      defEfg: pace?.def_efg_pct != null ? Number(pace.def_efg_pct) : null,
       tovPct: adv?.tovPct ?? null,
+      offTov: pace?.off_tov_pct != null ? Number(pace.off_tov_pct) : null,
+      defTov: pace?.def_tov_pct != null ? Number(pace.def_tov_pct) : null,
       games: adv?.games ?? pace?.games_played ?? 0,
     };
   };
@@ -259,7 +263,11 @@ export function GameMatchupTab({
     { label: "PACE", home: homeStats.pace?.toFixed(1), away: awayStats.pace?.toFixed(1) },
     { label: "TS%", home: homeStats.ts?.toFixed(1), away: awayStats.ts?.toFixed(1) },
     { label: "EFG%", home: homeStats.efg?.toFixed(1), away: awayStats.efg?.toFixed(1) },
+    { label: "Off eFG%", home: homeStats.offEfg != null ? (homeStats.offEfg * 100).toFixed(1) : null, away: awayStats.offEfg != null ? (awayStats.offEfg * 100).toFixed(1) : null },
+    { label: "Def eFG%", home: homeStats.defEfg != null ? (homeStats.defEfg * 100).toFixed(1) : null, away: awayStats.defEfg != null ? (awayStats.defEfg * 100).toFixed(1) : null, lower: true },
     { label: "TOV%", home: homeStats.tovPct?.toFixed(1), away: awayStats.tovPct?.toFixed(1), lower: true },
+    { label: "Off TOV%", home: homeStats.offTov?.toFixed(1), away: awayStats.offTov?.toFixed(1), lower: true },
+    { label: "Def TOV%", home: homeStats.defTov?.toFixed(1), away: awayStats.defTov?.toFixed(1) },
   ].filter(s => s.home != null || s.away != null) : [];
 
   const gameCountLabel = homeStats.games && awayStats.games

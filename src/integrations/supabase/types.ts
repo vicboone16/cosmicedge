@@ -4197,12 +4197,16 @@ export type Database = {
           avg_points: number
           avg_points_allowed: number
           avg_possessions: number
+          def_efg_pct: number | null
           def_rating: number | null
+          def_tov_pct: number | null
           efg_pct: number | null
           games_played: number
           league: string
           net_rating: number | null
+          off_efg_pct: number | null
           off_rating: number | null
+          off_tov_pct: number | null
           season: number
           team_abbr: string
           tov_pct: number | null
@@ -4214,12 +4218,16 @@ export type Database = {
           avg_points?: number
           avg_points_allowed?: number
           avg_possessions?: number
+          def_efg_pct?: number | null
           def_rating?: number | null
+          def_tov_pct?: number | null
           efg_pct?: number | null
           games_played?: number
           league?: string
           net_rating?: number | null
+          off_efg_pct?: number | null
           off_rating?: number | null
+          off_tov_pct?: number | null
           season?: number
           team_abbr: string
           tov_pct?: number | null
@@ -4231,12 +4239,16 @@ export type Database = {
           avg_points?: number
           avg_points_allowed?: number
           avg_possessions?: number
+          def_efg_pct?: number | null
           def_rating?: number | null
+          def_tov_pct?: number | null
           efg_pct?: number | null
           games_played?: number
           league?: string
           net_rating?: number | null
+          off_efg_pct?: number | null
           off_rating?: number | null
+          off_tov_pct?: number | null
           season?: number
           team_abbr?: string
           tov_pct?: number | null
