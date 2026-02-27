@@ -13,6 +13,7 @@ import { RequireAuth } from "@/components/auth/RequireAuth";
 import SplashScreen from "@/components/SplashScreen";
 import { initErrorCapture } from "@/lib/error-capture";
 import { logger, rotateCorrelationId } from "@/lib/logger";
+import { EnvironmentGuard } from "@/components/EnvironmentGuard";
 
 // Critical path: eager load
 import Index from "./pages/Index";
@@ -88,6 +89,7 @@ const App = () => {
   }, []);
 
   return (
+    <EnvironmentGuard>
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
@@ -143,6 +145,7 @@ const App = () => {
       </AuthProvider>
     </QueryClientProvider>
     </ThemeProvider>
+    </EnvironmentGuard>
   );
 };
 
