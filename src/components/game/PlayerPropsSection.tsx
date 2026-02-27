@@ -58,8 +58,31 @@ export function PlayerPropsSection({ gameId }: PlayerPropsProps) {
         .order("player_name", { ascending: true })
         .order("market_key", { ascending: true });
       if (error) throw error;
-      
-      // If no props found, auto-trigger a fetch attempt (fire-and-forget)
+
+      // If legacy props exist, return them
+      if (data && data.length > 0) return data as PropRow[];
+
+      // Fallback: fetch from BDL nba_player_props_live
+      const { data: bdlProps } = await (supabase as any)
+        .from("nba_player_props_live")
+        .select("*")
+        .eq("game_key", gameId)
+        .order("player_name", { ascending: true });
+
+      if (bdlProps && bdlProps.length > 0) {
+        return (bdlProps as any[]).map((p: any) => ({
+          id: `bdl-${p.id}`,
+          player_name: p.player_name || "Unknown",
+          market_key: p.prop_type,
+          market_label: null,
+          bookmaker: p.vendor,
+          line: p.line_value,
+          over_price: p.over_odds,
+          under_price: p.under_odds,
+        })) as PropRow[];
+      }
+
+      // If nothing found, auto-trigger fetch
       if (!data || data.length === 0) {
         fetch(
           `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/fetch-player-props?game_id=${gameId}`,
@@ -70,13 +93,12 @@ export function PlayerPropsSection({ gameId }: PlayerPropsProps) {
               apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
             },
           }
-        ).catch(() => {}); // fire-and-forget
+        ).catch(() => {});
       }
-      
-      return (data || []) as PropRow[];
+
+      return [] as PropRow[];
     },
     refetchInterval: (query) => {
-      // Refetch every 60s if no props yet (waiting for auto-fetch)
       const d = query.state.data;
       return (!d || d.length === 0) ? 60_000 : false;
     },

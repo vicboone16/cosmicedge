@@ -53,7 +53,33 @@ export function PlayByPlayTab({ gameId, homeAbbr, awayAbbr, league }: PlayByPlay
       return data || [];
     },
     enabled: isNBA && !!gameKeyQuery.data,
-    refetchInterval: 15000, // Poll every 15s for live updates
+    refetchInterval: 15000,
+  });
+
+  // BDL provider pbp events (provider-safe nba_pbp_events table)
+  const { data: bdlPbpEvents, isLoading: bdlPbpLoading } = useQuery({
+    queryKey: ["bdl-pbp-events", gameId],
+    queryFn: async () => {
+      // Query nba_pbp_events directly using the game UUID as game_key
+      const { data } = await supabase
+        .rpc("get_bdl_pbp_events" as any, { p_game_key: gameId })
+        .limit(1000);
+
+      // Fallback: direct table query (works once types are regenerated)
+      if (!data || (data as any[]).length === 0) {
+        const { data: direct } = await (supabase as any)
+          .from("nba_pbp_events")
+          .select("*")
+          .eq("game_key", gameId)
+          .order("period", { ascending: true })
+          .order("created_at", { ascending: true })
+          .limit(1000);
+        return (direct || []) as any[];
+      }
+      return (data || []) as any[];
+    },
+    enabled: isNBA,
+    refetchInterval: 15000,
   });
 
   // Subscribe to realtime inserts on pbp_events for this game_key
@@ -160,25 +186,33 @@ export function PlayByPlayTab({ gameId, homeAbbr, awayAbbr, league }: PlayByPlay
     enabled: !isNBA,
   });
 
-  const isLoading = isNBA ? (nbaLoading && livePbpLoading) : genericLoading;
+  const isLoading = isNBA ? (nbaLoading && livePbpLoading && bdlPbpLoading) : genericLoading;
 
-  // Merge: prefer live pbp_events if available, fall back to historical nba_play_by_play_events
-  const rawEvents = isNBA
-    ? (livePbpEvents && livePbpEvents.length > 0 ? livePbpEvents : nbaEvents)
+  // Normalize BDL pbp events to match renderer format
+  const normalizedBdlEvents = (bdlPbpEvents || []).map((ev: any) => ({
+    ...ev,
+    play_id: ev.provider_event_id,
+    team: ev.team_abbr,
+    remaining_time: ev.event_ts_game,
+    player: ev.player_name,
+    points: ev.event_type?.includes("3pt") ? 3 : ev.event_type?.includes("free throw") ? 1 : ev.event_type?.includes("shot") || ev.event_type?.includes("field goal") ? 2 : 0,
+  }));
+
+  // Merge: prefer BDL events > live pbp_events > historical nba_play_by_play_events
+  const normalizedLivePbp = (livePbpEvents || []).map((ev: any) => ({
+    ...ev,
+    play_id: ev.provider_event_id,
+    team: ev.team_abbr,
+    remaining_time: ev.clock,
+    player: ev.player_name,
+    points: ev.event_type?.includes("3pt") ? 3 : ev.event_type?.includes("free throw") ? 1 : ev.event_type?.includes("shot") || ev.event_type?.includes("field goal") ? 2 : 0,
+  }));
+
+  const events = isNBA
+    ? (normalizedBdlEvents.length > 0 ? normalizedBdlEvents
+      : normalizedLivePbp.length > 0 ? normalizedLivePbp
+      : nbaEvents)
     : genericEvents;
-
-  // Normalize live pbp_events to match the rendering format
-  const events = isNBA && livePbpEvents && livePbpEvents.length > 0
-    ? livePbpEvents.map((ev: any) => ({
-        ...ev,
-        // Map pbp_events fields to the format the renderer expects
-        play_id: ev.provider_event_id,
-        team: ev.team_abbr,
-        remaining_time: ev.clock,
-        player: ev.player_name,
-        points: ev.event_type?.includes("3pt") ? 3 : ev.event_type?.includes("free throw") ? 1 : ev.event_type?.includes("shot") || ev.event_type?.includes("field goal") ? 2 : 0,
-      }))
-    : rawEvents;
 
   if (isLoading) {
     return <p className="text-sm text-muted-foreground text-center py-8">Loading play-by-play…</p>;

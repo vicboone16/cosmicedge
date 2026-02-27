@@ -1769,6 +1769,114 @@ export type Database = {
         }
         Relationships: []
       }
+      nba_game_odds: {
+        Row: {
+          away_line: number | null
+          away_odds: number | null
+          game_key: string
+          home_line: number | null
+          home_odds: number | null
+          id: number
+          market: string
+          over_odds: number | null
+          provider: string
+          raw: Json | null
+          total: number | null
+          under_odds: number | null
+          updated_at: string
+          vendor: string
+        }
+        Insert: {
+          away_line?: number | null
+          away_odds?: number | null
+          game_key: string
+          home_line?: number | null
+          home_odds?: number | null
+          id?: never
+          market: string
+          over_odds?: number | null
+          provider?: string
+          raw?: Json | null
+          total?: number | null
+          under_odds?: number | null
+          updated_at?: string
+          vendor: string
+        }
+        Update: {
+          away_line?: number | null
+          away_odds?: number | null
+          game_key?: string
+          home_line?: number | null
+          home_odds?: number | null
+          id?: never
+          market?: string
+          over_odds?: number | null
+          provider?: string
+          raw?: Json | null
+          total?: number | null
+          under_odds?: number | null
+          updated_at?: string
+          vendor?: string
+        }
+        Relationships: []
+      }
+      nba_pbp_events: {
+        Row: {
+          away_score: number | null
+          created_at: string
+          description: string | null
+          event_ts_game: string | null
+          event_type: string | null
+          game_key: string
+          home_score: number | null
+          id: number
+          period: number
+          player_id: string | null
+          player_name: string | null
+          provider: string
+          provider_event_id: string
+          provider_game_id: string | null
+          raw: Json | null
+          team_abbr: string | null
+        }
+        Insert: {
+          away_score?: number | null
+          created_at?: string
+          description?: string | null
+          event_ts_game?: string | null
+          event_type?: string | null
+          game_key: string
+          home_score?: number | null
+          id?: never
+          period: number
+          player_id?: string | null
+          player_name?: string | null
+          provider?: string
+          provider_event_id: string
+          provider_game_id?: string | null
+          raw?: Json | null
+          team_abbr?: string | null
+        }
+        Update: {
+          away_score?: number | null
+          created_at?: string
+          description?: string | null
+          event_ts_game?: string | null
+          event_type?: string | null
+          game_key?: string
+          home_score?: number | null
+          id?: never
+          period?: number
+          player_id?: string | null
+          player_name?: string | null
+          provider?: string
+          provider_event_id?: string
+          provider_game_id?: string | null
+          raw?: Json | null
+          team_abbr?: string | null
+        }
+        Relationships: []
+      }
       nba_play_by_play_events: {
         Row: {
           a1: string | null
@@ -1937,6 +2045,105 @@ export type Database = {
           team_possession?: string | null
           time_actual?: string | null
           type?: string | null
+        }
+        Relationships: []
+      }
+      nba_player_props_archive: {
+        Row: {
+          game_key: string
+          id: number
+          line_value: number | null
+          market_type: string | null
+          odds: number | null
+          over_odds: number | null
+          player_id: string | null
+          player_name: string | null
+          prop_type: string | null
+          provider: string
+          snapshot_ts: string
+          under_odds: number | null
+          vendor: string | null
+        }
+        Insert: {
+          game_key: string
+          id?: never
+          line_value?: number | null
+          market_type?: string | null
+          odds?: number | null
+          over_odds?: number | null
+          player_id?: string | null
+          player_name?: string | null
+          prop_type?: string | null
+          provider?: string
+          snapshot_ts?: string
+          under_odds?: number | null
+          vendor?: string | null
+        }
+        Update: {
+          game_key?: string
+          id?: never
+          line_value?: number | null
+          market_type?: string | null
+          odds?: number | null
+          over_odds?: number | null
+          player_id?: string | null
+          player_name?: string | null
+          prop_type?: string | null
+          provider?: string
+          snapshot_ts?: string
+          under_odds?: number | null
+          vendor?: string | null
+        }
+        Relationships: []
+      }
+      nba_player_props_live: {
+        Row: {
+          game_key: string
+          id: number
+          line_value: number
+          market_type: string
+          odds: number | null
+          over_odds: number | null
+          player_id: string
+          player_name: string | null
+          prop_type: string
+          provider: string
+          raw: Json | null
+          under_odds: number | null
+          updated_at: string
+          vendor: string
+        }
+        Insert: {
+          game_key: string
+          id?: never
+          line_value: number
+          market_type?: string
+          odds?: number | null
+          over_odds?: number | null
+          player_id: string
+          player_name?: string | null
+          prop_type: string
+          provider?: string
+          raw?: Json | null
+          under_odds?: number | null
+          updated_at?: string
+          vendor: string
+        }
+        Update: {
+          game_key?: string
+          id?: never
+          line_value?: number
+          market_type?: string
+          odds?: number | null
+          over_odds?: number | null
+          player_id?: string
+          player_name?: string | null
+          prop_type?: string
+          provider?: string
+          raw?: Json | null
+          under_odds?: number | null
+          updated_at?: string
+          vendor?: string
         }
         Relationships: []
       }
@@ -3526,6 +3733,45 @@ export type Database = {
           reason?: string | null
           updated_at?: string
           updated_by?: string | null
+        }
+        Relationships: []
+      }
+      provider_game_map: {
+        Row: {
+          away_team_abbr: string | null
+          created_at: string
+          game_date: string | null
+          game_key: string
+          home_team_abbr: string | null
+          league: string
+          provider: string
+          provider_game_id: string
+          start_time_utc: string | null
+          updated_at: string
+        }
+        Insert: {
+          away_team_abbr?: string | null
+          created_at?: string
+          game_date?: string | null
+          game_key: string
+          home_team_abbr?: string | null
+          league?: string
+          provider: string
+          provider_game_id: string
+          start_time_utc?: string | null
+          updated_at?: string
+        }
+        Update: {
+          away_team_abbr?: string | null
+          created_at?: string
+          game_date?: string | null
+          game_key?: string
+          home_team_abbr?: string | null
+          league?: string
+          provider?: string
+          provider_game_id?: string
+          start_time_utc?: string | null
+          updated_at?: string
         }
         Relationships: []
       }
