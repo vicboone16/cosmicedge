@@ -183,13 +183,15 @@ export function OracleTab({
     if (source === "stored" && selectedStored?.qtr_wp_home && selectedStored?.qtr_fair_ml) {
       return selectedStored.qtr_wp_home.map((wp, i) => ({
         quarter: i + 1,
+        label: league === "NHL" ? `P${i + 1}` : `Q${i + 1}`,
+        muHome: 0, muAway: 0, muTotal: 0, muSpread: 0,
         wpHome: wp,
         fairMLHome: selectedStored.qtr_fair_ml![i]?.home ?? 0,
         fairMLAway: selectedStored.qtr_fair_ml![i]?.away ?? 0,
       }));
     }
     return quarters;
-  }, [source, selectedStored, quarters]);
+  }, [source, selectedStored, quarters, league]);
 
   if (isLoading && storedLoading) {
     return (
@@ -500,19 +502,20 @@ export function OracleTab({
         </section>
       )}
 
-      {/* ── Quarter/Period Predictions ── */}
+      {/* ── Quarter/Period & Half Predictions ── */}
       {displayQuarters.length > 0 && (
         <section>
           <h3 className="text-xs font-semibold text-primary uppercase tracking-widest mb-3 flex items-center gap-1.5">
             <Clock className="h-3.5 w-3.5" />
-            {league === "NHL" ? "Period" : "Quarter"} Win Probability
+            {league === "NHL" ? "Period" : "Quarter & Half"} Projections
           </h3>
           <div className="grid grid-cols-2 gap-2">
             {displayQuarters.map(q => {
-              const label = league === "NHL" ? `P${q.quarter}` : league === "MLB" ? `Inn ${q.quarter}` : `Q${q.quarter}`;
+              const label = q.label || (league === "NHL" ? `P${q.quarter}` : league === "MLB" ? `Inn ${q.quarter}` : `Q${q.quarter}`);
               const favHome = q.wpHome >= 0.5;
+              const hasScores = q.muHome > 0 || q.muAway > 0;
               return (
-                <div key={q.quarter} className="cosmic-card rounded-lg p-3">
+                <div key={`${q.quarter}-${q.label}`} className="cosmic-card rounded-lg p-3">
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-[10px] font-bold text-muted-foreground uppercase">{label}</span>
                     <span className={cn(
@@ -522,12 +525,20 @@ export function OracleTab({
                       {favHome ? homeAbbr : awayAbbr} {formatPct(favHome ? q.wpHome : 1 - q.wpHome)}
                     </span>
                   </div>
+                  {hasScores && (
+                    <div className="flex justify-between text-[10px] mb-1.5 tabular-nums">
+                      <span className="text-muted-foreground">{awayAbbr} <span className="text-foreground font-semibold">{q.muAway}</span></span>
+                      <span className="text-muted-foreground text-[9px]">O/U {q.muTotal}</span>
+                      <span className="text-muted-foreground">{homeAbbr} <span className="text-foreground font-semibold">{q.muHome}</span></span>
+                    </div>
+                  )}
                   <div className="h-1.5 rounded-full overflow-hidden flex bg-secondary">
                     <div className="bg-destructive/60" style={{ width: `${(1 - q.wpHome) * 100}%` }} />
                     <div className="bg-primary" style={{ width: `${q.wpHome * 100}%` }} />
                   </div>
                   <div className="flex justify-between mt-1 text-[9px] text-muted-foreground">
                     <span>{formatOdds(q.fairMLAway)}</span>
+                    {hasScores && <span className="text-foreground">Sprd {q.muSpread > 0 ? "+" : ""}{q.muSpread}</span>}
                     <span>{formatOdds(q.fairMLHome)}</span>
                   </div>
                 </div>

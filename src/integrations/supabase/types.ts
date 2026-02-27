@@ -4191,6 +4191,54 @@ export type Database = {
           },
         ]
       }
+      team_period_averages: {
+        Row: {
+          avg_fg_pct: number | null
+          avg_ft_pct: number | null
+          avg_pace: number | null
+          avg_points: number | null
+          avg_points_allowed: number | null
+          avg_three_pct: number | null
+          games_played: number | null
+          id: string
+          league: string
+          period: string
+          season: number
+          team_abbr: string
+          updated_at: string
+        }
+        Insert: {
+          avg_fg_pct?: number | null
+          avg_ft_pct?: number | null
+          avg_pace?: number | null
+          avg_points?: number | null
+          avg_points_allowed?: number | null
+          avg_three_pct?: number | null
+          games_played?: number | null
+          id?: string
+          league?: string
+          period: string
+          season?: number
+          team_abbr: string
+          updated_at?: string
+        }
+        Update: {
+          avg_fg_pct?: number | null
+          avg_ft_pct?: number | null
+          avg_pace?: number | null
+          avg_points?: number | null
+          avg_points_allowed?: number | null
+          avg_three_pct?: number | null
+          games_played?: number | null
+          id?: string
+          league?: string
+          period?: string
+          season?: number
+          team_abbr?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       team_season_pace: {
         Row: {
           avg_pace: number

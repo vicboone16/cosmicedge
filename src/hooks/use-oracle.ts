@@ -15,6 +15,7 @@ import {
   type PregameOutput,
   type QuarterPrediction,
   type LiveWPOutput,
+  type PeriodAverages,
 } from "@/lib/oracle-engine";
 
 export interface StoredPrediction {
@@ -105,6 +106,22 @@ export function useOracle(
     enabled: !!gameId && !!homeAbbr && !!awayAbbr,
   });
 
+  // Fetch period averages from team_period_averages
+  const { data: periodAvgsData } = useQuery({
+    queryKey: ["team-period-averages", homeAbbr, awayAbbr, season, league],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("team_period_averages")
+        .select("team_abbr, period, avg_points, avg_points_allowed")
+        .eq("league", league)
+        .eq("season", season)
+        .in("team_abbr", [homeAbbr, awayAbbr]);
+      return data || [];
+    },
+    staleTime: 300_000,
+    enabled: !!gameId && !!homeAbbr && !!awayAbbr,
+  });
+
   // Fetch persisted predictions from model_game_predictions
   const { data: storedPredictions = [], isLoading: storedLoading } = useQuery({
     queryKey: ["model-game-predictions", gameId],
@@ -165,10 +182,22 @@ export function useOracle(
     });
   }, [homeRatings, awayRatings, sport, bookMLHome, bookMLAway, bookSpread, bookTotal]);
 
+  const homePeriodAvgs: PeriodAverages[] = useMemo(() => {
+    return (periodAvgsData || [])
+      .filter((r: any) => r.team_abbr === homeAbbr)
+      .map((r: any) => ({ period: r.period, avgPoints: Number(r.avg_points) || 0, avgPointsAllowed: Number(r.avg_points_allowed) || 0 }));
+  }, [periodAvgsData, homeAbbr]);
+
+  const awayPeriodAvgs: PeriodAverages[] = useMemo(() => {
+    return (periodAvgsData || [])
+      .filter((r: any) => r.team_abbr === awayAbbr)
+      .map((r: any) => ({ period: r.period, avgPoints: Number(r.avg_points) || 0, avgPointsAllowed: Number(r.avg_points_allowed) || 0 }));
+  }, [periodAvgsData, awayAbbr]);
+
   const quarters = useMemo(() => {
     if (!pregame) return [];
-    return computeQuarterPredictions(pregame, sport);
-  }, [pregame, sport]);
+    return computeQuarterPredictions(pregame, sport, undefined, homePeriodAvgs, awayPeriodAvgs);
+  }, [pregame, sport, homePeriodAvgs, awayPeriodAvgs]);
 
   const liveWP = useMemo(() => {
     if (!isLive || liveScoreDiff == null || liveTimeRemaining == null) return null;
