@@ -287,49 +287,54 @@ export function computeLiveWP(input: LiveWPInput): LiveWPOutput {
 
   const sd = isHome ? scoreDiff : -scoreDiff;
   const pos = isHome ? possession : -possession;
-  const epsilon = 0.001;
 
   /**
-   * Core WP calculation for a given scope.
-   * @param scopeTimeSec  total duration of the scope (game/half/quarter) in seconds
-   * @param timeLeftInScope  seconds remaining within that scope
-   * @param scopeSd  score diff relevant to that scope
-   * @param sigmaScale  sigma multiplier (shorter scopes have smaller variance)
+   * Core WP using logistic model with ln(t+1) time interaction.
+   * 
+   * z = β1 · (sd / σ) · ln((T+1)/(t+1)) + β3 · pos · √(t/T) + β4 · √(t/T)
+   * 
+   * The ln((T+1)/(t+1)) term uses the user's ln(t+1) formulation:
+   *   ln((T+1)/(t+1)) = ln(T+1) - ln(t+1)
+   * 
+   * When t is large (start of scope): ln ratio ≈ 0, so WP ≈ 50% regardless of score
+   * When t is small (end of scope): ln ratio grows, score diff dominates
+   * This ensures "the game gets decided faster near the end"
    */
-  function wpForScope(scopeTimeSec: number, timeLeftInScope: number, scopeSd: number, sigmaScale: number): number {
-    const tFrac = Math.max(timeLeftInScope, 1) / scopeTimeSec;
-    const scaledSd = scopeSd / (betas.sigma * sigmaScale * Math.sqrt(tFrac + epsilon));
-    const dampen = Math.sqrt(tFrac);
-    const z = betas.intercept + scaledSd + betas.possession * pos * dampen + betas.home * dampen;
+  function wpForScope(T: number, t: number, scopeSd: number, sigma: number): number {
+    const tClamped = Math.max(t, 1);
+    const logRatio = Math.log(T + 1) - Math.log(tClamped + 1); // ln(T+1) - ln(t+1)
+    const tFrac = Math.sqrt(tClamped / (T + 1)); // dampening for pos/home (1 at start, 0 at end)
+
+    const scoreTerm = betas.beta1 * (scopeSd / sigma) * logRatio;
+    const posTerm = betas.possession * pos * tFrac;
+    const homeTerm = betas.home * tFrac;
+
+    const z = scoreTerm + posTerm + homeTerm;
     return clamp(sigmoid(z), 0.005, 0.995);
   }
 
   // ── Full Game WP ──
-  const wpGame = wpForScope(defs.gameLengthSec, timeRemaining, sd, 1.0);
+  const wpGame = wpForScope(defs.gameLengthSec, timeRemaining, sd, betas.sigma);
 
   // ── Half WP ──
-  // Determine which half we're in and time remaining in that half
-  const periodsPerHalf = Math.ceil(defs.periodsPerGame / 2); // NBA/NFL: 2, NHL: 1.5→2, MLB: 4.5→5
   const halfLengthSec = defs.gameLengthSec / 2;
+  const periodsPerHalf = Math.ceil(defs.periodsPerGame / 2);
   const currentQuarter = input.quarter ?? Math.max(1, Math.ceil((defs.gameLengthSec - timeRemaining) / (defs.gameLengthSec / defs.periodsPerGame)));
   const inFirstHalf = currentQuarter <= periodsPerHalf;
-  // Time left in current half
   const timeLeftInHalf = inFirstHalf
-    ? Math.min(timeRemaining - halfLengthSec, halfLengthSec)  // first half: game_remaining - second_half_length
-    : Math.min(timeRemaining, halfLengthSec);                  // second half: capped to half length
-  const halfTimeLeft = Math.max(timeLeftInHalf, 1);
-  // Half score diff: use full score diff (approximation — caller can pass half-specific diff if available)
-  const halfSd = sd;
-  // Sigma for half: √2 smaller variance than full game (half the possessions)
-  const wpHalf = wpForScope(halfLengthSec, halfTimeLeft, halfSd, 1 / Math.sqrt(2));
+    ? Math.max(timeRemaining - halfLengthSec, 1)
+    : Math.min(timeRemaining, halfLengthSec);
+  // Half sigma: √2 less variance (half the game)
+  const halfSigma = betas.sigma / Math.sqrt(2);
+  const wpHalf = wpForScope(halfLengthSec, Math.max(timeLeftInHalf, 1), sd, halfSigma);
 
-  // ── Quarter WP ──
+  // ── Quarter/Period WP ──
   const periodLength = defs.gameLengthSec / defs.periodsPerGame;
   const timeInCurrentPeriod = Math.max(timeRemaining % periodLength || periodLength, 1);
-  // Quarter score diff: approximate as proportional share
-  const qtrSd = sd / defs.periodsPerGame;
-  // Sigma for quarter: √periods smaller variance
-  const wpQuarter = wpForScope(periodLength, timeInCurrentPeriod, qtrSd, 1 / Math.sqrt(defs.periodsPerGame));
+  // Quarter sigma: √periods less variance
+  const qtrSigma = betas.sigma / Math.sqrt(defs.periodsPerGame);
+  // Quarter sd: use full sd (the question is "who wins this quarter from current state")
+  const wpQuarter = wpForScope(periodLength, timeInCurrentPeriod, sd, qtrSigma);
 
   // Possessions remaining estimate
   const possRemaining = timeRemaining / defs.secPerPoss;
@@ -345,21 +350,29 @@ export function computeLiveWP(input: LiveWPInput): LiveWPOutput {
   };
 }
 
-/** Per-sport parameters for live WP logistic model */
+/** Per-sport parameters for live WP logistic model
+ * 
+ * Formula: z = β1 · (sd/σ) · ln((T+1)/(t+1)) + β3 · pos · √(t/T) + β4 · √(t/T)
+ * WP = 1 / (1 + e^(-z))
+ * 
+ * Key: ln((T+1)/(t+1)) = ln(T+1) - ln(t+1), so ln(t+1) is the core time term.
+ * As t → 0, ln ratio grows → score diff matters more (game decided near end).
+ * As t → T, ln ratio → 0 → WP collapses to ~50% (whole game still to play).
+ */
 const LIVE_BETAS: Record<Sport, {
-  intercept: number;
+  beta1: number;       // score-time interaction coefficient
   sigma: number;       // scoring margin std dev (normalizer)
   possession: number;  // possession value in z-score units
   home: number;        // home advantage in z-score units
 }> = {
-  // NBA: ~12.5 pt std dev per game, possession ≈ 0.5 pts
-  NBA: { intercept: 0.0, sigma: 12.5, possession: 0.08, home: 0.12 },
-  // NFL: ~13.5 pt std dev, possession ≈ 1 pt
-  NFL: { intercept: 0.0, sigma: 13.5, possession: 0.15, home: 0.15 },
+  // NBA: ~12.5 pt std dev per game
+  NBA: { beta1: 2.5, sigma: 12.5, possession: 0.30, home: 0.10 },
+  // NFL: ~13.5 pt std dev
+  NFL: { beta1: 2.3, sigma: 13.5, possession: 0.40, home: 0.15 },
   // NHL: ~1.6 goal std dev
-  NHL: { intercept: 0.0, sigma: 1.6, possession: 0.05, home: 0.10 },
+  NHL: { beta1: 2.2, sigma: 1.6, possession: 0.10, home: 0.10 },
   // MLB: ~2.8 run std dev
-  MLB: { intercept: 0.0, sigma: 2.8, possession: 0.03, home: 0.08 },
+  MLB: { beta1: 2.0, sigma: 2.8, possession: 0.05, home: 0.08 },
 };
 
 // ─── Quarter Predictions ──────────────────────────────────────────────────────
