@@ -53,10 +53,13 @@ export interface PregameOutput {
   pHomeWinCIHigh: number;
 }
 
+/** Scope for live WP calculation — determines the time horizon */
+export type WPScope = "game" | "half" | "quarter";
+
 export interface LiveWPInput {
   sport: Sport;
-  scoreDiff: number;       // home - away
-  timeRemaining: number;   // seconds remaining in game
+  scoreDiff: number;       // home - away (for the relevant scope)
+  timeRemaining: number;   // seconds remaining in the GAME (full clock)
   possession: number;      // +1 home, -1 away, 0 unknown
   isHome: boolean;         // perspective team is home
   paceEstimate?: number;   // possessions per 48 min
@@ -68,8 +71,10 @@ export interface LiveWPInput {
 
 export interface LiveWPOutput {
   wpGame: number;
+  wpHalf: number;
   wpQuarter: number;
   fairMLGame: number;
+  fairMLHalf: number;
   fairMLQuarter: number;
   possessionsRemaining: number;
 }
@@ -282,42 +287,59 @@ export function computeLiveWP(input: LiveWPInput): LiveWPOutput {
 
   const sd = isHome ? scoreDiff : -scoreDiff;
   const pos = isHome ? possession : -possession;
+  const epsilon = 0.001;
 
-  // Time fraction remaining (0 = game over, 1 = full game)
-  const tFrac = Math.max(timeRemaining, 1) / defs.gameLengthSec;
-  const epsilon = 0.001; // prevent division by zero
+  /**
+   * Core WP calculation for a given scope.
+   * @param scopeTimeSec  total duration of the scope (game/half/quarter) in seconds
+   * @param timeLeftInScope  seconds remaining within that scope
+   * @param scopeSd  score diff relevant to that scope
+   * @param sigmaScale  sigma multiplier (shorter scopes have smaller variance)
+   */
+  function wpForScope(scopeTimeSec: number, timeLeftInScope: number, scopeSd: number, sigmaScale: number): number {
+    const tFrac = Math.max(timeLeftInScope, 1) / scopeTimeSec;
+    const scaledSd = scopeSd / (betas.sigma * sigmaScale * Math.sqrt(tFrac + epsilon));
+    const dampen = Math.sqrt(tFrac);
+    const z = betas.intercept + scaledSd + betas.possession * pos * dampen + betas.home * dampen;
+    return clamp(sigmoid(z), 0.005, 0.995);
+  }
 
-  // Scale score diff by inverse sqrt of time fraction
-  // This makes each point worth MORE as time expires
-  const sdScaled = sd / (betas.sigma * Math.sqrt(tFrac + epsilon));
+  // ── Full Game WP ──
+  const wpGame = wpForScope(defs.gameLengthSec, timeRemaining, sd, 1.0);
 
-  // Possession and home advantage diminish as game progresses
-  const timeDampen = Math.sqrt(tFrac);
-  const posEffect = betas.possession * pos * timeDampen;
-  const homeEffect = betas.home * timeDampen;
+  // ── Half WP ──
+  // Determine which half we're in and time remaining in that half
+  const periodsPerHalf = Math.ceil(defs.periodsPerGame / 2); // NBA/NFL: 2, NHL: 1.5→2, MLB: 4.5→5
+  const halfLengthSec = defs.gameLengthSec / 2;
+  const currentQuarter = input.quarter ?? Math.max(1, Math.ceil((defs.gameLengthSec - timeRemaining) / (defs.gameLengthSec / defs.periodsPerGame)));
+  const inFirstHalf = currentQuarter <= periodsPerHalf;
+  // Time left in current half
+  const timeLeftInHalf = inFirstHalf
+    ? Math.min(timeRemaining - halfLengthSec, halfLengthSec)  // first half: game_remaining - second_half_length
+    : Math.min(timeRemaining, halfLengthSec);                  // second half: capped to half length
+  const halfTimeLeft = Math.max(timeLeftInHalf, 1);
+  // Half score diff: use full score diff (approximation — caller can pass half-specific diff if available)
+  const halfSd = sd;
+  // Sigma for half: √2 smaller variance than full game (half the possessions)
+  const wpHalf = wpForScope(halfLengthSec, halfTimeLeft, halfSd, 1 / Math.sqrt(2));
 
-  const zGame = betas.intercept + sdScaled + posEffect + homeEffect;
-  const wpGame = clamp(sigmoid(zGame), 0.005, 0.995);
-
-  // Quarter-level WP
+  // ── Quarter WP ──
   const periodLength = defs.gameLengthSec / defs.periodsPerGame;
   const timeInCurrentPeriod = Math.max(timeRemaining % periodLength || periodLength, 1);
-  const qFrac = timeInCurrentPeriod / periodLength;
-
-  // For quarter WP, use the same scaling but within the period
-  // Score diff for quarter is approximated as the per-period contribution
-  const sdQtr = sd / defs.periodsPerGame; // rough quarter-level diff
-  const sdQtrScaled = sdQtr / (betas.sigma * 0.5 * Math.sqrt(qFrac + epsilon));
-  const zQtr = betas.intercept + sdQtrScaled + betas.possession * pos * Math.sqrt(qFrac) + betas.home * Math.sqrt(qFrac) * 0.5;
-  const wpQuarter = clamp(sigmoid(zQtr), 0.01, 0.99);
+  // Quarter score diff: approximate as proportional share
+  const qtrSd = sd / defs.periodsPerGame;
+  // Sigma for quarter: √periods smaller variance
+  const wpQuarter = wpForScope(periodLength, timeInCurrentPeriod, qtrSd, 1 / Math.sqrt(defs.periodsPerGame));
 
   // Possessions remaining estimate
   const possRemaining = timeRemaining / defs.secPerPoss;
 
   return {
     wpGame: +wpGame.toFixed(4),
+    wpHalf: +wpHalf.toFixed(4),
     wpQuarter: +wpQuarter.toFixed(4),
     fairMLGame: wpToAmericanOdds(wpGame),
+    fairMLHalf: wpToAmericanOdds(wpHalf),
     fairMLQuarter: wpToAmericanOdds(wpQuarter),
     possessionsRemaining: +possRemaining.toFixed(1),
   };
