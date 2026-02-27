@@ -366,7 +366,7 @@ const LIVE_BETAS: Record<Sport, {
   home: number;        // home advantage in z-score units
 }> = {
   // NBA: ~12.5 pt std dev per game
-  NBA: { beta1: 2.5, sigma: 12.5, possession: 0.30, home: 0.10 },
+  NBA: { beta1: 1.6, sigma: 12.5, possession: 0.30, home: 0.10 },
   // NFL: ~13.5 pt std dev
   NFL: { beta1: 2.3, sigma: 13.5, possession: 0.40, home: 0.15 },
   // NHL: ~1.6 goal std dev
