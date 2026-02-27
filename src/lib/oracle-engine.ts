@@ -266,41 +266,50 @@ function computePoissonPregame(
 // ─── Live Win Probability ─────────────────────────────────────────────────────
 
 /**
- * Live WP using logistic model with sport-tuned heuristic coefficients.
- * Can be replaced with learned betas later.
+ * Live WP — Logistic model: z = β0 + β1·sd + β2·ln(t+1) + β3·pos + β4·home
+ * 
+ * Key insight: score diff must be scaled by time remaining to produce
+ * correct dynamics (small lead early ≈ 50%, small lead late ≈ 90%+).
+ * We use sd / √(t/T + ε) as the effective score diff term within the
+ * logistic framework, which is equivalent to having β1 interact with time.
+ * 
+ * For quarter WP: uses t = seconds_remaining_in_quarter, sd = quarter score diff.
  */
 export function computeLiveWP(input: LiveWPInput): LiveWPOutput {
   const { sport, scoreDiff, timeRemaining, possession, isHome } = input;
   const defs = SPORT_DEFAULTS[sport];
-
-  // Heuristic betas (tuned per sport)
   const betas = LIVE_BETAS[sport];
 
   const sd = isHome ? scoreDiff : -scoreDiff;
   const pos = isHome ? possession : -possession;
-  const home = isHome ? 1 : -1;
-  const logTime = Math.log(timeRemaining + 1);
 
-  // Game-level WP
-  const zGame = betas.intercept
-    + betas.scoreDiff * sd
-    + betas.logTime * logTime
-    + betas.possession * pos
-    + betas.home * home;
-  const wpGame = sigmoid(zGame);
+  // Time fraction remaining (0 = game over, 1 = full game)
+  const tFrac = Math.max(timeRemaining, 1) / defs.gameLengthSec;
+  const epsilon = 0.001; // prevent division by zero
 
-  // Quarter-level WP (use time remaining in current quarter)
+  // Scale score diff by inverse sqrt of time fraction
+  // This makes each point worth MORE as time expires
+  const sdScaled = sd / (betas.sigma * Math.sqrt(tFrac + epsilon));
+
+  // Possession and home advantage diminish as game progresses
+  const timeDampen = Math.sqrt(tFrac);
+  const posEffect = betas.possession * pos * timeDampen;
+  const homeEffect = betas.home * timeDampen;
+
+  const zGame = betas.intercept + sdScaled + posEffect + homeEffect;
+  const wpGame = clamp(sigmoid(zGame), 0.005, 0.995);
+
+  // Quarter-level WP
   const periodLength = defs.gameLengthSec / defs.periodsPerGame;
-  const currentQuarter = input.quarter ?? Math.ceil((defs.gameLengthSec - timeRemaining) / periodLength);
-  const timeInCurrentPeriod = timeRemaining % periodLength || periodLength;
+  const timeInCurrentPeriod = Math.max(timeRemaining % periodLength || periodLength, 1);
+  const qFrac = timeInCurrentPeriod / periodLength;
 
-  // For quarter WP, score diff is less relevant (use quarter-only scoring pace)
-  const zQtr = betas.intercept * 0.5
-    + betas.scoreDiff * sd * 0.6  // reduced weight since quarter is shorter
-    + betas.logTime * Math.log(timeInCurrentPeriod + 1) * 0.8
-    + betas.possession * pos
-    + betas.home * home * 0.5;
-  const wpQuarter = sigmoid(zQtr);
+  // For quarter WP, use the same scaling but within the period
+  // Score diff for quarter is approximated as the per-period contribution
+  const sdQtr = sd / defs.periodsPerGame; // rough quarter-level diff
+  const sdQtrScaled = sdQtr / (betas.sigma * 0.5 * Math.sqrt(qFrac + epsilon));
+  const zQtr = betas.intercept + sdQtrScaled + betas.possession * pos * Math.sqrt(qFrac) + betas.home * Math.sqrt(qFrac) * 0.5;
+  const wpQuarter = clamp(sigmoid(zQtr), 0.01, 0.99);
 
   // Possessions remaining estimate
   const possRemaining = timeRemaining / defs.secPerPoss;
@@ -314,17 +323,21 @@ export function computeLiveWP(input: LiveWPInput): LiveWPOutput {
   };
 }
 
+/** Per-sport parameters for live WP logistic model */
 const LIVE_BETAS: Record<Sport, {
   intercept: number;
-  scoreDiff: number;
-  logTime: number;
-  possession: number;
-  home: number;
+  sigma: number;       // scoring margin std dev (normalizer)
+  possession: number;  // possession value in z-score units
+  home: number;        // home advantage in z-score units
 }> = {
-  NBA: { intercept: 0.0, scoreDiff: 0.08, logTime: -0.65, possession: 0.35, home: 0.12 },
-  NFL: { intercept: 0.0, scoreDiff: 0.15, logTime: -0.55, possession: 0.25, home: 0.15 },
-  NHL: { intercept: 0.0, scoreDiff: 0.45, logTime: -0.50, possession: 0.20, home: 0.10 },
-  MLB: { intercept: 0.0, scoreDiff: 0.30, logTime: -0.40, possession: 0.10, home: 0.08 },
+  // NBA: ~12.5 pt std dev per game, possession ≈ 0.5 pts
+  NBA: { intercept: 0.0, sigma: 12.5, possession: 0.08, home: 0.12 },
+  // NFL: ~13.5 pt std dev, possession ≈ 1 pt
+  NFL: { intercept: 0.0, sigma: 13.5, possession: 0.15, home: 0.15 },
+  // NHL: ~1.6 goal std dev
+  NHL: { intercept: 0.0, sigma: 1.6, possession: 0.05, home: 0.10 },
+  // MLB: ~2.8 run std dev
+  MLB: { intercept: 0.0, sigma: 2.8, possession: 0.03, home: 0.08 },
 };
 
 // ─── Quarter Predictions ──────────────────────────────────────────────────────

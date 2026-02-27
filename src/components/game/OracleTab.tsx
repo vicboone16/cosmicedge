@@ -1,11 +1,14 @@
 /**
  * OracleTab — Full pregame prediction breakdown + live WP + quarter ML
- * Now includes model/version selector and stored server-side predictions
+ * Instant: live-adjusted win probability (uses current score + estimated clock)
+ * StellarLine: server-computed pregame predictions (oracle_ml model)
  */
 import { useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { useOracle, type StoredPrediction } from "@/hooks/use-oracle";
 import { classifyEdge, wpToAmericanOdds } from "@/lib/oracle-engine";
+import { supabase } from "@/integrations/supabase/client";
 import { TrendingUp, TrendingDown, Zap, Target, BarChart3, Clock, Activity, Database, Cpu } from "lucide-react";
 
 function formatOdds(odds: number): string {
@@ -44,6 +47,68 @@ export function OracleTab({
   const [selectedVersion, setSelectedVersion] = useState("v1");
   const scoreDiff = (homeScore ?? 0) - (awayScore ?? 0);
 
+  // Fetch actual game clock from latest snapshot for live games
+  const { data: latestSnapshot } = useQuery({
+    queryKey: ["game-snapshot-clock", gameId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("game_state_snapshots")
+        .select("quarter, clock, home_score, away_score")
+        .eq("game_id", gameId)
+        .order("captured_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      return data;
+    },
+    enabled: !!isLive && !!gameId,
+    staleTime: 15_000,
+    refetchInterval: 15_000,
+  });
+
+  // Compute time remaining from snapshot data
+  const sportGameSec = league === "NFL" ? 3600 : league === "NHL" ? 3600 : league === "MLB" ? 10800 : 2880;
+  const sportPeriods = league === "NHL" ? 3 : league === "MLB" ? 9 : 4;
+  const periodLengthSec = sportGameSec / sportPeriods;
+
+  const estimatedTimeRemaining = useMemo(() => {
+    if (!isLive) return undefined;
+    if (!latestSnapshot) return Math.round(sportGameSec / 2); // fallback
+
+    // Parse quarter number
+    const qRaw = (latestSnapshot.quarter ?? "").trim();
+    let qNum = 0;
+    const otMatch = qRaw.toLowerCase().match(/^ot(\d*)$/);
+    if (otMatch) {
+      qNum = 4 + (otMatch[1] ? parseInt(otMatch[1]) : 1);
+    } else {
+      const qMatch = qRaw.match(/^Q?(\d+)$/i);
+      if (qMatch) qNum = parseInt(qMatch[1]);
+    }
+    if (qNum < 1) return Math.round(sportGameSec / 2);
+
+    // Parse clock "MM:SS" or "M:SS"
+    let clockSec = periodLengthSec / 2; // default to mid-period
+    if (latestSnapshot.clock) {
+      const parts = latestSnapshot.clock.split(":");
+      if (parts.length === 2) {
+        clockSec = parseInt(parts[0]) * 60 + parseInt(parts[1]);
+      }
+    }
+
+    // Time remaining = remaining periods * period length + clock in current period
+    const remainingPeriods = Math.max(0, sportPeriods - qNum);
+    return remainingPeriods * periodLengthSec + clockSec;
+  }, [isLive, latestSnapshot, sportGameSec, sportPeriods, periodLengthSec]);
+
+  const liveQuarter = useMemo(() => {
+    if (!latestSnapshot?.quarter) return undefined;
+    const qRaw = (latestSnapshot.quarter ?? "").trim();
+    const otMatch = qRaw.toLowerCase().match(/^ot(\d*)$/);
+    if (otMatch) return 4 + (otMatch[1] ? parseInt(otMatch[1]) : 1);
+    const qMatch = qRaw.match(/^Q?(\d+)$/i);
+    return qMatch ? parseInt(qMatch[1]) : undefined;
+  }, [latestSnapshot]);
+
   const {
     pregame, quarters, liveWP, isLoading, homeRatings, awayRatings,
     storedPredictions, storedLoading,
@@ -51,8 +116,8 @@ export function OracleTab({
     gameId, homeAbbr, awayAbbr, league,
     bookMLHome, bookMLAway, bookSpread, bookTotal,
     scoreDiff,
-    isLive ? 1440 : undefined,
-    0, undefined, isLive,
+    estimatedTimeRemaining,
+    0, liveQuarter, isLive,
   );
 
   // Get available versions from stored predictions
@@ -67,6 +132,8 @@ export function OracleTab({
   }, [storedPredictions, selectedVersion]);
 
   // Build a unified display object from either source
+  // When live: "Instant" = live WP based on current score/clock
+  //            "StellarLine" = server-computed pregame projection
   const display = useMemo(() => {
     if (source === "stored" && selectedStored) {
       return {
@@ -87,13 +154,28 @@ export function OracleTab({
         pHomeWinCIHigh: selectedStored.p_home_win_ci_high ?? 1,
         runTs: selectedStored.run_ts,
         features: selectedStored.features_json,
+        isLiveAdjusted: false,
+      };
+    }
+    // When game is live and we have live WP, show that for "Instant"
+    if (isLive && liveWP && pregame) {
+      return {
+        ...pregame,
+        // Override WP with live-adjusted values
+        pHomeWin: liveWP.wpGame,
+        pAwayWin: 1 - liveWP.wpGame,
+        fairMLHome: liveWP.fairMLGame,
+        fairMLAway: wpToAmericanOdds(1 - liveWP.wpGame),
+        runTs: null,
+        features: null,
+        isLiveAdjusted: true,
       };
     }
     if (pregame) {
-      return { ...pregame, runTs: null, features: null };
+      return { ...pregame, runTs: null, features: null, isLiveAdjusted: false };
     }
     return null;
-  }, [source, selectedStored, pregame]);
+  }, [source, selectedStored, pregame, isLive, liveWP]);
 
   const homeEdgeInfo = useMemo(() => {
     if (!display || display.edgeHome == null) return null;
@@ -145,7 +227,7 @@ export function OracleTab({
                   source === "live" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
                 )}
               >
-                <Cpu className="h-3 w-3" /> Instant
+                <Cpu className="h-3 w-3" /> {isLive ? "Live" : "Instant"}
               </button>
               <button
                 onClick={() => setSource("stored")}
@@ -176,15 +258,22 @@ export function OracleTab({
           </>
         ) : (
           <p className="text-[9px] text-muted-foreground flex items-center gap-1">
-            <Cpu className="h-3 w-3" /> Instant Projection
+            <Cpu className="h-3 w-3" /> {isLive ? "Live Projection" : "Instant Projection"}
           </p>
         )}
       </div>
 
-      {/* Run timestamp for stored */}
+      {/* Source context info */}
       {source === "stored" && display.runTs && (
         <p className="text-[9px] text-muted-foreground text-center">
           Run: {new Date(display.runTs).toLocaleString()} · Model: oracle_ml {selectedVersion}
+        </p>
+      )}
+      {source === "live" && display.isLiveAdjusted && estimatedTimeRemaining != null && (
+        <p className="text-[9px] text-cosmic-green text-center flex items-center justify-center gap-1">
+          <Activity className="h-3 w-3" />
+          Live-adjusted · ~{Math.floor(estimatedTimeRemaining / 60)}:{String(estimatedTimeRemaining % 60).padStart(2, "0")} remaining
+          {liveQuarter ? ` · Q${liveQuarter}` : ""}
         </p>
       )}
 
