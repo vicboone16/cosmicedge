@@ -179,7 +179,12 @@ export function GameMatchupTab({
         let totalPts = 0, totalFGA = 0, totalFGM = 0, total3A = 0, total3M = 0;
         let totalFTA = 0, totalFTM = 0, totalORB = 0, totalTOV = 0;
 
+        let gamesWithShotData = 0;
+        let effPts = 0, effFGA = 0, effFGM = 0, eff3A = 0, eff3M = 0, effFTA = 0;
+
         for (const [, players] of byGame) {
+          let gameFGA = 0;
+          let gameHasShotData = false;
           for (const p of players) {
             totalPts += p.points ?? 0;
             totalFGA += p.fg_attempted ?? 0;
@@ -190,6 +195,22 @@ export function GameMatchupTab({
             totalFTM += p.ft_made ?? 0;
             totalORB += p.off_rebounds ?? 0;
             totalTOV += p.turnovers ?? 0;
+            if (p.fg_attempted != null && p.fg_attempted > 0) {
+              gameHasShotData = true;
+              gameFGA += p.fg_attempted;
+            }
+          }
+          // Only count games with actual shot data for efficiency metrics
+          if (gameHasShotData) {
+            gamesWithShotData++;
+            for (const p of players) {
+              effPts += p.points ?? 0;
+              effFGA += p.fg_attempted ?? 0;
+              effFGM += p.fg_made ?? 0;
+              eff3A += p.three_attempted ?? 0;
+              eff3M += p.three_made ?? 0;
+              effFTA += p.ft_attempted ?? 0;
+            }
           }
         }
 
@@ -197,11 +218,11 @@ export function GameMatchupTab({
         // Pace estimate: FGA + 0.44*FTA - ORB + TOV per game
         const possPerGame = (totalFGA + 0.44 * totalFTA - totalORB + totalTOV) / gameCount;
         const ortg = possPerGame > 0 ? (totalPts / gameCount) / possPerGame * 100 : null;
-        // TS% = PTS / (2 * (FGA + 0.44 * FTA))
-        const tsa = 2 * (totalFGA + 0.44 * totalFTA);
-        const ts = tsa > 0 ? (totalPts / tsa * 100) : null;
+        // TS% = PTS / (2 * (FGA + 0.44 * FTA)) — only from games with shot data
+        const tsa = 2 * (effFGA + 0.44 * effFTA);
+        const ts = tsa > 0 ? (effPts / tsa * 100) : null;
         // eFG% = (FGM + 0.5 * 3PM) / FGA
-        const efg = totalFGA > 0 ? ((totalFGM + 0.5 * total3M) / totalFGA * 100) : null;
+        const efg = effFGA > 0 ? ((effFGM + 0.5 * eff3M) / effFGA * 100) : null;
         // TOV% = TOV / (FGA + 0.44*FTA + TOV)
         const tovDenom = totalFGA + 0.44 * totalFTA + totalTOV;
         const tovPct = tovDenom > 0 ? (totalTOV / tovDenom * 100) : null;
