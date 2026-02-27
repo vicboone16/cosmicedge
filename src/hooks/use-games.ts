@@ -94,11 +94,56 @@ async function fetchGamesFromDB(date?: Date, userTimezone?: string): Promise<Gam
     oddsByGame.get(o.game_id)!.push(o);
   });
 
+  // Also fetch BDL odds from nba_game_odds as fallback
+  const { data: bdlOdds } = await supabase
+    .from("nba_game_odds")
+    .select("game_key, market, home_line, away_line, total, home_odds, away_odds, over_odds, under_odds")
+    .in("game_key", gameIds)
+    .order("updated_at", { ascending: false })
+    .limit(5000);
+
+  const bdlOddsByGame = new Map<string, typeof bdlOdds>();
+  bdlOdds?.forEach((o) => {
+    if (!bdlOddsByGame.has(o.game_key)) bdlOddsByGame.set(o.game_key, []);
+    bdlOddsByGame.get(o.game_key)!.push(o);
+  });
+
   return games.map((game) => {
     const gameOdds = oddsByGame.get(game.id) || [];
-    const ml = gameOdds.find((o) => o.market_type === "moneyline");
-    const spread = gameOdds.find((o) => o.market_type === "spread");
-    const total = gameOdds.find((o) => o.market_type === "total");
+    // Merge all moneyline rows to get both home and away prices
+    const mlRows = gameOdds.filter((o) => o.market_type === "moneyline");
+    const spreadRows = gameOdds.filter((o) => o.market_type === "spread");
+    const totalRows = gameOdds.filter((o) => o.market_type === "total");
+
+    let mlHome = 0, mlAway = 0;
+    for (const r of mlRows) {
+      if (r.home_price) mlHome = r.home_price;
+      if (r.away_price) mlAway = r.away_price;
+    }
+    let spHome = -110, spAway = -110, spLine = 0;
+    for (const r of spreadRows) {
+      if (r.home_price) spHome = r.home_price;
+      if (r.away_price) spAway = r.away_price;
+      if (r.line != null) spLine = r.line;
+    }
+    let totOver = -110, totUnder = -110, totLine = 0;
+    for (const r of totalRows) {
+      if (r.home_price) totOver = r.home_price;
+      if (r.away_price) totUnder = r.away_price;
+      if (r.line != null) totLine = r.line;
+    }
+
+    // Fallback to BDL nba_game_odds if odds_snapshots has no data
+    const bdl = bdlOddsByGame.get(game.id) || [];
+    if (bdl.length > 0) {
+      const bdlMl = bdl.find((o) => o.market === "h2h" || o.market === "moneyline");
+      const bdlSp = bdl.find((o) => o.market === "spreads" || o.market === "spread");
+      const bdlTot = bdl.find((o) => o.market === "totals" || o.market === "total");
+      if (!mlHome && bdlMl?.home_odds) mlHome = bdlMl.home_odds;
+      if (!mlAway && bdlMl?.away_odds) mlAway = bdlMl.away_odds;
+      if (!spLine && bdlSp) { spLine = bdlSp.home_line || 0; }
+      if (!totLine && bdlTot) { totLine = bdlTot.total || 0; }
+    }
 
     return {
       ...game,
@@ -106,17 +151,9 @@ async function fetchGamesFromDB(date?: Date, userTimezone?: string): Promise<Gam
       created_at: "",
       updated_at: "",
       odds: {
-        moneyline: { home: ml?.home_price || 0, away: ml?.away_price || 0 },
-        spread: {
-          home: spread?.home_price || -110,
-          away: spread?.away_price || -110,
-          line: spread?.line || 0,
-        },
-        total: {
-          over: total?.home_price || -110,
-          under: total?.away_price || -110,
-          line: total?.line || 0,
-        },
+        moneyline: { home: mlHome, away: mlAway },
+        spread: { home: spHome, away: spAway, line: spLine },
+        total: { over: totOver, under: totUnder, line: totLine },
       },
     };
   });
