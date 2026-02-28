@@ -37,11 +37,12 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const BDL_KEY = Deno.env.get("BALLDONTLIE_KEY");
+    const BDL_KEY_RAW = Deno.env.get("BALLDONTLIE_KEY");
+    const BDL_KEY = (BDL_KEY_RAW || "").trim().replace(/^Bearer\s+/i, "");
     if (!BDL_KEY) throw new Error("BALLDONTLIE_KEY not configured");
 
     const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
-    const headers = { Authorization: BDL_KEY };
+    const headers = { Authorization: BDL_KEY, "X-Api-Key": BDL_KEY };
 
     // Step 1: Check for live NBA games
     const { data: liveGames, error: lgErr } = await supabase

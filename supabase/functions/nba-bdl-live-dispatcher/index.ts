@@ -30,10 +30,11 @@ Deno.serve(async (req) => {
 
   try {
     const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const BDL_KEY = Deno.env.get("BALLDONTLIE_KEY")!;
+    const BDL_KEY_RAW = Deno.env.get("BALLDONTLIE_KEY")!;
+    const BDL_KEY = BDL_KEY_RAW.trim().replace(/^Bearer\s+/i, "");
     const sb = createClient(SUPABASE_URL, SERVICE_KEY);
 
-    const headers = { Authorization: BDL_KEY };
+    const headers = { Authorization: BDL_KEY, "X-Api-Key": BDL_KEY };
     const stats = { games: 0, odds: 0, plays: 0, props: 0, errors: 0 };
 
     // ── 1. Fetch live box scores ──

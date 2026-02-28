@@ -41,7 +41,8 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const BDL_KEY = Deno.env.get("BALLDONTLIE_KEY");
+    const BDL_KEY_RAW = Deno.env.get("BALLDONTLIE_KEY");
+    const BDL_KEY = (BDL_KEY_RAW || "").trim().replace(/^Bearer\s+/i, "");
     if (!BDL_KEY) {
       return new Response(
         JSON.stringify({ error: "BALLDONTLIE_KEY not configured" }),
@@ -63,7 +64,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    const headers = { Authorization: BDL_KEY };
+    const headers = { Authorization: BDL_KEY, "X-Api-Key": BDL_KEY };
 
     // Determine which DB games to fetch props for
     let dbGames: { id: string; home_abbr: string; away_abbr: string; start_time: string }[] = [];
