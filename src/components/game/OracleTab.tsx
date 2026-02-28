@@ -280,7 +280,7 @@ export function OracleTab({
       )}
 
       {/* ── Live Win Probability Scopes (PRIMARY for live games) ── */}
-      {liveWP && isLive && source === "live" && (
+      {liveWP && isLive && (
         <section>
           <h3 className="text-xs font-semibold text-cosmic-green uppercase tracking-widest mb-3 flex items-center gap-1.5">
             <Activity className="h-3.5 w-3.5" />
@@ -507,6 +507,56 @@ export function OracleTab({
       )}
 
       {/* ── Quarter/Period & Half Predictions ── */}
+      {/* ── Live Quarter Score Predictions ── */}
+      {isLive && liveQuarter && quarters.length > 0 && (
+        <section>
+          <h3 className="text-xs font-semibold text-cosmic-green uppercase tracking-widest mb-3 flex items-center gap-1.5">
+            <Activity className="h-3.5 w-3.5" />
+            Live Quarter Projections
+          </h3>
+          <div className="grid grid-cols-2 gap-2">
+            {quarters.filter(q => q.quarter >= (liveQuarter ?? 1) && q.quarter <= (league === "NHL" ? 3 : 4)).map(q => {
+              const isCurrent = q.quarter === liveQuarter;
+              const label = q.label || (league === "NHL" ? `P${q.quarter}` : `Q${q.quarter}`);
+              const favHome = q.wpHome >= 0.5;
+              return (
+                <div key={`live-${q.quarter}`} className={cn(
+                  "cosmic-card rounded-lg p-3",
+                  isCurrent && "border border-cosmic-green/50 bg-cosmic-green/5"
+                )}>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className={cn("text-[10px] font-bold uppercase", isCurrent ? "text-cosmic-green" : "text-muted-foreground")}>
+                      {label} {isCurrent && "⬤"}
+                    </span>
+                    <span className={cn(
+                      "text-[10px] font-bold",
+                      favHome ? "text-primary" : "text-destructive/80"
+                    )}>
+                      {favHome ? homeAbbr : awayAbbr} {formatPct(favHome ? q.wpHome : 1 - q.wpHome)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-[10px] mb-1.5 tabular-nums">
+                    <span className="text-muted-foreground">{awayAbbr} <span className="text-foreground font-semibold">{q.muAway}</span></span>
+                    <span className="text-muted-foreground text-[9px]">O/U {q.muTotal}</span>
+                    <span className="text-muted-foreground">{homeAbbr} <span className="text-foreground font-semibold">{q.muHome}</span></span>
+                  </div>
+                  <div className="h-1.5 rounded-full overflow-hidden flex bg-secondary">
+                    <div className="bg-destructive/60" style={{ width: `${(1 - q.wpHome) * 100}%` }} />
+                    <div className={isCurrent ? "bg-cosmic-green" : "bg-primary"} style={{ width: `${q.wpHome * 100}%` }} />
+                  </div>
+                  <div className="flex justify-between mt-1 text-[9px] text-muted-foreground">
+                    <span>{formatOdds(q.fairMLAway)}</span>
+                    <span className="text-foreground">Sprd {q.muSpread > 0 ? "+" : ""}{q.muSpread}</span>
+                    <span>{formatOdds(q.fairMLHome)}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {/* ── Quarter/Period & Half Projections (Pregame) ── */}
       {displayQuarters.length > 0 && (
         <section>
           <h3 className="text-xs font-semibold text-primary uppercase tracking-widest mb-3 flex items-center gap-1.5">
