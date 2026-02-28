@@ -15,9 +15,9 @@ interface GameStatsTabProps {
 }
 
 /**
- * Aggregate nba_play_by_play_events into per-player stat lines.
+ * Aggregate legacy nba_play_by_play_events into per-player stat lines.
  */
-function aggregatePbpToPlayerStats(events: any[], homeAbbr: string, awayAbbr: string) {
+function aggregateLegacyPbp(events: any[], homeAbbr: string, awayAbbr: string) {
   const playerMap = new Map<string, any>();
 
   const getOrCreate = (name: string, team: string) => {
@@ -95,6 +95,79 @@ function aggregatePbpToPlayerStats(events: any[], homeAbbr: string, awayAbbr: st
   return Array.from(playerMap.values()).sort((a, b) => b.points - a.points);
 }
 
+/**
+ * Aggregate BDL/cosmic nba_pbp_events or pbp_events into per-player stat lines.
+ * These tables use description-based parsing since they don't have structured event_type/result columns.
+ */
+function aggregateBdlPbp(events: any[]) {
+  const playerMap = new Map<string, any>();
+
+  const getOrCreate = (name: string, team: string) => {
+    const key = `${team}::${name}`;
+    if (!playerMap.has(key)) {
+      playerMap.set(key, {
+        id: key,
+        team_abbr: team,
+        players: { name, position: null, headshot_url: null },
+        points: 0, rebounds: 0, assists: 0, steals: 0, blocks: 0, turnovers: 0,
+        fg_made: 0, fg_attempted: 0, three_made: 0, three_attempted: 0,
+        ft_made: 0, ft_attempted: 0, off_rebounds: 0,
+        minutes: null, plus_minus: null, starter: false,
+      });
+    }
+    return playerMap.get(key)!;
+  };
+
+  for (const e of events) {
+    const name = e.player_name;
+    const team = e.team_abbr;
+    if (!name || !team) continue;
+
+    const p = getOrCreate(name, team);
+    const desc = (e.description || "").toLowerCase();
+    const et = (e.event_type || "").toLowerCase();
+
+    // Detect scoring plays
+    const is3pt = desc.includes("3pt") || desc.includes("three") || et.includes("3pt");
+    const isFT = desc.includes("free throw") || et.includes("free throw") || desc.includes("ft ");
+    const isMade = desc.includes("made") || desc.includes("makes") || et.includes("made");
+    const isMiss = desc.includes("miss") || desc.includes("missed") || et.includes("miss");
+    const isShot = desc.includes("shot") || desc.includes("field goal") || desc.includes("dunk") ||
+      desc.includes("layup") || desc.includes("jumper") || desc.includes("hook") ||
+      desc.includes("2pt") || et.includes("shot") || et.includes("2pt") || et.includes("dunk");
+    const isRebound = desc.includes("rebound") || et.includes("rebound");
+    const isTurnover = desc.includes("turnover") || et.includes("turnover");
+    const isSteal = desc.includes("steal") || et.includes("steal");
+    const isBlock = desc.includes("block") || et.includes("block");
+    const isAssist = desc.includes("assist") || et.includes("assist");
+
+    if (isFT) {
+      p.ft_attempted++;
+      if (isMade) { p.ft_made++; p.points += 1; }
+    } else if (is3pt) {
+      if (isMade || isMiss) p.fg_attempted++;
+      p.three_attempted++;
+      if (isMade) { p.fg_made++; p.three_made++; p.points += 3; }
+    } else if (isShot || isMade || isMiss) {
+      if (isMade || isMiss) p.fg_attempted++;
+      if (isMade) { p.fg_made++; p.points += 2; }
+    }
+
+    if (isRebound) {
+      p.rebounds++;
+      if (desc.includes("offensive") || desc.includes("off reb") || desc.includes("oreb")) {
+        p.off_rebounds++;
+      }
+    }
+    if (isTurnover) p.turnovers++;
+    if (isSteal) p.steals++;
+    if (isBlock) p.blocks++;
+    if (isAssist) p.assists++;
+  }
+
+  return Array.from(playerMap.values()).sort((a, b) => b.points - a.points);
+}
+
 export function GameStatsTab({ gameId, homeAbbr, awayAbbr, homeTeam, awayTeam, homeScore, awayScore, league }: GameStatsTabProps) {
   const [subTab, setSubTab] = useState<"game" | "home" | "away">("game");
 
@@ -125,11 +198,42 @@ export function GameStatsTab({ gameId, homeAbbr, awayAbbr, homeTeam, awayTeam, h
     },
   });
 
-  // Fallback: fetch PBP events to derive stats when player_game_stats is empty
-  const { data: pbpEvents } = useQuery({
-    queryKey: ["game-pbp-stats-fallback", gameId],
+  // Fallback 1: BDL nba_pbp_events (keyed by game UUID)
+  const { data: bdlPbpEvents } = useQuery({
+    queryKey: ["game-bdl-pbp-stats-fallback", gameId],
     queryFn: async () => {
-      // PBP uses external game_id, not UUID — look up external_id first
+      const { data } = await supabase
+        .from("nba_pbp_events")
+        .select("event_type, description, player_name, team_abbr, period, home_score, away_score")
+        .eq("game_key", gameId)
+        .order("period", { ascending: true })
+        .order("event_ts_game", { ascending: true })
+        .limit(5000);
+      return (data || []) as any[];
+    },
+    enabled: league === "NBA" && !!playerStats && playerStats.length === 0,
+  });
+
+  // Fallback 2: cosmic pbp_events (keyed by game_key)
+  const { data: cosmicPbpEvents } = useQuery({
+    queryKey: ["game-cosmic-pbp-stats-fallback", gameId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("pbp_events" as any)
+        .select("event_type, description, player_name, team_abbr, period, home_score, away_score")
+        .eq("game_key", gameId)
+        .order("period", { ascending: true })
+        .limit(5000);
+      return (data as any[]) || [];
+    },
+    enabled: league === "NBA" && !!playerStats && playerStats.length === 0 &&
+      (!bdlPbpEvents || bdlPbpEvents.length === 0),
+  });
+
+  // Fallback 3: Legacy nba_play_by_play_events (keyed by external string ID)
+  const { data: legacyPbpEvents } = useQuery({
+    queryKey: ["game-legacy-pbp-stats-fallback", gameId],
+    queryFn: async () => {
       const { data: gameRow } = await supabase
         .from("games")
         .select("external_id")
@@ -137,7 +241,6 @@ export function GameStatsTab({ gameId, homeAbbr, awayAbbr, homeTeam, awayTeam, h
         .maybeSingle();
       const extId = gameRow?.external_id;
       if (!extId) return [];
-      // Try multiple ID formats: raw, with "00" prefix, with "002" prefix
       const candidates = [...new Set([extId, "00" + extId, "002" + extId])];
       for (const eid of candidates) {
         const { data } = await supabase
@@ -149,17 +252,25 @@ export function GameStatsTab({ gameId, homeAbbr, awayAbbr, homeTeam, awayTeam, h
       }
       return [];
     },
-    enabled: !!playerStats && playerStats.length === 0,
+    enabled: !!playerStats && playerStats.length === 0 &&
+      (!bdlPbpEvents || bdlPbpEvents.length === 0) &&
+      (!cosmicPbpEvents || cosmicPbpEvents.length === 0),
   });
 
-  // Use PBP-derived stats as fallback
+  // Use PBP-derived stats as fallback (BDL → cosmic → legacy)
   const effectivePlayerStats = useMemo(() => {
     if (playerStats && playerStats.length > 0) return playerStats;
-    if (pbpEvents && pbpEvents.length > 0) {
-      return aggregatePbpToPlayerStats(pbpEvents, homeAbbr, awayAbbr);
+    if (bdlPbpEvents && bdlPbpEvents.length > 0) {
+      return aggregateBdlPbp(bdlPbpEvents);
+    }
+    if (cosmicPbpEvents && cosmicPbpEvents.length > 0) {
+      return aggregateBdlPbp(cosmicPbpEvents);
+    }
+    if (legacyPbpEvents && legacyPbpEvents.length > 0) {
+      return aggregateLegacyPbp(legacyPbpEvents, homeAbbr, awayAbbr);
     }
     return [];
-  }, [playerStats, pbpEvents, homeAbbr, awayAbbr]);
+  }, [playerStats, bdlPbpEvents, cosmicPbpEvents, legacyPbpEvents, homeAbbr, awayAbbr]);
 
   const periodLabel = (q: number) => {
     if (league === "NHL") return q <= 3 ? `P${q}` : q === 4 ? "OT" : `${q - 3}OT`;
