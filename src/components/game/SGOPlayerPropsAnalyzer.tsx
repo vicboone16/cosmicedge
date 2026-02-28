@@ -51,8 +51,35 @@ export function SGOPlayerPropsAnalyzer({ gameId, homeAbbr, awayAbbr }: SGOPlayer
   const [selectedPlayer, setSelectedPlayer] = useState<string | null>(null);
 
   const { data: props, isLoading, refetch, isFetching } = useQuery({
-    queryKey: ["sgo-player-props", gameId],
+    queryKey: ["market-player-props", gameId],
     queryFn: async () => {
+      // Tier 1: BDL player props
+      const { data: bdlProps } = await (supabase as any)
+        .from("nba_player_props_live")
+        .select("*")
+        .eq("game_key", gameId)
+        .limit(5000);
+
+      if (bdlProps && bdlProps.length > 0) {
+        return (bdlProps as any[]).map((p: any, i: number) => ({
+          id: `bdl-${p.id || i}`,
+          odd_id: `bdl-${p.id || i}`,
+          bet_type: "prop",
+          side: p.side || "over",
+          period: "full",
+          stat_entity_id: p.player_name || "",
+          stat_id: p.prop_type || "unknown",
+          player_name: p.player_name || "Unknown",
+          is_player_prop: true,
+          is_alternate: false,
+          bookmaker: p.vendor || "bdl",
+          odds: p.over_odds ?? p.under_odds ?? null,
+          line: p.line_value ?? null,
+          available: true,
+        })) as MarketOdd[];
+      }
+
+      // Tier 2: SGO market odds (fallback)
       const { data, error } = await supabase
         .from("sgo_market_odds")
         .select("*")
