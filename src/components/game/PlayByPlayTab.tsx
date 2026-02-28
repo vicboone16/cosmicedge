@@ -56,26 +56,18 @@ export function PlayByPlayTab({ gameId, homeAbbr, awayAbbr, league }: PlayByPlay
     refetchInterval: 15000,
   });
 
-  // BDL provider pbp events (provider-safe nba_pbp_events table)
+  // BDL provider pbp events (nba_pbp_events table, keyed by game UUID)
   const { data: bdlPbpEvents, isLoading: bdlPbpLoading } = useQuery({
     queryKey: ["bdl-pbp-events", gameId],
     queryFn: async () => {
-      // Query nba_pbp_events directly using the game UUID as game_key
       const { data } = await supabase
-        .rpc("get_bdl_pbp_events" as any, { p_game_key: gameId })
+        .from("nba_pbp_events")
+        .select("*")
+        .eq("game_key", gameId)
+        .eq("provider", "balldontlie")
+        .order("period", { ascending: true })
+        .order("event_ts_game", { ascending: true })
         .limit(1000);
-
-      // Fallback: direct table query (works once types are regenerated)
-      if (!data || (data as any[]).length === 0) {
-        const { data: direct } = await (supabase as any)
-          .from("nba_pbp_events")
-          .select("*")
-          .eq("game_key", gameId)
-          .order("period", { ascending: true })
-          .order("created_at", { ascending: true })
-          .limit(1000);
-        return (direct || []) as any[];
-      }
       return (data || []) as any[];
     },
     enabled: isNBA,
@@ -189,14 +181,23 @@ export function PlayByPlayTab({ gameId, homeAbbr, awayAbbr, league }: PlayByPlay
   const isLoading = isNBA ? (nbaLoading && livePbpLoading && bdlPbpLoading) : genericLoading;
 
   // Normalize BDL pbp events to match renderer format
-  const normalizedBdlEvents = (bdlPbpEvents || []).map((ev: any) => ({
-    ...ev,
-    play_id: ev.provider_event_id,
-    team: ev.team_abbr,
-    remaining_time: ev.event_ts_game,
-    player: ev.player_name,
-    points: ev.event_type?.includes("3pt") ? 3 : ev.event_type?.includes("free throw") ? 1 : ev.event_type?.includes("shot") || ev.event_type?.includes("field goal") ? 2 : 0,
-  }));
+  const normalizedBdlEvents = (bdlPbpEvents || []).map((ev: any) => {
+    const et = (ev.event_type || ev.description || "").toLowerCase();
+    const isScoringPlay = et.includes("3pt") || et.includes("three") || et.includes("free throw") || et.includes("ft ")
+      || et.includes("2pt") || et.includes("shot") || et.includes("field goal") || et.includes("made")
+      || et.includes("dunk") || et.includes("layup") || et.includes("jumper");
+    const pts = et.includes("3pt") || et.includes("three") ? 3
+      : et.includes("free throw") || et.includes("ft ") ? 1
+      : isScoringPlay ? 2 : 0;
+    return {
+      ...ev,
+      play_id: ev.provider_event_id,
+      team: ev.team_abbr,
+      remaining_time: ev.event_ts_game,
+      player: ev.player_name,
+      points: pts,
+    };
+  });
 
   // Merge: prefer BDL events > live pbp_events > historical nba_play_by_play_events
   const normalizedLivePbp = (livePbpEvents || []).map((ev: any) => ({
