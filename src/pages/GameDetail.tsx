@@ -364,9 +364,11 @@ const GameDetail = () => {
       };
     },
     enabled: !!id,
+    refetchInterval: (query) => {
+      const status = query.state.data?.status;
+      return (status === "live" || status === "in_progress") ? 30_000 : false;
+    },
   });
-
-  // Fetch players for both teams - league-filtered (include headshot_url)
   const { data: players } = useQuery({
     queryKey: ["game-players", game?.home_abbr, game?.away_abbr, game?.league],
     queryFn: async () => {
@@ -495,7 +497,7 @@ const GameDetail = () => {
                     {new Date(game.start_time).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
                   </p>
                 </>
-              ) : game.status === "live" ? (
+              ) : game.status === "live" || game.status === "in_progress" ? (
                 <span className="flex items-center gap-1">
                   <span className="h-2 w-2 rounded-full bg-cosmic-green animate-pulse-glow" />
                   <span className="text-[10px] font-bold text-cosmic-green uppercase">Live</span>
@@ -532,9 +534,9 @@ const GameDetail = () => {
         </div>
 
         {/* Period Scores */}
-        {(game.status === "final" || game.status === "live") && (
+        {(game.status === "final" || game.status === "live" || game.status === "in_progress") && (
           <div className="flex justify-center mt-2">
-            <PeriodScoresTicker gameId={game.id} league={game.league} isLive={game.status === "live"} />
+            <PeriodScoresTicker gameId={game.id} league={game.league} isLive={game.status === "live" || game.status === "in_progress"} />
           </div>
         )}
 
@@ -962,7 +964,7 @@ const GameDetail = () => {
             bookTotal={game.odds.total.line}
             homeScore={game.home_score}
             awayScore={game.away_score}
-            isLive={game.status === "live"}
+            isLive={game.status === "live" || game.status === "in_progress"}
           />
         )}
 
