@@ -45,7 +45,6 @@ export function OracleTab({
 }: Props) {
   const [source, setSource] = useState<PredSource>("live");
   const [selectedVersion, setSelectedVersion] = useState("v1");
-  const scoreDiff = (homeScore ?? 0) - (awayScore ?? 0);
 
   // Fetch actual game clock from latest snapshot for live games
   const { data: latestSnapshot } = useQuery({
@@ -64,6 +63,10 @@ export function OracleTab({
     staleTime: 15_000,
     refetchInterval: 15_000,
   });
+
+  const effectiveHomeScore = isLive ? (latestSnapshot?.home_score ?? homeScore ?? 0) : (homeScore ?? 0);
+  const effectiveAwayScore = isLive ? (latestSnapshot?.away_score ?? awayScore ?? 0) : (awayScore ?? 0);
+  const scoreDiff = effectiveHomeScore - effectiveAwayScore;
 
   // Compute time remaining from snapshot data
   const sportGameSec = league === "NFL" ? 3600 : league === "NHL" ? 3600 : league === "MLB" ? 10800 : 2880;
@@ -274,7 +277,7 @@ export function OracleTab({
       {source === "live" && isLive && estimatedTimeRemaining != null && (
         <p className="text-[9px] text-cosmic-green text-center flex items-center justify-center gap-1">
           <Activity className="h-3 w-3" />
-          Live · Score: {homeScore ?? 0}–{awayScore ?? 0} · ~{Math.floor(estimatedTimeRemaining / 60)}:{String(estimatedTimeRemaining % 60).padStart(2, "0")} remaining
+          Live · Score: {effectiveHomeScore}–{effectiveAwayScore} · ~{Math.floor(estimatedTimeRemaining / 60)}:{String(estimatedTimeRemaining % 60).padStart(2, "0")} remaining
           {liveQuarter ? ` · ${league === "NHL" ? "P" : "Q"}${liveQuarter}` : ""}
         </p>
       )}
