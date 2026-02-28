@@ -86,12 +86,16 @@ export function OracleTab({
     }
     if (qNum < 1) return Math.round(sportGameSec / 2);
 
-    // Parse clock "MM:SS" or "M:SS"
+    // Parse clock "MM:SS", "M:SS", or bare minutes "2"
     let clockSec = periodLengthSec / 2; // default to mid-period
     if (latestSnapshot.clock) {
-      const parts = latestSnapshot.clock.split(":");
+      const raw = latestSnapshot.clock.trim();
+      const parts = raw.split(":");
       if (parts.length === 2) {
         clockSec = parseInt(parts[0]) * 60 + parseInt(parts[1]);
+      } else if (parts.length === 1 && /^\d+$/.test(raw)) {
+        // Bare number — treat as minutes remaining in the period
+        clockSec = parseInt(raw) * 60;
       }
     }
 
@@ -234,7 +238,7 @@ export function OracleTab({
                   source === "stored" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
                 )}
               >
-                <Database className="h-3 w-3" /> StellarLine ({storedPredictions.length})
+                <Database className="h-3 w-3" /> StellarLine
               </button>
             </div>
             {source === "stored" && availableVersions.length > 1 && (
