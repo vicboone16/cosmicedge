@@ -631,7 +631,7 @@ const GameDetail = () => {
                   </div>
                 </section>
 
-                {/* Live Odds Tracker (SGO all markets) */}
+                {/* Live Odds Tracker (BDL primary, SGO fallback) */}
                 <LiveOddsTracker gameId={game.id} homeAbbr={game.home_abbr} awayAbbr={game.away_abbr} league={game.league} />
 
                 {/* Period Markets (legacy) */}

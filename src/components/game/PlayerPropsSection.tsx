@@ -51,18 +51,7 @@ export function PlayerPropsSection({ gameId }: PlayerPropsProps) {
   const { data: props, isLoading, refetch, isFetching } = useQuery({
     queryKey: ["player-props", gameId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("player_props")
-        .select("*")
-        .eq("game_id", gameId)
-        .order("player_name", { ascending: true })
-        .order("market_key", { ascending: true });
-      if (error) throw error;
-
-      // If legacy props exist, return them
-      if (data && data.length > 0) return data as PropRow[];
-
-      // Fallback: fetch from BDL nba_player_props_live
+      // Tier 1: BDL nba_player_props_live (primary for NBA)
       const { data: bdlProps } = await (supabase as any)
         .from("nba_player_props_live")
         .select("*")
@@ -82,19 +71,28 @@ export function PlayerPropsSection({ gameId }: PlayerPropsProps) {
         })) as PropRow[];
       }
 
-      // If nothing found, auto-trigger fetch
-      if (!data || data.length === 0) {
-        fetch(
-          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/fetch-player-props?game_id=${gameId}`,
-          {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-              apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-            },
-          }
-        ).catch(() => {});
-      }
+      // Tier 2: Legacy player_props (SGO dual-write)
+      const { data, error } = await supabase
+        .from("player_props")
+        .select("*")
+        .eq("game_id", gameId)
+        .order("player_name", { ascending: true })
+        .order("market_key", { ascending: true });
+      if (error) throw error;
+
+      if (data && data.length > 0) return data as PropRow[];
+
+      // Tier 3: Auto-trigger fetch if empty
+      fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/fetch-player-props?game_id=${gameId}`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          },
+        }
+      ).catch(() => {});
 
       return [] as PropRow[];
     },
