@@ -1,8 +1,15 @@
 import { corsHeaders } from "../_shared/cors.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 
-const LIVE_REF = "gwfgmlfggeyxexclwybk";
 const BDL_BASE = "https://api.balldontlie.io";
+
+/** Derive the project ref from the SUPABASE_URL env var at runtime */
+function getProjectRef(): string {
+  try {
+    const url = Deno.env.get("SUPABASE_URL") ?? "";
+    return new URL(url).hostname.split(".")[0];
+  } catch { return ""; }
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -10,9 +17,12 @@ Deno.serve(async (req) => {
   }
 
   // ── LIVE-PROJECT GUARD ──
-  const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
-  if (!SUPABASE_URL.includes(LIVE_REF)) {
-    console.warn("[nba-bdl] Not live project, aborting");
+  // The expected live ref is provided via the LIVE_PROJECT_REF secret.
+  // If not set, the guard is skipped (edge function relies on header guard below).
+  const LIVE_PROJECT_REF = Deno.env.get("LIVE_PROJECT_REF") ?? "";
+  const currentRef = getProjectRef();
+  if (LIVE_PROJECT_REF && currentRef !== LIVE_PROJECT_REF) {
+    console.warn(`[nba-bdl] Not live project (ref=${currentRef}), aborting`);
     return new Response(JSON.stringify({ ok: false, reason: "not-live" }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

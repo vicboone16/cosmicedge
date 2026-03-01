@@ -26,13 +26,13 @@ export function AppLayout() {
     } catch { return "unknown"; }
   }, []);
   const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID ?? "";
-  const isLive = envRef === projectId && window.location.hostname.includes("lovable.app");
-  // In preview (non-published) we show TEST; on published domains we show LIVE
   const isPublished =
     window.location.hostname.includes("lovable.app") ||
     window.location.hostname.includes("novabehavior.com") ||
     window.location.hostname.includes("cosmicedge");
-  const refLabel = isPublished ? "LIVE" : "TEST";
+  // LIVE = published domain with matching project id; TEST = everything else
+  const isLive = isPublished && envRef === projectId;
+  const refLabel = isLive ? "LIVE" : "TEST";
 
   // Query pending friend requests for badge
   const { data: pendingCount } = useQuery({
@@ -122,18 +122,17 @@ export function AppLayout() {
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
-      {/* Environment ref badge */}
-      {isAdmin && (
-        <div className="fixed top-0 left-0 z-50 p-3 safe-area-top">
-          <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-mono font-bold border ${
-            isLive
-              ? "bg-emerald-950/80 text-emerald-400 border-emerald-700"
-              : "bg-red-950/80 text-red-400 border-red-700"
-          }`}>
-            {refLabel}
-          </span>
-        </div>
-      )}
+      {/* Environment badge — always visible */}
+      <div className="fixed top-0 left-0 z-50 p-3 safe-area-top">
+        <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-mono font-bold border ${
+          isLive
+            ? "bg-emerald-950/80 text-emerald-400 border-emerald-700"
+            : "bg-red-950/80 text-red-400 border-red-700"
+        }`}>
+          {refLabel}
+          <span className="opacity-60">{envRef.slice(0, 6)}</span>
+        </span>
+      </div>
       <main className="pb-[4.5rem]">
         <Outlet />
       </main>
