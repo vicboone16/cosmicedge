@@ -25,7 +25,7 @@ Deno.serve(async (req) => {
     const gameId = url.searchParams.get("game_id");
     const scope = url.searchParams.get("scope") || "today"; // today | live | upcoming | all
 
-    const headers = { Authorization: BDL_KEY, "X-Api-Key": BDL_KEY };
+    const headers = { Authorization: `Bearer ${BDL_KEY}`, "X-Api-Key": BDL_KEY };
 
     // Determine which games to fetch odds for
     let dbGames: { id: string; home_abbr: string; away_abbr: string; start_time: string; status: string }[] = [];
