@@ -35,10 +35,20 @@ function getTimezoneOffsetHours(tz: string, refDate: Date): number {
   }
 }
 
+function chunkArray<T>(items: T[], size: number): T[][] {
+  if (items.length === 0) return [];
+  const chunks: T[][] = [];
+  for (let i = 0; i < items.length; i += size) {
+    chunks.push(items.slice(i, i + size));
+  }
+  return chunks;
+}
+
 // Debounce odds refresh — only one in-flight at a time
 let _oddsRefreshPromise: Promise<void> | null = null;
 let _lastOddsRefresh = 0;
 const ODDS_REFRESH_INTERVAL = 5 * 60 * 1000; // 5 min
+const ODDS_QUERY_CHUNK_SIZE = 60;
 
 async function maybeRefreshOdds() {
   const now = Date.now();
@@ -78,32 +88,58 @@ async function fetchGamesFromDB(date?: Date, userTimezone?: string): Promise<Gam
   if (gamesError) throw gamesError;
   if (!games?.length) return [];
 
-  // Get latest odds — fetch only required columns
+  // Get latest odds — chunked to avoid oversized IN() URL/query failures
   const gameIds = games.map((g) => g.id);
-  const { data: odds } = await supabase
-    .from("odds_snapshots")
-    .select("game_id, market_type, home_price, away_price, line, captured_at")
-    .in("game_id", gameIds)
-    .order("captured_at", { ascending: false })
-    .limit(5000);
+  const gameIdChunks = chunkArray(gameIds, ODDS_QUERY_CHUNK_SIZE);
+
+  const oddsChunkResults = await Promise.all(
+    gameIdChunks.map((ids) =>
+      supabase
+        .from("odds_snapshots")
+        .select("game_id, market_type, home_price, away_price, line, captured_at")
+        .in("game_id", ids)
+        .order("captured_at", { ascending: false })
+        .limit(5000)
+    )
+  );
+
+  const odds = oddsChunkResults.flatMap((res) => {
+    if (res.error) {
+      console.warn("odds_snapshots fetch failed for chunk:", res.error.message);
+      return [];
+    }
+    return res.data || [];
+  });
 
   // Group odds by game_id for O(1) lookup instead of O(n) filter per game
   const oddsByGame = new Map<string, typeof odds>();
-  odds?.forEach((o) => {
+  odds.forEach((o) => {
     if (!oddsByGame.has(o.game_id)) oddsByGame.set(o.game_id, []);
     oddsByGame.get(o.game_id)!.push(o);
   });
 
   // Also fetch BDL odds from nba_game_odds as fallback
-  const { data: bdlOdds } = await supabase
-    .from("nba_game_odds")
-    .select("game_key, market, home_line, away_line, total, home_odds, away_odds, over_odds, under_odds")
-    .in("game_key", gameIds)
-    .order("updated_at", { ascending: false })
-    .limit(5000);
+  const bdlChunkResults = await Promise.all(
+    gameIdChunks.map((ids) =>
+      supabase
+        .from("nba_game_odds")
+        .select("game_key, market, home_line, away_line, total, home_odds, away_odds, over_odds, under_odds, updated_at")
+        .in("game_key", ids)
+        .order("updated_at", { ascending: false })
+        .limit(5000)
+    )
+  );
+
+  const bdlOdds = bdlChunkResults.flatMap((res) => {
+    if (res.error) {
+      console.warn("nba_game_odds fetch failed for chunk:", res.error.message);
+      return [];
+    }
+    return res.data || [];
+  });
 
   const bdlOddsByGame = new Map<string, typeof bdlOdds>();
-  bdlOdds?.forEach((o) => {
+  bdlOdds.forEach((o) => {
     if (!bdlOddsByGame.has(o.game_key)) bdlOddsByGame.set(o.game_key, []);
     bdlOddsByGame.get(o.game_key)!.push(o);
   });
@@ -117,32 +153,48 @@ async function fetchGamesFromDB(date?: Date, userTimezone?: string): Promise<Gam
 
     let mlHome = 0, mlAway = 0;
     for (const r of mlRows) {
-      if (r.home_price) mlHome = r.home_price;
-      if (r.away_price) mlAway = r.away_price;
-    }
-    let spHome = -110, spAway = -110, spLine = 0;
-    for (const r of spreadRows) {
-      if (r.home_price) spHome = r.home_price;
-      if (r.away_price) spAway = r.away_price;
-      if (r.line != null) spLine = r.line;
-    }
-    let totOver = -110, totUnder = -110, totLine = 0;
-    for (const r of totalRows) {
-      if (r.home_price) totOver = r.home_price;
-      if (r.away_price) totUnder = r.away_price;
-      if (r.line != null) totLine = r.line;
+      if (mlHome === 0 && r.home_price != null) mlHome = r.home_price;
+      if (mlAway === 0 && r.away_price != null) mlAway = r.away_price;
+      if (mlHome !== 0 && mlAway !== 0) break;
     }
 
-    // Fallback to BDL nba_game_odds if odds_snapshots has no data
+    let spHome: number | null = null;
+    let spAway: number | null = null;
+    let spLine: number | null = null;
+    for (const r of spreadRows) {
+      if (spHome == null && r.home_price != null) spHome = r.home_price;
+      if (spAway == null && r.away_price != null) spAway = r.away_price;
+      if (spLine == null && r.line != null) spLine = r.line;
+      if (spHome != null && spAway != null && spLine != null) break;
+    }
+
+    let totOver: number | null = null;
+    let totUnder: number | null = null;
+    let totLine: number | null = null;
+    for (const r of totalRows) {
+      if (totOver == null && r.home_price != null) totOver = r.home_price;
+      if (totUnder == null && r.away_price != null) totUnder = r.away_price;
+      if (totLine == null && r.line != null) totLine = r.line;
+      if (totOver != null && totUnder != null && totLine != null) break;
+    }
+
+    // Fallback to BDL nba_game_odds if odds_snapshots has no/partial data
     const bdl = bdlOddsByGame.get(game.id) || [];
     if (bdl.length > 0) {
       const bdlMl = bdl.find((o) => o.market === "h2h" || o.market === "moneyline");
       const bdlSp = bdl.find((o) => o.market === "spreads" || o.market === "spread");
       const bdlTot = bdl.find((o) => o.market === "totals" || o.market === "total");
-      if (!mlHome && bdlMl?.home_odds) mlHome = bdlMl.home_odds;
-      if (!mlAway && bdlMl?.away_odds) mlAway = bdlMl.away_odds;
-      if (!spLine && bdlSp) { spLine = bdlSp.home_line || 0; }
-      if (!totLine && bdlTot) { totLine = bdlTot.total || 0; }
+
+      if (mlHome === 0 && bdlMl?.home_odds != null) mlHome = bdlMl.home_odds;
+      if (mlAway === 0 && bdlMl?.away_odds != null) mlAway = bdlMl.away_odds;
+
+      if (spHome == null && bdlSp?.home_odds != null) spHome = bdlSp.home_odds;
+      if (spAway == null && bdlSp?.away_odds != null) spAway = bdlSp.away_odds;
+      if (spLine == null && bdlSp?.home_line != null) spLine = bdlSp.home_line;
+
+      if (totOver == null && bdlTot?.over_odds != null) totOver = bdlTot.over_odds;
+      if (totUnder == null && bdlTot?.under_odds != null) totUnder = bdlTot.under_odds;
+      if (totLine == null && bdlTot?.total != null) totLine = bdlTot.total;
     }
 
     return {
@@ -152,8 +204,8 @@ async function fetchGamesFromDB(date?: Date, userTimezone?: string): Promise<Gam
       updated_at: "",
       odds: {
         moneyline: { home: mlHome, away: mlAway },
-        spread: { home: spHome, away: spAway, line: spLine },
-        total: { over: totOver, under: totUnder, line: totLine },
+        spread: { home: spHome ?? -110, away: spAway ?? -110, line: spLine ?? 0 },
+        total: { over: totOver ?? -110, under: totUnder ?? -110, line: totLine ?? 0 },
       },
     };
   });
