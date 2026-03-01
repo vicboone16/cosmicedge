@@ -20,7 +20,10 @@ Deno.serve(async (req) => {
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+    const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+    const supabaseRef = new URL(SUPABASE_URL).hostname.split(".")[0];
+    console.log(`[BDL-Odds] Target Supabase: ${supabaseRef} → nba_game_odds + odds_snapshots`);
+    const supabase = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
     const url = new URL(req.url);
     const gameId = url.searchParams.get("game_id");
     const scope = url.searchParams.get("scope") || "today"; // today | live | upcoming | all
