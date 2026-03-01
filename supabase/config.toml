@@ -95,3 +95,6 @@ verify_jwt = false
 
 [functions.nba-bdl-live-dispatcher]
 verify_jwt = false
+
+[functions.fetch-bdl-odds]
+verify_jwt = false
