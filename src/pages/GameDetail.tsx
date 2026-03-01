@@ -350,16 +350,46 @@ const GameDetail = () => {
     queryFn: async (): Promise<(GameWithOdds & { venue_lat?: number | null; venue_lng?: number | null }) | null> => {
       const { data, error } = await supabase.from("games").select("*").eq("id", id!).maybeSingle();
       if (error || !data) return null;
-      const { data: odds } = await supabase.from("odds_snapshots").select("*").eq("game_id", data.id).order("captured_at", { ascending: false }).limit(500);
-      const ml = odds?.find((o) => o.market_type === "moneyline");
-      const spread = odds?.find((o) => o.market_type === "spread");
-      const total = odds?.find((o) => o.market_type === "total");
+
+      const { data: oddsRows } = await supabase
+        .from("odds_snapshots")
+        .select("market_type, home_price, away_price, line, captured_at")
+        .eq("game_id", data.id)
+        .order("captured_at", { ascending: false })
+        .limit(500);
+
+      const { data: bdlRows } = await supabase
+        .from("nba_game_odds")
+        .select("market, home_line, away_line, total, home_odds, away_odds, over_odds, under_odds, updated_at")
+        .eq("game_key", data.id)
+        .order("updated_at", { ascending: false })
+        .limit(500);
+
+      const ml = oddsRows?.find((o) => o.market_type === "moneyline");
+      const spread = oddsRows?.find((o) => o.market_type === "spread");
+      const total = oddsRows?.find((o) => o.market_type === "total");
+
+      const bdlMl = bdlRows?.find((o) => o.market === "h2h" || o.market === "moneyline");
+      const bdlSpread = bdlRows?.find((o) => o.market === "spreads" || o.market === "spread");
+      const bdlTotal = bdlRows?.find((o) => o.market === "totals" || o.market === "total");
+
       return {
         ...data,
         odds: {
-          moneyline: { home: ml?.home_price || 0, away: ml?.away_price || 0 },
-          spread: { home: spread?.home_price || -110, away: spread?.away_price || -110, line: spread?.line || 0 },
-          total: { over: total?.home_price || -110, under: total?.away_price || -110, line: total?.line || 0 },
+          moneyline: {
+            home: ml?.home_price ?? bdlMl?.home_odds ?? 0,
+            away: ml?.away_price ?? bdlMl?.away_odds ?? 0,
+          },
+          spread: {
+            home: spread?.home_price ?? bdlSpread?.home_odds ?? -110,
+            away: spread?.away_price ?? bdlSpread?.away_odds ?? -110,
+            line: spread?.line ?? bdlSpread?.home_line ?? 0,
+          },
+          total: {
+            over: total?.home_price ?? bdlTotal?.over_odds ?? -110,
+            under: total?.away_price ?? bdlTotal?.under_odds ?? -110,
+            line: total?.line ?? bdlTotal?.total ?? 0,
+          },
         },
       };
     },
