@@ -8,7 +8,6 @@ import { useMemo } from "react";
 import {
   computePregame,
   computeQuarterPredictions,
-  computeLiveWP,
   americanToImplied,
   type Sport,
   type TeamRatings,
@@ -46,14 +45,26 @@ export interface StoredPrediction {
   notes_json: Record<string, any> | null;
 }
 
+export interface ServerLiveWP {
+  scope: "full" | "half" | "quarter";
+  wp_home: number;
+  fair_ml_home: number | null;
+  fair_ml_away: number | null;
+  possessions_remaining: number | null;
+  score_diff: number | null;
+  time_remaining_sec: number | null;
+  quarter: number | null;
+  computed_at: string;
+}
+
 interface OracleResult {
   pregame: PregameOutput | null;
   quarters: QuarterPrediction[];
-  liveWP: LiveWPOutput | null;
+  /** Server-authoritative live WP (full/half/quarter scopes) */
+  liveWP: ServerLiveWP[] | null;
   isLoading: boolean;
   homeRatings: TeamRatings | null;
   awayRatings: TeamRatings | null;
-  // Persisted server-side predictions
   storedPredictions: StoredPrediction[];
   storedLoading: boolean;
 }
@@ -80,11 +91,11 @@ export function useOracle(
   bookMLAway?: number,
   bookSpread?: number,
   bookTotal?: number,
-  // Live state (optional)
-  liveScoreDiff?: number,
-  liveTimeRemaining?: number,
-  livePossession?: number,
-  liveQuarter?: number,
+  // Live state — no longer used for client WP, kept for API compat
+  _liveScoreDiff?: number,
+  _liveTimeRemaining?: number,
+  _livePossession?: number,
+  _liveQuarter?: number,
   isLive?: boolean,
 ): OracleResult {
   const season = getCurrentSeason();
@@ -199,18 +210,21 @@ export function useOracle(
     return computeQuarterPredictions(pregame, sport, undefined, homePeriodAvgs, awayPeriodAvgs);
   }, [pregame, sport, homePeriodAvgs, awayPeriodAvgs]);
 
-  const liveWP = useMemo(() => {
-    if (!isLive || liveScoreDiff == null || liveTimeRemaining == null) return null;
-    return computeLiveWP({
-      sport,
-      scoreDiff: liveScoreDiff,
-      timeRemaining: liveTimeRemaining,
-      possession: livePossession ?? 0,
-      isHome: true,
-      paceEstimate: pregame?.expectedPossessions,
-      quarter: liveQuarter,
-    });
-  }, [isLive, liveScoreDiff, liveTimeRemaining, livePossession, liveQuarter, sport, pregame]);
+  // Fetch server-authoritative live WP from game_live_wp
+  const { data: liveWP = null } = useQuery({
+    queryKey: ["game-live-wp", gameId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("game_live_wp")
+        .select("scope, wp_home, fair_ml_home, fair_ml_away, possessions_remaining, score_diff, time_remaining_sec, quarter, computed_at")
+        .eq("game_key", gameId!)
+        .order("computed_at", { ascending: false });
+      return (data && data.length > 0 ? data : null) as ServerLiveWP[] | null;
+    },
+    staleTime: 10_000,
+    refetchInterval: isLive ? 15_000 : false,
+    enabled: !!gameId && !!isLive,
+  });
 
   return {
     pregame,

@@ -764,6 +764,54 @@ export type Database = {
         }
         Relationships: []
       }
+      game_live_wp: {
+        Row: {
+          computed_at: string
+          fair_ml_away: number | null
+          fair_ml_home: number | null
+          game_key: string
+          id: number
+          possessions_remaining: number | null
+          quarter: number | null
+          scope: string
+          score_diff: number | null
+          sport: string
+          time_remaining_sec: number | null
+          updated_at: string
+          wp_home: number
+        }
+        Insert: {
+          computed_at?: string
+          fair_ml_away?: number | null
+          fair_ml_home?: number | null
+          game_key: string
+          id?: never
+          possessions_remaining?: number | null
+          quarter?: number | null
+          scope: string
+          score_diff?: number | null
+          sport?: string
+          time_remaining_sec?: number | null
+          updated_at?: string
+          wp_home: number
+        }
+        Update: {
+          computed_at?: string
+          fair_ml_away?: number | null
+          fair_ml_home?: number | null
+          game_key?: string
+          id?: never
+          possessions_remaining?: number | null
+          quarter?: number | null
+          scope?: string
+          score_diff?: number | null
+          sport?: string
+          time_remaining_sec?: number | null
+          updated_at?: string
+          wp_home?: number
+        }
+        Relationships: []
+      }
       game_predictions: {
         Row: {
           away_def_rtg: number | null
