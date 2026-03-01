@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
@@ -12,10 +12,25 @@ interface PlayByPlayTabProps {
 
 export function PlayByPlayTab({ gameId, homeAbbr, awayAbbr, league }: PlayByPlayTabProps) {
   const [periodFilter, setPeriodFilter] = useState<number | null>(null);
-
   const isNBA = league === "NBA";
 
-  // Build a game_key candidate for pbp_events lookup
+  // ── Live score from game_state_snapshots (authoritative) ──
+  const { data: liveSnapshot } = useQuery({
+    queryKey: ["pbp-live-score", gameId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("game_state_snapshots")
+        .select("home_score, away_score, quarter, clock")
+        .eq("game_id", gameId)
+        .order("captured_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      return data;
+    },
+    refetchInterval: 10_000,
+  });
+
+  // ── Game key lookup for pbp_events ──
   const gameKeyQuery = useQuery({
     queryKey: ["game-key-lookup", gameId],
     queryFn: async () => {
@@ -26,7 +41,6 @@ export function PlayByPlayTab({ gameId, homeAbbr, awayAbbr, league }: PlayByPlay
         .maybeSingle();
       if (!game) return null;
       const dateStr = game.start_time?.split(/[T ]/)[0];
-      // Look up cosmic_games by fingerprint
       const { data: cosmic } = await supabase
         .from("cosmic_games")
         .select("game_key")
@@ -39,7 +53,7 @@ export function PlayByPlayTab({ gameId, homeAbbr, awayAbbr, league }: PlayByPlay
     enabled: isNBA,
   });
 
-  // Live pbp_events from the pbpstats pipeline
+  // ── Live pbp_events (cosmic pipeline) ──
   const { data: livePbpEvents, isLoading: livePbpLoading } = useQuery({
     queryKey: ["live-pbp-events", gameKeyQuery.data],
     queryFn: async () => {
@@ -56,7 +70,7 @@ export function PlayByPlayTab({ gameId, homeAbbr, awayAbbr, league }: PlayByPlay
     refetchInterval: 15000,
   });
 
-  // BDL provider pbp events (nba_pbp_events table, keyed by game UUID)
+  // ── BDL provider pbp events ──
   const { data: bdlPbpEvents, isLoading: bdlPbpLoading } = useQuery({
     queryKey: ["bdl-pbp-events", gameId],
     queryFn: async () => {
@@ -74,60 +88,29 @@ export function PlayByPlayTab({ gameId, homeAbbr, awayAbbr, league }: PlayByPlay
     refetchInterval: 15000,
   });
 
-  // Subscribe to realtime inserts on pbp_events for this game_key
-  useEffect(() => {
-    if (!gameKeyQuery.data) return;
-    const channel = supabase
-      .channel(`pbp-live-${gameKeyQuery.data}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "pbp_events",
-          filter: `game_key=eq.${gameKeyQuery.data}`,
-        },
-        () => {
-          // Invalidate query to re-fetch
-          // The refetchInterval handles this too, but realtime gives instant updates
-        }
-      )
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [gameKeyQuery.data]);
-
+  // ── Historical nba_play_by_play_events ──
   const { data: nbaEvents, isLoading: nbaLoading } = useQuery({
     queryKey: ["nba-pbp", gameId],
     queryFn: async () => {
-      // 1. Try UUID game_id directly
       const { data } = await supabase
         .from("nba_play_by_play_events")
         .select("*")
         .eq("game_id", gameId)
         .order("play_id", { ascending: true })
         .limit(1000);
-
       if (data && data.length > 0) return data;
 
-      // 2. Look up game details for fallback matching
       const { data: gameData } = await supabase
         .from("games")
         .select("external_id, home_abbr, away_abbr, start_time")
         .eq("id", gameId)
         .maybeSingle();
-
       if (!gameData) return [];
 
-      // 3. Try external_id (and with leading zeros for NBA format)
       if (gameData.external_id) {
         const extId = gameData.external_id;
-        // Build candidate IDs: raw, with "00" prefix, and with "002" prefix
-        const extIds = [extId, "00" + extId, "002" + extId];
-        // Also try if extId is already a full NBA ID
-        if (!extId.startsWith("00")) extIds.push("00" + extId);
-        const uniqueIds = [...new Set(extIds)];
-        
-        for (const eid of uniqueIds) {
+        const extIds = [...new Set([extId, "00" + extId, "002" + extId])];
+        for (const eid of extIds) {
           const { data: eventsById } = await supabase
             .from("nba_play_by_play_events")
             .select("*")
@@ -138,15 +121,12 @@ export function PlayByPlayTab({ gameId, homeAbbr, awayAbbr, league }: PlayByPlay
         }
       }
 
-      // 4. Fallback: match by home_team + away_team + date (try ±1 day for UTC/local mismatches)
       if (gameData.start_time && gameData.home_abbr && gameData.away_abbr) {
         const gameDate = gameData.start_time.split(/[T ]/)[0];
         const d = new Date(gameData.start_time);
         const prevDay = new Date(d.getTime() - 86400000).toISOString().split("T")[0];
         const nextDay = new Date(d.getTime() + 86400000).toISOString().split("T")[0];
-        const dateCandidates = [gameDate, prevDay, nextDay];
-
-        for (const dateCandidate of dateCandidates) {
+        for (const dateCandidate of [gameDate, prevDay, nextDay]) {
           const { data: eventsByTeam } = await supabase
             .from("nba_play_by_play_events")
             .select("*")
@@ -158,12 +138,12 @@ export function PlayByPlayTab({ gameId, homeAbbr, awayAbbr, league }: PlayByPlay
           if (eventsByTeam && eventsByTeam.length > 0) return eventsByTeam;
         }
       }
-
       return [];
     },
     enabled: isNBA,
   });
 
+  // ── Generic PBP (non-NBA) ──
   const { data: genericEvents, isLoading: genericLoading } = useQuery({
     queryKey: ["generic-pbp", gameId],
     queryFn: async () => {
@@ -180,33 +160,21 @@ export function PlayByPlayTab({ gameId, homeAbbr, awayAbbr, league }: PlayByPlay
 
   const isLoading = isNBA ? (nbaLoading && livePbpLoading && bdlPbpLoading) : genericLoading;
 
-  // Normalize BDL pbp events to match renderer format
-  const normalizedBdlEvents = (bdlPbpEvents || []).map((ev: any) => {
-    const et = (ev.event_type || ev.description || "").toLowerCase();
-    const isScoringPlay = et.includes("3pt") || et.includes("three") || et.includes("free throw") || et.includes("ft ")
-      || et.includes("2pt") || et.includes("shot") || et.includes("field goal") || et.includes("made")
-      || et.includes("dunk") || et.includes("layup") || et.includes("jumper");
-    const pts = et.includes("3pt") || et.includes("three") ? 3
-      : et.includes("free throw") || et.includes("ft ") ? 1
-      : isScoringPlay ? 2 : 0;
-    return {
-      ...ev,
-      play_id: ev.provider_event_id,
-      team: ev.team_abbr,
-      remaining_time: ev.event_ts_game,
-      player: ev.player_name,
-      points: pts,
-    };
-  });
+  // ── Normalize events (NO score extraction from events) ──
+  const normalizedBdlEvents = (bdlPbpEvents || []).map((ev: any) => ({
+    ...ev,
+    play_id: ev.provider_event_id,
+    team: ev.team_abbr,
+    remaining_time: ev.event_ts_game,
+    player: ev.player_name,
+  }));
 
-  // Merge: prefer BDL events > live pbp_events > historical nba_play_by_play_events
   const normalizedLivePbp = (livePbpEvents || []).map((ev: any) => ({
     ...ev,
     play_id: ev.provider_event_id,
     team: ev.team_abbr,
     remaining_time: ev.clock,
     player: ev.player_name,
-    points: ev.event_type?.includes("3pt") ? 3 : ev.event_type?.includes("free throw") ? 1 : ev.event_type?.includes("shot") || ev.event_type?.includes("field goal") ? 2 : 0,
   }));
 
   const events = isNBA
@@ -243,7 +211,7 @@ export function PlayByPlayTab({ gameId, homeAbbr, awayAbbr, league }: PlayByPlay
     return p <= 4 ? `Q${p}` : `OT${p - 4}`;
   };
 
-  // Group events by period for section headers
+  // Group events by period
   const groupedByPeriod: { period: number; events: any[] }[] = [];
   let currentPeriod: number | null = null;
   for (const ev of filtered) {
@@ -257,6 +225,20 @@ export function PlayByPlayTab({ gameId, homeAbbr, awayAbbr, league }: PlayByPlay
 
   return (
     <div className="space-y-3">
+      {/* Live score banner from game_state_snapshots */}
+      {liveSnapshot && (liveSnapshot.home_score != null || liveSnapshot.away_score != null) && (
+        <div className="flex items-center justify-center gap-4 py-2 px-3 rounded-lg bg-primary/10 border border-primary/20">
+          <span className="text-xs font-bold text-muted-foreground">{awayAbbr}</span>
+          <span className="text-base font-bold tabular-nums text-foreground">{liveSnapshot.away_score ?? "—"}</span>
+          <span className="text-xs text-muted-foreground">—</span>
+          <span className="text-base font-bold tabular-nums text-foreground">{liveSnapshot.home_score ?? "—"}</span>
+          <span className="text-xs font-bold text-muted-foreground">{homeAbbr}</span>
+          {liveSnapshot.quarter && (
+            <span className="text-[10px] text-primary ml-2">{liveSnapshot.quarter} {liveSnapshot.clock || ""}</span>
+          )}
+        </div>
+      )}
+
       {/* Period filter pills */}
       <div className="flex gap-2 overflow-x-auto no-scrollbar">
         <button
@@ -290,40 +272,30 @@ export function PlayByPlayTab({ gameId, homeAbbr, awayAbbr, league }: PlayByPlay
       <div className="max-h-[65vh] overflow-y-auto space-y-0">
         {groupedByPeriod.map(({ period, events: periodEvents }) => (
           <div key={period}>
-            {/* Period header */}
             <div className="sticky top-0 z-10 flex items-center justify-between px-3 py-2 bg-primary/10 border-y border-border/50">
               <span className="text-[10px] font-bold text-primary uppercase tracking-wider">
                 {league === "NHL" ? (period <= 3 ? `${period}${period === 1 ? "st" : period === 2 ? "nd" : "rd"} Period` : "Overtime")
                   : league === "MLB" ? `Inning ${period}`
                   : period <= 4 ? `${period === 1 ? "1st" : period === 2 ? "2nd" : period === 3 ? "3rd" : "4th"} Quarter` : `Overtime ${period - 4}`}
               </span>
-              <div className="flex items-center gap-3">
-                <span className="text-[9px] font-bold text-muted-foreground">{awayAbbr}</span>
-                <span className="text-[9px] font-bold text-muted-foreground">{homeAbbr}</span>
-              </div>
             </div>
 
-            {/* Events */}
             {periodEvents.map((ev: any, i: number) => {
               const isHome = isNBA ? ev.team === homeAbbr : ev.team_abbr === homeAbbr;
               const isAway = isNBA ? ev.team === awayAbbr : ev.team_abbr === awayAbbr;
               const clock = isNBA ? ev.remaining_time : ev.clock;
-              const desc = isNBA ? ev.description : ev.description;
-              const awayScore = isNBA ? ev.away_score : ev.away_score;
-              const homeScore = isNBA ? ev.home_score : ev.home_score;
-              const isScoring = isNBA
-                ? (ev.points && ev.points > 0)
-                : ev.event_type?.toLowerCase().includes("shot") || ev.event_type?.toLowerCase().includes("score");
-
+              const desc = ev.description;
               const teamAbbr = isNBA ? ev.team : ev.team_abbr;
+
+              // Show per-event scores ONLY if present and non-zero; otherwise "—"
+              const evAway = ev.away_score != null && ev.away_score !== 0 ? ev.away_score : null;
+              const evHome = ev.home_score != null && ev.home_score !== 0 ? ev.home_score : null;
+              const hasEventScore = evAway != null && evHome != null;
 
               return (
                 <div
                   key={isNBA ? `${ev.game_id}-${ev.play_id}` : ev.id ?? i}
-                  className={cn(
-                    "flex items-start gap-2 px-3 py-2.5 border-b border-border/20 transition-colors",
-                    isScoring && "bg-primary/5"
-                  )}
+                  className="flex items-start gap-2 px-3 py-2.5 border-b border-border/20 transition-colors"
                 >
                   {/* Team indicator */}
                   <div className="w-8 shrink-0 flex items-center justify-center pt-0.5">
@@ -339,10 +311,7 @@ export function PlayByPlayTab({ gameId, homeAbbr, awayAbbr, league }: PlayByPlay
 
                   {/* Content */}
                   <div className="flex-1 min-w-0">
-                    <p className={cn(
-                      "text-xs leading-relaxed",
-                      isScoring ? "font-semibold text-foreground" : "text-muted-foreground"
-                    )}>
+                    <p className="text-xs leading-relaxed text-muted-foreground">
                       <span className="tabular-nums text-muted-foreground mr-1.5">{clock || ""}</span>
                       {desc || ev.event_type || "—"}
                     </p>
@@ -351,17 +320,12 @@ export function PlayByPlayTab({ gameId, homeAbbr, awayAbbr, league }: PlayByPlay
                     )}
                   </div>
 
-                  {/* Running score - only show on scoring plays */}
-                  {isScoring && awayScore != null && homeScore != null && (
-                    <div className="flex items-center gap-2 shrink-0">
-                      <span className={cn("text-xs tabular-nums font-bold", isAway ? "text-foreground" : "text-muted-foreground")}>
-                        {awayScore}
-                      </span>
-                      <span className={cn("text-xs tabular-nums font-bold", isHome ? "text-foreground" : "text-muted-foreground")}>
-                        {homeScore}
-                      </span>
-                    </div>
-                  )}
+                  {/* Per-event running score — show "—" if missing */}
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="text-[10px] tabular-nums text-muted-foreground">
+                      {hasEventScore ? `${evAway}-${evHome}` : "—"}
+                    </span>
+                  </div>
                 </div>
               );
             })}
