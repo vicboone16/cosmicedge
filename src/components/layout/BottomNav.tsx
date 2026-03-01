@@ -17,8 +17,8 @@ export function BottomNav() {
   const navigate = useNavigate();
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-background/80 backdrop-blur-xl safe-area-bottom">
-      <div className="flex items-center justify-around h-16 max-w-lg mx-auto px-2">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-background/85 backdrop-blur-xl safe-area-bottom shadow-[0_-2px_12px_rgba(0,0,0,0.08)]">
+      <div className="flex items-center justify-around h-[4.25rem] max-w-lg mx-auto px-2">
         {navItems.map(({ to, icon: Icon, label, requiresAuth }) => {
           if (requiresAuth && !user) {
             return (
@@ -49,7 +49,7 @@ export function BottomNav() {
               {({ isActive }) => (
                 <>
                   <div className="relative">
-                    <Icon className="h-5 w-5" />
+                    <Icon className="h-[1.35rem] w-[1.35rem]" />
                     {isActive && (
                       <div className="absolute -inset-1 rounded-full bg-primary/20 blur-sm -z-10" />
                     )}

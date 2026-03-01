@@ -40,7 +40,7 @@ export function AppLayout() {
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
-              className="relative h-9 w-9 rounded-full bg-secondary border border-border flex items-center justify-center hover:border-primary/30 transition-colors shadow-sm"
+              className="relative h-10 w-10 rounded-full bg-secondary border border-border flex items-center justify-center hover:border-primary/30 transition-colors shadow-md"
               aria-label="Menu"
             >
               {user ? (
@@ -106,7 +106,7 @@ export function AppLayout() {
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
-      <main className="pb-20">
+      <main className="pb-[4.5rem]">
         <Outlet />
       </main>
       <BottomNav />
