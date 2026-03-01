@@ -107,6 +107,22 @@ Deno.serve(async (req) => {
 
     let totalProps = 0;
     let totalHistory = 0;
+    const playerNameCache: Record<string, string> = {};
+
+    // Helper: resolve BDL player ID to name via API
+    async function resolvePlayerName(bdlPlayerId: string): Promise<string> {
+      if (playerNameCache[bdlPlayerId]) return playerNameCache[bdlPlayerId];
+      try {
+        const res = await fetch(`${BDL_BASE}/v1/players/${bdlPlayerId}`, { headers });
+        if (res.ok) {
+          const data = await res.json();
+          const p = data.data || data;
+          const name = `${p.first_name || ""} ${p.last_name || ""}`.trim();
+          if (name) { playerNameCache[bdlPlayerId] = name; return name; }
+        }
+      } catch {}
+      return `Player ${bdlPlayerId}`;
+    }
 
     for (const game of dbGames) {
       // Step 1: Find BDL game ID from provider_game_map or by date search
@@ -179,14 +195,77 @@ Deno.serve(async (req) => {
           continue;
         }
 
+        // Log first item for debugging structure
+        if (propItems.length > 0) {
+          const sample = propItems[0];
+          console.log(`[BDL-Props] Sample keys: ${Object.keys(sample).join(",")}`);
+          console.log(`[BDL-Props] Sample: ${JSON.stringify(sample).slice(0, 500)}`);
+        }
+
+        // Batch resolve unique player IDs to names
+        const uniquePlayerIds = [...new Set(propItems.map((p: any) => String(p.player_id || p.player?.id || "")).filter(Boolean))];
+        // Resolve up to 50 unique players (covers most games), rest will use fallback
+        const resolveLimit = Math.min(uniquePlayerIds.length, 50);
+        for (let i = 0; i < resolveLimit; i += 10) {
+          const batch = uniquePlayerIds.slice(i, i + 10);
+          await Promise.all(batch.map(id => resolvePlayerName(id)));
+        }
+        console.log(`[BDL-Props] Resolved ${Object.keys(playerNameCache).length} player names`);
+
         const propRows: any[] = [];
         const bdlLiveRows: any[] = [];
 
         for (const prop of propItems) {
-          const player = prop.player;
-          const playerId = player?.id ? String(player.id) : "unknown";
-          const playerName = player ? `${player.first_name || ""} ${player.last_name || ""}`.trim() : "Unknown";
-          const books = prop.bookmakers || [];
+          const playerId = prop.player_id ? String(prop.player_id) : (prop.player?.id ? String(prop.player.id) : "unknown");
+          const playerName = playerNameCache[playerId] || prop.player_name || (prop.player ? `${prop.player.first_name || ""} ${prop.player.last_name || ""}`.trim() : "") || `Player ${playerId}`;
+
+          // BDL v2 flat format detection
+          if (prop.prop_type && prop.line_value != null) {
+            const rawKey = prop.prop_type;
+            const marketKey = bdlPropToMarketKey(rawKey);
+            const line = Number(prop.line_value);
+            const marketObj = prop.market || {};
+            const marketType = marketObj.type || "over_under"; // "milestone", "over_under", etc.
+            const odds = marketObj.odds ?? null;
+            const vendorName = prop.vendor || "unknown";
+
+            // For over/under markets, odds is on the market object
+            // For milestone markets, there's a single odds value
+            const isOverUnder = marketType === "over_under";
+            const overPrice = isOverUnder ? (marketObj.over_odds ?? odds) : odds;
+            const underPrice = isOverUnder ? (marketObj.under_odds ?? null) : null;
+
+            propRows.push({
+              game_id: game.id,
+              external_event_id: String(bdlGameId),
+              player_name: playerName || `Player ${playerId}`,
+              market_key: marketKey,
+              market_label: MARKET_LABELS[marketKey] || rawKey,
+              bookmaker: vendorName,
+              line,
+              over_price: overPrice,
+              under_price: underPrice,
+            });
+
+            bdlLiveRows.push({
+              game_key: game.id,
+              provider: "balldontlie",
+              vendor: vendorName,
+              player_id: playerId,
+              player_name: playerName || `Player ${playerId}`,
+              prop_type: marketKey,
+              line_value: line,
+              market_type: marketType,
+              over_odds: overPrice,
+              under_odds: underPrice,
+              raw: prop,
+              updated_at: new Date().toISOString(),
+            });
+            continue;
+          }
+
+          // Fallback: nested bookmakers structure
+          const books = prop.bookmakers || prop.sportsbooks || [];
 
           for (const book of books) {
             const vendor = book.name || book.key || "unknown";
