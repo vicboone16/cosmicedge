@@ -46,7 +46,10 @@ Deno.serve(async (req) => {
       );
     }
 
-    const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+    const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+    const supabaseRef = new URL(SUPABASE_URL).hostname.split(".")[0];
+    console.log(`[Historical-Odds] Target Supabase: ${supabaseRef} → historical_odds`);
+    const supabase = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
     const url = new URL(req.url);
     const league = url.searchParams.get("league") || "NBA";
     const dateParam = url.searchParams.get("date"); // ISO: 2024-01-15T00:00:00Z

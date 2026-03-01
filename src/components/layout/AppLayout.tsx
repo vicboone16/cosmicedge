@@ -2,6 +2,7 @@ import { Outlet, useNavigate } from "react-router-dom";
 import { BottomNav } from "./BottomNav";
 import { useAuth } from "@/hooks/use-auth";
 import { useIsAdmin } from "@/hooks/use-admin";
+import { useMemo } from "react";
 import { User, LogIn, Moon, Settings, Users, LogOut, Shield, Sparkles } from "lucide-react";
 import {
   DropdownMenu,
@@ -17,6 +18,15 @@ export function AppLayout() {
   const { user, signOut } = useAuth();
   const { isAdmin } = useIsAdmin();
   const navigate = useNavigate();
+
+  const envRef = useMemo(() => {
+    try {
+      const url = import.meta.env.VITE_SUPABASE_URL || "";
+      return new URL(url).hostname.split(".")[0];
+    } catch { return "unknown"; }
+  }, []);
+  const isLive = envRef === "gwfgmlfggeyxexclwybk";
+  const refLabel = isLive ? "LIVE" : envRef === "xilxyiijgnadlbabytfn" ? "TEST" : envRef.slice(0, 8);
 
   // Query pending friend requests for badge
   const { data: pendingCount } = useQuery({
@@ -106,6 +116,18 @@ export function AppLayout() {
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+      {/* Environment ref badge */}
+      {isAdmin && (
+        <div className="fixed top-0 left-0 z-50 p-3 safe-area-top">
+          <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-mono font-bold border ${
+            isLive
+              ? "bg-emerald-950/80 text-emerald-400 border-emerald-700"
+              : "bg-red-950/80 text-red-400 border-red-700"
+          }`}>
+            {refLabel}
+          </span>
+        </div>
+      )}
       <main className="pb-[4.5rem]">
         <Outlet />
       </main>
