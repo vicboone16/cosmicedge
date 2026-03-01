@@ -6,7 +6,7 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
-import { useOracle, type StoredPrediction } from "@/hooks/use-oracle";
+import { useOracle, type StoredPrediction, type ServerLiveWP } from "@/hooks/use-oracle";
 import { classifyEdge, wpToAmericanOdds } from "@/lib/oracle-engine";
 import { supabase } from "@/integrations/supabase/client";
 import { TrendingUp, TrendingDown, Zap, Target, BarChart3, Clock, Activity, Database, Cpu } from "lucide-react";
@@ -173,12 +173,17 @@ export function OracleTab({
         ...pregame,
         runTs: null,
         features: null,
-        isLiveAdjusted: isLive && !!liveWP,
+        isLiveAdjusted: isLive && !!liveWP && liveWP.length > 0,
         isServerModel: false,
       };
     }
     return null;
   }, [source, selectedStored, pregame, isLive, liveWP]);
+
+  // Derive scoped WP values from server array
+  const wpFull = useMemo(() => liveWP?.find(w => w.scope === "full") ?? null, [liveWP]);
+  const wpHalf = useMemo(() => liveWP?.find(w => w.scope === "half") ?? null, [liveWP]);
+  const wpQtr = useMemo(() => liveWP?.find(w => w.scope === "quarter") ?? null, [liveWP]);
 
   const homeEdgeInfo = useMemo(() => {
     if (!display || display.edgeHome == null) return null;
@@ -282,8 +287,8 @@ export function OracleTab({
         </p>
       )}
 
-      {/* ── Live Win Probability Scopes (PRIMARY for live games) ── */}
-      {liveWP && isLive && (
+      {/* ── Live Win Probability Scopes (SERVER-AUTHORITATIVE) ── */}
+      {wpFull && isLive && (
         <section>
           <h3 className="text-xs font-semibold text-cosmic-green uppercase tracking-widest mb-3 flex items-center gap-1.5">
             <Activity className="h-3.5 w-3.5" />
@@ -297,30 +302,31 @@ export function OracleTab({
                 <div className="text-center">
                   <p className="text-[10px] font-bold text-muted-foreground uppercase">{awayAbbr}</p>
                   <p className="text-xl font-bold font-display tabular-nums text-foreground">
-                    {formatPct(1 - liveWP.wpGame)}
+                    {formatPct(1 - wpFull.wp_home)}
                   </p>
-                  <p className="text-[9px] text-muted-foreground tabular-nums">{formatOdds(wpToAmericanOdds(1 - liveWP.wpGame))}</p>
+                  <p className="text-[9px] text-muted-foreground tabular-nums">{formatOdds(wpToAmericanOdds(1 - wpFull.wp_home))}</p>
                 </div>
                 <div className="text-center">
-                  <p className="text-[9px] text-muted-foreground">{liveWP.possessionsRemaining} poss left</p>
+                  <p className="text-[9px] text-muted-foreground">{wpFull.possessions_remaining ?? "—"} poss left</p>
                 </div>
                 <div className="text-center">
                   <p className="text-[10px] font-bold text-muted-foreground uppercase">{homeAbbr}</p>
                   <p className="text-xl font-bold font-display tabular-nums text-foreground">
-                    {formatPct(liveWP.wpGame)}
+                    {formatPct(wpFull.wp_home)}
                   </p>
-                  <p className="text-[9px] text-muted-foreground tabular-nums">{formatOdds(liveWP.fairMLGame)}</p>
+                  <p className="text-[9px] text-muted-foreground tabular-nums">{formatOdds(wpFull.fair_ml_home ?? 0)}</p>
                 </div>
               </div>
               <div className="h-3 rounded-full overflow-hidden flex bg-secondary">
-                <div className="bg-destructive/70 transition-all duration-700" style={{ width: `${(1 - liveWP.wpGame) * 100}%` }} />
-                <div className="bg-cosmic-green transition-all duration-700" style={{ width: `${liveWP.wpGame * 100}%` }} />
+                <div className="bg-destructive/70 transition-all duration-700" style={{ width: `${(1 - wpFull.wp_home) * 100}%` }} />
+                <div className="bg-cosmic-green transition-all duration-700" style={{ width: `${wpFull.wp_home * 100}%` }} />
               </div>
             </div>
 
             {/* Half + Quarter WP side-by-side */}
             <div className="grid grid-cols-2 gap-2">
               {/* Half WP */}
+              {wpHalf && (
               <div className="cosmic-card rounded-lg p-3 border-l-2 border-l-primary/50">
                 <p className="text-[9px] font-bold text-primary uppercase tracking-wider mb-1.5">
                   {league === "NHL" ? "Period" : "Half"}
@@ -328,47 +334,50 @@ export function OracleTab({
                 <div className="flex items-center justify-between mb-1">
                   <div className="text-center">
                     <p className="text-[9px] text-muted-foreground">{awayAbbr}</p>
-                    <p className="text-sm font-bold tabular-nums">{formatPct(1 - liveWP.wpHalf)}</p>
+                    <p className="text-sm font-bold tabular-nums">{formatPct(1 - wpHalf.wp_home)}</p>
                   </div>
                   <div className="text-center">
                     <p className="text-[9px] text-muted-foreground">{homeAbbr}</p>
-                    <p className="text-sm font-bold tabular-nums">{formatPct(liveWP.wpHalf)}</p>
+                    <p className="text-sm font-bold tabular-nums">{formatPct(wpHalf.wp_home)}</p>
                   </div>
                 </div>
                 <div className="h-1.5 rounded-full overflow-hidden flex bg-secondary">
-                  <div className="bg-destructive/60" style={{ width: `${(1 - liveWP.wpHalf) * 100}%` }} />
-                  <div className="bg-primary" style={{ width: `${liveWP.wpHalf * 100}%` }} />
+                  <div className="bg-destructive/60" style={{ width: `${(1 - wpHalf.wp_home) * 100}%` }} />
+                  <div className="bg-primary" style={{ width: `${wpHalf.wp_home * 100}%` }} />
                 </div>
                 <div className="flex justify-between mt-1 text-[8px] text-muted-foreground tabular-nums">
-                  <span>{formatOdds(wpToAmericanOdds(1 - liveWP.wpHalf))}</span>
-                  <span>{formatOdds(liveWP.fairMLHalf)}</span>
+                  <span>{formatOdds(wpToAmericanOdds(1 - wpHalf.wp_home))}</span>
+                  <span>{formatOdds(wpHalf.fair_ml_home ?? 0)}</span>
                 </div>
               </div>
+              )}
 
               {/* Quarter WP */}
+              {wpQtr && (
               <div className="cosmic-card rounded-lg p-3 border-l-2 border-l-accent/50">
                 <p className="text-[9px] font-bold text-accent uppercase tracking-wider mb-1.5">
-                  {league === "NHL" ? `P${liveQuarter ?? ""}` : league === "MLB" ? `Inn ${liveQuarter ?? ""}` : `Q${liveQuarter ?? ""}`}
+                  {league === "NHL" ? `P${wpQtr.quarter ?? ""}` : league === "MLB" ? `Inn ${wpQtr.quarter ?? ""}` : `Q${wpQtr.quarter ?? ""}`}
                 </p>
                 <div className="flex items-center justify-between mb-1">
                   <div className="text-center">
                     <p className="text-[9px] text-muted-foreground">{awayAbbr}</p>
-                    <p className="text-sm font-bold tabular-nums">{formatPct(1 - liveWP.wpQuarter)}</p>
+                    <p className="text-sm font-bold tabular-nums">{formatPct(1 - wpQtr.wp_home)}</p>
                   </div>
                   <div className="text-center">
                     <p className="text-[9px] text-muted-foreground">{homeAbbr}</p>
-                    <p className="text-sm font-bold tabular-nums">{formatPct(liveWP.wpQuarter)}</p>
+                    <p className="text-sm font-bold tabular-nums">{formatPct(wpQtr.wp_home)}</p>
                   </div>
                 </div>
                 <div className="h-1.5 rounded-full overflow-hidden flex bg-secondary">
-                  <div className="bg-destructive/60" style={{ width: `${(1 - liveWP.wpQuarter) * 100}%` }} />
-                  <div className="bg-accent" style={{ width: `${liveWP.wpQuarter * 100}%` }} />
+                  <div className="bg-destructive/60" style={{ width: `${(1 - wpQtr.wp_home) * 100}%` }} />
+                  <div className="bg-accent" style={{ width: `${wpQtr.wp_home * 100}%` }} />
                 </div>
                 <div className="flex justify-between mt-1 text-[8px] text-muted-foreground tabular-nums">
-                  <span>{formatOdds(wpToAmericanOdds(1 - liveWP.wpQuarter))}</span>
-                  <span>{formatOdds(liveWP.fairMLQuarter)}</span>
+                  <span>{formatOdds(wpToAmericanOdds(1 - wpQtr.wp_home))}</span>
+                  <span>{formatOdds(wpQtr.fair_ml_home ?? 0)}</span>
                 </div>
               </div>
+              )}
             </div>
           </div>
         </section>
