@@ -291,7 +291,7 @@ function computePoissonPregame(
  * 
  * For quarter WP: uses t = seconds_remaining_in_quarter, sd = quarter score diff.
  */
-export function computeLiveWP(input: LiveWPInput): LiveWPOutput {
+
   const { sport, scoreDiff, timeRemaining, possession, isHome } = input;
   const defs = SPORT_DEFAULTS[sport];
   const betas = LIVE_BETAS[sport];
