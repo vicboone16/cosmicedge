@@ -6,6 +6,7 @@ import { useNavigate } from "react-router-dom";
 import { Input } from "@/components/ui/input";
 import { TrackPropButton } from "@/components/tracking/TrackedProps";
 import { cn } from "@/lib/utils";
+import { assertGameKeyUUID } from "@/lib/game-key-guard";
 
 interface PlayerPropsProps {
   gameId: string;
@@ -51,6 +52,7 @@ export function PlayerPropsSection({ gameId }: PlayerPropsProps) {
   const { data: props, isLoading, refetch, isFetching } = useQuery({
     queryKey: ["player-props", gameId],
     queryFn: async () => {
+      assertGameKeyUUID(gameId, "PlayerPropsSection");
       // Tier 1: BDL nba_player_props_live (primary for NBA)
       const { data: bdlProps } = await (supabase as any)
         .from("nba_player_props_live")

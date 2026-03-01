@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { TrendingUp, TrendingDown, RefreshCw, Plus } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
+import { assertGameKeyUUID } from "@/lib/game-key-guard";
 
 interface LiveOddsTrackerProps {
   gameId: string;
@@ -60,6 +61,7 @@ export function LiveOddsTracker({ gameId, homeAbbr, awayAbbr, league }: LiveOdds
   const { data: odds, isLoading, refetch, isFetching } = useQuery({
     queryKey: ["live-market-odds", gameId],
     queryFn: async () => {
+      assertGameKeyUUID(gameId, "LiveOddsTracker");
       // Tier 1: BDL odds (primary for NBA)
       const { data: bdlOdds } = await (supabase as any)
         .from("nba_game_odds")
