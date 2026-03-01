@@ -92,7 +92,10 @@ function getCurrentRoute(): string {
 
 function getUserId(): string | null {
   try {
-    const raw = localStorage.getItem("sb-gwfgmlfggeyxexclwybk-auth-token");
+    // Derive the localStorage key from the project id env var
+    const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID ?? "";
+    if (!projectId) return null;
+    const raw = localStorage.getItem(`sb-${projectId}-auth-token`);
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     return parsed?.user?.id ?? null;

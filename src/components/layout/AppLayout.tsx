@@ -25,8 +25,14 @@ export function AppLayout() {
       return new URL(url).hostname.split(".")[0];
     } catch { return "unknown"; }
   }, []);
-  const isLive = envRef === "gwfgmlfggeyxexclwybk";
-  const refLabel = isLive ? "LIVE" : envRef === "xilxyiijgnadlbabytfn" ? "TEST" : envRef.slice(0, 8);
+  const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID ?? "";
+  const isLive = envRef === projectId && window.location.hostname.includes("lovable.app");
+  // In preview (non-published) we show TEST; on published domains we show LIVE
+  const isPublished =
+    window.location.hostname.includes("lovable.app") ||
+    window.location.hostname.includes("novabehavior.com") ||
+    window.location.hostname.includes("cosmicedge");
+  const refLabel = isPublished ? "LIVE" : "TEST";
 
   // Query pending friend requests for badge
   const { data: pendingCount } = useQuery({
