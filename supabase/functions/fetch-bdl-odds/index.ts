@@ -83,28 +83,36 @@ Deno.serve(async (req) => {
       if (mapped?.provider_game_id) {
         bdlGameIds.push({ dbGame: game, bdlId: Number(mapped.provider_game_id) });
       } else {
-        // Search BDL by date
+        // Search BDL by date — try UTC date AND previous day (UTC→US timezone offset)
         const gameDate = game.start_time.split("T")[0];
-        try {
-          const searchRes = await fetch(`${BDL_BASE}/v1/games?dates[]=${gameDate}`, { headers });
-          if (searchRes.ok) {
-            const searchData = await searchRes.json();
-            const match = (searchData.data || []).find((g: any) =>
-              g.home_team?.abbreviation === game.home_abbr &&
-              g.visitor_team?.abbreviation === game.away_abbr
-            );
-            if (match) {
-              bdlGameIds.push({ dbGame: game, bdlId: match.id });
-              await supabase.from("provider_game_map").upsert({
-                game_key: game.id, league: "NBA", provider: "balldontlie",
-                provider_game_id: String(match.id), game_date: gameDate,
-                home_team_abbr: game.home_abbr, away_team_abbr: game.away_abbr,
-                start_time_utc: game.start_time, updated_at: new Date().toISOString(),
-              }, { onConflict: "game_key,provider" });
+        const prevDate = new Date(new Date(gameDate + "T00:00:00Z").getTime() - 86400000).toISOString().split("T")[0];
+        const datesToTry = [gameDate, prevDate];
+        let found = false;
+        for (const tryDate of datesToTry) {
+          if (found) break;
+          try {
+            const searchRes = await fetch(`${BDL_BASE}/v1/games?dates[]=${tryDate}`, { headers });
+            if (searchRes.ok) {
+              const searchData = await searchRes.json();
+              const match = (searchData.data || []).find((g: any) =>
+                g.home_team?.abbreviation === game.home_abbr &&
+                g.visitor_team?.abbreviation === game.away_abbr
+              );
+              if (match) {
+                found = true;
+                bdlGameIds.push({ dbGame: game, bdlId: match.id });
+                await supabase.from("provider_game_map").upsert({
+                  game_key: game.id, league: "NBA", provider: "balldontlie",
+                  provider_game_id: String(match.id), game_date: tryDate,
+                  home_team_abbr: game.home_abbr, away_team_abbr: game.away_abbr,
+                  start_time_utc: game.start_time, updated_at: new Date().toISOString(),
+                }, { onConflict: "game_key,provider" });
+                console.log(`[BDL-Odds] Mapped ${game.home_abbr} vs ${game.away_abbr} → BDL ID ${match.id} (date=${tryDate})`);
+              }
             }
+          } catch (e) {
+            console.warn(`[BDL-Odds] Game search error for ${game.home_abbr} vs ${game.away_abbr} (date=${tryDate}):`, e);
           }
-        } catch (e) {
-          console.warn(`[BDL-Odds] Game search error for ${game.home_abbr} vs ${game.away_abbr}:`, e);
         }
       }
     }
