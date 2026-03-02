@@ -43,7 +43,7 @@ function extractRef(url: string): string {
 function isPublishedHost(): boolean {
   const host = window.location.hostname;
   return (
-    host.includes("lovable.app") ||
+    (host.includes("lovable.app") && !host.includes("preview")) ||
     host.includes("novabehavior.com") ||
     host.includes("cosmicedge")
   );

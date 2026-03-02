@@ -23,7 +23,7 @@ const ref = extractRef(supabaseUrl);
 const host = window.location.hostname;
 
 const isPublished =
-  host.includes("lovable.app") ||
+  (host.includes("lovable.app") && !host.includes("preview")) ||
   host.includes("novabehavior.com") ||
   host.includes("cosmicedge");
 
