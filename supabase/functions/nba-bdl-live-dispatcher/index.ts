@@ -2,6 +2,18 @@ import { corsHeaders } from "../_shared/cors.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 const BDL_BASE = "https://api.balldontlie.io";
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+
+/** Parse BDL clock string (e.g. "5:32", "12:00", "0:45.3") into integer seconds remaining */
+function parseClockToSeconds(clock: string | null | undefined): number | null {
+  if (!clock || clock.trim() === "") return null;
+  const parts = clock.trim().split(":");
+  if (parts.length !== 2) return null;
+  const mins = parseInt(parts[0], 10);
+  const secs = parseFloat(parts[1]);
+  if (isNaN(mins) || isNaN(secs)) return null;
+  return mins * 60 + Math.floor(secs);
+}
 
 /** Derive the project ref from the SUPABASE_URL env var at runtime */
 function getProjectRef(): string {
@@ -133,13 +145,18 @@ Deno.serve(async (req) => {
         }
       }
 
-      // Snapshot game state
+      // Snapshot game state (triggers compute_live_wp automatically)
+      const clockSec = parseClockToSeconds(g.time);
       await sb.from("game_state_snapshots").insert({
         game_id: gameKey,
         quarter: g.period ? String(g.period) : "0",
         home_score: homeScore,
         away_score: awayScore,
         clock: g.time ?? null,
+        clock_seconds_remaining: clockSec,
+        possession: g.possession?.abbreviation?.toLowerCase() === homeAbbr.toLowerCase() ? "home"
+                  : g.possession?.abbreviation?.toLowerCase() === awayAbbr.toLowerCase() ? "away"
+                  : null,
         status,
       });
 

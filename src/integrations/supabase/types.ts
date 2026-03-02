@@ -1019,9 +1019,11 @@ export type Database = {
           away_score: number | null
           captured_at: string
           clock: string | null
+          clock_seconds_remaining: number | null
           game_id: string
           home_score: number | null
           id: string
+          possession: string | null
           quarter: string | null
           status: string | null
         }
@@ -1029,9 +1031,11 @@ export type Database = {
           away_score?: number | null
           captured_at?: string
           clock?: string | null
+          clock_seconds_remaining?: number | null
           game_id: string
           home_score?: number | null
           id?: string
+          possession?: string | null
           quarter?: string | null
           status?: string | null
         }
@@ -1039,9 +1043,11 @@ export type Database = {
           away_score?: number | null
           captured_at?: string
           clock?: string | null
+          clock_seconds_remaining?: number | null
           game_id?: string
           home_score?: number | null
           id?: string
+          possession?: string | null
           quarter?: string | null
           status?: string | null
         }
