@@ -98,3 +98,6 @@ verify_jwt = false
 
 [functions.fetch-bdl-odds]
 verify_jwt = false
+
+[functions.bdl-backfill-day]
+verify_jwt = false
