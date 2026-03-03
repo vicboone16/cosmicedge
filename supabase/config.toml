@@ -107,3 +107,6 @@ verify_jwt = false
 
 [functions.ingest-quarter-player-stats]
 verify_jwt = false
+
+[functions.bdl-quarter-stats]
+verify_jwt = false
