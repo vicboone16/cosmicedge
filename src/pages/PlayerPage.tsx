@@ -161,7 +161,11 @@ const PlayerPage = () => {
   });
 
   // Quarter/Half period stats
-  const periodForTab = statsTab === "1q" ? "Q1" : statsTab === "1h" ? "1H" : null;
+  const periodTabMap: Record<string, string> = {
+    "1q": "Q1", "2q": "Q2", "3q": "Q3", "4q": "Q4",
+    "1h": "1H", "2h": "2H", "ot1": "OT", "ot2": "OT2",
+  };
+  const periodForTab = periodTabMap[statsTab] || null;
 
   const { data: periodLogs } = useQuery({
     queryKey: ["player-period-logs", id, periodForTab],
@@ -169,8 +173,9 @@ const PlayerPage = () => {
       if (!periodForTab) return [];
       let periods: string[];
       if (periodForTab === "1H") {
-        // 1H = sum of Q1+Q2, so fetch both
         periods = ["Q1", "Q2", "1H"];
+      } else if (periodForTab === "2H") {
+        periods = ["Q3", "Q4", "2H"];
       } else {
         periods = [periodForTab];
       }
