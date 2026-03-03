@@ -822,9 +822,9 @@ const PlayerPage = () => {
                     </div>
                   ))}
                   <div className="col-span-4 text-center">
-                    <p className="text-[10px] text-muted-foreground">
-                      {statsTab === "1h" ? "First Half" : "First Quarter"} avg · {periodAvgStats.games} game{periodAvgStats.games !== 1 ? "s" : ""}
-                    </p>
+                     <p className="text-[10px] text-muted-foreground">
+                       {periodForTab} avg · {periodAvgStats.games} game{periodAvgStats.games !== 1 ? "s" : ""}
+                     </p>
                   </div>
                 </div>
 
