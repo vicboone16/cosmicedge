@@ -131,12 +131,6 @@ export default function AdminBackend() {
     setBdlQLoading(true);
     setBdlQLog(null);
     try {
-      const { data, error } = await supabase.functions.invoke("bdl-quarter-stats", {
-        method: "GET",
-        headers: { "Content-Type": "application/json" },
-        body: null,
-      });
-      // functions.invoke doesn't support GET query params well, so use fetch directly
       const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
       const url = `https://${projectId}.supabase.co/functions/v1/bdl-quarter-stats?date=${bdlQDate}&season=${bdlQSeason}`;
       const res = await fetch(url, {
