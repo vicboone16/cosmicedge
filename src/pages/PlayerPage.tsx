@@ -83,7 +83,7 @@ function getPlayerProps(stats: any, element: string) {
   });
 }
 
-type StatsTab = "stats" | "1h" | "1q" | "game_logs";
+type StatsTab = "stats" | "1h" | "2h" | "1q" | "2q" | "3q" | "4q" | "ot1" | "ot2" | "game_logs";
 type SampleSize = 5 | 10 | "season";
 type StatMode = "averages" | "totals";
 type PlayerProfileTab = "overview" | "astrology" | "models";
@@ -161,7 +161,11 @@ const PlayerPage = () => {
   });
 
   // Quarter/Half period stats
-  const periodForTab = statsTab === "1q" ? "Q1" : statsTab === "1h" ? "1H" : null;
+  const periodTabMap: Record<string, string> = {
+    "1q": "Q1", "2q": "Q2", "3q": "Q3", "4q": "Q4",
+    "1h": "1H", "2h": "2H", "ot1": "OT", "ot2": "OT2",
+  };
+  const periodForTab = periodTabMap[statsTab] || null;
 
   const { data: periodLogs } = useQuery({
     queryKey: ["player-period-logs", id, periodForTab],
@@ -169,8 +173,9 @@ const PlayerPage = () => {
       if (!periodForTab) return [];
       let periods: string[];
       if (periodForTab === "1H") {
-        // 1H = sum of Q1+Q2, so fetch both
         periods = ["Q1", "Q2", "1H"];
+      } else if (periodForTab === "2H") {
+        periods = ["Q3", "Q4", "2H"];
       } else {
         periods = [periodForTab];
       }
@@ -195,17 +200,20 @@ const PlayerPage = () => {
   const periodAvgStats = useMemo(() => {
     if (!periodLogs || periodLogs.length === 0) return null;
 
-    // For 1H: if we have direct "1H" rows, use them; else sum Q1+Q2 per game
+    // For halves: if we have direct rows, use them; else sum quarter rows per game
     let effectiveLogs: any[];
-    if (periodForTab === "1H") {
-      const directHalf = periodLogs.filter((l: any) => l.period === "1H");
+    const isHalf = periodForTab === "1H" || periodForTab === "2H";
+    const halfQuarters = periodForTab === "1H" ? ["Q1", "Q2"] : periodForTab === "2H" ? ["Q3", "Q4"] : [];
+
+    if (isHalf) {
+      const directHalf = periodLogs.filter((l: any) => l.period === periodForTab);
       if (directHalf.length > 0) {
         effectiveLogs = directHalf;
       } else {
-        // Sum Q1+Q2 per game
+        // Sum quarters per game
         const byGame = new Map<string, any>();
         for (const l of periodLogs) {
-          if (l.period !== "Q1" && l.period !== "Q2") continue;
+          if (!halfQuarters.includes(l.period)) continue;
           const gid = l.game_id;
           if (!byGame.has(gid)) {
             byGame.set(gid, { ...l, _count: 1 });
@@ -227,7 +235,6 @@ const PlayerPage = () => {
             existing._count++;
           }
         }
-        // Only include games where we have both Q1 and Q2
         effectiveLogs = Array.from(byGame.values()).filter(g => g._count >= 2);
       }
     } else {
@@ -569,12 +576,18 @@ const PlayerPage = () => {
           </div>
 
           {/* Stats tabs */}
-          <div className="flex bg-secondary rounded-lg p-0.5 mb-3">
+          <div className="flex bg-secondary rounded-lg p-0.5 mb-3 overflow-x-auto no-scrollbar">
             {([
-              { key: "stats" as StatsTab, label: "Stats" },
+              { key: "stats" as StatsTab, label: "Full" },
               { key: "1h" as StatsTab, label: "1H" },
-              { key: "1q" as StatsTab, label: "1Q" },
-              { key: "game_logs" as StatsTab, label: "Game Logs" },
+              { key: "2h" as StatsTab, label: "2H" },
+              { key: "1q" as StatsTab, label: "Q1" },
+              { key: "2q" as StatsTab, label: "Q2" },
+              { key: "3q" as StatsTab, label: "Q3" },
+              { key: "4q" as StatsTab, label: "Q4" },
+              { key: "ot1" as StatsTab, label: "OT" },
+              { key: "ot2" as StatsTab, label: "OT2" },
+              { key: "game_logs" as StatsTab, label: "Logs" },
             ]).map(t => (
               <button
                 key={t.key}
@@ -789,7 +802,7 @@ const PlayerPage = () => {
             </div>
           )}
 
-          {(statsTab === "1h" || statsTab === "1q") && (
+          {periodForTab && (
             periodAvgStats ? (
               <div>
                 <div className="grid grid-cols-4 gap-2 mb-3">
@@ -809,9 +822,9 @@ const PlayerPage = () => {
                     </div>
                   ))}
                   <div className="col-span-4 text-center">
-                    <p className="text-[10px] text-muted-foreground">
-                      {statsTab === "1h" ? "First Half" : "First Quarter"} avg · {periodAvgStats.games} game{periodAvgStats.games !== 1 ? "s" : ""}
-                    </p>
+                     <p className="text-[10px] text-muted-foreground">
+                       {periodForTab} avg · {periodAvgStats.games} game{periodAvgStats.games !== 1 ? "s" : ""}
+                     </p>
                   </div>
                 </div>
 
@@ -850,8 +863,8 @@ const PlayerPage = () => {
             ) : (
               <div className="cosmic-card rounded-xl p-4 text-center">
                 <p className="text-xs text-muted-foreground">
-                  {statsTab === "1h" ? "First Half" : "First Quarter"} splits require per-period box scores. Ingest data via the quarter stats endpoint.
-                </p>
+                   {periodForTab} splits require per-period box scores. Ingest data via the quarter stats endpoint.
+                 </p>
               </div>
             )
           )}

@@ -118,12 +118,16 @@ async function handleBdlFormat(supabase: any, body: any, t0: number) {
 
   const result = await upsertRows(supabase, rows);
 
+  // After upserting quarter rows, auto-compute half aggregates if applicable
+  const halfResult = await autoComputeHalves(supabase, rows, periodLabel);
+
   return new Response(
     JSON.stringify({
       success: result.errors.length === 0,
       format: "bdl",
       period: periodLabel,
-      upserted: result.upserted,
+      upserted: result.upserted + halfResult.upserted,
+      halves_computed: halfResult.upserted,
       rejected: rejected.length,
       rejected_details: rejected.length > 0 ? rejected : undefined,
       errors: result.errors.length > 0 ? result.errors : undefined,
@@ -372,4 +376,66 @@ async function upsertRows(supabase: any, rows: any[]): Promise<{ upserted: numbe
   }
 
   return { upserted, errors };
+}
+
+/**
+ * After ingesting quarter rows, auto-compute 1H/2H aggregates by summing Q1+Q2 / Q3+Q4.
+ * Only runs when we just ingested a quarter period (Q1-Q4).
+ */
+async function autoComputeHalves(supabase: any, rows: any[], periodLabel: string): Promise<{ upserted: number }> {
+  if (!["Q1", "Q2", "Q3", "Q4"].includes(periodLabel)) return { upserted: 0 };
+
+  const halfPeriod = ["Q1", "Q2"].includes(periodLabel) ? "1H" : "2H";
+  const qPair = halfPeriod === "1H" ? ["Q1", "Q2"] : ["Q3", "Q4"];
+
+  // Collect unique game_id + player_id combos from what we just ingested
+  const combos = new Map<string, { game_id: string; player_id: string; team_abbr: string | null }>();
+  for (const r of rows) {
+    const key = `${r.game_id}|${r.player_id}`;
+    if (!combos.has(key)) combos.set(key, { game_id: r.game_id, player_id: r.player_id, team_abbr: r.team_abbr });
+  }
+
+  const halfRows: any[] = [];
+  for (const { game_id, player_id, team_abbr } of combos.values()) {
+    // Fetch both quarters for this player+game
+    const { data: qRows } = await supabase
+      .from("player_game_stats")
+      .select("*")
+      .eq("game_id", game_id)
+      .eq("player_id", player_id)
+      .in("period", qPair);
+
+    if (!qRows || qRows.length < 2) continue;
+
+    // Sum the two quarter rows
+    const sum: any = {
+      game_id, player_id, team_abbr,
+      period: halfPeriod,
+      points: 0, rebounds: 0, assists: 0, steals: 0, blocks: 0, turnovers: 0,
+      minutes: 0, fg_made: 0, fg_attempted: 0, three_made: 0, three_attempted: 0,
+      ft_made: 0, ft_attempted: 0, off_rebounds: 0, def_rebounds: 0, personal_fouls: 0,
+    };
+    for (const q of qRows) {
+      sum.points += q.points ?? 0;
+      sum.rebounds += q.rebounds ?? 0;
+      sum.assists += q.assists ?? 0;
+      sum.steals += q.steals ?? 0;
+      sum.blocks += q.blocks ?? 0;
+      sum.turnovers += q.turnovers ?? 0;
+      sum.minutes += q.minutes ?? 0;
+      sum.fg_made += q.fg_made ?? 0;
+      sum.fg_attempted += q.fg_attempted ?? 0;
+      sum.three_made += q.three_made ?? 0;
+      sum.three_attempted += q.three_attempted ?? 0;
+      sum.ft_made += q.ft_made ?? 0;
+      sum.ft_attempted += q.ft_attempted ?? 0;
+      sum.off_rebounds += q.off_rebounds ?? 0;
+      sum.def_rebounds += q.def_rebounds ?? 0;
+      sum.personal_fouls += q.personal_fouls ?? 0;
+    }
+    halfRows.push(sum);
+  }
+
+  if (halfRows.length === 0) return { upserted: 0 };
+  return await upsertRows(supabase, halfRows);
 }
