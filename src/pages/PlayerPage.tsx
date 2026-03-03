@@ -160,6 +160,117 @@ const PlayerPage = () => {
     enabled: !!id,
   });
 
+  // Quarter/Half period stats
+  const periodForTab = statsTab === "1q" ? "Q1" : statsTab === "1h" ? "1H" : null;
+
+  const { data: periodLogs } = useQuery({
+    queryKey: ["player-period-logs", id, periodForTab],
+    queryFn: async () => {
+      if (!periodForTab) return [];
+      let periods: string[];
+      if (periodForTab === "1H") {
+        // 1H = sum of Q1+Q2, so fetch both
+        periods = ["Q1", "Q2", "1H"];
+      } else {
+        periods = [periodForTab];
+      }
+      const { data } = await supabase
+        .from("player_game_stats")
+        .select("*, games!player_game_stats_game_id_fkey(start_time, home_abbr, away_abbr, league)")
+        .eq("player_id", id!)
+        .in("period", periods)
+        .not("points", "is", null)
+        .order("created_at", { ascending: false })
+        .limit(500);
+      return (data || []).sort((a, b) => {
+        const aTime = (a.games as any)?.start_time || "";
+        const bTime = (b.games as any)?.start_time || "";
+        return bTime.localeCompare(aTime);
+      });
+    },
+    enabled: !!id && !!periodForTab,
+  });
+
+  // Compute period averages
+  const periodAvgStats = useMemo(() => {
+    if (!periodLogs || periodLogs.length === 0) return null;
+
+    // For 1H: if we have direct "1H" rows, use them; else sum Q1+Q2 per game
+    let effectiveLogs: any[];
+    if (periodForTab === "1H") {
+      const directHalf = periodLogs.filter((l: any) => l.period === "1H");
+      if (directHalf.length > 0) {
+        effectiveLogs = directHalf;
+      } else {
+        // Sum Q1+Q2 per game
+        const byGame = new Map<string, any>();
+        for (const l of periodLogs) {
+          if (l.period !== "Q1" && l.period !== "Q2") continue;
+          const gid = l.game_id;
+          if (!byGame.has(gid)) {
+            byGame.set(gid, { ...l, _count: 1 });
+          } else {
+            const existing = byGame.get(gid)!;
+            existing.points = (existing.points || 0) + (l.points || 0);
+            existing.rebounds = (existing.rebounds || 0) + (l.rebounds || 0);
+            existing.assists = (existing.assists || 0) + (l.assists || 0);
+            existing.steals = (existing.steals || 0) + (l.steals || 0);
+            existing.blocks = (existing.blocks || 0) + (l.blocks || 0);
+            existing.turnovers = (existing.turnovers || 0) + (l.turnovers || 0);
+            existing.minutes = (existing.minutes || 0) + (l.minutes || 0);
+            existing.fg_made = (existing.fg_made || 0) + (l.fg_made || 0);
+            existing.fg_attempted = (existing.fg_attempted || 0) + (l.fg_attempted || 0);
+            existing.three_made = (existing.three_made || 0) + (l.three_made || 0);
+            existing.three_attempted = (existing.three_attempted || 0) + (l.three_attempted || 0);
+            existing.ft_made = (existing.ft_made || 0) + (l.ft_made || 0);
+            existing.ft_attempted = (existing.ft_attempted || 0) + (l.ft_attempted || 0);
+            existing._count++;
+          }
+        }
+        // Only include games where we have both Q1 and Q2
+        effectiveLogs = Array.from(byGame.values()).filter(g => g._count >= 2);
+      }
+    } else {
+      effectiveLogs = periodLogs.filter((l: any) => l.period === periodForTab);
+    }
+
+    if (effectiveLogs.length === 0) return null;
+
+    // Apply sample size
+    const limited = sampleSize === "season" ? effectiveLogs : effectiveLogs.slice(0, sampleSize);
+    if (limited.length === 0) return null;
+
+    const sum = { pts: 0, reb: 0, ast: 0, stl: 0, blk: 0, min: 0, fg: 0, fga: 0, three: 0, threeA: 0, ft: 0, fta: 0 };
+    for (const g of limited) {
+      sum.pts += g.points ?? 0;
+      sum.reb += g.rebounds ?? 0;
+      sum.ast += g.assists ?? 0;
+      sum.stl += g.steals ?? 0;
+      sum.blk += g.blocks ?? 0;
+      sum.min += g.minutes ?? 0;
+      sum.fg += g.fg_made ?? 0;
+      sum.fga += g.fg_attempted ?? 0;
+      sum.three += g.three_made ?? 0;
+      sum.threeA += g.three_attempted ?? 0;
+      sum.ft += g.ft_made ?? 0;
+      sum.fta += g.ft_attempted ?? 0;
+    }
+    const n = limited.length;
+    return {
+      pts: (sum.pts / n).toFixed(1),
+      reb: (sum.reb / n).toFixed(1),
+      ast: (sum.ast / n).toFixed(1),
+      stl: (sum.stl / n).toFixed(1),
+      blk: (sum.blk / n).toFixed(1),
+      min: (sum.min / n).toFixed(1),
+      fgPct: sum.fga > 0 ? ((sum.fg / sum.fga) * 100).toFixed(1) : "—",
+      threePct: sum.threeA > 0 ? ((sum.three / sum.threeA) * 100).toFixed(1) : "—",
+      ftPct: sum.fta > 0 ? ((sum.ft / sum.fta) * 100).toFixed(1) : "—",
+      games: n,
+      logs: limited,
+    };
+  }, [periodLogs, periodForTab, sampleSize]);
+
   // Upcoming opponent
   const { data: nextGame } = useQuery({
     queryKey: ["player-next-game", player?.team],
