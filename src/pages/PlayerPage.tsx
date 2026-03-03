@@ -802,7 +802,7 @@ const PlayerPage = () => {
             </div>
           )}
 
-          {(statsTab === "1h" || statsTab === "1q") && (
+          {periodForTab && (
             periodAvgStats ? (
               <div>
                 <div className="grid grid-cols-4 gap-2 mb-3">
