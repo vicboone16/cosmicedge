@@ -200,17 +200,20 @@ const PlayerPage = () => {
   const periodAvgStats = useMemo(() => {
     if (!periodLogs || periodLogs.length === 0) return null;
 
-    // For 1H: if we have direct "1H" rows, use them; else sum Q1+Q2 per game
+    // For halves: if we have direct rows, use them; else sum quarter rows per game
     let effectiveLogs: any[];
-    if (periodForTab === "1H") {
-      const directHalf = periodLogs.filter((l: any) => l.period === "1H");
+    const isHalf = periodForTab === "1H" || periodForTab === "2H";
+    const halfQuarters = periodForTab === "1H" ? ["Q1", "Q2"] : periodForTab === "2H" ? ["Q3", "Q4"] : [];
+
+    if (isHalf) {
+      const directHalf = periodLogs.filter((l: any) => l.period === periodForTab);
       if (directHalf.length > 0) {
         effectiveLogs = directHalf;
       } else {
-        // Sum Q1+Q2 per game
+        // Sum quarters per game
         const byGame = new Map<string, any>();
         for (const l of periodLogs) {
-          if (l.period !== "Q1" && l.period !== "Q2") continue;
+          if (!halfQuarters.includes(l.period)) continue;
           const gid = l.game_id;
           if (!byGame.has(gid)) {
             byGame.set(gid, { ...l, _count: 1 });
@@ -232,7 +235,6 @@ const PlayerPage = () => {
             existing._count++;
           }
         }
-        // Only include games where we have both Q1 and Q2
         effectiveLogs = Array.from(byGame.values()).filter(g => g._count >= 2);
       }
     } else {
