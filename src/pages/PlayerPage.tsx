@@ -83,7 +83,7 @@ function getPlayerProps(stats: any, element: string) {
   });
 }
 
-type StatsTab = "stats" | "1h" | "1q" | "game_logs";
+type StatsTab = "stats" | "1h" | "2h" | "1q" | "2q" | "3q" | "4q" | "ot1" | "ot2" | "game_logs";
 type SampleSize = 5 | 10 | "season";
 type StatMode = "averages" | "totals";
 type PlayerProfileTab = "overview" | "astrology" | "models";
