@@ -790,11 +790,70 @@ const PlayerPage = () => {
           )}
 
           {(statsTab === "1h" || statsTab === "1q") && (
-            <div className="cosmic-card rounded-xl p-4 text-center">
-              <p className="text-xs text-muted-foreground">
-                {statsTab === "1h" ? "First Half" : "First Quarter"} splits require per-period box scores. Data will populate as games are played.
-              </p>
-            </div>
+            periodAvgStats ? (
+              <div>
+                <div className="grid grid-cols-4 gap-2 mb-3">
+                  {[
+                    { label: "PTS", val: periodAvgStats.pts },
+                    { label: "REB", val: periodAvgStats.reb },
+                    { label: "AST", val: periodAvgStats.ast },
+                    { label: "FG%", val: periodAvgStats.fgPct },
+                    { label: "3P%", val: periodAvgStats.threePct },
+                    { label: "STL", val: periodAvgStats.stl },
+                    { label: "BLK", val: periodAvgStats.blk },
+                    { label: "MIN", val: periodAvgStats.min },
+                  ].map(({ label, val }) => (
+                    <div key={label} className="cosmic-card rounded-xl p-2.5 text-center">
+                      <p className="text-[10px] text-muted-foreground uppercase">{label}</p>
+                      <p className="text-sm font-semibold mt-0.5 tabular-nums">{val ?? "—"}</p>
+                    </div>
+                  ))}
+                  <div className="col-span-4 text-center">
+                    <p className="text-[10px] text-muted-foreground">
+                      {statsTab === "1h" ? "First Half" : "First Quarter"} avg · {periodAvgStats.games} game{periodAvgStats.games !== 1 ? "s" : ""}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Per-game breakdown */}
+                <div className="space-y-1">
+                  <div className="grid grid-cols-8 gap-1 text-[9px] text-muted-foreground font-semibold uppercase tracking-wider px-2 pb-1">
+                    <span className="col-span-2">Date</span>
+                    <span className="text-right">PTS</span>
+                    <span className="text-right">REB</span>
+                    <span className="text-right">AST</span>
+                    <span className="text-right">STL</span>
+                    <span className="text-right">BLK</span>
+                    <span className="text-right">MIN</span>
+                  </div>
+                  {periodAvgStats.logs.map((g: any, i: number) => {
+                    const game = g.games as any;
+                    const dateStr = game?.start_time ? format(new Date(game.start_time), "M/d") : "—";
+                    const matchup = game ? `${game.away_abbr}@${game.home_abbr}` : "";
+                    return (
+                      <div key={g.id || i} className="grid grid-cols-8 gap-1 text-xs px-2 py-1.5 cosmic-card rounded-lg">
+                        <div className="col-span-2">
+                          <p className="text-[10px] font-medium text-foreground">{dateStr}</p>
+                          <p className="text-[9px] text-muted-foreground">{matchup}</p>
+                        </div>
+                        <span className="text-right font-semibold tabular-nums">{g.points ?? "—"}</span>
+                        <span className="text-right tabular-nums">{g.rebounds ?? "—"}</span>
+                        <span className="text-right tabular-nums">{g.assists ?? "—"}</span>
+                        <span className="text-right tabular-nums">{g.steals ?? "—"}</span>
+                        <span className="text-right tabular-nums">{g.blocks ?? "—"}</span>
+                        <span className="text-right tabular-nums text-muted-foreground">{g.minutes ?? "—"}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : (
+              <div className="cosmic-card rounded-xl p-4 text-center">
+                <p className="text-xs text-muted-foreground">
+                  {statsTab === "1h" ? "First Half" : "First Quarter"} splits require per-period box scores. Ingest data via the quarter stats endpoint.
+                </p>
+              </div>
+            )
           )}
 
           {statsTab === "game_logs" && (
