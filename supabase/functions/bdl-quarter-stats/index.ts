@@ -38,9 +38,10 @@ Deno.serve(async (req) => {
     const url = new URL(req.url);
     const targetDate = url.searchParams.get("date") || new Date().toISOString().split("T")[0];
     const filterGameIds = url.searchParams.get("game_ids")?.split(",").map(Number).filter(Boolean) || [];
+    const season = url.searchParams.get("season") || "2025";
 
     // Step 1: Find BDL games for this date
-    const gamesRes = await fetch(`${BDL_BASE}/v1/games?dates[]=${targetDate}&per_page=100`, { headers: hdrs });
+    const gamesRes = await fetch(`${BDL_BASE}/v1/games?dates[]=${targetDate}&seasons[]=${season}&per_page=100`, { headers: hdrs });
     if (!gamesRes.ok) throw new Error(`BDL games API returned ${gamesRes.status}`);
     const gamesData = await gamesRes.json();
     let bdlGames: any[] = gamesData.data || [];
@@ -90,7 +91,7 @@ Deno.serve(async (req) => {
       const periodRows: any[] = [];
 
       while (hasMore) {
-        const statsUrl = `${BDL_BASE}/v1/stats?seasons[]=2025&period=${period}&dates[]=${targetDate}&per_page=100&page=${page}${filterGameIds.length ? "&" + filterGameIds.map(id => `game_ids[]=${id}`).join("&") : ""}`;
+        const statsUrl = `${BDL_BASE}/v1/stats?seasons[]=${season}&period=${period}&dates[]=${targetDate}&per_page=100&page=${page}${filterGameIds.length ? "&" + filterGameIds.map(id => `game_ids[]=${id}`).join("&") : ""}`;
         const res = await fetch(statsUrl, { headers: hdrs });
 
         if (res.status === 429) {
