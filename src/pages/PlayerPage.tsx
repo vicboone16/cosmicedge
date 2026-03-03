@@ -576,12 +576,18 @@ const PlayerPage = () => {
           </div>
 
           {/* Stats tabs */}
-          <div className="flex bg-secondary rounded-lg p-0.5 mb-3">
+          <div className="flex bg-secondary rounded-lg p-0.5 mb-3 overflow-x-auto no-scrollbar">
             {([
-              { key: "stats" as StatsTab, label: "Stats" },
+              { key: "stats" as StatsTab, label: "Full" },
               { key: "1h" as StatsTab, label: "1H" },
-              { key: "1q" as StatsTab, label: "1Q" },
-              { key: "game_logs" as StatsTab, label: "Game Logs" },
+              { key: "2h" as StatsTab, label: "2H" },
+              { key: "1q" as StatsTab, label: "Q1" },
+              { key: "2q" as StatsTab, label: "Q2" },
+              { key: "3q" as StatsTab, label: "Q3" },
+              { key: "4q" as StatsTab, label: "Q4" },
+              { key: "ot1" as StatsTab, label: "OT" },
+              { key: "ot2" as StatsTab, label: "OT2" },
+              { key: "game_logs" as StatsTab, label: "Logs" },
             ]).map(t => (
               <button
                 key={t.key}
