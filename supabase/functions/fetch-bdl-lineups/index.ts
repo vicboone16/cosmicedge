@@ -96,8 +96,8 @@ Deno.serve(async (req) => {
           const isStarter = entry.starter === true;
           const depthOrder = isStarter ? 1 : 2;
 
-          // Upsert into depth_charts
-          await supabase.from("depth_charts").upsert({
+          // Upsert into depth_charts (unique on team_abbr, league, position, depth_order)
+          const { error: dcErr } = await supabase.from("depth_charts").upsert({
             player_name: playerName,
             team_abbr: teamAbbr,
             position,
@@ -105,7 +105,8 @@ Deno.serve(async (req) => {
             league: "NBA",
             external_player_id: String(player.id),
             updated_at: new Date().toISOString(),
-          }, { onConflict: "team_abbr,position,player_name" });
+          }, { onConflict: "team_abbr,league,position,depth_order" });
+          if (dcErr) console.warn(`[fetch-bdl-lineups] upsert error: ${dcErr.message}`);
 
           allLineups.push({
             game: `${game.away_abbr}@${game.home_abbr}`,
