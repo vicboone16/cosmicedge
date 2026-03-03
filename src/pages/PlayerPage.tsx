@@ -863,8 +863,8 @@ const PlayerPage = () => {
             ) : (
               <div className="cosmic-card rounded-xl p-4 text-center">
                 <p className="text-xs text-muted-foreground">
-                  {statsTab === "1h" ? "First Half" : "First Quarter"} splits require per-period box scores. Ingest data via the quarter stats endpoint.
-                </p>
+                   {periodForTab} splits require per-period box scores. Ingest data via the quarter stats endpoint.
+                 </p>
               </div>
             )
           )}
