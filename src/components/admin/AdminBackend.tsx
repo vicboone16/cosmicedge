@@ -127,8 +127,70 @@ export default function AdminBackend() {
     },
   });
 
+  const runBdlQuarterStats = async () => {
+    setBdlQLoading(true);
+    setBdlQLog(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("bdl-quarter-stats", {
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+        body: null,
+      });
+      // functions.invoke doesn't support GET query params well, so use fetch directly
+      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      const url = `https://${projectId}.supabase.co/functions/v1/bdl-quarter-stats?date=${bdlQDate}&season=${bdlQSeason}`;
+      const res = await fetch(url, {
+        headers: {
+          "Authorization": `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+        },
+      });
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error || `HTTP ${res.status}`);
+      setBdlQLog(result);
+      toast.success(`Quarter stats fetched: ${result.stats?.total_rows ?? 0} rows, ${result.stats?.halves_computed ?? 0} halves`);
+    } catch (e: any) {
+      toast.error(e.message || "BDL Quarter Stats failed");
+      setBdlQLog({ error: e.message });
+    } finally {
+      setBdlQLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-4">
+      {/* ── BDL Quarter Stats ── */}
+      <Card className="p-4">
+        <h2 className="text-sm font-semibold text-foreground flex items-center gap-2 mb-1">
+          <BarChart3 className="h-4 w-4 text-primary" />
+          BDL Quarter Stats
+        </h2>
+        <p className="text-xs text-muted-foreground mb-3">
+          Fetch per-quarter player stats from BDL and auto-compute 1H/2H aggregates.
+        </p>
+        <div className="flex gap-2 items-end mb-3 flex-wrap">
+          <div>
+            <label className="text-[10px] text-muted-foreground block mb-1">Date</label>
+            <Input type="date" value={bdlQDate} onChange={e => setBdlQDate(e.target.value)} className="h-8 w-36 text-xs" />
+          </div>
+          <div>
+            <label className="text-[10px] text-muted-foreground block mb-1">Season</label>
+            <Input value={bdlQSeason} onChange={e => setBdlQSeason(e.target.value)} className="h-8 w-20 text-xs" placeholder="2025" />
+          </div>
+          <Button size="sm" onClick={runBdlQuarterStats} disabled={bdlQLoading}>
+            {bdlQLoading ? <Loader2 className="h-3 w-3 animate-spin mr-1.5" /> : <BarChart3 className="h-3 w-3 mr-1.5" />}
+            {bdlQLoading ? "Fetching…" : "Fetch Quarter Stats"}
+          </Button>
+        </div>
+        {bdlQLog && (
+          <div className="bg-secondary/30 rounded-lg p-3 max-h-48 overflow-y-auto">
+            <pre className="text-[10px] text-foreground font-mono whitespace-pre-wrap">
+              {JSON.stringify(bdlQLog, null, 2).slice(0, 3000)}
+            </pre>
+          </div>
+        )}
+      </Card>
+
       <Card className="p-4">
         <h2 className="text-sm font-semibold text-foreground flex items-center gap-2 mb-3">
           <Database className="h-4 w-4 text-primary" />

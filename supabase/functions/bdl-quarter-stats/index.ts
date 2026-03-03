@@ -91,7 +91,7 @@ Deno.serve(async (req) => {
       const periodRows: any[] = [];
 
       while (hasMore) {
-        const statsUrl = `${BDL_BASE}/v1/stats?seasons[]=2025&period=${period}&dates[]=${targetDate}&per_page=100&page=${page}${filterGameIds.length ? "&" + filterGameIds.map(id => `game_ids[]=${id}`).join("&") : ""}`;
+        const statsUrl = `${BDL_BASE}/v1/stats?seasons[]=${season}&period=${period}&dates[]=${targetDate}&per_page=100&page=${page}${filterGameIds.length ? "&" + filterGameIds.map(id => `game_ids[]=${id}`).join("&") : ""}`;
         const res = await fetch(statsUrl, { headers: hdrs });
 
         if (res.status === 429) {
