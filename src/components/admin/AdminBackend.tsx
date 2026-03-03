@@ -4,7 +4,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Database, Server, HardDrive, Wrench, Loader2, Trophy, ShieldCheck, GraduationCap } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Database, Server, HardDrive, Wrench, Loader2, Trophy, ShieldCheck, GraduationCap, BarChart3 } from "lucide-react";
 import { toast } from "sonner";
 
 export default function AdminBackend() {
