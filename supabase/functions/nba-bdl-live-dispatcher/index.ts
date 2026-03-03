@@ -90,6 +90,11 @@ Deno.serve(async (req) => {
       const awayAbbr = g.visitor_team?.abbreviation ?? "";
       const gameDate = g.date ? g.date.split("T")[0] : new Date().toISOString().split("T")[0];
 
+      // BDL reports US-local dates; our DB stores UTC. Widen window by ±1 day to catch mismatches.
+      const d = new Date(gameDate + "T00:00:00Z");
+      const dayBefore = new Date(d.getTime() - 86400000).toISOString().split("T")[0];
+      const dayAfter = new Date(d.getTime() + 86400000).toISOString().split("T")[0];
+
       // Try to find existing internal game
       const { data: existing } = await sb
         .from("games")
@@ -97,12 +102,15 @@ Deno.serve(async (req) => {
         .eq("league", "NBA")
         .eq("home_abbr", homeAbbr)
         .eq("away_abbr", awayAbbr)
-        .gte("start_time", gameDate + "T00:00:00Z")
-        .lte("start_time", gameDate + "T23:59:59Z")
+        .gte("start_time", dayBefore + "T00:00:00Z")
+        .lte("start_time", dayAfter + "T23:59:59Z")
         .maybeSingle();
 
       const gameKey = existing?.id;
-      if (!gameKey) continue;
+      if (!gameKey) {
+        console.warn(`[nba-bdl] No match for ${awayAbbr}@${homeAbbr} date=${gameDate}`);
+        continue;
+      }
 
       gameKeyMap.set(g.id, gameKey);
 
