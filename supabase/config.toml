@@ -104,3 +104,6 @@ verify_jwt = false
 
 [functions.fetch-bdl-lineups]
 verify_jwt = false
+
+[functions.ingest-quarter-player-stats]
+verify_jwt = false
