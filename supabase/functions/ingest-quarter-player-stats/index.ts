@@ -118,12 +118,16 @@ async function handleBdlFormat(supabase: any, body: any, t0: number) {
 
   const result = await upsertRows(supabase, rows);
 
+  // After upserting quarter rows, auto-compute half aggregates if applicable
+  const halfResult = await autoComputeHalves(supabase, rows, periodLabel);
+
   return new Response(
     JSON.stringify({
       success: result.errors.length === 0,
       format: "bdl",
       period: periodLabel,
-      upserted: result.upserted,
+      upserted: result.upserted + halfResult.upserted,
+      halves_computed: halfResult.upserted,
       rejected: rejected.length,
       rejected_details: rejected.length > 0 ? rejected : undefined,
       errors: result.errors.length > 0 ? result.errors : undefined,
