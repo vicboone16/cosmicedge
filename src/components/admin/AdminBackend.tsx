@@ -18,6 +18,10 @@ export default function AdminBackend() {
   const [backfillLeagues, setBackfillLeagues] = useState<string[]>(["NBA", "NFL", "NHL", "MLB"]);
   const [ncaabLoading, setNcaabLoading] = useState<string | null>(null);
   const [ncaabLog, setNcaabLog] = useState<any>(null);
+  const [bdlQDate, setBdlQDate] = useState(new Date().toISOString().split("T")[0]);
+  const [bdlQSeason, setBdlQSeason] = useState("2025");
+  const [bdlQLoading, setBdlQLoading] = useState(false);
+  const [bdlQLog, setBdlQLog] = useState<any>(null);
 
   const toggleLeague = (l: string) =>
     setBackfillLeagues(prev => prev.includes(l) ? prev.filter(x => x !== l) : [...prev, l]);
