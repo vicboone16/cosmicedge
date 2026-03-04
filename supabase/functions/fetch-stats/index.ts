@@ -115,155 +115,267 @@ Deno.serve(async (req) => {
       if (isNBA && bdlHeaders) {
         try {
           console.log(`[fetch-stats] Using BDL for NBA box scores on ${date}`);
+
+          // Try /v1/box_scores first (structured by game)
+          let usedFlatStats = false;
           const resp = await fetch(`${BDL_BASE}/v1/box_scores?date=${date}`, { headers: bdlHeaders });
+
           if (resp.ok) {
             const boxData = await resp.json();
             const games: any[] = boxData.data || [];
-            meta.provider = "balldontlie";
-            meta.box_scores_processed = games.length;
+
+            if (games.length > 0) {
+              meta.provider = "balldontlie";
+              meta.box_scores_processed = games.length;
+
+              let playerStatsCount = 0;
+              let teamStatsCount = 0;
+              let quartersCount = 0;
+
+              for (const g of games) {
+                const homeAbbr = g.home_team?.abbreviation ?? "";
+                const awayAbbr = g.visitor_team?.abbreviation ?? "";
+                const gameDate = g.date ? g.date.split("T")[0] : date;
+
+                const { data: dbGame } = await supabase
+                  .from("games")
+                  .select("id")
+                  .eq("league", "NBA")
+                  .eq("home_abbr", homeAbbr)
+                  .eq("away_abbr", awayAbbr)
+                  .gte("start_time", gameDate + "T00:00:00Z")
+                  .lte("start_time", gameDate + "T23:59:59Z")
+                  .maybeSingle();
+
+                if (!dbGame) continue;
+                const gameKey = dbGame.id;
+
+                const homeScore = g.home_team_score ?? null;
+                const awayScore = g.visitor_team_score ?? null;
+                const status = g.status === "Final" ? "final" : g.period > 0 ? "live" : "scheduled";
+
+                await supabase.from("games").update({
+                  home_score: homeScore,
+                  away_score: awayScore,
+                  status,
+                  updated_at: new Date().toISOString(),
+                }).eq("id", gameKey);
+
+                if (g.home_team_periods && Array.isArray(g.home_team_periods)) {
+                  for (let i = 0; i < g.home_team_periods.length; i++) {
+                    await supabase.from("game_quarters").upsert({
+                      game_id: gameKey,
+                      quarter: i + 1,
+                      home_score: g.home_team_periods[i],
+                      away_score: g.visitor_team_periods?.[i] ?? null,
+                    }, { onConflict: "game_id,quarter" });
+                    quartersCount++;
+                  }
+                }
+
+                const allPlayers = [
+                  ...(g.home_team?.players || []).map((p: any) => ({ ...p, teamAbbr: homeAbbr })),
+                  ...(g.visitor_team?.players || []).map((p: any) => ({ ...p, teamAbbr: awayAbbr })),
+                ];
+
+                for (const p of allPlayers) {
+                  const playerName = `${p.player?.first_name || ""} ${p.player?.last_name || ""}`.trim();
+                  if (!playerName) continue;
+
+                  const { data: internalPlayer } = await supabase
+                    .from("players")
+                    .select("id")
+                    .eq("name", playerName)
+                    .eq("league", "NBA")
+                    .maybeSingle();
+
+                  if (internalPlayer) {
+                    await supabase.from("player_game_stats").upsert({
+                      player_id: internalPlayer.id,
+                      game_id: gameKey,
+                      team_abbr: p.teamAbbr,
+                      period: "full",
+                      points: p.pts ?? 0,
+                      rebounds: p.reb ?? 0,
+                      assists: p.ast ?? 0,
+                      steals: p.stl ?? 0,
+                      blocks: p.blk ?? 0,
+                      turnovers: p.turnover ?? 0,
+                      minutes: p.min ? parseFloat(p.min) : 0,
+                      fg_made: p.fgm ?? 0,
+                      fg_attempted: p.fga ?? 0,
+                      three_made: p.fg3m ?? 0,
+                      three_attempted: p.fg3a ?? 0,
+                      ft_made: p.ftm ?? 0,
+                      ft_attempted: p.fta ?? 0,
+                    }, { onConflict: "player_id,game_id,period" });
+                    playerStatsCount++;
+                  }
+                }
+
+                for (const side of [
+                  { abbr: homeAbbr, players: g.home_team?.players || [], isHome: true },
+                  { abbr: awayAbbr, players: g.visitor_team?.players || [], isHome: false },
+                ]) {
+                  const pts = side.players.reduce((s: number, p: any) => s + (p.pts ?? 0), 0);
+                  const reb = side.players.reduce((s: number, p: any) => s + (p.reb ?? 0), 0);
+                  const ast = side.players.reduce((s: number, p: any) => s + (p.ast ?? 0), 0);
+                  const stl = side.players.reduce((s: number, p: any) => s + (p.stl ?? 0), 0);
+                  const blk = side.players.reduce((s: number, p: any) => s + (p.blk ?? 0), 0);
+                  const tov = side.players.reduce((s: number, p: any) => s + (p.turnover ?? 0), 0);
+                  const fgm = side.players.reduce((s: number, p: any) => s + (p.fgm ?? 0), 0);
+                  const fga = side.players.reduce((s: number, p: any) => s + (p.fga ?? 0), 0);
+                  const fg3m = side.players.reduce((s: number, p: any) => s + (p.fg3m ?? 0), 0);
+                  const fg3a = side.players.reduce((s: number, p: any) => s + (p.fg3a ?? 0), 0);
+                  const ftm = side.players.reduce((s: number, p: any) => s + (p.ftm ?? 0), 0);
+                  const fta = side.players.reduce((s: number, p: any) => s + (p.fta ?? 0), 0);
+                  const oreb = side.players.reduce((s: number, p: any) => s + (p.oreb ?? 0), 0);
+                  const dreb = side.players.reduce((s: number, p: any) => s + (p.dreb ?? 0), 0);
+
+                  await supabase.from("team_game_stats").upsert({
+                    game_id: gameKey,
+                    team_abbr: side.abbr,
+                    is_home: side.isHome,
+                    points: pts, rebounds: reb, assists: ast,
+                    steals: stl, blocks: blk, turnovers: tov,
+                    fg_made: fgm, fg_attempted: fga,
+                    three_made: fg3m, three_attempted: fg3a,
+                    ft_made: ftm, ft_attempted: fta,
+                    off_rebounds: oreb, def_rebounds: dreb,
+                  }, { onConflict: "game_id,team_abbr" });
+                  teamStatsCount++;
+                }
+              }
+
+              meta.player_stats = playerStatsCount;
+              meta.team_stats = teamStatsCount;
+              meta.quarters = quartersCount;
+
+            } else {
+              // box_scores returned empty — try flat /v1/stats endpoint
+              usedFlatStats = true;
+            }
+          } else {
+            console.warn(`[fetch-stats] BDL /v1/box_scores HTTP ${resp.status}, trying /v1/stats`);
+            usedFlatStats = true;
+          }
+
+          // ─── Flat /v1/stats fallback ───
+          if (usedFlatStats) {
+            console.log(`[fetch-stats] Using BDL /v1/stats flat format for ${date}`);
+
+            // Fetch all games for that date first
+            const gamesResp = await fetch(
+              `${BDL_BASE}/v1/games?dates[]=${date}&per_page=100`,
+              { headers: bdlHeaders }
+            );
+            const gamesData = gamesResp.ok ? await gamesResp.json() : { data: [] };
+            const bdlGames: any[] = gamesData.data || [];
 
             let playerStatsCount = 0;
-            let teamStatsCount = 0;
             let quartersCount = 0;
 
-            for (const g of games) {
-              const homeAbbr = g.home_team?.abbreviation ?? "";
-              const awayAbbr = g.visitor_team?.abbreviation ?? "";
-              const gameDate = g.date ? g.date.split("T")[0] : date;
+            for (const bdlGame of bdlGames) {
+              const homeAbbr = bdlGame.home_team?.abbreviation ?? "";
+              const awayAbbr = bdlGame.visitor_team?.abbreviation ?? "";
+              const gameDate2 = bdlGame.date?.split("T")[0] || date;
 
-              // Find internal game
               const { data: dbGame } = await supabase
-                .from("games")
-                .select("id")
-                .eq("league", "NBA")
-                .eq("home_abbr", homeAbbr)
-                .eq("away_abbr", awayAbbr)
-                .gte("start_time", gameDate + "T00:00:00Z")
-                .lte("start_time", gameDate + "T23:59:59Z")
+                .from("games").select("id")
+                .eq("league", "NBA").eq("home_abbr", homeAbbr).eq("away_abbr", awayAbbr)
+                .gte("start_time", gameDate2 + "T00:00:00Z")
+                .lte("start_time", gameDate2 + "T23:59:59Z")
                 .maybeSingle();
-
               if (!dbGame) continue;
               const gameKey = dbGame.id;
 
               // Update scores
-              const homeScore = g.home_team_score ?? null;
-              const awayScore = g.visitor_team_score ?? null;
-              const status = g.status === "Final" ? "final" : g.period > 0 ? "live" : "scheduled";
-
+              const status = bdlGame.status === "Final" ? "final" : (bdlGame.period ?? 0) > 0 ? "live" : "scheduled";
               await supabase.from("games").update({
-                home_score: homeScore,
-                away_score: awayScore,
+                home_score: bdlGame.home_team_score,
+                away_score: bdlGame.visitor_team_score,
                 status,
                 updated_at: new Date().toISOString(),
               }).eq("id", gameKey);
 
-              // Quarter scores
-              if (g.home_team_periods && Array.isArray(g.home_team_periods)) {
-                for (let i = 0; i < g.home_team_periods.length; i++) {
+              // Quarter scores from game object
+              for (const [qKey, qNum] of [["home_q1", 1], ["home_q2", 2], ["home_q3", 3], ["home_q4", 4]] as [string, number][]) {
+                const hKey = `home_q${qNum}`;
+                const vKey = `visitor_q${qNum}`;
+                if (bdlGame[hKey] != null && bdlGame[vKey] != null) {
                   await supabase.from("game_quarters").upsert({
                     game_id: gameKey,
-                    quarter: i + 1,
-                    home_score: g.home_team_periods[i],
-                    away_score: g.visitor_team_periods?.[i] ?? null,
+                    quarter: qNum,
+                    home_score: bdlGame[hKey],
+                    away_score: bdlGame[vKey],
                   }, { onConflict: "game_id,quarter" });
                   quartersCount++;
                 }
               }
 
-              // Player stats
-              const allPlayers = [
-                ...(g.home_team?.players || []).map((p: any) => ({ ...p, teamAbbr: homeAbbr })),
-                ...(g.visitor_team?.players || []).map((p: any) => ({ ...p, teamAbbr: awayAbbr })),
-              ];
+              // Fetch stats for this game
+              const statsResp = await fetch(
+                `${BDL_BASE}/v1/stats?game_ids[]=${bdlGame.id}&per_page=100`,
+                { headers: bdlHeaders }
+              );
+              if (!statsResp.ok) continue;
+              const statsData = await statsResp.json();
+              const statRows: any[] = statsData.data || [];
 
-              for (const p of allPlayers) {
-                const playerName = `${p.player?.first_name || ""} ${p.player?.last_name || ""}`.trim();
+              for (const row of statRows) {
+                const playerName = `${row.player?.first_name || ""} ${row.player?.last_name || ""}`.trim();
                 if (!playerName) continue;
+                const teamAbbr = row.team?.abbreviation || "";
 
-                const { data: internalPlayer } = await supabase
-                  .from("players")
-                  .select("id")
-                  .eq("name", playerName)
-                  .eq("league", "NBA")
+                let { data: pl } = await supabase
+                  .from("players").select("id")
+                  .eq("name", playerName).eq("league", "NBA")
                   .maybeSingle();
 
-                if (internalPlayer) {
-                  await supabase.from("player_game_stats").upsert({
-                    player_id: internalPlayer.id,
-                    game_id: gameKey,
-                    team_abbr: p.teamAbbr,
-                    period: "full",
-                    points: p.pts ?? 0,
-                    rebounds: p.reb ?? 0,
-                    assists: p.ast ?? 0,
-                    steals: p.stl ?? 0,
-                    blocks: p.blk ?? 0,
-                    turnovers: p.turnover ?? 0,
-                    minutes: p.min ? parseFloat(p.min) : 0,
-                    fg_made: p.fgm ?? 0,
-                    fg_attempted: p.fga ?? 0,
-                    three_made: p.fg3m ?? 0,
-                    three_attempted: p.fg3a ?? 0,
-                    ft_made: p.ftm ?? 0,
-                    ft_attempted: p.fta ?? 0,
-                  }, { onConflict: "player_id,game_id,period" });
-                  playerStatsCount++;
+                if (!pl) {
+                  const { data: newPl } = await supabase.from("players").insert({
+                    name: playerName,
+                    team: teamAbbr,
+                    position: row.player?.position || "",
+                    league: "NBA",
+                  }).select("id").single();
+                  pl = newPl;
                 }
-              }
+                if (!pl) continue;
 
-              // Aggregate team stats from player totals
-              for (const side of [
-                { abbr: homeAbbr, players: g.home_team?.players || [], isHome: true },
-                { abbr: awayAbbr, players: g.visitor_team?.players || [], isHome: false },
-              ]) {
-                const pts = side.players.reduce((s: number, p: any) => s + (p.pts ?? 0), 0);
-                const reb = side.players.reduce((s: number, p: any) => s + (p.reb ?? 0), 0);
-                const ast = side.players.reduce((s: number, p: any) => s + (p.ast ?? 0), 0);
-                const stl = side.players.reduce((s: number, p: any) => s + (p.stl ?? 0), 0);
-                const blk = side.players.reduce((s: number, p: any) => s + (p.blk ?? 0), 0);
-                const tov = side.players.reduce((s: number, p: any) => s + (p.turnover ?? 0), 0);
-                const fgm = side.players.reduce((s: number, p: any) => s + (p.fgm ?? 0), 0);
-                const fga = side.players.reduce((s: number, p: any) => s + (p.fga ?? 0), 0);
-                const fg3m = side.players.reduce((s: number, p: any) => s + (p.fg3m ?? 0), 0);
-                const fg3a = side.players.reduce((s: number, p: any) => s + (p.fg3a ?? 0), 0);
-                const ftm = side.players.reduce((s: number, p: any) => s + (p.ftm ?? 0), 0);
-                const fta = side.players.reduce((s: number, p: any) => s + (p.fta ?? 0), 0);
-                const oreb = side.players.reduce((s: number, p: any) => s + (p.oreb ?? 0), 0);
-                const dreb = side.players.reduce((s: number, p: any) => s + (p.dreb ?? 0), 0);
-
-                await supabase.from("team_game_stats").upsert({
+                await supabase.from("player_game_stats").upsert({
+                  player_id: pl.id,
                   game_id: gameKey,
-                  team_abbr: side.abbr,
-                  is_home: side.isHome,
-                  points: pts,
-                  rebounds: reb,
-                  assists: ast,
-                  steals: stl,
-                  blocks: blk,
-                  turnovers: tov,
-                  fg_made: fgm,
-                  fg_attempted: fga,
-                  three_made: fg3m,
-                  three_attempted: fg3a,
-                  ft_made: ftm,
-                  ft_attempted: fta,
-                  off_rebounds: oreb,
-                  def_rebounds: dreb,
-                }, { onConflict: "game_id,team_abbr" });
-                teamStatsCount++;
+                  team_abbr: teamAbbr,
+                  period: "full",
+                  points: row.pts ?? 0,
+                  rebounds: row.reb ?? 0,
+                  assists: row.ast ?? 0,
+                  steals: row.stl ?? 0,
+                  blocks: row.blk ?? 0,
+                  turnovers: row.turnover ?? 0,
+                  minutes: row.min ? parseFloat(row.min) : 0,
+                  fg_made: row.fgm ?? 0,
+                  fg_attempted: row.fga ?? 0,
+                  three_made: row.fg3m ?? 0,
+                  three_attempted: row.fg3a ?? 0,
+                  ft_made: row.ftm ?? 0,
+                  ft_attempted: row.fta ?? 0,
+                  off_rebounds: row.oreb ?? 0,
+                  def_rebounds: row.dreb ?? 0,
+                  plus_minus: row.plus_minus ?? 0,
+                }, { onConflict: "player_id,game_id,period" });
+                playerStatsCount++;
               }
             }
 
+            meta.provider = "balldontlie-flat";
+            meta.games_processed = bdlGames.length;
             meta.player_stats = playerStatsCount;
-            meta.team_stats = teamStatsCount;
             meta.quarters = quartersCount;
-
-          } else {
-            console.warn(`[fetch-stats] BDL box scores HTTP ${resp.status}, falling back to SDIO`);
-            throw new Error("BDL failed");
           }
+
         } catch (e) {
-          // Fall through to SDIO
           console.warn("[fetch-stats] BDL box_scores failed, trying SDIO:", e);
           meta.bdl_error = String(e);
           await fetchBoxScoresSDIO(supabase, league, date, sdioKey, meta);
