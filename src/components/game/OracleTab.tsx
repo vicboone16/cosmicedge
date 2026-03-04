@@ -290,7 +290,7 @@ export function OracleTab({
       )}
 
       {/* ── Live Win Probability Scopes (SERVER-AUTHORITATIVE) ── */}
-      {wpFull && isLive && (
+      {wpFull && isLive && source === "live" && (
         <section>
           <h3 className="text-xs font-semibold text-cosmic-green uppercase tracking-widest mb-3 flex items-center gap-1.5">
             <Activity className="h-3.5 w-3.5" />
