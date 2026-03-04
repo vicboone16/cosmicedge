@@ -16,7 +16,8 @@ function formatOdds(odds: number): string {
   return odds > 0 ? `+${odds}` : `${odds}`;
 }
 
-function formatPct(val: number): string {
+function formatPct(val: number | null | undefined): string {
+  if (val == null || isNaN(val)) return "—";
   return `${(val * 100).toFixed(1)}%`;
 }
 
@@ -279,7 +280,7 @@ export function OracleTab({
           Run: {new Date(display.runTs).toLocaleString()} · Model: oracle_ml {selectedVersion}
         </p>
       )}
-      {source === "live" && isLive && estimatedTimeRemaining != null && (
+      {source === "live" && isLive && estimatedTimeRemaining != null && !isNaN(estimatedTimeRemaining) && (
         <p className="text-[9px] text-cosmic-green text-center flex items-center justify-center gap-1">
           <Activity className="h-3 w-3" />
           Live · Score: {effectiveHomeScore}–{effectiveAwayScore} · ~{Math.floor(estimatedTimeRemaining / 60)}:{String(estimatedTimeRemaining % 60).padStart(2, "0")} remaining
