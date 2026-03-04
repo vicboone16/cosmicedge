@@ -3826,6 +3826,54 @@ export type Database = {
         }
         Relationships: []
       }
+      pregame_odds: {
+        Row: {
+          away_price: number | null
+          bookmaker: string | null
+          frozen_at: string
+          game_id: string
+          home_price: number | null
+          id: string
+          line: number | null
+          market_type: string
+        }
+        Insert: {
+          away_price?: number | null
+          bookmaker?: string | null
+          frozen_at?: string
+          game_id: string
+          home_price?: number | null
+          id?: string
+          line?: number | null
+          market_type: string
+        }
+        Update: {
+          away_price?: number | null
+          bookmaker?: string | null
+          frozen_at?: string
+          game_id?: string
+          home_price?: number | null
+          id?: string
+          line?: number | null
+          market_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pregame_odds_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pregame_odds_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "v_game_live_state"
+            referencedColumns: ["game_id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
