@@ -291,10 +291,10 @@ export function PlayByPlayTab({ gameId, homeAbbr, awayAbbr, league }: PlayByPlay
               const desc = ev.description;
               const teamAbbr = isNBA ? ev.team : ev.team_abbr;
 
-              // Show per-event scores ONLY if present and non-zero; otherwise "—"
-              const evAway = ev.away_score != null && ev.away_score !== 0 ? ev.away_score : null;
-              const evHome = ev.home_score != null && ev.home_score !== 0 ? ev.home_score : null;
-              const hasEventScore = evAway != null && evHome != null;
+              // Show per-event scores if present (0 is a valid score)
+              const evAway = ev.away_score != null ? ev.away_score : null;
+              const evHome = ev.home_score != null ? ev.home_score : null;
+              const hasEventScore = evAway != null || evHome != null;
 
               return (
                 <div
