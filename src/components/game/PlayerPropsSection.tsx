@@ -59,6 +59,7 @@ export function PlayerPropsSection({ gameId }: PlayerPropsProps) {
         .select("*")
         .eq("game_key", gameId)
         .eq("market_type", "over_under")
+        .order("updated_at", { ascending: false })
         .order("player_name", { ascending: true });
 
       if (bdlProps && bdlProps.length > 0) {
