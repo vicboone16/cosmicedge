@@ -151,7 +151,7 @@ async function fetchGamesFromDB(date?: Date, userTimezone?: string): Promise<Gam
     const spreadRows = gameOdds.filter((o) => o.market_type === "spread");
     const totalRows = gameOdds.filter((o) => o.market_type === "total");
 
-    let mlHome = 0, mlAway = 0;
+    let mlHome: number | null = null, mlAway: number | null = null;
     for (const r of mlRows) {
       if (mlHome === 0 && r.home_price != null) mlHome = r.home_price;
       if (mlAway === 0 && r.away_price != null) mlAway = r.away_price;
