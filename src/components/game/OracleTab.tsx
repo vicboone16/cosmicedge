@@ -306,7 +306,7 @@ export function OracleTab({
                   <p className="text-xl font-bold font-display tabular-nums text-foreground">
                     {formatPct(Number(wpFull.wp_home) > 0 ? 1 - Number(wpFull.wp_home) : null)}
                   </p>
-                  <p className="text-[9px] text-muted-foreground tabular-nums">{formatOdds(wpToAmericanOdds(1 - wpFull.wp_home))}</p>
+                  <p className="text-[9px] text-muted-foreground tabular-nums">{formatOdds(wpToAmericanOdds(1 - Number(wpFull.wp_home)))}</p>
                 </div>
                 <div className="text-center">
                   <p className="text-[9px] text-muted-foreground">{wpFull.possessions_remaining ?? "—"} poss left</p>
