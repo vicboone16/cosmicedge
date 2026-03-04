@@ -223,7 +223,7 @@ export default function AdminBdlPaste() {
             player_id: pl.id,
             game_id: gameKey,
             team_abbr: teamAbbr,
-            period: "full",
+            period,
             points: row.pts ?? 0,
             rebounds: row.reb ?? 0,
             assists: row.ast ?? 0,
