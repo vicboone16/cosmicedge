@@ -9,6 +9,9 @@ import { createClient } from "npm:@supabase/supabase-js@2";
  *   ≤5 live games → 1 s between ticks
  *   6+ live games → 1.5 s between ticks
  *
+ * PHASE 0: Pre-resolves ALL BDL game IDs → internal UUIDs before looping.
+ * Populates provider_game_map so the props sidecar can use them immediately.
+ *
  * Budget: ~290-400 BDL req/min (leaves room for props sidecar)
  */
 
@@ -61,7 +64,7 @@ Deno.serve(async (req) => {
   const sb = createClient(SUPABASE_URL, SERVICE_KEY);
   const headers = { Authorization: `Bearer ${BDL_KEY}`, "X-Api-Key": BDL_KEY };
 
-  const totals = { ticks: 0, games: 0, odds: 0, plays: 0, errors: 0 };
+  const totals = { ticks: 0, games: 0, odds: 0, plays: 0, errors: 0, preResolved: 0 };
   const startMs = Date.now();
 
   // ── Pre-seed cosmic_games for today ──
@@ -89,8 +92,9 @@ Deno.serve(async (req) => {
     console.warn("[burst] cosmic_games pre-seed error (non-fatal):", e);
   }
 
-  // ── Name-resolution cache ──
+  // ── Caches (persist across ALL ticks) ──
   const playerCache = new Map<string, string | null>(); // name → player.id
+  const gameKeyMap = new Map<number, string>();          // bdlId → internal UUID
 
   async function resolvePlayer(name: string): Promise<string | null> {
     if (playerCache.has(name)) return playerCache.get(name)!;
@@ -105,7 +109,88 @@ Deno.serve(async (req) => {
     return id;
   }
 
-  // ── BURST LOOP ──
+  /** Resolve a single BDL game to internal UUID, persist to provider_game_map */
+  async function resolveBdlGame(g: any): Promise<string | null> {
+    if (gameKeyMap.has(g.id)) return gameKeyMap.get(g.id)!;
+
+    const homeAbbr = g.home_team?.abbreviation ?? "";
+    const awayAbbr = g.visitor_team?.abbreviation ?? "";
+    const gameDate = g.date ? g.date.split("T")[0] : new Date().toISOString().split("T")[0];
+    const d = new Date(gameDate + "T00:00:00Z");
+    const dayBefore = new Date(d.getTime() - 86400000).toISOString().split("T")[0];
+    const dayAfter = new Date(d.getTime() + 86400000).toISOString().split("T")[0];
+
+    const { data: existing } = await sb
+      .from("games")
+      .select("id")
+      .eq("league", "NBA")
+      .eq("home_abbr", homeAbbr)
+      .eq("away_abbr", awayAbbr)
+      .gte("start_time", dayBefore + "T00:00:00Z")
+      .lte("start_time", dayAfter + "T23:59:59Z")
+      .maybeSingle();
+
+    if (!existing?.id) {
+      console.warn(`[burst] No match for ${awayAbbr}@${homeAbbr} date=${gameDate} bdlId=${g.id}`);
+      return null;
+    }
+
+    gameKeyMap.set(g.id, existing.id);
+
+    // Persist to provider_game_map so props sidecar can use it immediately
+    await sb.from("provider_game_map").upsert({
+      game_key: existing.id, league: "NBA", provider: "balldontlie",
+      provider_game_id: String(g.id), game_date: gameDate,
+      home_team_abbr: homeAbbr, away_team_abbr: awayAbbr,
+      start_time_utc: g.date || null, updated_at: new Date().toISOString(),
+    }, { onConflict: "game_key,provider" });
+
+    return existing.id;
+  }
+
+  // ════════════════════════════════════════════════════════════════════
+  // PHASE 0: Pre-resolve ALL BDL game IDs BEFORE the burst loop
+  // ════════════════════════════════════════════════════════════════════
+
+  // Load existing mappings from DB (covers games resolved by previous invocations)
+  const { data: existingMaps } = await sb
+    .from("provider_game_map")
+    .select("game_key, provider_game_id")
+    .eq("provider", "balldontlie")
+    .eq("league", "NBA");
+
+  if (existingMaps) {
+    for (const m of existingMaps) {
+      const bdlId = parseInt(m.provider_game_id, 10);
+      if (!isNaN(bdlId)) gameKeyMap.set(bdlId, m.game_key);
+    }
+    console.log(`[burst] Loaded ${existingMaps.length} existing BDL→UUID mappings from DB`);
+  }
+
+  // Fetch live games once to discover any new BDL IDs
+  let initialGames: any[] = [];
+  try {
+    const initRes = await fetch(`${BDL_BASE}/v1/box_scores/live`, { headers });
+    if (initRes.ok) {
+      initialGames = (await initRes.json()).data || [];
+    }
+  } catch (e) {
+    console.warn("[burst] initial BDL fetch failed:", e);
+  }
+
+  // Resolve any NEW games not already in the cache
+  for (const g of initialGames) {
+    if (!gameKeyMap.has(g.id)) {
+      const resolved = await resolveBdlGame(g);
+      if (resolved) totals.preResolved++;
+    }
+  }
+
+  console.log(`[burst] Pre-resolved ${totals.preResolved} new games, ${gameKeyMap.size} total mappings`);
+
+  // ════════════════════════════════════════════════════════════════════
+  // BURST LOOP
+  // ════════════════════════════════════════════════════════════════════
   while (Date.now() - startMs < MAX_RUNTIME_MS) {
     totals.ticks++;
 
@@ -129,44 +214,21 @@ Deno.serve(async (req) => {
 
       // Adaptive cadence
       const cadenceMs = games.length <= 5 ? 1000 : 1500;
-
       const liveGameIds: number[] = [];
-      const gameKeyMap = new Map<number, string>();
 
       // 2. Process each game — scores, quarters, snapshots, player stats
       for (const g of games) {
-        const bdlId = String(g.id);
         const homeAbbr = g.home_team?.abbreviation ?? "";
         const awayAbbr = g.visitor_team?.abbreviation ?? "";
-        const gameDate = g.date ? g.date.split("T")[0] : new Date().toISOString().split("T")[0];
 
-        const d = new Date(gameDate + "T00:00:00Z");
-        const dayBefore = new Date(d.getTime() - 86400000).toISOString().split("T")[0];
-        const dayAfter = new Date(d.getTime() + 86400000).toISOString().split("T")[0];
+        // Resolve on-the-fly if a new game appeared mid-loop (rare)
+        const gameKey = gameKeyMap.has(g.id)
+          ? gameKeyMap.get(g.id)!
+          : await resolveBdlGame(g);
 
-        const { data: existing } = await sb
-          .from("games")
-          .select("id")
-          .eq("league", "NBA")
-          .eq("home_abbr", homeAbbr)
-          .eq("away_abbr", awayAbbr)
-          .gte("start_time", dayBefore + "T00:00:00Z")
-          .lte("start_time", dayAfter + "T23:59:59Z")
-          .maybeSingle();
-
-        const gameKey = existing?.id;
         if (!gameKey) continue;
-        gameKeyMap.set(g.id, gameKey);
 
-        // Upsert provider_game_map
-        await sb.from("provider_game_map").upsert({
-          game_key: gameKey, league: "NBA", provider: "balldontlie",
-          provider_game_id: bdlId, game_date: gameDate,
-          home_team_abbr: homeAbbr, away_team_abbr: awayAbbr,
-          start_time_utc: g.date || null, updated_at: new Date().toISOString(),
-        }, { onConflict: "game_key,provider" });
-
-        // Update scores
+        // Update scores (realtime push via publication)
         const homeScore = g.home_team_score ?? null;
         const awayScore = g.visitor_team_score ?? null;
         const status = g.status === "Final" ? "final" : g.period > 0 ? "live" : "scheduled";
@@ -187,7 +249,7 @@ Deno.serve(async (req) => {
           }
         }
 
-        // Game state snapshot (triggers compute_live_wp)
+        // Game state snapshot (triggers compute_live_wp → realtime push)
         const clockSec = parseClockToSeconds(g.time);
         await sb.from("game_state_snapshots").insert({
           game_id: gameKey,
