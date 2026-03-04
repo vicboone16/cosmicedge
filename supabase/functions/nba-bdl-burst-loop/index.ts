@@ -344,20 +344,20 @@ Deno.serve(async (req) => {
               const plays: any[] = (await pbpRes.json()).data || [];
               for (const play of plays) {
                 const eventId = String(play.id || `${play.period}-${play.clock}-${play.description?.slice(0, 20)}`);
-                await sb.from("nba_pbp_events").upsert({
-                  game_key: gk, provider: "balldontlie",
-                  provider_game_id: String(bdlGameId), provider_event_id: eventId,
-                  period: play.period ?? 1,
-                  event_ts_game: play.clock ?? play.time ?? null,
-                  event_type: play.type ?? play.event_type ?? null,
-                  description: play.description ?? null,
-                  team_abbr: play.team?.abbreviation ?? null,
-                  player_id: play.player?.id ? String(play.player.id) : null,
-                  player_name: play.player ? `${play.player.first_name || ""} ${play.player.last_name || ""}`.trim() : null,
-                  home_score: play.home_score ?? null,
-                  away_score: play.visitor_score ?? null,
-                  raw: play,
-                }, { onConflict: "game_key,provider,provider_event_id" });
+                  await sb.from("nba_pbp_events").upsert({
+                    game_key: gk, provider: "balldontlie",
+                    provider_game_id: String(bdlGameId), provider_event_id: eventId,
+                    period: play.period ?? 1,
+                    event_ts_game: play.clock ?? play.time ?? null,
+                    event_type: play.type ?? play.event_type ?? null,
+                    description: play.text ?? play.description ?? null,
+                    team_abbr: play.team?.abbreviation ?? null,
+                    player_id: play.player?.id ? String(play.player.id) : null,
+                    player_name: play.player ? `${play.player.first_name || ""} ${play.player.last_name || ""}`.trim() : null,
+                    home_score: play.home_score ?? null,
+                    away_score: play.away_score ?? null,
+                    raw: play,
+                  }, { onConflict: "game_key,provider,provider_event_id" });
                 totals.plays++;
               }
             } else if (pbpRes.status === 429) {

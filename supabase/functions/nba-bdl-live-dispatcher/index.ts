@@ -324,12 +324,12 @@ Deno.serve(async (req) => {
                 period: play.period ?? 1,
                 event_ts_game: play.clock ?? play.time ?? null,
                 event_type: play.type ?? play.event_type ?? null,
-                description: play.description ?? null,
+                description: play.text ?? play.description ?? null,
                 team_abbr: play.team?.abbreviation ?? null,
                 player_id: play.player?.id ? String(play.player.id) : null,
                 player_name: play.player ? `${play.player.first_name || ""} ${play.player.last_name || ""}`.trim() : null,
                 home_score: play.home_score ?? null,
-                away_score: play.visitor_score ?? null,
+                away_score: play.away_score ?? null,
                 raw: play,
               }, { onConflict: "game_key,provider,provider_event_id" });
               stats.plays++;

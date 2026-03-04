@@ -167,6 +167,9 @@ export function PlayByPlayTab({ gameId, homeAbbr, awayAbbr, league }: PlayByPlay
     team: ev.team_abbr,
     remaining_time: ev.event_ts_game,
     player: ev.player_name,
+    description: ev.description || ev.raw?.text || ev.event_type || null,
+    away_score: ev.away_score ?? ev.raw?.away_score ?? null,
+    home_score: ev.home_score ?? ev.raw?.home_score ?? null,
   }));
 
   const normalizedLivePbp = (livePbpEvents || []).map((ev: any) => ({
