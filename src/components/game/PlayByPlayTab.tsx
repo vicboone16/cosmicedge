@@ -278,6 +278,10 @@ export function PlayByPlayTab({ gameId, homeAbbr, awayAbbr, league }: PlayByPlay
                   : league === "MLB" ? `Inning ${period}`
                   : period <= 4 ? `${period === 1 ? "1st" : period === 2 ? "2nd" : period === 3 ? "3rd" : "4th"} Quarter` : `Overtime ${period - 4}`}
               </span>
+              <div className="flex items-center gap-3 text-[10px] font-bold text-muted-foreground">
+                <span>{awayAbbr}</span>
+                <span>{homeAbbr}</span>
+              </div>
             </div>
 
             {periodEvents.map((ev: any, i: number) => {
