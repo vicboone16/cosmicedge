@@ -90,12 +90,13 @@ export function OracleTab({
     }
     if (qNum < 1) return Math.round(sportGameSec / 2);
 
-    // Parse clock "MM:SS", "M:SS", or bare minutes "2"
+    // Parse clock "MM:SS", "M:SS", "Q4 10:40", or bare minutes "2"
     let clockSec = periodLengthSec / 2; // default to mid-period
     if (latestSnapshot.clock) {
-      const raw = latestSnapshot.clock.trim();
+      // Strip leading period prefixes like "Q4 ", "P2 ", "OT1 " etc.
+      let raw = latestSnapshot.clock.trim().replace(/^(Q\d+|P\d+|OT\d*)\s+/i, "");
       const parts = raw.split(":");
-      if (parts.length === 2) {
+      if (parts.length === 2 && !isNaN(parseInt(parts[0])) && !isNaN(parseInt(parts[1]))) {
         clockSec = parseInt(parts[0]) * 60 + parseInt(parts[1]);
       } else if (parts.length === 1 && /^\d+$/.test(raw)) {
         // Bare number — treat as minutes remaining in the period
@@ -275,6 +276,13 @@ export function OracleTab({
       </div>
 
       {/* Source context info */}
+      {source === "stored" && !selectedStored && (
+        <div className="cosmic-card rounded-xl p-6 text-center">
+          <Database className="h-8 w-8 mx-auto text-muted-foreground/50 mb-2" />
+          <p className="text-sm font-medium text-muted-foreground">No StellarLine prediction available</p>
+          <p className="text-[10px] text-muted-foreground/70 mt-1">The oracle_ml model hasn't run for this game yet. Showing Instant projection below.</p>
+        </div>
+      )}
       {source === "stored" && display.runTs && (
         <p className="text-[9px] text-muted-foreground text-center">
           Run: {new Date(display.runTs).toLocaleString()} · Model: oracle_ml {selectedVersion}
@@ -289,7 +297,7 @@ export function OracleTab({
       )}
 
       {/* ── Live Win Probability Scopes (SERVER-AUTHORITATIVE) ── */}
-      {wpFull && isLive && (
+      {wpFull && isLive && source === "live" && (
         <section>
           <h3 className="text-xs font-semibold text-cosmic-green uppercase tracking-widest mb-3 flex items-center gap-1.5">
             <Activity className="h-3.5 w-3.5" />
@@ -303,24 +311,24 @@ export function OracleTab({
                 <div className="text-center">
                   <p className="text-[10px] font-bold text-muted-foreground uppercase">{awayAbbr}</p>
                   <p className="text-xl font-bold font-display tabular-nums text-foreground">
-                    {formatPct(1 - wpFull.wp_home)}
+                    {formatPct(Number(wpFull.wp_home) > 0 ? 1 - Number(wpFull.wp_home) : null)}
                   </p>
-                  <p className="text-[9px] text-muted-foreground tabular-nums">{formatOdds(wpToAmericanOdds(1 - wpFull.wp_home))}</p>
+                  <p className="text-[9px] text-muted-foreground tabular-nums">{formatOdds(wpToAmericanOdds(1 - Number(wpFull.wp_home)))}</p>
                 </div>
                 <div className="text-center">
-                  <p className="text-[9px] text-muted-foreground">{wpFull.possessions_remaining ?? "—"} poss left</p>
+                  <p className="text-[9px] text-muted-foreground">{wpFull.possessions_remaining != null && !isNaN(Number(wpFull.possessions_remaining)) ? `${wpFull.possessions_remaining} poss left` : "—"}</p>
                 </div>
                 <div className="text-center">
                   <p className="text-[10px] font-bold text-muted-foreground uppercase">{homeAbbr}</p>
                   <p className="text-xl font-bold font-display tabular-nums text-foreground">
-                    {formatPct(wpFull.wp_home)}
+                    {formatPct(Number(wpFull.wp_home))}
                   </p>
                   <p className="text-[9px] text-muted-foreground tabular-nums">{formatOdds(wpFull.fair_ml_home ?? 0)}</p>
                 </div>
               </div>
               <div className="h-3 rounded-full overflow-hidden flex bg-secondary">
-                <div className="bg-destructive/70 transition-all duration-700" style={{ width: `${(1 - wpFull.wp_home) * 100}%` }} />
-                <div className="bg-cosmic-green transition-all duration-700" style={{ width: `${wpFull.wp_home * 100}%` }} />
+                <div className="bg-destructive/70 transition-all duration-700" style={{ width: `${(1 - Number(wpFull.wp_home)) * 100}%` }} />
+                <div className="bg-cosmic-green transition-all duration-700" style={{ width: `${Number(wpFull.wp_home) * 100}%` }} />
               </div>
             </div>
 
@@ -335,19 +343,19 @@ export function OracleTab({
                 <div className="flex items-center justify-between mb-1">
                   <div className="text-center">
                     <p className="text-[9px] text-muted-foreground">{awayAbbr}</p>
-                    <p className="text-sm font-bold tabular-nums">{formatPct(1 - wpHalf.wp_home)}</p>
+                    <p className="text-sm font-bold tabular-nums">{formatPct(1 - Number(wpHalf.wp_home))}</p>
                   </div>
                   <div className="text-center">
                     <p className="text-[9px] text-muted-foreground">{homeAbbr}</p>
-                    <p className="text-sm font-bold tabular-nums">{formatPct(wpHalf.wp_home)}</p>
+                    <p className="text-sm font-bold tabular-nums">{formatPct(Number(wpHalf.wp_home))}</p>
                   </div>
                 </div>
                 <div className="h-1.5 rounded-full overflow-hidden flex bg-secondary">
-                  <div className="bg-destructive/60" style={{ width: `${(1 - wpHalf.wp_home) * 100}%` }} />
-                  <div className="bg-primary" style={{ width: `${wpHalf.wp_home * 100}%` }} />
+                  <div className="bg-destructive/60" style={{ width: `${(1 - Number(wpHalf.wp_home)) * 100}%` }} />
+                  <div className="bg-primary" style={{ width: `${Number(wpHalf.wp_home) * 100}%` }} />
                 </div>
                 <div className="flex justify-between mt-1 text-[8px] text-muted-foreground tabular-nums">
-                  <span>{formatOdds(wpToAmericanOdds(1 - wpHalf.wp_home))}</span>
+                  <span>{formatOdds(wpToAmericanOdds(1 - Number(wpHalf.wp_home)))}</span>
                   <span>{formatOdds(wpHalf.fair_ml_home ?? 0)}</span>
                 </div>
               </div>
@@ -362,19 +370,19 @@ export function OracleTab({
                 <div className="flex items-center justify-between mb-1">
                   <div className="text-center">
                     <p className="text-[9px] text-muted-foreground">{awayAbbr}</p>
-                    <p className="text-sm font-bold tabular-nums">{formatPct(1 - wpQtr.wp_home)}</p>
+                    <p className="text-sm font-bold tabular-nums">{formatPct(1 - Number(wpQtr.wp_home))}</p>
                   </div>
                   <div className="text-center">
                     <p className="text-[9px] text-muted-foreground">{homeAbbr}</p>
-                    <p className="text-sm font-bold tabular-nums">{formatPct(wpQtr.wp_home)}</p>
+                    <p className="text-sm font-bold tabular-nums">{formatPct(Number(wpQtr.wp_home))}</p>
                   </div>
                 </div>
                 <div className="h-1.5 rounded-full overflow-hidden flex bg-secondary">
-                  <div className="bg-destructive/60" style={{ width: `${(1 - wpQtr.wp_home) * 100}%` }} />
-                  <div className="bg-accent" style={{ width: `${wpQtr.wp_home * 100}%` }} />
+                  <div className="bg-destructive/60" style={{ width: `${(1 - Number(wpQtr.wp_home)) * 100}%` }} />
+                  <div className="bg-accent" style={{ width: `${Number(wpQtr.wp_home) * 100}%` }} />
                 </div>
                 <div className="flex justify-between mt-1 text-[8px] text-muted-foreground tabular-nums">
-                  <span>{formatOdds(wpToAmericanOdds(1 - wpQtr.wp_home))}</span>
+                  <span>{formatOdds(wpToAmericanOdds(1 - Number(wpQtr.wp_home)))}</span>
                   <span>{formatOdds(wpQtr.fair_ml_home ?? 0)}</span>
                 </div>
               </div>
@@ -385,7 +393,7 @@ export function OracleTab({
       )}
 
       {/* ── Live Projected Final Score (during active games) ── */}
-      {isLive && estimatedTimeRemaining != null && display.muHome > 0 && (
+      {isLive && source === "live" && estimatedTimeRemaining != null && !isNaN(estimatedTimeRemaining) && display.muHome > 0 && (
         <section>
           <h3 className="text-xs font-semibold text-cosmic-green uppercase tracking-widest mb-3 flex items-center gap-1.5">
             <Activity className="h-3.5 w-3.5" />
