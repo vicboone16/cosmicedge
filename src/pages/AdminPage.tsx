@@ -1,4 +1,5 @@
 import { useIsAdmin } from "@/hooks/use-admin";
+import AdminBdlPaste from "@/components/admin/AdminBdlPaste";
 import { Shield } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import AdminImportContent from "@/components/admin/AdminImportContent";
@@ -91,7 +92,10 @@ export default function AdminPage() {
           </TabsContent>
 
           <TabsContent value="backend" className="mt-4 space-y-6">
-            <AdminModelRunner />
+            <AdminBdlPaste />
+            <div className="border-t border-border/50 pt-4">
+              <AdminModelRunner />
+            </div>
             <div className="border-t border-border/50 pt-4">
               <AdminBackend />
             </div>
