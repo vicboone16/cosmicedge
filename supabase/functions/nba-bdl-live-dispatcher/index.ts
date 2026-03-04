@@ -57,7 +57,40 @@ Deno.serve(async (req) => {
     const sb = createClient(SUPABASE_URL, SERVICE_KEY);
 
     const headers = { Authorization: `Bearer ${BDL_KEY}`, "X-Api-Key": BDL_KEY };
-    const stats = { games: 0, odds: 0, plays: 0, props: 0, errors: 0 };
+    const stats = { games: 0, odds: 0, plays: 0, props: 0, cosmic_seeded: 0, errors: 0 };
+
+    // ── 0. Pre-seed cosmic_games for today's scheduled NBA games ──
+    try {
+      const today = new Date().toISOString().split("T")[0];
+      const { data: todayGames } = await sb
+        .from("games")
+        .select("id, home_abbr, away_abbr, start_time, status")
+        .eq("league", "NBA")
+        .gte("start_time", today + "T00:00:00Z")
+        .lte("start_time", today + "T23:59:59Z");
+
+      if (todayGames && todayGames.length > 0) {
+        for (const g of todayGames) {
+          const gameKey = `NBA_${today}_${g.away_abbr}_${g.home_abbr}`;
+          const { error } = await sb.from("cosmic_games").upsert({
+            game_key: gameKey,
+            league: "NBA",
+            game_date: today,
+            home_team_abbr: g.home_abbr,
+            away_team_abbr: g.away_abbr,
+            start_time_utc: g.start_time,
+            season: "2025-26",
+            status: g.status || "scheduled",
+          }, { onConflict: "game_key" });
+          if (!error) stats.cosmic_seeded++;
+        }
+        if (stats.cosmic_seeded > 0) {
+          console.log(`[nba-bdl] Pre-seeded ${stats.cosmic_seeded} cosmic_games for ${today}`);
+        }
+      }
+    } catch (e) {
+      console.warn("[nba-bdl] cosmic_games pre-seed error (non-fatal):", e);
+    }
 
     // ── 1. Fetch live box scores ──
     const boxRes = await fetch(`${BDL_BASE}/v1/box_scores/live`, { headers });
