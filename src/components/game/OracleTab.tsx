@@ -348,7 +348,7 @@ export function OracleTab({
                   <div className="bg-primary" style={{ width: `${Number(wpHalf.wp_home) * 100}%` }} />
                 </div>
                 <div className="flex justify-between mt-1 text-[8px] text-muted-foreground tabular-nums">
-                  <span>{formatOdds(wpToAmericanOdds(1 - wpHalf.wp_home))}</span>
+                  <span>{formatOdds(wpToAmericanOdds(1 - Number(wpHalf.wp_home)))}</span>
                   <span>{formatOdds(wpHalf.fair_ml_home ?? 0)}</span>
                 </div>
               </div>
