@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/hooks/use-toast";
 import { Upload, Loader2, FileJson, CheckCircle } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 /**
  * JSON Upload for quarter/half period averages.
@@ -36,12 +37,24 @@ import { Upload, Loader2, FileJson, CheckCircle } from "lucide-react";
 
 const VALID_PERIODS = new Set(["Q1", "Q2", "Q3", "Q4", "1H", "2H", "OT"]);
 
+const PERIOD_OPTIONS = [
+  { value: "auto", label: "Auto (from JSON)" },
+  { value: "Q1", label: "Q1" },
+  { value: "Q2", label: "Q2" },
+  { value: "Q3", label: "Q3" },
+  { value: "Q4", label: "Q4" },
+  { value: "1H", label: "1st Half" },
+  { value: "2H", label: "2nd Half" },
+  { value: "OT", label: "OT" },
+];
+
 export default function AdminPeriodAveragesEditor() {
   const [jsonText, setJsonText] = useState("");
   const [uploading, setUploading] = useState(false);
   const [result, setResult] = useState<{ upserted: number; errors: string[] } | null>(null);
   const [league] = useState("NBA");
   const [season] = useState(2025);
+  const [periodOverride, setPeriodOverride] = useState("auto");
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -105,11 +118,15 @@ export default function AdminPeriodAveragesEditor() {
       for (let i = 0; i < rows.length; i++) {
         const row = rows[i];
         const team = row.team_abbr?.toUpperCase();
-        let period = String(row.period ?? "").toUpperCase();
-
-        // Auto-map numeric periods
-        if (NUMERIC_PERIOD_MAP[row.period?.toString()]) {
-          period = NUMERIC_PERIOD_MAP[row.period.toString()];
+        let period: string;
+        if (periodOverride !== "auto") {
+          period = periodOverride;
+        } else {
+          period = String(row.period ?? "").toUpperCase();
+          // Auto-map numeric periods
+          if (NUMERIC_PERIOD_MAP[row.period?.toString()]) {
+            period = NUMERIC_PERIOD_MAP[row.period.toString()];
+          }
         }
 
         // Skip "full" period — not relevant for period averages
@@ -186,13 +203,23 @@ export default function AdminPeriodAveragesEditor() {
 
       {/* JSON Input */}
       <div className="space-y-2">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <label className="relative cursor-pointer">
             <input type="file" accept=".json" onChange={handleFileUpload} className="sr-only" />
             <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-secondary text-xs font-medium text-foreground hover:bg-secondary/80 transition-colors">
               <FileJson className="h-3.5 w-3.5" /> Upload JSON file
             </span>
           </label>
+          <Select value={periodOverride} onValueChange={setPeriodOverride}>
+            <SelectTrigger className="w-40 h-8 text-xs">
+              <SelectValue placeholder="Period" />
+            </SelectTrigger>
+            <SelectContent>
+              {PERIOD_OPTIONS.map(o => (
+                <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <span className="text-[10px] text-muted-foreground">or paste below</span>
         </div>
 
