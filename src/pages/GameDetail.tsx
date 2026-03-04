@@ -639,9 +639,11 @@ const GameDetail = () => {
 
             {gameSubTab === "gamelines" && (
               <>
-                {/* Markets */}
+                {/* Markets (Current) */}
                 <section>
-                  <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-3">Markets</h3>
+                  <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-3">
+                    {(game.status === "live" || game.status === "in_progress") ? "Live Lines" : "Markets"}
+                  </h3>
                   <div className="grid grid-cols-3 gap-3">
                     <div className="cosmic-card rounded-xl p-3 text-center">
                       <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Moneyline</span>
@@ -666,6 +668,9 @@ const GameDetail = () => {
                     </div>
                   </div>
                 </section>
+
+                {/* Pregame Odds (frozen at tipoff) */}
+                <PregameOddsSection gameId={game.id} homeAbbr={game.home_abbr} awayAbbr={game.away_abbr} status={game.status} />
 
                 {/* Live Odds Tracker (BDL primary, SGO fallback) */}
                 <LiveOddsTracker gameId={game.id} homeAbbr={game.home_abbr} awayAbbr={game.away_abbr} league={game.league} />

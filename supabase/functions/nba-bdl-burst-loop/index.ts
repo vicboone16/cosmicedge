@@ -233,6 +233,43 @@ Deno.serve(async (req) => {
         const awayScore = g.visitor_team_score ?? null;
         const status = g.status === "Final" ? "final" : g.period > 0 ? "live" : "scheduled";
 
+        // ── Freeze pregame odds at tipoff ──
+        // On first tick where game becomes live, snapshot current odds into pregame_odds
+        if (status === "live" && totals.ticks === 1) {
+          try {
+            const { data: existingFreeze } = await sb.from("pregame_odds")
+              .select("id").eq("game_id", gameKey).limit(1);
+            if (!existingFreeze?.length) {
+              // Grab earliest odds_snapshots as pregame
+              const { data: preOdds } = await sb.from("odds_snapshots")
+                .select("market_type, home_price, away_price, line, bookmaker")
+                .eq("game_id", gameKey)
+                .order("captured_at", { ascending: true })
+                .limit(50);
+              if (preOdds?.length) {
+                const seen = new Set<string>();
+                const rows = preOdds.filter(o => {
+                  const k = `${o.market_type}_${o.bookmaker || 'consensus'}`;
+                  if (seen.has(k)) return false;
+                  seen.add(k);
+                  return true;
+                }).map(o => ({
+                  game_id: gameKey,
+                  market_type: o.market_type,
+                  home_price: o.home_price,
+                  away_price: o.away_price,
+                  line: o.line,
+                  bookmaker: o.bookmaker || "consensus",
+                }));
+                await sb.from("pregame_odds").upsert(rows, { onConflict: "game_id,market_type,bookmaker" });
+                console.log(`[burst] Froze ${rows.length} pregame odds for game ${gameKey}`);
+              }
+            }
+          } catch (e) {
+            console.warn(`[burst] pregame freeze error for ${gameKey}:`, e);
+          }
+        }
+
         await sb.from("games").update({
           home_score: homeScore, away_score: awayScore,
           status, updated_at: new Date().toISOString(),
