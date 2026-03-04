@@ -162,7 +162,10 @@ Deno.serve(async (req) => {
               // BDL v2 flat format
               if (prop.prop_type && prop.line_value != null) {
                 const playerId = prop.player_id ? String(prop.player_id) : (prop.player?.id ? String(prop.player.id) : "unknown");
-                const playerName = prop.player_name || (prop.player ? `${prop.player.first_name || ""} ${prop.player.last_name || ""}`.trim() : null);
+                const playerName = prop.player_name
+                  || (prop.player ? `${prop.player.first_name || ""} ${prop.player.last_name || ""}`.trim() : null)
+                  || bdlNameById.get(playerId)
+                  || (playerId !== "unknown" ? `Player ${playerId}` : null);
                 const rawKey = String(prop.prop_type);
                 const propType = bdlPropToMarketKey(rawKey);
                 const line = Number(prop.line_value);
