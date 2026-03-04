@@ -309,7 +309,7 @@ export function OracleTab({
                   <p className="text-[9px] text-muted-foreground tabular-nums">{formatOdds(wpToAmericanOdds(1 - Number(wpFull.wp_home)))}</p>
                 </div>
                 <div className="text-center">
-                  <p className="text-[9px] text-muted-foreground">{wpFull.possessions_remaining ?? "—"} poss left</p>
+                  <p className="text-[9px] text-muted-foreground">{wpFull.possessions_remaining != null && !isNaN(Number(wpFull.possessions_remaining)) ? `${wpFull.possessions_remaining} poss left` : "—"}</p>
                 </div>
                 <div className="text-center">
                   <p className="text-[10px] font-bold text-muted-foreground uppercase">{homeAbbr}</p>
