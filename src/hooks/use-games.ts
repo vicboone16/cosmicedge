@@ -7,9 +7,9 @@ export type OddsSnapshotRow = Tables<"odds_snapshots">;
 
 export interface GameWithOdds extends GameRow {
   odds: {
-    moneyline: { home: number; away: number };
-    spread: { home: number; away: number; line: number };
-    total: { over: number; under: number; line: number };
+    moneyline: { home: number | null; away: number | null };
+    spread: { home: number | null; away: number | null; line: number | null };
+    total: { over: number | null; under: number | null; line: number | null };
   };
 }
 
@@ -151,11 +151,11 @@ async function fetchGamesFromDB(date?: Date, userTimezone?: string): Promise<Gam
     const spreadRows = gameOdds.filter((o) => o.market_type === "spread");
     const totalRows = gameOdds.filter((o) => o.market_type === "total");
 
-    let mlHome = 0, mlAway = 0;
+    let mlHome: number | null = null, mlAway: number | null = null;
     for (const r of mlRows) {
-      if (mlHome === 0 && r.home_price != null) mlHome = r.home_price;
-      if (mlAway === 0 && r.away_price != null) mlAway = r.away_price;
-      if (mlHome !== 0 && mlAway !== 0) break;
+      if (mlHome == null && r.home_price != null) mlHome = r.home_price;
+      if (mlAway == null && r.away_price != null) mlAway = r.away_price;
+      if (mlHome != null && mlAway != null) break;
     }
 
     let spHome: number | null = null;
@@ -185,8 +185,8 @@ async function fetchGamesFromDB(date?: Date, userTimezone?: string): Promise<Gam
       const bdlSp = bdl.find((o) => o.market === "spreads" || o.market === "spread");
       const bdlTot = bdl.find((o) => o.market === "totals" || o.market === "total");
 
-      if (mlHome === 0 && bdlMl?.home_odds != null) mlHome = bdlMl.home_odds;
-      if (mlAway === 0 && bdlMl?.away_odds != null) mlAway = bdlMl.away_odds;
+      if (mlHome == null && bdlMl?.home_odds != null) mlHome = bdlMl.home_odds;
+      if (mlAway == null && bdlMl?.away_odds != null) mlAway = bdlMl.away_odds;
 
       if (spHome == null && bdlSp?.home_odds != null) spHome = bdlSp.home_odds;
       if (spAway == null && bdlSp?.away_odds != null) spAway = bdlSp.away_odds;
@@ -204,8 +204,8 @@ async function fetchGamesFromDB(date?: Date, userTimezone?: string): Promise<Gam
       updated_at: "",
       odds: {
         moneyline: { home: mlHome, away: mlAway },
-        spread: { home: spHome ?? -110, away: spAway ?? -110, line: spLine ?? 0 },
-        total: { over: totOver ?? -110, under: totUnder ?? -110, line: totLine ?? 0 },
+        spread: { home: spHome, away: spAway, line: spLine },
+        total: { over: totOver, under: totUnder, line: totLine },
       },
     };
   });

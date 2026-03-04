@@ -29,8 +29,8 @@ import { PeriodScoresTicker } from "@/components/game/PeriodScoresTicker";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { AlertSetupDialog } from "@/components/live/AlertSetupDialog";
 
-function formatOdds(odds: number): string {
-  if (!odds) return "—";
+function formatOdds(odds: number | null): string {
+  if (odds == null || odds === 0) return "—";
   return odds > 0 ? `+${odds}` : `${odds}`;
 }
 
@@ -373,22 +373,26 @@ const GameDetail = () => {
       const bdlSpread = bdlRows?.find((o) => o.market === "spreads" || o.market === "spread");
       const bdlTotal = bdlRows?.find((o) => o.market === "totals" || o.market === "total");
 
+      const hasMoneyline = !!(ml || bdlMl);
+      const hasSpread = !!(spread || bdlSpread);
+      const hasTotal = !!(total || bdlTotal);
+
       return {
         ...data,
         odds: {
           moneyline: {
-            home: ml?.home_price ?? bdlMl?.home_odds ?? 0,
-            away: ml?.away_price ?? bdlMl?.away_odds ?? 0,
+            home: hasMoneyline ? (ml?.home_price ?? bdlMl?.home_odds ?? null) : null,
+            away: hasMoneyline ? (ml?.away_price ?? bdlMl?.away_odds ?? null) : null,
           },
           spread: {
-            home: spread?.home_price ?? bdlSpread?.home_odds ?? -110,
-            away: spread?.away_price ?? bdlSpread?.away_odds ?? -110,
-            line: spread?.line ?? bdlSpread?.home_line ?? 0,
+            home: hasSpread ? (spread?.home_price ?? bdlSpread?.home_odds ?? null) : null,
+            away: hasSpread ? (spread?.away_price ?? bdlSpread?.away_odds ?? null) : null,
+            line: hasSpread ? (spread?.line ?? bdlSpread?.home_line ?? null) : null,
           },
           total: {
-            over: total?.home_price ?? bdlTotal?.over_odds ?? -110,
-            under: total?.away_price ?? bdlTotal?.under_odds ?? -110,
-            line: total?.line ?? bdlTotal?.total ?? 0,
+            over: hasTotal ? (total?.home_price ?? bdlTotal?.over_odds ?? null) : null,
+            under: hasTotal ? (total?.away_price ?? bdlTotal?.under_odds ?? null) : null,
+            line: hasTotal ? (total?.line ?? bdlTotal?.total ?? null) : null,
           },
         },
       };
