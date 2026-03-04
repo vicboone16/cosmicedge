@@ -101,8 +101,8 @@ export function PlayerPropsSection({ gameId }: PlayerPropsProps) {
       return [] as PropRow[];
     },
     refetchInterval: (query) => {
-      const d = query.state.data;
-      return (!d || d.length === 0) ? 60_000 : false;
+      const rows = (query.state.data as PropRow[] | undefined)?.length ?? 0;
+      return rows === 0 ? 30_000 : 15_000;
     },
   });
 
