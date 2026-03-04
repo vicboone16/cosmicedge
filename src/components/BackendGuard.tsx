@@ -1,5 +1,6 @@
 /**
  * BackendGuard — pass-through wrapper (guards removed).
+ * v2 — force redeploy
  */
 import type { ReactNode } from "react";
 
