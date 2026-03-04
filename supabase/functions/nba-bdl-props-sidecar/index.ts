@@ -135,6 +135,28 @@ Deno.serve(async (req) => {
             const liveRows: any[] = [];
             const archiveRows: any[] = [];
             const flatAggregates = new Map<string, any>();
+            const bdlNameById = new Map<string, string>();
+
+            // Resolve missing player names from our players table using external_id
+            const unresolvedIds = [...new Set(
+              propItems
+                .map((p: any) => p?.player_id ? String(p.player_id) : (p?.player?.id ? String(p.player.id) : null))
+                .filter((id: string | null) => !!id)
+            )] as string[];
+
+            if (unresolvedIds.length > 0) {
+              const { data: playerRows } = await sb
+                .from("players")
+                .select("external_id,name")
+                .eq("league", "NBA")
+                .in("external_id", unresolvedIds);
+
+              for (const row of (playerRows || [])) {
+                if (row.external_id && row.name) {
+                  bdlNameById.set(String(row.external_id), row.name);
+                }
+              }
+            }
 
             for (const prop of propItems) {
               // BDL v2 flat format
