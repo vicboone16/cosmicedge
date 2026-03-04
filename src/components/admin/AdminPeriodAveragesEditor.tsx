@@ -95,14 +95,29 @@ export default function AdminPeriodAveragesEditor() {
 
       const upsertRows: any[] = [];
 
+      // Map numeric periods from BDL format to named periods
+      const NUMERIC_PERIOD_MAP: Record<string, string> = {
+        "0": "full", "1": "Q1", "2": "Q2", "3": "Q3", "4": "Q4",
+        "5": "OT", "6": "OT2", "7": "OT3", "8": "OT4",
+        "9": "1H", "10": "2H",
+      };
+
       for (let i = 0; i < rows.length; i++) {
         const row = rows[i];
         const team = row.team_abbr?.toUpperCase();
-        const period = row.period?.toUpperCase();
+        let period = String(row.period ?? "").toUpperCase();
+
+        // Auto-map numeric periods
+        if (NUMERIC_PERIOD_MAP[row.period?.toString()]) {
+          period = NUMERIC_PERIOD_MAP[row.period.toString()];
+        }
+
+        // Skip "full" period — not relevant for period averages
+        if (period === "FULL") continue;
 
         if (!team) { errors.push(`Row ${i + 1}: missing team_abbr`); continue; }
-        if (!period || !VALID_PERIODS.has(period)) {
-          errors.push(`Row ${i + 1}: invalid period "${row.period}" (valid: ${[...VALID_PERIODS].join(", ")})`);
+        if (!VALID_PERIODS.has(period)) {
+          errors.push(`Row ${i + 1}: invalid period "${row.period}" → "${period}" (valid: ${[...VALID_PERIODS].join(", ")})`);
           continue;
         }
 
