@@ -185,8 +185,8 @@ async function fetchGamesFromDB(date?: Date, userTimezone?: string): Promise<Gam
       const bdlSp = bdl.find((o) => o.market === "spreads" || o.market === "spread");
       const bdlTot = bdl.find((o) => o.market === "totals" || o.market === "total");
 
-      if (mlHome === 0 && bdlMl?.home_odds != null) mlHome = bdlMl.home_odds;
-      if (mlAway === 0 && bdlMl?.away_odds != null) mlAway = bdlMl.away_odds;
+      if (mlHome == null && bdlMl?.home_odds != null) mlHome = bdlMl.home_odds;
+      if (mlAway == null && bdlMl?.away_odds != null) mlAway = bdlMl.away_odds;
 
       if (spHome == null && bdlSp?.home_odds != null) spHome = bdlSp.home_odds;
       if (spAway == null && bdlSp?.away_odds != null) spAway = bdlSp.away_odds;
