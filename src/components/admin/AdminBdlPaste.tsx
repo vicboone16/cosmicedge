@@ -4,8 +4,21 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2, ClipboardPaste, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
+
+const PERIOD_OPTIONS = [
+  { value: "full", label: "Full Game" },
+  { value: "Q1", label: "Q1" },
+  { value: "Q2", label: "Q2" },
+  { value: "Q3", label: "Q3" },
+  { value: "Q4", label: "Q4" },
+  { value: "1H", label: "1st Half" },
+  { value: "2H", label: "2nd Half" },
+  { value: "OT", label: "OT1" },
+  { value: "OT2", label: "OT2" },
+];
 
 interface BdlStatRow {
   id: number;
