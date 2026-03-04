@@ -1,0 +1,1 @@
+UPDATE player_game_stats SET period = 'Q1' WHERE game_id = '4cdf0ce3-9a77-454e-8de2-8413ec095fc0' AND period = 'full';
