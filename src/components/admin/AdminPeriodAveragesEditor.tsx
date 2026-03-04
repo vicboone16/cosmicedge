@@ -1,148 +1,164 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/hooks/use-toast";
-import { Save, RefreshCw, Loader2, Search, ChevronDown, ChevronRight } from "lucide-react";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Upload, Loader2, FileJson, CheckCircle } from "lucide-react";
 
-const PERIODS = ["Q1", "Q2", "Q3", "Q4", "1H", "2H", "OT"] as const;
+/**
+ * JSON Upload for quarter/half period averages.
+ *
+ * Expected JSON format (array of objects):
+ * [
+ *   {
+ *     "team_abbr": "BOS",
+ *     "period": "Q1",
+ *     "avg_points": 29.5,
+ *     "avg_points_allowed": 26.2,
+ *     "avg_pace": 98.1,
+ *     "avg_fg_pct": 0.472,
+ *     "avg_three_pct": 0.381,
+ *     "avg_ft_pct": 0.812,
+ *     "games_played": 55
+ *   },
+ *   ...
+ * ]
+ *
+ * Or keyed by team:
+ * {
+ *   "BOS": {
+ *     "Q1": { "avg_points": 29.5, ... },
+ *     "1H": { "avg_points": 55.2, ... }
+ *   }
+ * }
+ */
 
-interface PeriodRow {
-  team_abbr: string;
-  season: number;
-  league: string;
-  period: string;
-  avg_points: number | null;
-  avg_points_allowed: number | null;
-  avg_pace: number | null;
-  avg_fg_pct: number | null;
-  avg_three_pct: number | null;
-  avg_ft_pct: number | null;
-  games_played: number | null;
-}
-
-type TeamPeriodMap = Record<string, Record<string, PeriodRow>>;
-
-const NBA_TEAMS = [
-  "ATL","BOS","BKN","CHA","CHI","CLE","DAL","DEN","DET","GSW",
-  "HOU","IND","LAC","LAL","MEM","MIA","MIL","MIN","NOP","NYK",
-  "OKC","ORL","PHI","PHX","POR","SAC","SAS","TOR","UTA","WAS"
-];
+const VALID_PERIODS = new Set(["Q1", "Q2", "Q3", "Q4", "1H", "2H", "OT"]);
 
 export default function AdminPeriodAveragesEditor() {
-  const [data, setData] = useState<TeamPeriodMap>({});
-  const [loading, setLoading] = useState(false);
-  const [saving, setSaving] = useState<string | null>(null);
-  const [search, setSearch] = useState("");
-  const [expandedTeams, setExpandedTeams] = useState<Set<string>>(new Set());
+  const [jsonText, setJsonText] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const [result, setResult] = useState<{ upserted: number; errors: string[] } | null>(null);
   const [league] = useState("NBA");
   const [season] = useState(2025);
 
-  const load = async () => {
-    setLoading(true);
-    const { data: rows, error } = await supabase
-      .from("team_period_averages")
-      .select("*")
-      .eq("league", league)
-      .eq("season", season)
-      .order("team_abbr");
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      setJsonText(ev.target?.result as string || "");
+      setResult(null);
+    };
+    reader.readAsText(file);
+  };
 
-    if (error) {
-      toast({ title: "Error loading", description: error.message, variant: "destructive" });
-      setLoading(false);
+  const parseJson = (text: string): any[] => {
+    const parsed = JSON.parse(text);
+
+    // Format 1: Array of flat objects
+    if (Array.isArray(parsed)) return parsed;
+
+    // Format 2: Keyed by team → period → stats
+    if (typeof parsed === "object") {
+      const rows: any[] = [];
+      for (const [team, periods] of Object.entries(parsed)) {
+        if (typeof periods !== "object" || periods === null) continue;
+        for (const [period, stats] of Object.entries(periods as Record<string, any>)) {
+          rows.push({ team_abbr: team, period, ...stats });
+        }
+      }
+      return rows;
+    }
+
+    throw new Error("Unrecognized JSON format");
+  };
+
+  const handleUpload = async () => {
+    if (!jsonText.trim()) {
+      toast({ title: "No JSON provided", variant: "destructive" });
       return;
     }
 
-    const map: TeamPeriodMap = {};
-    for (const row of (rows || []) as PeriodRow[]) {
-      if (!map[row.team_abbr]) map[row.team_abbr] = {};
-      map[row.team_abbr][row.period] = row;
-    }
-    setData(map);
-    setLoading(false);
-  };
+    setUploading(true);
+    setResult(null);
+    const errors: string[] = [];
 
-  useEffect(() => { load(); }, [league, season]);
+    try {
+      const rows = parseJson(jsonText);
+      if (rows.length === 0) {
+        toast({ title: "No rows found in JSON", variant: "destructive" });
+        setUploading(false);
+        return;
+      }
 
-  const getRow = (team: string, period: string): PeriodRow => {
-    return data[team]?.[period] || {
-      team_abbr: team, season, league, period,
-      avg_points: null, avg_points_allowed: null, avg_pace: null,
-      avg_fg_pct: null, avg_three_pct: null, avg_ft_pct: null,
-      games_played: null,
-    };
-  };
+      const upsertRows: any[] = [];
 
-  const updateField = (team: string, period: string, field: keyof PeriodRow, value: string) => {
-    setData(prev => {
-      const next = { ...prev };
-      if (!next[team]) next[team] = {};
-      const row = { ...getRow(team, period) };
-      (row as any)[field] = value === "" ? null : Number(value);
-      next[team] = { ...next[team], [period]: row };
-      return next;
-    });
-  };
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        const team = row.team_abbr?.toUpperCase();
+        const period = row.period?.toUpperCase();
 
-  const saveTeam = async (team: string) => {
-    setSaving(team);
-    const rows: any[] = [];
-    for (const period of PERIODS) {
-      const row = getRow(team, period);
-      if (row.avg_points != null || row.avg_points_allowed != null || row.games_played != null) {
-        rows.push({
-          team_abbr: team, season, league, period,
-          avg_points: row.avg_points,
-          avg_points_allowed: row.avg_points_allowed,
-          avg_pace: row.avg_pace,
-          avg_fg_pct: row.avg_fg_pct,
-          avg_three_pct: row.avg_three_pct,
-          avg_ft_pct: row.avg_ft_pct,
-          games_played: row.games_played,
+        if (!team) { errors.push(`Row ${i + 1}: missing team_abbr`); continue; }
+        if (!period || !VALID_PERIODS.has(period)) {
+          errors.push(`Row ${i + 1}: invalid period "${row.period}" (valid: ${[...VALID_PERIODS].join(", ")})`);
+          continue;
+        }
+
+        upsertRows.push({
+          team_abbr: team,
+          season,
+          league,
+          period,
+          avg_points: row.avg_points ?? null,
+          avg_points_allowed: row.avg_points_allowed ?? null,
+          avg_pace: row.avg_pace ?? null,
+          avg_fg_pct: row.avg_fg_pct ?? null,
+          avg_three_pct: row.avg_three_pct ?? null,
+          avg_ft_pct: row.avg_ft_pct ?? null,
+          games_played: row.games_played ?? null,
           updated_at: new Date().toISOString(),
         });
       }
+
+      if (upsertRows.length === 0) {
+        toast({ title: "No valid rows to upsert", description: errors.join("; "), variant: "destructive" });
+        setUploading(false);
+        setResult({ upserted: 0, errors });
+        return;
+      }
+
+      // Batch upsert in chunks of 100
+      let upserted = 0;
+      for (let i = 0; i < upsertRows.length; i += 100) {
+        const chunk = upsertRows.slice(i, i + 100);
+        const { error } = await supabase
+          .from("team_period_averages")
+          .upsert(chunk as any, { onConflict: "team_abbr,season,league,period" });
+
+        if (error) {
+          errors.push(`Batch ${Math.floor(i / 100) + 1}: ${error.message}`);
+        } else {
+          upserted += chunk.length;
+        }
+      }
+
+      setResult({ upserted, errors });
+      toast({
+        title: `Uploaded ${upserted} period averages`,
+        description: errors.length > 0 ? `${errors.length} errors` : undefined,
+        variant: errors.length > 0 ? "destructive" : "default",
+      });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      errors.push(msg);
+      setResult({ upserted: 0, errors });
+      toast({ title: "JSON parse error", description: msg, variant: "destructive" });
     }
 
-    if (rows.length === 0) {
-      toast({ title: "No data to save for " + team });
-      setSaving(null);
-      return;
-    }
-
-    const { error } = await supabase
-      .from("team_period_averages")
-      .upsert(rows as any, { onConflict: "team_abbr,season,league,period" });
-
-    if (error) {
-      toast({ title: "Save failed", description: error.message, variant: "destructive" });
-    } else {
-      toast({ title: `${team} period averages saved (${rows.length} periods)` });
-    }
-    setSaving(null);
+    setUploading(false);
   };
-
-  const toggleTeam = (team: string) => {
-    setExpandedTeams(prev => {
-      const next = new Set(prev);
-      if (next.has(team)) next.delete(team); else next.add(team);
-      return next;
-    });
-  };
-
-  const teams = NBA_TEAMS.filter(t => t.toLowerCase().includes(search.toLowerCase()));
-
-  const FIELDS: { key: keyof PeriodRow; label: string; step: string }[] = [
-    { key: "games_played", label: "GP", step: "1" },
-    { key: "avg_points", label: "PPG", step: "0.1" },
-    { key: "avg_points_allowed", label: "OPP", step: "0.1" },
-    { key: "avg_pace", label: "Pace", step: "0.1" },
-    { key: "avg_fg_pct", label: "FG%", step: "0.001" },
-    { key: "avg_three_pct", label: "3P%", step: "0.001" },
-    { key: "avg_ft_pct", label: "FT%", step: "0.001" },
-  ];
 
   return (
     <div className="space-y-4">
@@ -151,98 +167,60 @@ export default function AdminPeriodAveragesEditor() {
           <h2 className="text-sm font-bold text-foreground">Period Averages (Q/H/OT)</h2>
           <Badge variant="outline" className="text-[9px]">{league} {season}</Badge>
         </div>
-        <Button variant="ghost" size="sm" onClick={load} disabled={loading} className="h-7 text-[10px] gap-1">
-          <RefreshCw className={`h-3 w-3 ${loading ? "animate-spin" : ""}`} /> Reload
-        </Button>
       </div>
 
-      <div className="relative">
-        <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-muted-foreground" />
-        <Input
-          placeholder="Filter teams..."
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          className="h-8 pl-8 text-xs"
+      {/* JSON Input */}
+      <div className="space-y-2">
+        <div className="flex items-center gap-2">
+          <label className="relative cursor-pointer">
+            <input type="file" accept=".json" onChange={handleFileUpload} className="sr-only" />
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-secondary text-xs font-medium text-foreground hover:bg-secondary/80 transition-colors">
+              <FileJson className="h-3.5 w-3.5" /> Upload JSON file
+            </span>
+          </label>
+          <span className="text-[10px] text-muted-foreground">or paste below</span>
+        </div>
+
+        <Textarea
+          placeholder={`Paste JSON array or object:\n[\n  { "team_abbr": "BOS", "period": "Q1", "avg_points": 29.5, ... },\n  ...\n]\n\nOr keyed format:\n{\n  "BOS": {\n    "Q1": { "avg_points": 29.5, ... },\n    "1H": { "avg_points": 55.2, ... }\n  }\n}`}
+          value={jsonText}
+          onChange={(e) => { setJsonText(e.target.value); setResult(null); }}
+          className="h-48 font-mono text-xs"
         />
+
+        <p className="text-[9px] text-muted-foreground">
+          Valid periods: {[...VALID_PERIODS].join(", ")}. Fields: avg_points, avg_points_allowed, avg_pace, avg_fg_pct, avg_three_pct, avg_ft_pct, games_played
+        </p>
       </div>
-
-      {loading ? (
-        <div className="flex items-center justify-center py-8">
-          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-        </div>
-      ) : (
-        <div className="space-y-2 max-h-[600px] overflow-y-auto">
-          {teams.map(team => {
-            const isExpanded = expandedTeams.has(team);
-            const hasPeriodData = PERIODS.some(p => data[team]?.[p]?.avg_points != null);
-
-            return (
-              <div key={team} className="border border-border rounded bg-card">
-                <button
-                  className="w-full flex items-center justify-between px-3 py-2 text-xs font-bold text-foreground hover:bg-muted/50"
-                  onClick={() => toggleTeam(team)}
-                >
-                  <div className="flex items-center gap-2">
-                    {isExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
-                    {team}
-                    {hasPeriodData && <Badge variant="secondary" className="text-[8px] h-4">Has Data</Badge>}
-                  </div>
-                  <Button
-                    variant="ghost" size="sm" className="h-6 text-[10px] gap-1"
-                    onClick={e => { e.stopPropagation(); saveTeam(team); }}
-                    disabled={saving === team}
-                  >
-                    {saving === team ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
-                    Save
-                  </Button>
-                </button>
-
-                {isExpanded && (
-                  <div className="px-3 pb-3 space-y-1">
-                    {/* Header */}
-                    <div className="grid grid-cols-[50px_repeat(7,1fr)] gap-1 text-[8px] text-muted-foreground font-semibold uppercase">
-                      <div>Period</div>
-                      {FIELDS.map(f => <div key={f.key} className="text-center">{f.label}</div>)}
-                    </div>
-
-                    {PERIODS.map(period => {
-                      const row = getRow(team, period);
-                      return (
-                        <div key={period} className="grid grid-cols-[50px_repeat(7,1fr)] gap-1 items-center">
-                          <span className="text-[10px] font-semibold text-muted-foreground">{period}</span>
-                          {FIELDS.map(f => (
-                            <Input
-                              key={f.key}
-                              type="number"
-                              step={f.step}
-                              value={row[f.key] ?? ""}
-                              onChange={e => updateField(team, period, f.key, e.target.value)}
-                              className="h-6 text-[10px] text-center px-1 tabular-nums"
-                            />
-                          ))}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      )}
 
       <Button
-        onClick={async () => {
-          for (const team of teams) {
-            await saveTeam(team);
-          }
-          toast({ title: "All teams saved" });
-        }}
+        onClick={handleUpload}
+        disabled={uploading || !jsonText.trim()}
         className="w-full gap-2"
-        disabled={!!saving}
       >
-        <Save className="h-4 w-4" /> Save All Teams
+        {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+        {uploading ? "Uploading..." : "Upload Period Averages"}
       </Button>
+
+      {/* Result */}
+      {result && (
+        <div className={`rounded-lg p-3 text-xs space-y-1 ${result.errors.length > 0 ? "bg-destructive/10 border border-destructive/20" : "bg-primary/10 border border-primary/20"}`}>
+          <div className="flex items-center gap-1.5">
+            <CheckCircle className="h-3.5 w-3.5 text-primary" />
+            <span className="font-semibold">{result.upserted} rows upserted</span>
+          </div>
+          {result.errors.length > 0 && (
+            <div className="space-y-0.5 text-destructive">
+              {result.errors.slice(0, 10).map((e, i) => (
+                <p key={i} className="text-[10px]">• {e}</p>
+              ))}
+              {result.errors.length > 10 && (
+                <p className="text-[10px]">...and {result.errors.length - 10} more</p>
+              )}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
