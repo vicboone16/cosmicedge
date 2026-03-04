@@ -44,9 +44,10 @@ const LiveSnapshot = memo(function LiveSnapshot({ gameId }: { gameId: string }) 
 export const GameCard = memo(function GameCard({ game }: { game: GameWithOdds }) {
   const navigate = useNavigate();
   const { formatInUserTZ, getTZAbbrev } = useTimezone();
-  const isLive = game.status === "live";
+  const isLive = game.status === "live" || game.status === "in_progress";
   const isFinal = game.status === "final";
-  const hasScores = game.home_score != null && game.away_score != null;
+  const hasStarted = new Date(game.start_time) <= new Date();
+  const hasScores = game.home_score != null && game.away_score != null && hasStarted && (game.home_score > 0 || game.away_score > 0);
 
   const { pregame } = useOracle(
     game.id,
