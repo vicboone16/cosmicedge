@@ -7,9 +7,9 @@ export type OddsSnapshotRow = Tables<"odds_snapshots">;
 
 export interface GameWithOdds extends GameRow {
   odds: {
-    moneyline: { home: number; away: number };
-    spread: { home: number; away: number; line: number };
-    total: { over: number; under: number; line: number };
+    moneyline: { home: number | null; away: number | null };
+    spread: { home: number | null; away: number | null; line: number | null };
+    total: { over: number | null; under: number | null; line: number | null };
   };
 }
 
