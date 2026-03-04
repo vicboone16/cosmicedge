@@ -1,4 +1,5 @@
 import { useIsAdmin } from "@/hooks/use-admin";
+import AdminBdlPaste from "@/components/admin/AdminBdlPaste";
 import { Shield } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import AdminImportContent from "@/components/admin/AdminImportContent";
