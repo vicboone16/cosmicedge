@@ -29,8 +29,8 @@ import { PeriodScoresTicker } from "@/components/game/PeriodScoresTicker";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { AlertSetupDialog } from "@/components/live/AlertSetupDialog";
 
-function formatOdds(odds: number): string {
-  if (!odds) return "—";
+function formatOdds(odds: number | null): string {
+  if (odds == null || odds === 0) return "—";
   return odds > 0 ? `+${odds}` : `${odds}`;
 }
 
