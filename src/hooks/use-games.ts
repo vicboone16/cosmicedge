@@ -153,9 +153,9 @@ async function fetchGamesFromDB(date?: Date, userTimezone?: string): Promise<Gam
 
     let mlHome: number | null = null, mlAway: number | null = null;
     for (const r of mlRows) {
-      if (mlHome === 0 && r.home_price != null) mlHome = r.home_price;
-      if (mlAway === 0 && r.away_price != null) mlAway = r.away_price;
-      if (mlHome !== 0 && mlAway !== 0) break;
+      if (mlHome == null && r.home_price != null) mlHome = r.home_price;
+      if (mlAway == null && r.away_price != null) mlAway = r.away_price;
+      if (mlHome != null && mlAway != null) break;
     }
 
     let spHome: number | null = null;
