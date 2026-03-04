@@ -320,8 +320,8 @@ export function OracleTab({
                 </div>
               </div>
               <div className="h-3 rounded-full overflow-hidden flex bg-secondary">
-                <div className="bg-destructive/70 transition-all duration-700" style={{ width: `${(1 - wpFull.wp_home) * 100}%` }} />
-                <div className="bg-cosmic-green transition-all duration-700" style={{ width: `${wpFull.wp_home * 100}%` }} />
+                <div className="bg-destructive/70 transition-all duration-700" style={{ width: `${(1 - Number(wpFull.wp_home)) * 100}%` }} />
+                <div className="bg-cosmic-green transition-all duration-700" style={{ width: `${Number(wpFull.wp_home) * 100}%` }} />
               </div>
             </div>
 
