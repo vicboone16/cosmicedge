@@ -161,10 +161,18 @@ export default function AdminPeriodAveragesEditor() {
         return;
       }
 
+      // Deduplicate: keep last occurrence per (team_abbr, season, league, period)
+      const deduped = new Map<string, any>();
+      for (const row of upsertRows) {
+        const key = `${row.team_abbr}|${row.season}|${row.league}|${row.period}`;
+        deduped.set(key, row);
+      }
+      const finalRows = Array.from(deduped.values());
+
       // Batch upsert in chunks of 100
       let upserted = 0;
-      for (let i = 0; i < upsertRows.length; i += 100) {
-        const chunk = upsertRows.slice(i, i + 100);
+      for (let i = 0; i < finalRows.length; i += 100) {
+        const chunk = finalRows.slice(i, i + 100);
         const { error } = await supabase
           .from("team_period_averages")
           .upsert(chunk as any, { onConflict: "team_abbr,season,league,period" });
