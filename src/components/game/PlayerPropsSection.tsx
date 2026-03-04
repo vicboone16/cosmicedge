@@ -58,6 +58,7 @@ export function PlayerPropsSection({ gameId }: PlayerPropsProps) {
         .from("nba_player_props_live")
         .select("*")
         .eq("game_key", gameId)
+        .eq("market_type", "over_under")
         .order("player_name", { ascending: true });
 
       if (bdlProps && bdlProps.length > 0) {
