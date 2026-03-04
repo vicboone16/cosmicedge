@@ -16,7 +16,8 @@ function formatOdds(odds: number): string {
   return odds > 0 ? `+${odds}` : `${odds}`;
 }
 
-function formatPct(val: number): string {
+function formatPct(val: number | null | undefined): string {
+  if (val == null || isNaN(val)) return "—";
   return `${(val * 100).toFixed(1)}%`;
 }
 
