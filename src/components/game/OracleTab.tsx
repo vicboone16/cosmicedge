@@ -90,12 +90,13 @@ export function OracleTab({
     }
     if (qNum < 1) return Math.round(sportGameSec / 2);
 
-    // Parse clock "MM:SS", "M:SS", or bare minutes "2"
+    // Parse clock "MM:SS", "M:SS", "Q4 10:40", or bare minutes "2"
     let clockSec = periodLengthSec / 2; // default to mid-period
     if (latestSnapshot.clock) {
-      const raw = latestSnapshot.clock.trim();
+      // Strip leading period prefixes like "Q4 ", "P2 ", "OT1 " etc.
+      let raw = latestSnapshot.clock.trim().replace(/^(Q\d+|P\d+|OT\d*)\s+/i, "");
       const parts = raw.split(":");
-      if (parts.length === 2) {
+      if (parts.length === 2 && !isNaN(parseInt(parts[0])) && !isNaN(parseInt(parts[1]))) {
         clockSec = parseInt(parts[0]) * 60 + parseInt(parts[1]);
       } else if (parts.length === 1 && /^\d+$/.test(raw)) {
         // Bare number — treat as minutes remaining in the period
