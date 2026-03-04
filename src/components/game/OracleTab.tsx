@@ -344,8 +344,8 @@ export function OracleTab({
                   </div>
                 </div>
                 <div className="h-1.5 rounded-full overflow-hidden flex bg-secondary">
-                  <div className="bg-destructive/60" style={{ width: `${(1 - wpHalf.wp_home) * 100}%` }} />
-                  <div className="bg-primary" style={{ width: `${wpHalf.wp_home * 100}%` }} />
+                  <div className="bg-destructive/60" style={{ width: `${(1 - Number(wpHalf.wp_home)) * 100}%` }} />
+                  <div className="bg-primary" style={{ width: `${Number(wpHalf.wp_home) * 100}%` }} />
                 </div>
                 <div className="flex justify-between mt-1 text-[8px] text-muted-foreground tabular-nums">
                   <span>{formatOdds(wpToAmericanOdds(1 - wpHalf.wp_home))}</span>
