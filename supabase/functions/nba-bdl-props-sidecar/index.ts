@@ -14,6 +14,33 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const MAX_RUNTIME_MS = 55_000;
 const TICK_INTERVAL_MS = 5_000;
 
+function bdlPropToMarketKey(key: string): string {
+  const map: Record<string, string> = {
+    pts: "player_points",
+    reb: "player_rebounds",
+    ast: "player_assists",
+    fg3m: "player_threes",
+    blk: "player_blocks",
+    stl: "player_steals",
+    turnover: "player_turnovers",
+    pra: "player_points_rebounds_assists",
+    pr: "player_points_rebounds",
+    pa: "player_points_assists",
+    ra: "player_rebounds_assists",
+    dd: "player_double_double",
+    td: "player_triple_double",
+    fgm: "player_field_goals",
+    points: "player_points",
+    rebounds: "player_rebounds",
+    assists: "player_assists",
+    threes: "player_threes",
+    blocks: "player_blocks",
+    steals: "player_steals",
+    turnovers: "player_turnovers",
+  };
+  return map[key] || `player_${key}`;
+}
+
 function getProjectRef(): string {
   try {
     return new URL(Deno.env.get("SUPABASE_URL") ?? "").hostname.split(".")[0];
