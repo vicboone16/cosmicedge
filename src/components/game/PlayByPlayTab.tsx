@@ -325,9 +325,12 @@ export function PlayByPlayTab({ gameId, homeAbbr, awayAbbr, league }: PlayByPlay
                   </div>
 
                   {/* Per-event running score — show "—" if missing */}
-                  <div className="flex items-center gap-2 shrink-0">
-                    <span className="text-[10px] tabular-nums text-muted-foreground">
-                      {hasEventScore ? `${evAway}-${evHome}` : "—"}
+                  <div className="flex items-center gap-3 shrink-0">
+                    <span className="text-[10px] tabular-nums font-medium text-muted-foreground w-5 text-right">
+                      {evAway != null ? evAway : ""}
+                    </span>
+                    <span className="text-[10px] tabular-nums font-medium text-muted-foreground w-5 text-right">
+                      {evHome != null ? evHome : ""}
                     </span>
                   </div>
                 </div>
