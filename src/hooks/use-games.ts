@@ -204,8 +204,8 @@ async function fetchGamesFromDB(date?: Date, userTimezone?: string): Promise<Gam
       updated_at: "",
       odds: {
         moneyline: { home: mlHome, away: mlAway },
-        spread: { home: spHome ?? -110, away: spAway ?? -110, line: spLine ?? 0 },
-        total: { over: totOver ?? -110, under: totUnder ?? -110, line: totLine ?? 0 },
+        spread: { home: spHome, away: spAway, line: spLine },
+        total: { over: totOver, under: totUnder, line: totLine },
       },
     };
   });
