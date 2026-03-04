@@ -203,13 +203,23 @@ export default function AdminPeriodAveragesEditor() {
 
       {/* JSON Input */}
       <div className="space-y-2">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <label className="relative cursor-pointer">
             <input type="file" accept=".json" onChange={handleFileUpload} className="sr-only" />
             <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-secondary text-xs font-medium text-foreground hover:bg-secondary/80 transition-colors">
               <FileJson className="h-3.5 w-3.5" /> Upload JSON file
             </span>
           </label>
+          <Select value={periodOverride} onValueChange={setPeriodOverride}>
+            <SelectTrigger className="w-40 h-8 text-xs">
+              <SelectValue placeholder="Period" />
+            </SelectTrigger>
+            <SelectContent>
+              {PERIOD_OPTIONS.map(o => (
+                <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <span className="text-[10px] text-muted-foreground">or paste below</span>
         </div>
 
