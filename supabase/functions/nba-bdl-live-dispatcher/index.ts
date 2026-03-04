@@ -422,7 +422,56 @@ Deno.serve(async (req) => {
           if (propsRes.ok) {
             const propsData = await propsRes.json();
             const propItems: any[] = propsData.data || [];
+            const archiveRows: any[] = [];
+
             for (const prop of propItems) {
+              // BDL v2 flat format
+              if (prop.prop_type && prop.line_value != null) {
+                const playerId = prop.player_id ? String(prop.player_id) : (prop.player?.id ? String(prop.player.id) : "unknown");
+                const playerName = prop.player_name
+                  || (prop.player ? `${prop.player.first_name || ""} ${prop.player.last_name || ""}`.trim() : null)
+                  || null;
+                const marketObj = prop.market || {};
+                const marketType = marketObj.type || "over_under";
+                const odds = marketObj.odds ?? null;
+                const overOdds = marketType === "over_under" ? (marketObj.over_odds ?? odds) : odds;
+                const underOdds = marketType === "over_under" ? (marketObj.under_odds ?? null) : null;
+                const vendor = prop.vendor || "unknown";
+                const line = Number(prop.line_value);
+
+                await sb.from("nba_player_props_live").upsert({
+                  game_key: gk,
+                  provider: "balldontlie",
+                  vendor,
+                  player_id: playerId,
+                  player_name: playerName,
+                  prop_type: prop.prop_type,
+                  line_value: line,
+                  market_type: marketType,
+                  over_odds: overOdds,
+                  under_odds: underOdds,
+                  raw: prop,
+                  updated_at: new Date().toISOString(),
+                }, { onConflict: "game_key,provider,vendor,player_id,prop_type,line_value,market_type" });
+
+                archiveRows.push({
+                  game_key: gk,
+                  provider: "balldontlie",
+                  vendor,
+                  player_id: playerId,
+                  player_name: playerName,
+                  prop_type: prop.prop_type,
+                  line_value: line,
+                  market_type: marketType,
+                  over_odds: overOdds,
+                  under_odds: underOdds,
+                });
+
+                stats.props++;
+                continue;
+              }
+
+              // Fallback: nested bookmakers format
               const player = prop.player;
               const playerId = player?.id ? String(player.id) : "unknown";
               const playerName = player ? `${player.first_name || ""} ${player.last_name || ""}`.trim() : null;
@@ -451,39 +500,27 @@ Deno.serve(async (req) => {
                     raw: mkt,
                     updated_at: new Date().toISOString(),
                   }, { onConflict: "game_key,provider,vendor,player_id,prop_type,line_value,market_type" });
+
+                  archiveRows.push({
+                    game_key: gk,
+                    provider: "balldontlie",
+                    vendor,
+                    player_id: playerId,
+                    player_name: playerName,
+                    prop_type: propType,
+                    line_value: line,
+                    market_type: "over_under",
+                    over_odds: over?.price ?? null,
+                    under_odds: under?.price ?? null,
+                  });
+
                   stats.props++;
                 }
               }
             }
 
-            // Archive snapshot
-            if (propItems.length > 0) {
-              const archiveRows = [];
-              for (const prop of propItems) {
-                const player = prop.player;
-                const books = prop.bookmakers || [];
-                for (const book of books) {
-                  for (const mkt of book.markets || []) {
-                    const over = (mkt.outcomes || []).find((x: any) => x.name === "Over");
-                    const under = (mkt.outcomes || []).find((x: any) => x.name === "Under");
-                    archiveRows.push({
-                      game_key: gk,
-                      provider: "balldontlie",
-                      vendor: book.name || book.key || "unknown",
-                      player_id: player?.id ? String(player.id) : null,
-                      player_name: player ? `${player.first_name || ""} ${player.last_name || ""}`.trim() : null,
-                      prop_type: mkt.key || mkt.name,
-                      line_value: over?.point ?? under?.point ?? 0,
-                      market_type: "over_under",
-                      over_odds: over?.price ?? null,
-                      under_odds: under?.price ?? null,
-                    });
-                  }
-                }
-              }
-              if (archiveRows.length > 0) {
-                await sb.from("nba_player_props_archive").insert(archiveRows);
-              }
+            if (archiveRows.length > 0) {
+              await sb.from("nba_player_props_archive").insert(archiveRows);
             }
           } else if (propsRes.status === 429) {
             console.warn(`[nba-bdl] 429 on props for game ${bdlGameId}, backing off`);
