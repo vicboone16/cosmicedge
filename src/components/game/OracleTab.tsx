@@ -276,6 +276,13 @@ export function OracleTab({
       </div>
 
       {/* Source context info */}
+      {source === "stored" && !selectedStored && (
+        <div className="cosmic-card rounded-xl p-6 text-center">
+          <Database className="h-8 w-8 mx-auto text-muted-foreground/50 mb-2" />
+          <p className="text-sm font-medium text-muted-foreground">No StellarLine prediction available</p>
+          <p className="text-[10px] text-muted-foreground/70 mt-1">The oracle_ml model hasn't run for this game yet. Showing Instant projection below.</p>
+        </div>
+      )}
       {source === "stored" && display.runTs && (
         <p className="text-[9px] text-muted-foreground text-center">
           Run: {new Date(display.runTs).toLocaleString()} · Model: oracle_ml {selectedVersion}
