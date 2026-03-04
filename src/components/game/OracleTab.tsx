@@ -386,7 +386,7 @@ export function OracleTab({
       )}
 
       {/* ── Live Projected Final Score (during active games) ── */}
-      {isLive && estimatedTimeRemaining != null && display.muHome > 0 && (
+      {isLive && source === "live" && estimatedTimeRemaining != null && !isNaN(estimatedTimeRemaining) && display.muHome > 0 && (
         <section>
           <h3 className="text-xs font-semibold text-cosmic-green uppercase tracking-widest mb-3 flex items-center gap-1.5">
             <Activity className="h-3.5 w-3.5" />
