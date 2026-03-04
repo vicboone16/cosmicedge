@@ -278,6 +278,10 @@ export function PlayByPlayTab({ gameId, homeAbbr, awayAbbr, league }: PlayByPlay
                   : league === "MLB" ? `Inning ${period}`
                   : period <= 4 ? `${period === 1 ? "1st" : period === 2 ? "2nd" : period === 3 ? "3rd" : "4th"} Quarter` : `Overtime ${period - 4}`}
               </span>
+              <div className="flex items-center gap-3 text-[10px] font-bold text-muted-foreground">
+                <span>{awayAbbr}</span>
+                <span>{homeAbbr}</span>
+              </div>
             </div>
 
             {periodEvents.map((ev: any, i: number) => {
@@ -287,10 +291,10 @@ export function PlayByPlayTab({ gameId, homeAbbr, awayAbbr, league }: PlayByPlay
               const desc = ev.description;
               const teamAbbr = isNBA ? ev.team : ev.team_abbr;
 
-              // Show per-event scores ONLY if present and non-zero; otherwise "—"
-              const evAway = ev.away_score != null && ev.away_score !== 0 ? ev.away_score : null;
-              const evHome = ev.home_score != null && ev.home_score !== 0 ? ev.home_score : null;
-              const hasEventScore = evAway != null && evHome != null;
+              // Show per-event scores if present (0 is a valid score)
+              const evAway = ev.away_score != null ? ev.away_score : null;
+              const evHome = ev.home_score != null ? ev.home_score : null;
+              const hasEventScore = evAway != null || evHome != null;
 
               return (
                 <div
@@ -321,9 +325,12 @@ export function PlayByPlayTab({ gameId, homeAbbr, awayAbbr, league }: PlayByPlay
                   </div>
 
                   {/* Per-event running score — show "—" if missing */}
-                  <div className="flex items-center gap-2 shrink-0">
-                    <span className="text-[10px] tabular-nums text-muted-foreground">
-                      {hasEventScore ? `${evAway}-${evHome}` : "—"}
+                  <div className="flex items-center gap-3 shrink-0">
+                    <span className="text-[10px] tabular-nums font-medium text-muted-foreground w-5 text-right">
+                      {evAway != null ? evAway : ""}
+                    </span>
+                    <span className="text-[10px] tabular-nums font-medium text-muted-foreground w-5 text-right">
+                      {evHome != null ? evHome : ""}
                     </span>
                   </div>
                 </div>
