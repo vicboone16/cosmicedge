@@ -13,6 +13,7 @@ import { SynastrySection } from "@/components/game/SynastrySection";
 import { TransitModifiers } from "@/components/game/TransitModifiers";
 import { PlayerPropsSection } from "@/components/game/PlayerPropsSection";
 import { PeriodOddsSection } from "@/components/game/PeriodOddsSection";
+import { PregameOddsSection } from "@/components/game/PregameOddsSection";
 import { LiveOddsTracker } from "@/components/game/LiveOddsTracker";
 import { SGOPlayerPropsAnalyzer } from "@/components/game/SGOPlayerPropsAnalyzer";
 import { HoraryChartSection } from "@/components/game/HoraryChartSection";
