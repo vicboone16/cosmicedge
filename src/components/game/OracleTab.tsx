@@ -340,7 +340,7 @@ export function OracleTab({
                   </div>
                   <div className="text-center">
                     <p className="text-[9px] text-muted-foreground">{homeAbbr}</p>
-                    <p className="text-sm font-bold tabular-nums">{formatPct(wpHalf.wp_home)}</p>
+                    <p className="text-sm font-bold tabular-nums">{formatPct(Number(wpHalf.wp_home))}</p>
                   </div>
                 </div>
                 <div className="h-1.5 rounded-full overflow-hidden flex bg-secondary">
