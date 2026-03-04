@@ -132,9 +132,57 @@ Deno.serve(async (req) => {
             if (!propsRes.ok) return;
 
             const propItems: any[] = (await propsRes.json()).data || [];
+            const liveRows: any[] = [];
             const archiveRows: any[] = [];
+            const flatAggregates = new Map<string, any>();
 
             for (const prop of propItems) {
+              // BDL v2 flat format
+              if (prop.prop_type && prop.line_value != null) {
+                const playerId = prop.player_id ? String(prop.player_id) : (prop.player?.id ? String(prop.player.id) : "unknown");
+                const playerName = prop.player_name || (prop.player ? `${prop.player.first_name || ""} ${prop.player.last_name || ""}`.trim() : null);
+                const rawKey = String(prop.prop_type);
+                const propType = bdlPropToMarketKey(rawKey);
+                const line = Number(prop.line_value);
+                const marketObj = prop.market || {};
+                const marketType = marketObj.type || "over_under";
+                if (marketType !== "over_under") continue;
+
+                const vendor = prop.vendor || marketObj.vendor || "unknown";
+                const aggKey = `${vendor}|${playerId}|${propType}|${line}`;
+                const existing = flatAggregates.get(aggKey) || {
+                  game_key: gk,
+                  provider: "balldontlie",
+                  vendor,
+                  player_id: playerId,
+                  player_name: playerName,
+                  prop_type: propType,
+                  line_value: line,
+                  market_type: "over_under",
+                  over_odds: null,
+                  under_odds: null,
+                  raw: prop,
+                  updated_at: new Date().toISOString(),
+                };
+
+                const overOdds = marketObj.over_odds ?? null;
+                const underOdds = marketObj.under_odds ?? null;
+                const singleOdds = marketObj.odds ?? prop.odds ?? null;
+                const sideName = String(marketObj.name || prop.side || "").toLowerCase();
+
+                if (overOdds != null) existing.over_odds = overOdds;
+                if (underOdds != null) existing.under_odds = underOdds;
+                if (overOdds == null && underOdds == null && singleOdds != null) {
+                  if (sideName === "over") existing.over_odds = singleOdds;
+                  if (sideName === "under") existing.under_odds = singleOdds;
+                }
+
+                existing.updated_at = new Date().toISOString();
+                flatAggregates.set(aggKey, existing);
+                continue;
+              }
+
+              // Legacy nested bookmakers format fallback
               const player = prop.player;
               const playerId = player?.id ? String(player.id) : "unknown";
               const playerName = player ? `${player.first_name || ""} ${player.last_name || ""}`.trim() : null;
@@ -142,32 +190,61 @@ Deno.serve(async (req) => {
               for (const book of (prop.bookmakers || [])) {
                 const vendor = book.name || book.key || "unknown";
                 for (const mkt of (book.markets || [])) {
-                  const propType = mkt.key || mkt.name || "unknown";
+                  const rawKey = mkt.key || mkt.name || "unknown";
+                  const propType = bdlPropToMarketKey(rawKey);
                   const outcomes = mkt.outcomes || [];
                   const over = outcomes.find((x: any) => x.name === "Over");
                   const under = outcomes.find((x: any) => x.name === "Under");
+                  if (over?.price == null || under?.price == null) continue;
                   const line = over?.point ?? under?.point ?? 0;
 
-                  await sb.from("nba_player_props_live").upsert({
-                    game_key: gk, provider: "balldontlie", vendor,
-                    player_id: playerId, player_name: playerName,
-                    prop_type: propType, line_value: line,
+                  liveRows.push({
+                    game_key: gk,
+                    provider: "balldontlie",
+                    vendor,
+                    player_id: playerId,
+                    player_name: playerName,
+                    prop_type: propType,
+                    line_value: line,
                     market_type: "over_under",
-                    over_odds: over?.price ?? null,
-                    under_odds: under?.price ?? null,
-                    raw: mkt, updated_at: new Date().toISOString(),
-                  }, { onConflict: "game_key,provider,vendor,player_id,prop_type,line_value,market_type" });
-                  totals.props++;
-
-                  archiveRows.push({
-                    game_key: gk, provider: "balldontlie", vendor,
-                    player_id: playerId, player_name: playerName,
-                    prop_type: propType, line_value: line,
-                    market_type: "over_under",
-                    over_odds: over?.price ?? null,
-                    under_odds: under?.price ?? null,
+                    over_odds: over.price,
+                    under_odds: under.price,
+                    raw: mkt,
+                    updated_at: new Date().toISOString(),
                   });
                 }
+              }
+            }
+
+            // Finalize flat-format rows only when BOTH sides are present
+            for (const row of flatAggregates.values()) {
+              if (row.over_odds == null || row.under_odds == null) continue;
+              liveRows.push(row);
+            }
+
+            if (liveRows.length > 0) {
+              for (let i = 0; i < liveRows.length; i += 100) {
+                const chunk = liveRows.slice(i, i + 100);
+                const { error } = await sb.from("nba_player_props_live").upsert(chunk, {
+                  onConflict: "game_key,provider,vendor,player_id,prop_type,line_value,market_type",
+                });
+                if (error) console.error("[props-sidecar] upsert error:", error.message);
+              }
+              totals.props += liveRows.length;
+
+              for (const r of liveRows) {
+                archiveRows.push({
+                  game_key: r.game_key,
+                  provider: r.provider,
+                  vendor: r.vendor,
+                  player_id: r.player_id,
+                  player_name: r.player_name,
+                  prop_type: r.prop_type,
+                  line_value: r.line_value,
+                  market_type: r.market_type,
+                  over_odds: r.over_odds,
+                  under_odds: r.under_odds,
+                });
               }
             }
 
