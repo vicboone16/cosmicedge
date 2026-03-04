@@ -64,10 +64,18 @@ export default function AdminPage() {
           </TabsContent>
 
           <TabsContent value="teams" className="mt-4 space-y-6">
-            <AdminTeamStatsEditor />
-            <div className="border-t border-border/50 pt-4">
-              <AdminPeriodAveragesEditor />
-            </div>
+            <Tabs defaultValue="team-stats" className="w-full">
+              <TabsList className="w-full grid grid-cols-2 h-8 mb-4">
+                <TabsTrigger value="team-stats" className="text-[10px]">Team Stats</TabsTrigger>
+                <TabsTrigger value="period-avg" className="text-[10px]">Period Averages (JSON)</TabsTrigger>
+              </TabsList>
+              <TabsContent value="team-stats">
+                <AdminTeamStatsEditor />
+              </TabsContent>
+              <TabsContent value="period-avg">
+                <AdminPeriodAveragesEditor />
+              </TabsContent>
+            </Tabs>
           </TabsContent>
 
           <TabsContent value="pbp" className="mt-4">
