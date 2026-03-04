@@ -118,11 +118,15 @@ export default function AdminPeriodAveragesEditor() {
       for (let i = 0; i < rows.length; i++) {
         const row = rows[i];
         const team = row.team_abbr?.toUpperCase();
-        let period = String(row.period ?? "").toUpperCase();
-
-        // Auto-map numeric periods
-        if (NUMERIC_PERIOD_MAP[row.period?.toString()]) {
-          period = NUMERIC_PERIOD_MAP[row.period.toString()];
+        let period: string;
+        if (periodOverride !== "auto") {
+          period = periodOverride;
+        } else {
+          period = String(row.period ?? "").toUpperCase();
+          // Auto-map numeric periods
+          if (NUMERIC_PERIOD_MAP[row.period?.toString()]) {
+            period = NUMERIC_PERIOD_MAP[row.period.toString()];
+          }
         }
 
         // Skip "full" period — not relevant for period averages
