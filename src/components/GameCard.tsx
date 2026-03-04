@@ -9,8 +9,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { PeriodScoresTicker } from "@/components/game/PeriodScoresTicker";
 import { useOracle } from "@/hooks/use-oracle";
 
-function formatOdds(odds: number): string {
-  if (!odds) return "—";
+function formatOdds(odds: number | null): string {
+  if (odds == null || odds === 0) return "—";
   return odds > 0 ? `+${odds}` : `${odds}`;
 }
 
