@@ -375,7 +375,7 @@ export function OracleTab({
                   <div className="bg-accent" style={{ width: `${Number(wpQtr.wp_home) * 100}%` }} />
                 </div>
                 <div className="flex justify-between mt-1 text-[8px] text-muted-foreground tabular-nums">
-                  <span>{formatOdds(wpToAmericanOdds(1 - wpQtr.wp_home))}</span>
+                  <span>{formatOdds(wpToAmericanOdds(1 - Number(wpQtr.wp_home)))}</span>
                   <span>{formatOdds(wpQtr.fair_ml_home ?? 0)}</span>
                 </div>
               </div>
