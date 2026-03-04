@@ -304,7 +304,7 @@ export function OracleTab({
                 <div className="text-center">
                   <p className="text-[10px] font-bold text-muted-foreground uppercase">{awayAbbr}</p>
                   <p className="text-xl font-bold font-display tabular-nums text-foreground">
-                    {formatPct(1 - wpFull.wp_home)}
+                    {formatPct(Number(wpFull.wp_home) > 0 ? 1 - Number(wpFull.wp_home) : null)}
                   </p>
                   <p className="text-[9px] text-muted-foreground tabular-nums">{formatOdds(wpToAmericanOdds(1 - wpFull.wp_home))}</p>
                 </div>
