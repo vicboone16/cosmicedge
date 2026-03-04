@@ -255,8 +255,82 @@ Deno.serve(async (req) => {
           const oddsData = await oddsRes.json();
           const oddsItems: any[] = oddsData.data || [];
           for (const o of oddsItems) {
-            const gk = gameKeyMap.get(o.game?.id);
+            const bdlGameId = Number(o.game_id ?? o.game?.id);
+            const gk = gameKeyMap.get(bdlGameId);
             if (!gk) continue;
+
+            // BDL v2 flat unified format
+            if (o.moneyline_home_odds != null || o.spread_home_value != null || o.total_value != null) {
+              const vendor = o.vendor || "consensus";
+              const nowIso = new Date().toISOString();
+              const upserts: any[] = [];
+
+              if (o.moneyline_home_odds != null || o.moneyline_away_odds != null) {
+                upserts.push({
+                  game_key: gk,
+                  provider: "balldontlie",
+                  vendor,
+                  market: "moneyline",
+                  home_line: null,
+                  away_line: null,
+                  total: null,
+                  home_odds: o.moneyline_home_odds ?? null,
+                  away_odds: o.moneyline_away_odds ?? null,
+                  over_odds: null,
+                  under_odds: null,
+                  raw: o,
+                  updated_at: nowIso,
+                });
+              }
+
+              if (o.spread_home_value != null || o.spread_away_value != null) {
+                const spreadHome = o.spread_home_value != null ? Number(o.spread_home_value) : null;
+                const spreadAway = o.spread_away_value != null
+                  ? Number(o.spread_away_value)
+                  : (spreadHome != null ? -spreadHome : null);
+                upserts.push({
+                  game_key: gk,
+                  provider: "balldontlie",
+                  vendor,
+                  market: "spread",
+                  home_line: spreadHome,
+                  away_line: spreadAway,
+                  total: null,
+                  home_odds: o.spread_home_odds ?? null,
+                  away_odds: o.spread_away_odds ?? null,
+                  over_odds: null,
+                  under_odds: null,
+                  raw: o,
+                  updated_at: nowIso,
+                });
+              }
+
+              if (o.total_value != null) {
+                upserts.push({
+                  game_key: gk,
+                  provider: "balldontlie",
+                  vendor,
+                  market: "total",
+                  home_line: null,
+                  away_line: null,
+                  total: Number(o.total_value),
+                  home_odds: null,
+                  away_odds: null,
+                  over_odds: o.total_over_odds ?? null,
+                  under_odds: o.total_under_odds ?? null,
+                  raw: o,
+                  updated_at: nowIso,
+                });
+              }
+
+              for (const row of upserts) {
+                await sb.from("nba_game_odds").upsert(row, { onConflict: "game_key,provider,vendor,market" });
+                stats.odds++;
+              }
+              continue;
+            }
+
+            // Fallback: nested bookmakers format
             const books = o.bookmakers || [];
             for (const book of books) {
               const vendor = book.name || book.key || "unknown";
