@@ -37,12 +37,24 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 
 const VALID_PERIODS = new Set(["Q1", "Q2", "Q3", "Q4", "1H", "2H", "OT"]);
 
+const PERIOD_OPTIONS = [
+  { value: "auto", label: "Auto (from JSON)" },
+  { value: "Q1", label: "Q1" },
+  { value: "Q2", label: "Q2" },
+  { value: "Q3", label: "Q3" },
+  { value: "Q4", label: "Q4" },
+  { value: "1H", label: "1st Half" },
+  { value: "2H", label: "2nd Half" },
+  { value: "OT", label: "OT" },
+];
+
 export default function AdminPeriodAveragesEditor() {
   const [jsonText, setJsonText] = useState("");
   const [uploading, setUploading] = useState(false);
   const [result, setResult] = useState<{ upserted: number; errors: string[] } | null>(null);
   const [league] = useState("NBA");
   const [season] = useState(2025);
+  const [periodOverride, setPeriodOverride] = useState("auto");
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
