@@ -384,11 +384,52 @@ export function OracleTab({
         </section>
       )}
 
-      {/* ── Projected Score ── */}
+      {/* ── Live Projected Final Score (during active games) ── */}
+      {isLive && estimatedTimeRemaining != null && display.muHome > 0 && (
+        <section>
+          <h3 className="text-xs font-semibold text-cosmic-green uppercase tracking-widest mb-3 flex items-center gap-1.5">
+            <Activity className="h-3.5 w-3.5" />
+            Live Projected Final
+          </h3>
+          {(() => {
+            const remainFrac = Math.max(0, Math.min(1, estimatedTimeRemaining / sportGameSec));
+            const liveHomeProj = Math.round(effectiveHomeScore + display.muHome * remainFrac);
+            const liveAwayProj = Math.round(effectiveAwayScore + display.muAway * remainFrac);
+            const liveTotal = liveHomeProj + liveAwayProj;
+            const liveSpread = liveAwayProj - liveHomeProj;
+            return (
+              <div className="cosmic-card rounded-xl p-4 border-l-2 border-l-cosmic-green">
+                <div className="flex items-center justify-between">
+                  <div className="text-center flex-1">
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">{awayAbbr}</p>
+                    <p className="text-2xl font-bold font-display tabular-nums text-foreground">{liveAwayProj}</p>
+                    <p className="text-[9px] text-muted-foreground tabular-nums">Current: {effectiveAwayScore}</p>
+                  </div>
+                  <div className="text-center px-4">
+                    <p className="text-[10px] text-muted-foreground uppercase">vs</p>
+                    <p className="text-xs font-semibold text-muted-foreground mt-1">O/U {liveTotal}</p>
+                  </div>
+                  <div className="text-center flex-1">
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">{homeAbbr}</p>
+                    <p className="text-2xl font-bold font-display tabular-nums text-foreground">{liveHomeProj}</p>
+                    <p className="text-[9px] text-muted-foreground tabular-nums">Current: {effectiveHomeScore}</p>
+                  </div>
+                </div>
+                <div className="mt-3 pt-3 border-t border-border/30 flex items-center justify-between text-[10px] text-muted-foreground">
+                  <span>Proj Spread: {liveSpread > 0 ? `${awayAbbr} -${liveSpread}` : liveSpread < 0 ? `${homeAbbr} -${Math.abs(liveSpread)}` : "EVEN"}</span>
+                  <span>{Math.round(remainFrac * 100)}% remaining</span>
+                </div>
+              </div>
+            );
+          })()}
+        </section>
+      )}
+
+      {/* ── Pregame Projected Score ── */}
       <section>
         <h3 className="text-xs font-semibold text-primary uppercase tracking-widest mb-3 flex items-center gap-1.5">
           <Target className="h-3.5 w-3.5" />
-          Projected Final Score
+          {isLive ? "Pregame Projected Score" : "Projected Final Score"}
         </h3>
         <div className="cosmic-card rounded-xl p-4">
           <div className="flex items-center justify-between">
