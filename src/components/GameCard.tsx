@@ -8,6 +8,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { PeriodScoresTicker } from "@/components/game/PeriodScoresTicker";
 import { useOracle } from "@/hooks/use-oracle";
+import { QuickPropsRail } from "@/components/slate/QuickPropsRail";
 
 function formatOdds(odds: number | null): string {
   if (odds == null || odds === 0) return "—";
