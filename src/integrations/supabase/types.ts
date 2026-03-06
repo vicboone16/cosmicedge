@@ -6146,6 +6146,94 @@ export type Database = {
         }
         Relationships: []
       }
+      ce_parlay_pair_scored: {
+        Row: {
+          edge_score_a: number | null
+          edge_score_b: number | null
+          game_key: string | null
+          line_value_a: number | null
+          line_value_b: number | null
+          pair_corr: number | null
+          pair_type: string | null
+          player_id_a: number | null
+          player_id_b: number | null
+          player_name_a: string | null
+          player_name_b: string | null
+          projection_mean_a: number | null
+          projection_mean_b: number | null
+          sim_std_a: number | null
+          sim_std_b: number | null
+          stat_key_a: string | null
+          stat_key_b: string | null
+        }
+        Relationships: []
+      }
+      ce_parlay_pairs: {
+        Row: {
+          edge_score_a: number | null
+          edge_score_b: number | null
+          game_key: string | null
+          line_value_a: number | null
+          line_value_b: number | null
+          player_id_a: number | null
+          player_id_b: number | null
+          player_name_a: string | null
+          player_name_b: string | null
+          projection_mean_a: number | null
+          projection_mean_b: number | null
+          sim_std_a: number | null
+          sim_std_b: number | null
+          stat_key_a: string | null
+          stat_key_b: string | null
+        }
+        Relationships: []
+      }
+      ce_parlay_probabilities: {
+        Row: {
+          adjusted_joint_prob: number | null
+          corr_label: string | null
+          edge_score_a: number | null
+          edge_score_b: number | null
+          game_key: string | null
+          leg_prob_a: number | null
+          leg_prob_b: number | null
+          line_value_a: number | null
+          line_value_b: number | null
+          naive_joint_prob: number | null
+          pair_corr: number | null
+          pair_type: string | null
+          player_id_a: number | null
+          player_id_b: number | null
+          player_name_a: string | null
+          player_name_b: string | null
+          projection_mean_a: number | null
+          projection_mean_b: number | null
+          sim_std_a: number | null
+          sim_std_b: number | null
+          stat_key_a: string | null
+          stat_key_b: string | null
+        }
+        Relationships: []
+      }
+      ce_parlay_top_plays: {
+        Row: {
+          adjusted_joint_prob: number | null
+          corr_label: string | null
+          edge_score_a: number | null
+          edge_score_b: number | null
+          game_key: string | null
+          line_value_a: number | null
+          line_value_b: number | null
+          naive_joint_prob: number | null
+          pair_corr: number | null
+          pair_type: string | null
+          player_name_a: string | null
+          player_name_b: string | null
+          stat_key_a: string | null
+          stat_key_b: string | null
+        }
+        Relationships: []
+      }
       ce_player_current_team: {
         Row: {
           player_id: number | null
@@ -6226,6 +6314,18 @@ export type Database = {
         Row: {
           model_player_id: number | null
           player_name_norm: string | null
+        }
+        Relationships: []
+      }
+      ce_same_player_corr: {
+        Row: {
+          ast_pra_corr: number | null
+          ast_reb_corr: number | null
+          player_id: number | null
+          pts_ast_corr: number | null
+          pts_pra_corr: number | null
+          pts_reb_corr: number | null
+          reb_pra_corr: number | null
         }
         Relationships: []
       }
