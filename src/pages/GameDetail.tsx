@@ -25,7 +25,8 @@ import { GameMatchupTab } from "@/components/game/GameMatchupTab";
 import { PlayByPlayTab } from "@/components/game/PlayByPlayTab";
 import { GameStatsTab } from "@/components/game/GameStatsTab";
 import { OracleTab } from "@/components/game/OracleTab";
-
+import { LivePropsTab } from "@/components/game/LivePropsTab";
+import { BestPropsSection } from "@/components/game/BestPropsSection";
 import { PeriodScoresTicker } from "@/components/game/PeriodScoresTicker";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { AlertSetupDialog } from "@/components/live/AlertSetupDialog";
