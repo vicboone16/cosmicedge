@@ -3,7 +3,7 @@ import { BottomNav } from "./BottomNav";
 import { useAuth } from "@/hooks/use-auth";
 import { useIsAdmin } from "@/hooks/use-admin";
 import { useMemo } from "react";
-import { User, LogIn, Moon, Settings, Users, LogOut, Shield, Sparkles, TableTennis } from "lucide-react";
+import { User, LogIn, Moon, Settings, Users, LogOut, Shield, Sparkles } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
