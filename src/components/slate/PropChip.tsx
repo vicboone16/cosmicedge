@@ -2,6 +2,7 @@ import { cn } from "@/lib/utils";
 import { TrendingUp, TrendingDown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { getPropLabel, getEdgeTier, type TopProp } from "@/hooks/use-top-props";
+import { usePropDrawer } from "@/hooks/use-prop-drawer";
 
 interface PropChipProps {
   prop: TopProp;
@@ -32,16 +33,22 @@ function getSignals(prop: TopProp): string[] {
 }
 
 export function PropChip({ prop, size = "compact", onClick }: PropChipProps) {
+  const { openProp } = usePropDrawer();
   const edgeScore = prop.edge_score_v11 ?? prop.edge_score;
   const tier = getEdgeTier(edgeScore);
   const isOver = prop.side === "over" || prop.side == null;
   const signals = getSignals(prop);
   const propLabel = getPropLabel(prop.prop_type);
 
+  const handleClick = () => {
+    if (onClick) onClick();
+    else openProp(prop);
+  };
+
   if (size === "compact") {
     return (
       <button
-        onClick={onClick}
+        onClick={handleClick}
         className="shrink-0 cosmic-card rounded-xl p-2.5 w-[140px] space-y-1.5 text-left hover:border-primary/30 transition-colors"
       >
         <div className="flex items-center justify-between">
@@ -85,7 +92,7 @@ export function PropChip({ prop, size = "compact", onClick }: PropChipProps) {
   // medium / full size
   return (
     <button
-      onClick={onClick}
+      onClick={handleClick}
       className={cn(
         "cosmic-card rounded-xl p-3 space-y-2 text-left hover:border-primary/30 transition-colors",
         size === "full" ? "w-full" : "w-[200px] shrink-0"

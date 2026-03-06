@@ -1,5 +1,6 @@
 import { Outlet, useNavigate } from "react-router-dom";
 import { BottomNav } from "./BottomNav";
+import { PropDrawerProvider } from "@/hooks/use-prop-drawer";
 import { useAuth } from "@/hooks/use-auth";
 import { useIsAdmin } from "@/hooks/use-admin";
 import { useMemo } from "react";
@@ -139,9 +140,11 @@ export function AppLayout() {
           <span className="opacity-60">{envRef.slice(0, 6)}</span>
         </span>
       </div>
-      <main className="pb-[4.5rem]">
-        <Outlet />
-      </main>
+      <PropDrawerProvider>
+        <main className="pb-[4.5rem]">
+          <Outlet />
+        </main>
+      </PropDrawerProvider>
       <BottomNav />
     </div>
   );
