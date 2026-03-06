@@ -1,5 +1,5 @@
-import { useState, useRef, useEffect } from "react";
-import { Sparkles, Info, BookOpen, FlaskConical, Compass, Send, Loader2, ChevronRight } from "lucide-react";
+import { useState, useRef, useEffect, lazy, Suspense } from "react";
+import { Sparkles, Info, BookOpen, FlaskConical, Compass, Send, Loader2, ChevronRight, Cpu } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import AstraStructuredResponse, { type AstraResponse, type CosmicEdgeResponse } from "@/components/astra/AstraStructuredResponse";
@@ -7,6 +7,9 @@ import AstraAboutTab from "@/components/astra/AstraAboutTab";
 import AstraGlossaryTab from "@/components/astra/AstraGlossaryTab";
 import AstraFormulasEnginesTab from "@/components/astra/AstraFormulasEnginesTab";
 import AstraMethodologyTab from "@/components/astra/AstraMethodologyTab";
+import { useIsAdmin } from "@/hooks/use-admin";
+
+const MachinaSection = lazy(() => import("@/components/astra/MachinaSection"));
 
 type Msg = { role: "user" | "assistant"; content: string; structured?: AstraResponse | CosmicEdgeResponse };
 
@@ -155,7 +158,7 @@ function AstraChat() {
 }
 
 /* ── Tabs config ── */
-const TABS = [
+const PUBLIC_TABS = [
   { key: "chat", label: "AI Chat", icon: Sparkles },
   { key: "about", label: "About CosmicEdge", icon: Info },
   { key: "glossary", label: "Cosmic Lexicon", icon: BookOpen },
@@ -163,30 +166,37 @@ const TABS = [
   { key: "methodology", label: "Behind the Stars", icon: Compass },
 ] as const;
 
-type TabKey = (typeof TABS)[number]["key"];
+const ADMIN_TAB = { key: "machina" as const, label: "Machina", icon: Cpu };
+
+type TabKey = typeof PUBLIC_TABS[number]["key"] | "machina";
 
 export default function AstraPage() {
   const [tab, setTab] = useState<TabKey>("chat");
+  const { isAdmin } = useIsAdmin();
+
+  const allTabs = isAdmin ? [...PUBLIC_TABS, ADMIN_TAB] : [...PUBLIC_TABS];
 
   return (
     <div className="min-h-screen">
       <header className="px-4 pt-12 pb-4 bg-background/80 backdrop-blur-xl border-b border-border/50">
         <div className="flex items-center gap-2 mb-3">
           <Sparkles className="h-5 w-5 text-primary" />
-          <h1 className="text-lg font-bold font-display text-foreground">Astra & AI</h1>
+          <h1 className="text-lg font-bold font-display text-foreground">Astra AI</h1>
         </div>
         <p className="text-[10px] text-muted-foreground mb-3">
           AI-powered astrology insights, model documentation & technical reference
         </p>
         <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
-          {TABS.map((t) => (
+          {allTabs.map((t) => (
             <button
               key={t.key}
               onClick={() => setTab(t.key)}
               className={cn(
                 "flex items-center gap-1.5 px-3 py-2 rounded-full text-[10px] font-semibold transition-colors border whitespace-nowrap",
                 tab === t.key
-                  ? "bg-secondary border-border text-foreground"
+                  ? t.key === "machina"
+                    ? "bg-primary/10 border-primary/30 text-primary"
+                    : "bg-secondary border-border text-foreground"
                   : "border-transparent text-muted-foreground hover:text-foreground"
               )}
             >
@@ -203,6 +213,11 @@ export default function AstraPage() {
         {tab === "glossary" && <AstraGlossaryTab />}
         {tab === "engines" && <AstraFormulasEnginesTab />}
         {tab === "methodology" && <AstraMethodologyTab />}
+        {tab === "machina" && isAdmin && (
+          <Suspense fallback={<div className="text-center py-8"><Loader2 className="h-5 w-5 animate-spin text-primary mx-auto" /></div>}>
+            <MachinaSection />
+          </Suspense>
+        )}
       </div>
     </div>
   );
