@@ -6065,6 +6065,14 @@ export type Database = {
         }
         Relationships: []
       }
+      ce_defense_difficulty: {
+        Row: {
+          avg_pts_allowed: number | null
+          difficulty_multiplier: number | null
+          opponent_team_id: number | null
+        }
+        Relationships: []
+      }
       ce_matchup_difficulty_live: {
         Row: {
           difficulty_multiplier: number | null
@@ -6145,16 +6153,14 @@ export type Database = {
       }
       ce_monte_input_heavy_v5: {
         Row: {
-          edge_score_v8: number | null
+          edge_score_v9: number | null
           game_key: string | null
           line_value: number | null
-          matchup_difficulty: number | null
           over_odds: number | null
           player_id: number | null
           player_name: string | null
           projection_mean: number | null
           provider: string | null
-          ripple_multiplier: number | null
           sim_std: number | null
           stat_key: string | null
           under_odds: number | null
@@ -6478,6 +6484,24 @@ export type Database = {
         }
         Relationships: []
       }
+      ce_scorecards_fast_v9: {
+        Row: {
+          edge_score_v9: number | null
+          game_key: string | null
+          line_value: number | null
+          over_odds: number | null
+          player_id: number | null
+          player_name: string | null
+          projection_v9: number | null
+          provider: string | null
+          stat_key: string | null
+          std_v9: number | null
+          under_odds: number | null
+          usage_shift_multiplier: number | null
+          vendor: string | null
+        }
+        Relationships: []
+      }
       ce_scorecards_live: {
         Row: {
           base_prob: number | null
@@ -6550,19 +6574,18 @@ export type Database = {
       }
       ce_scorecards_top_25_v5: {
         Row: {
-          adjusted_projection_v8: number | null
-          adjusted_std_v8: number | null
-          edge_score_v8: number | null
+          edge_score_v9: number | null
           game_key: string | null
           line_value: number | null
-          matchup_difficulty: number | null
           over_odds: number | null
           player_id: number | null
           player_name: string | null
+          projection_v9: number | null
           provider: string | null
-          ripple_multiplier: number | null
           stat_key: string | null
+          std_v9: number | null
           under_odds: number | null
+          usage_shift_multiplier: number | null
           vendor: string | null
         }
         Relationships: []
@@ -6637,19 +6660,18 @@ export type Database = {
       }
       ce_scorecards_top_v5: {
         Row: {
-          adjusted_projection_v8: number | null
-          adjusted_std_v8: number | null
-          edge_score_v8: number | null
+          edge_score_v9: number | null
           game_key: string | null
           line_value: number | null
-          matchup_difficulty: number | null
           over_odds: number | null
           player_id: number | null
           player_name: string | null
+          projection_v9: number | null
           provider: string | null
-          ripple_multiplier: number | null
           stat_key: string | null
+          std_v9: number | null
           under_odds: number | null
+          usage_shift_multiplier: number | null
           vendor: string | null
         }
         Relationships: []
@@ -6667,6 +6689,31 @@ export type Database = {
           streak_multiplier: number | null
           under_hits_10: number | null
           under_hits_5: number | null
+        }
+        Relationships: []
+      }
+      ce_usage_baseline: {
+        Row: {
+          avg_pie_season: number | null
+          avg_pra_season: number | null
+          player_id: number | null
+        }
+        Relationships: []
+      }
+      ce_usage_shift: {
+        Row: {
+          avg_pra_10: number | null
+          avg_pra_season: number | null
+          player_id: number | null
+          ripple_multiplier_auto: number | null
+        }
+        Relationships: []
+      }
+      ce_usage_spikes: {
+        Row: {
+          avg_pie_10: number | null
+          avg_pra_10: number | null
+          player_id: number | null
         }
         Relationships: []
       }
