@@ -43,6 +43,7 @@ const FeedPage = lazy(() => import("./pages/FeedPage"));
 const AdminImportPage = lazy(() => import("./pages/AdminImportPage"));
 const AdminGamesPage = lazy(() => import("./pages/AdminGamesPage"));
 const AdminPage = lazy(() => import("./pages/AdminPage"));
+const TTEdgePage = lazy(() => import("./pages/TTEdgePage"));
 const HealthPage = lazy(() => import("./pages/HealthPage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const PrivacyPage = lazy(() => import("./pages/PrivacyPage"));
