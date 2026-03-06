@@ -95,7 +95,16 @@ const Index = () => {
       <AstroHeader date={selectedDate} />
 
       {/* Content */}
-      <div className="px-4 py-4 space-y-6">
+      <div className="px-4 py-4 space-y-5">
+        {/* Trending Plays + Live Now + Radar - only when not blocked */}
+        {!isBlockedLeague && !isLoading && !isError && filteredGames.length > 0 && (
+          <>
+            <LiveNowStrip games={liveGames} />
+            <TrendingPlaysStrip />
+            <LiveRadarPill />
+          </>
+        )}
+
         {isBlockedLeague ? (
           <div className="flex flex-col items-center justify-center py-20 gap-4 text-center px-6">
             <span className="text-4xl">🔮✨</span>
