@@ -6266,213 +6266,11 @@ export type Database = {
         }
         Relationships: []
       }
-      ce_correlation_flags: {
-        Row: {
-          correlation_flag: string | null
-          player_id: number | null
-        }
-        Relationships: []
-      }
       ce_defense_difficulty: {
         Row: {
           difficulty_multiplier: number | null
           opponent_team_id: number | null
           stat_key: string | null
-        }
-        Relationships: []
-      }
-      ce_engine_registry_active: {
-        Row: {
-          created_at: string | null
-          description: string | null
-          display_order: number | null
-          engine_key: string | null
-          engine_name: string | null
-          id: string | null
-          input_objects: Json | null
-          layer: string | null
-          notes: string | null
-          output_objects: Json | null
-          purpose: string | null
-          status: string | null
-          updated_at: string | null
-          version: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          description?: string | null
-          display_order?: number | null
-          engine_key?: string | null
-          engine_name?: string | null
-          id?: string | null
-          input_objects?: Json | null
-          layer?: string | null
-          notes?: string | null
-          output_objects?: Json | null
-          purpose?: string | null
-          status?: string | null
-          updated_at?: string | null
-          version?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          description?: string | null
-          display_order?: number | null
-          engine_key?: string | null
-          engine_name?: string | null
-          id?: string | null
-          input_objects?: Json | null
-          layer?: string | null
-          notes?: string | null
-          output_objects?: Json | null
-          purpose?: string | null
-          status?: string | null
-          updated_at?: string | null
-          version?: string | null
-        }
-        Relationships: []
-      }
-      ce_formulas_featured: {
-        Row: {
-          category: string | null
-          created_at: string | null
-          display_order: number | null
-          example_input: Json | null
-          example_output: Json | null
-          formula_name: string | null
-          formula_text: string | null
-          id: string | null
-          is_featured: boolean | null
-          notes: string | null
-          plain_english: string | null
-          slug: string | null
-          updated_at: string | null
-          variables: Json | null
-        }
-        Insert: {
-          category?: string | null
-          created_at?: string | null
-          display_order?: number | null
-          example_input?: Json | null
-          example_output?: Json | null
-          formula_name?: string | null
-          formula_text?: string | null
-          id?: string | null
-          is_featured?: boolean | null
-          notes?: string | null
-          plain_english?: string | null
-          slug?: string | null
-          updated_at?: string | null
-          variables?: Json | null
-        }
-        Update: {
-          category?: string | null
-          created_at?: string | null
-          display_order?: number | null
-          example_input?: Json | null
-          example_output?: Json | null
-          formula_name?: string | null
-          formula_text?: string | null
-          id?: string | null
-          is_featured?: boolean | null
-          notes?: string | null
-          plain_english?: string | null
-          slug?: string | null
-          updated_at?: string | null
-          variables?: Json | null
-        }
-        Relationships: []
-      }
-      ce_glossary_featured: {
-        Row: {
-          category: string | null
-          created_at: string | null
-          display_order: number | null
-          full_definition: string | null
-          id: string | null
-          is_featured: boolean | null
-          related_terms: Json | null
-          short_definition: string | null
-          slug: string | null
-          tags: Json | null
-          term: string | null
-          updated_at: string | null
-        }
-        Insert: {
-          category?: string | null
-          created_at?: string | null
-          display_order?: number | null
-          full_definition?: string | null
-          id?: string | null
-          is_featured?: boolean | null
-          related_terms?: Json | null
-          short_definition?: string | null
-          slug?: string | null
-          tags?: Json | null
-          term?: string | null
-          updated_at?: string | null
-        }
-        Update: {
-          category?: string | null
-          created_at?: string | null
-          display_order?: number | null
-          full_definition?: string | null
-          id?: string | null
-          is_featured?: boolean | null
-          related_terms?: Json | null
-          short_definition?: string | null
-          slug?: string | null
-          tags?: Json | null
-          term?: string | null
-          updated_at?: string | null
-        }
-        Relationships: []
-      }
-      ce_info_pages_published: {
-        Row: {
-          audience: string | null
-          body_md: string | null
-          created_at: string | null
-          display_order: number | null
-          id: string | null
-          is_published: boolean | null
-          page_type: string | null
-          sections: Json | null
-          slug: string | null
-          summary: string | null
-          tags: Json | null
-          title: string | null
-          updated_at: string | null
-        }
-        Insert: {
-          audience?: string | null
-          body_md?: string | null
-          created_at?: string | null
-          display_order?: number | null
-          id?: string | null
-          is_published?: boolean | null
-          page_type?: string | null
-          sections?: Json | null
-          slug?: string | null
-          summary?: string | null
-          tags?: Json | null
-          title?: string | null
-          updated_at?: string | null
-        }
-        Update: {
-          audience?: string | null
-          body_md?: string | null
-          created_at?: string | null
-          display_order?: number | null
-          id?: string | null
-          is_published?: boolean | null
-          page_type?: string | null
-          sections?: Json | null
-          slug?: string | null
-          summary?: string | null
-          tags?: Json | null
-          title?: string | null
-          updated_at?: string | null
         }
         Relationships: []
       }
@@ -6482,24 +6280,6 @@ export type Database = {
           missing_usage: number | null
           player_id: number | null
           prop_id: string | null
-        }
-        Relationships: []
-      }
-      ce_matchup_difficulty_live: {
-        Row: {
-          difficulty_multiplier: number | null
-          stat_key: string | null
-          team_abbr: string | null
-        }
-        Insert: {
-          difficulty_multiplier?: number | null
-          stat_key?: string | null
-          team_abbr?: string | null
-        }
-        Update: {
-          difficulty_multiplier?: number | null
-          stat_key?: string | null
-          team_abbr?: string | null
         }
         Relationships: []
       }
@@ -6530,43 +6310,6 @@ export type Database = {
           sim_std: number | null
           stat_key: string | null
           streak_flag: string | null
-          under_odds: number | null
-          vendor: string | null
-        }
-        Relationships: []
-      }
-      ce_monte_input_heavy_v5: {
-        Row: {
-          edge_score_v9: number | null
-          game_key: string | null
-          line_value: number | null
-          over_odds: number | null
-          player_id: number | null
-          player_name: string | null
-          projection_mean: number | null
-          provider: string | null
-          sim_std: number | null
-          stat_key: string | null
-          under_odds: number | null
-          vendor: string | null
-        }
-        Relationships: []
-      }
-      ce_monte_input_supermodel: {
-        Row: {
-          correlation_flag: string | null
-          defense_multiplier: number | null
-          edge_score_v9: number | null
-          game_key: string | null
-          line_value: number | null
-          over_odds: number | null
-          player_id: number | null
-          player_name: string | null
-          projection_mean: number | null
-          provider: string | null
-          ripple_multiplier_auto: number | null
-          sim_std: number | null
-          stat_key: string | null
           under_odds: number | null
           vendor: string | null
         }
@@ -6611,101 +6354,6 @@ export type Database = {
           streak_flag: string | null
           under_odds: number | null
           vendor: string | null
-        }
-        Relationships: []
-      }
-      ce_parlay_pair_scored: {
-        Row: {
-          edge_score_a: number | null
-          edge_score_b: number | null
-          game_key: string | null
-          line_value_a: number | null
-          line_value_b: number | null
-          pair_corr: number | null
-          pair_type: string | null
-          player_id_a: number | null
-          player_id_b: number | null
-          player_name_a: string | null
-          player_name_b: string | null
-          projection_mean_a: number | null
-          projection_mean_b: number | null
-          sim_std_a: number | null
-          sim_std_b: number | null
-          stat_key_a: string | null
-          stat_key_b: string | null
-        }
-        Relationships: []
-      }
-      ce_parlay_pairs: {
-        Row: {
-          edge_score_a: number | null
-          edge_score_b: number | null
-          game_key: string | null
-          line_value_a: number | null
-          line_value_b: number | null
-          player_id_a: number | null
-          player_id_b: number | null
-          player_name_a: string | null
-          player_name_b: string | null
-          projection_mean_a: number | null
-          projection_mean_b: number | null
-          sim_std_a: number | null
-          sim_std_b: number | null
-          stat_key_a: string | null
-          stat_key_b: string | null
-        }
-        Relationships: []
-      }
-      ce_parlay_probabilities: {
-        Row: {
-          adjusted_joint_prob: number | null
-          corr_label: string | null
-          edge_score_a: number | null
-          edge_score_b: number | null
-          game_key: string | null
-          leg_prob_a: number | null
-          leg_prob_b: number | null
-          line_value_a: number | null
-          line_value_b: number | null
-          naive_joint_prob: number | null
-          pair_corr: number | null
-          pair_type: string | null
-          player_id_a: number | null
-          player_id_b: number | null
-          player_name_a: string | null
-          player_name_b: string | null
-          projection_mean_a: number | null
-          projection_mean_b: number | null
-          sim_std_a: number | null
-          sim_std_b: number | null
-          stat_key_a: string | null
-          stat_key_b: string | null
-        }
-        Relationships: []
-      }
-      ce_parlay_top_plays: {
-        Row: {
-          adjusted_joint_prob: number | null
-          corr_label: string | null
-          edge_score_a: number | null
-          edge_score_b: number | null
-          game_key: string | null
-          line_value_a: number | null
-          line_value_b: number | null
-          naive_joint_prob: number | null
-          pair_corr: number | null
-          pair_type: string | null
-          player_name_a: string | null
-          player_name_b: string | null
-          stat_key_a: string | null
-          stat_key_b: string | null
-        }
-        Relationships: []
-      }
-      ce_player_current_team: {
-        Row: {
-          player_id: number | null
-          team_id: number | null
         }
         Relationships: []
       }
@@ -6803,18 +6451,6 @@ export type Database = {
           streak_flag: string | null
           under_odds: number | null
           vendor: string | null
-        }
-        Relationships: []
-      }
-      ce_same_player_corr: {
-        Row: {
-          ast_pra_corr: number | null
-          ast_reb_corr: number | null
-          player_id: number | null
-          pts_ast_corr: number | null
-          pts_pra_corr: number | null
-          pts_reb_corr: number | null
-          reb_pra_corr: number | null
         }
         Relationships: []
       }
@@ -6994,80 +6630,6 @@ export type Database = {
         }
         Relationships: []
       }
-      ce_scorecards_fast_v7: {
-        Row: {
-          adjusted_projection_v7: number | null
-          adjusted_std_v7: number | null
-          astro_conf_multiplier_real: number | null
-          astro_mean_multiplier_real: number | null
-          astro_tone_real: string | null
-          edge_score_v7: number | null
-          game_key: string | null
-          injury_multiplier: number | null
-          jupiter_lift: number | null
-          lean_v7: string | null
-          line_value: number | null
-          mars_boost: number | null
-          matchup_multiplier: number | null
-          mercury_chaos: number | null
-          momentum_multiplier: number | null
-          momentum_score: number | null
-          neptune_fog: number | null
-          over_odds: number | null
-          pie_mean: number | null
-          pie_multiplier: number | null
-          player_id: number | null
-          player_name: string | null
-          plus_minus_mean: number | null
-          projection_mean: number | null
-          provider: string | null
-          saturn_clamp: number | null
-          sky_noise: string | null
-          stat_key: string | null
-          std_dev: number | null
-          streak_flag: string | null
-          streak_multiplier: number | null
-          under_odds: number | null
-          vendor: string | null
-        }
-        Relationships: []
-      }
-      ce_scorecards_fast_v8: {
-        Row: {
-          adjusted_projection_v8: number | null
-          adjusted_std_v8: number | null
-          edge_score_v8: number | null
-          game_key: string | null
-          line_value: number | null
-          over_odds: number | null
-          player_id: number | null
-          player_name: string | null
-          provider: string | null
-          stat_key: string | null
-          under_odds: number | null
-          vendor: string | null
-        }
-        Relationships: []
-      }
-      ce_scorecards_fast_v9: {
-        Row: {
-          defense_multiplier: number | null
-          edge_score_v9: number | null
-          game_key: string | null
-          line_value: number | null
-          over_odds: number | null
-          player_id: number | null
-          player_name: string | null
-          projection_v9: number | null
-          provider: string | null
-          ripple_multiplier_auto: number | null
-          stat_key: string | null
-          std_v9: number | null
-          under_odds: number | null
-          vendor: string | null
-        }
-        Relationships: []
-      }
       ce_scorecards_live: {
         Row: {
           base_prob: number | null
@@ -7127,25 +6689,6 @@ export type Database = {
         }
         Relationships: []
       }
-      ce_scorecards_top_25_v5: {
-        Row: {
-          defense_multiplier: number | null
-          edge_score_v9: number | null
-          game_key: string | null
-          line_value: number | null
-          over_odds: number | null
-          player_id: number | null
-          player_name: string | null
-          projection_v9: number | null
-          provider: string | null
-          ripple_multiplier_auto: number | null
-          stat_key: string | null
-          std_v9: number | null
-          under_odds: number | null
-          vendor: string | null
-        }
-        Relationships: []
-      }
       ce_scorecards_top_heavy: {
         Row: {
           adjusted_projection_v6: number | null
@@ -7186,25 +6729,6 @@ export type Database = {
         }
         Relationships: []
       }
-      ce_scorecards_top_v5: {
-        Row: {
-          defense_multiplier: number | null
-          edge_score_v9: number | null
-          game_key: string | null
-          line_value: number | null
-          over_odds: number | null
-          player_id: number | null
-          player_name: string | null
-          projection_v9: number | null
-          provider: string | null
-          ripple_multiplier_auto: number | null
-          stat_key: string | null
-          std_v9: number | null
-          under_odds: number | null
-          vendor: string | null
-        }
-        Relationships: []
-      }
       ce_stat_correlations: {
         Row: {
           player_id: number | null
@@ -7227,46 +6751,6 @@ export type Database = {
           streak_multiplier: number | null
           under_hits_10: number | null
           under_hits_5: number | null
-        }
-        Relationships: []
-      }
-      ce_supermodel: {
-        Row: {
-          correlation_flag: string | null
-          defense_multiplier: number | null
-          edge_score_v9: number | null
-          game_key: string | null
-          line_value: number | null
-          over_odds: number | null
-          player_id: number | null
-          player_name: string | null
-          projection_v9: number | null
-          provider: string | null
-          ripple_multiplier_auto: number | null
-          stat_key: string | null
-          std_v9: number | null
-          under_odds: number | null
-          vendor: string | null
-        }
-        Relationships: []
-      }
-      ce_supermodel_top_plays: {
-        Row: {
-          correlation_flag: string | null
-          defense_multiplier: number | null
-          edge_score_v9: number | null
-          game_key: string | null
-          line_value: number | null
-          over_odds: number | null
-          player_id: number | null
-          player_name: string | null
-          projection_v9: number | null
-          provider: string | null
-          ripple_multiplier_auto: number | null
-          stat_key: string | null
-          std_v9: number | null
-          under_odds: number | null
-          vendor: string | null
         }
         Relationships: []
       }
