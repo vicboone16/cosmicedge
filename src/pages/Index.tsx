@@ -9,6 +9,9 @@ import { useIsAdmin } from "@/hooks/use-admin";
 import { Switch } from "@/components/ui/switch";
 import type { League } from "@/lib/mock-data";
 import { format, addDays, isToday } from "date-fns";
+import { TrendingPlaysStrip } from "@/components/slate/TrendingPlaysStrip";
+import { LiveNowStrip } from "@/components/slate/LiveNowStrip";
+import { LiveRadarPill } from "@/components/slate/LiveRadarPill";
 
 const Index = () => {
   const [selectedLeague, setSelectedLeague] = useState<League | "ALL">("ALL");
@@ -92,7 +95,16 @@ const Index = () => {
       <AstroHeader date={selectedDate} />
 
       {/* Content */}
-      <div className="px-4 py-4 space-y-6">
+      <div className="px-4 py-4 space-y-5">
+        {/* Trending Plays + Live Now + Radar - only when not blocked */}
+        {!isBlockedLeague && !isLoading && !isError && filteredGames.length > 0 && (
+          <>
+            <LiveNowStrip games={liveGames} />
+            <TrendingPlaysStrip />
+            <LiveRadarPill />
+          </>
+        )}
+
         {isBlockedLeague ? (
           <div className="flex flex-col items-center justify-center py-20 gap-4 text-center px-6">
             <span className="text-4xl">🔮✨</span>

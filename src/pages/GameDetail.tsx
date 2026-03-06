@@ -25,7 +25,8 @@ import { GameMatchupTab } from "@/components/game/GameMatchupTab";
 import { PlayByPlayTab } from "@/components/game/PlayByPlayTab";
 import { GameStatsTab } from "@/components/game/GameStatsTab";
 import { OracleTab } from "@/components/game/OracleTab";
-
+import { LivePropsTab } from "@/components/game/LivePropsTab";
+import { BestPropsSection } from "@/components/game/BestPropsSection";
 import { PeriodScoresTicker } from "@/components/game/PeriodScoresTicker";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { AlertSetupDialog } from "@/components/live/AlertSetupDialog";
@@ -344,7 +345,7 @@ const GameDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { formatInUserTZ, getTZAbbrev } = useTimezone();
-  const [activeTab, setActiveTab] = useState<"odds" | "insights" | "matchup" | "pbp" | "stats" | "oracle">("insights");
+  const [activeTab, setActiveTab] = useState<"odds" | "insights" | "matchup" | "pbp" | "stats" | "oracle" | "liveprops">("insights");
   const [gameSubTab, setGameSubTab] = useState<"gamelines" | "player_props" | "team_props" | "game_props">("gamelines");
   const [transitSelectedPlayer, setTransitSelectedPlayer] = useState<{ id: string; name: string; position: string | null; team: string | null; birth_date: string | null } | null>(null);
 
@@ -591,6 +592,7 @@ const GameDetail = () => {
         <div className="flex gap-1 justify-center border-b border-border/50 -mx-4 px-4 overflow-x-auto no-scrollbar">
         {([
             { val: "oracle" as const, label: "Oracle" },
+            { val: "liveprops" as const, label: "Live Props" },
             { val: "insights" as const, label: "Insights" },
             { val: "matchup" as const, label: "Matchup" },
             { val: "odds" as const, label: "Odds" },
@@ -604,9 +606,13 @@ const GameDetail = () => {
                 "px-4 py-2.5 text-xs font-semibold transition-colors whitespace-nowrap border-b-2",
                 activeTab === t.val
                   ? "text-primary border-primary"
-                  : "text-muted-foreground border-transparent hover:text-foreground"
+                  : "text-muted-foreground border-transparent hover:text-foreground",
+                t.val === "liveprops" && (game.status === "live" || game.status === "in_progress") && activeTab !== t.val && "text-cosmic-green"
               )}
             >
+              {t.val === "liveprops" && (game.status === "live" || game.status === "in_progress") && (
+                <span className="inline-block h-1.5 w-1.5 rounded-full bg-cosmic-green mr-1 animate-pulse-glow" />
+              )}
               {t.label}
             </button>
           ))}
@@ -993,19 +999,31 @@ const GameDetail = () => {
         )}
 
         {activeTab === "oracle" && (
-          <OracleTab
+          <>
+            <OracleTab
+              gameId={game.id}
+              homeAbbr={game.home_abbr}
+              awayAbbr={game.away_abbr}
+              homeTeam={game.home_team}
+              awayTeam={game.away_team}
+              league={game.league}
+              bookMLHome={game.odds.moneyline.home}
+              bookMLAway={game.odds.moneyline.away}
+              bookSpread={game.odds.spread.line}
+              bookTotal={game.odds.total.line}
+              homeScore={game.home_score}
+              awayScore={game.away_score}
+              isLive={game.status === "live" || game.status === "in_progress"}
+            />
+            <BestPropsSection gameId={game.id} />
+          </>
+        )}
+
+        {activeTab === "liveprops" && (
+          <LivePropsTab
             gameId={game.id}
             homeAbbr={game.home_abbr}
             awayAbbr={game.away_abbr}
-            homeTeam={game.home_team}
-            awayTeam={game.away_team}
-            league={game.league}
-            bookMLHome={game.odds.moneyline.home}
-            bookMLAway={game.odds.moneyline.away}
-            bookSpread={game.odds.spread.line}
-            bookTotal={game.odds.total.line}
-            homeScore={game.home_score}
-            awayScore={game.away_score}
             isLive={game.status === "live" || game.status === "in_progress"}
           />
         )}
