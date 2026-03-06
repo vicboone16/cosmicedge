@@ -221,8 +221,8 @@ export default function TTEdgePage() {
   const d = dashboard;
 
   return (
-    <div className="p-4 pb-24 space-y-4">
-      <h1 className="text-2xl font-bold text-center">🏓 Table Tennis Edge Lab</h1>
+    <div className="pt-14 px-3 pb-24 space-y-4">
+      <h1 className="text-xl sm:text-2xl font-bold text-center">🏓 TT Edge Lab</h1>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* ═══ LEFT: LIVE MATCH MONITOR ═══ */}
