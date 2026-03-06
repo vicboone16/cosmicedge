@@ -5272,6 +5272,20 @@ export type Database = {
             foreignKeyName: "tt_market_odds_match_id_fkey"
             columns: ["match_id"]
             isOneToOne: true
+            referencedRelation: "tt_live_learned_probs"
+            referencedColumns: ["match_id"]
+          },
+          {
+            foreignKeyName: "tt_market_odds_match_id_fkey"
+            columns: ["match_id"]
+            isOneToOne: true
+            referencedRelation: "tt_live_model"
+            referencedColumns: ["match_id"]
+          },
+          {
+            foreignKeyName: "tt_market_odds_match_id_fkey"
+            columns: ["match_id"]
+            isOneToOne: true
             referencedRelation: "tt_match_list"
             referencedColumns: ["match_id"]
           },
@@ -5282,14 +5296,31 @@ export type Database = {
             referencedRelation: "tt_matches"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "tt_market_odds_match_id_fkey"
-            columns: ["match_id"]
-            isOneToOne: true
-            referencedRelation: "tt_momentum_signal"
-            referencedColumns: ["match_id"]
-          },
         ]
+      }
+      tt_match_events: {
+        Row: {
+          created_at: string
+          event_type: string
+          id: number
+          match_id: string
+          payload: Json | null
+        }
+        Insert: {
+          created_at?: string
+          event_type: string
+          id?: number
+          match_id: string
+          payload?: Json | null
+        }
+        Update: {
+          created_at?: string
+          event_type?: string
+          id?: number
+          match_id?: string
+          payload?: Json | null
+        }
+        Relationships: []
       }
       tt_match_metrics: {
         Row: {
@@ -5362,6 +5393,20 @@ export type Database = {
             foreignKeyName: "tt_match_metrics_match_id_fkey"
             columns: ["match_id"]
             isOneToOne: true
+            referencedRelation: "tt_live_learned_probs"
+            referencedColumns: ["match_id"]
+          },
+          {
+            foreignKeyName: "tt_match_metrics_match_id_fkey"
+            columns: ["match_id"]
+            isOneToOne: true
+            referencedRelation: "tt_live_model"
+            referencedColumns: ["match_id"]
+          },
+          {
+            foreignKeyName: "tt_match_metrics_match_id_fkey"
+            columns: ["match_id"]
+            isOneToOne: true
             referencedRelation: "tt_match_list"
             referencedColumns: ["match_id"]
           },
@@ -5372,86 +5417,52 @@ export type Database = {
             referencedRelation: "tt_matches"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "tt_match_metrics_match_id_fkey"
-            columns: ["match_id"]
-            isOneToOne: true
-            referencedRelation: "tt_momentum_signal"
-            referencedColumns: ["match_id"]
-          },
         ]
       }
       tt_matches: {
         Row: {
-          best_bet_threshold: number | null
+          best_bet_threshold: number
           created_at: string
-          current_server: string
-          edge_threshold: number | null
+          edge_threshold: number
           first_server: string
           id: string
-          ml_odds_a: number | null
-          next_server: string | null
-          over_odds: number | null
-          p_r: number
-          p_s: number
+          next_server: string
           player_a: string
           player_b: string
           score_a: number
           score_b: number
           serves_left: number
-          spread_line: number | null
-          spread_odds: number | null
           status: string
-          total_line: number | null
-          under_odds: number | null
           updated_at: string
         }
         Insert: {
-          best_bet_threshold?: number | null
+          best_bet_threshold?: number
           created_at?: string
-          current_server?: string
-          edge_threshold?: number | null
+          edge_threshold?: number
           first_server?: string
           id?: string
-          ml_odds_a?: number | null
-          next_server?: string | null
-          over_odds?: number | null
-          p_r?: number
-          p_s?: number
-          player_a: string
-          player_b: string
-          score_a?: number
-          score_b?: number
-          serves_left?: number
-          spread_line?: number | null
-          spread_odds?: number | null
-          status?: string
-          total_line?: number | null
-          under_odds?: number | null
-          updated_at?: string
-        }
-        Update: {
-          best_bet_threshold?: number | null
-          created_at?: string
-          current_server?: string
-          edge_threshold?: number | null
-          first_server?: string
-          id?: string
-          ml_odds_a?: number | null
-          next_server?: string | null
-          over_odds?: number | null
-          p_r?: number
-          p_s?: number
+          next_server?: string
           player_a?: string
           player_b?: string
           score_a?: number
           score_b?: number
           serves_left?: number
-          spread_line?: number | null
-          spread_odds?: number | null
           status?: string
-          total_line?: number | null
-          under_odds?: number | null
+          updated_at?: string
+        }
+        Update: {
+          best_bet_threshold?: number
+          created_at?: string
+          edge_threshold?: number
+          first_server?: string
+          id?: string
+          next_server?: string
+          player_a?: string
+          player_b?: string
+          score_a?: number
+          score_b?: number
+          serves_left?: number
+          status?: string
           updated_at?: string
         }
         Relationships: []
@@ -5506,6 +5517,20 @@ export type Database = {
             foreignKeyName: "tt_point_log_match_id_fkey"
             columns: ["match_id"]
             isOneToOne: false
+            referencedRelation: "tt_live_learned_probs"
+            referencedColumns: ["match_id"]
+          },
+          {
+            foreignKeyName: "tt_point_log_match_id_fkey"
+            columns: ["match_id"]
+            isOneToOne: false
+            referencedRelation: "tt_live_model"
+            referencedColumns: ["match_id"]
+          },
+          {
+            foreignKeyName: "tt_point_log_match_id_fkey"
+            columns: ["match_id"]
+            isOneToOne: false
             referencedRelation: "tt_match_list"
             referencedColumns: ["match_id"]
           },
@@ -5516,14 +5541,217 @@ export type Database = {
             referencedRelation: "tt_matches"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "tt_point_log_match_id_fkey"
-            columns: ["match_id"]
-            isOneToOne: false
-            referencedRelation: "tt_momentum_signal"
-            referencedColumns: ["match_id"]
-          },
         ]
+      }
+      tt_points: {
+        Row: {
+          created_at: string
+          id: number
+          match_id: string
+          point_number: number
+          server: string
+          winner: string
+        }
+        Insert: {
+          created_at?: string
+          id?: number
+          match_id: string
+          point_number: number
+          server: string
+          winner: string
+        }
+        Update: {
+          created_at?: string
+          id?: number
+          match_id?: string
+          point_number?: number
+          server?: string
+          winner?: string
+        }
+        Relationships: []
+      }
+      tt_prob_history: {
+        Row: {
+          cover_m15: number | null
+          created_at: string | null
+          id: number
+          match_id: string | null
+          over_185: number | null
+          score_a: number | null
+          score_b: number | null
+          win_prob_a: number | null
+        }
+        Insert: {
+          cover_m15?: number | null
+          created_at?: string | null
+          id?: number
+          match_id?: string | null
+          over_185?: number | null
+          score_a?: number | null
+          score_b?: number | null
+          win_prob_a?: number | null
+        }
+        Update: {
+          cover_m15?: number | null
+          created_at?: string | null
+          id?: number
+          match_id?: string | null
+          over_185?: number | null
+          score_a?: number | null
+          score_b?: number | null
+          win_prob_a?: number | null
+        }
+        Relationships: []
+      }
+      tt_recalc_queue: {
+        Row: {
+          created_at: string
+          id: number
+          match_id: string
+          processed_at: string | null
+          reason: string
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          id?: number
+          match_id: string
+          processed_at?: string | null
+          reason: string
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          id?: number
+          match_id?: string
+          processed_at?: string | null
+          reason?: string
+          status?: string
+        }
+        Relationships: []
+      }
+      tt_score_states: {
+        Row: {
+          id: number
+          is_terminal: boolean | null
+          score_a: number | null
+          score_b: number | null
+          server: string | null
+          serves_left: number | null
+          winner: string | null
+        }
+        Insert: {
+          id?: number
+          is_terminal?: boolean | null
+          score_a?: number | null
+          score_b?: number | null
+          server?: string | null
+          serves_left?: number | null
+          winner?: string | null
+        }
+        Update: {
+          id?: number
+          is_terminal?: boolean | null
+          score_a?: number | null
+          score_b?: number | null
+          server?: string | null
+          serves_left?: number | null
+          winner?: string | null
+        }
+        Relationships: []
+      }
+      tt_serve_stats: {
+        Row: {
+          a_serve_points: number
+          a_serve_wins_by_a: number
+          b_serve_points: number
+          b_serve_wins_by_a: number
+          match_id: string
+          prior_pr: number
+          prior_ps: number
+          prior_strength: number
+          updated_at: string
+        }
+        Insert: {
+          a_serve_points?: number
+          a_serve_wins_by_a?: number
+          b_serve_points?: number
+          b_serve_wins_by_a?: number
+          match_id: string
+          prior_pr?: number
+          prior_ps?: number
+          prior_strength?: number
+          updated_at?: string
+        }
+        Update: {
+          a_serve_points?: number
+          a_serve_wins_by_a?: number
+          b_serve_points?: number
+          b_serve_wins_by_a?: number
+          match_id?: string
+          prior_pr?: number
+          prior_ps?: number
+          prior_strength?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      tt_state_matrix: {
+        Row: {
+          cover_m15: number | null
+          cover_m25: number | null
+          cover_m35: number | null
+          cover_m45: number | null
+          over_165: number | null
+          over_175: number | null
+          over_185: number | null
+          over_195: number | null
+          over_205: number | null
+          pr: number
+          ps: number
+          score_a: number
+          score_b: number
+          server: string
+          serves_left: number
+          win_prob_a: number | null
+        }
+        Insert: {
+          cover_m15?: number | null
+          cover_m25?: number | null
+          cover_m35?: number | null
+          cover_m45?: number | null
+          over_165?: number | null
+          over_175?: number | null
+          over_185?: number | null
+          over_195?: number | null
+          over_205?: number | null
+          pr: number
+          ps: number
+          score_a: number
+          score_b: number
+          server: string
+          serves_left: number
+          win_prob_a?: number | null
+        }
+        Update: {
+          cover_m15?: number | null
+          cover_m25?: number | null
+          cover_m35?: number | null
+          cover_m45?: number | null
+          over_165?: number | null
+          over_175?: number | null
+          over_185?: number | null
+          over_195?: number | null
+          over_205?: number | null
+          pr?: number
+          ps?: number
+          score_a?: number
+          score_b?: number
+          server?: string
+          serves_left?: number
+          win_prob_a?: number | null
+        }
+        Relationships: []
       }
       user_roles: {
         Row: {
@@ -5896,56 +6124,96 @@ export type Database = {
       tt_admin_dashboard: {
         Row: {
           best_bet_tag: string | null
+          best_bet_threshold: number | null
+          bet_ml: boolean | null
+          bet_over_185: boolean | null
+          bet_spread_m15: boolean | null
+          bet_under_185: boolean | null
+          cover_m05: number | null
           cover_m15: number | null
           cover_m25: number | null
           cover_m35: number | null
           cover_m45: number | null
-          created_at: string | null
+          edge_threshold: number | null
+          first_server: string | null
           match_id: string | null
+          match_updated_at: string | null
+          metrics_updated_at: string | null
+          ml_a: number | null
+          ml_be: number | null
           ml_edge: number | null
-          ml_odds_a: number | null
           next_server: string | null
           over_165: number | null
           over_175: number | null
           over_185: number | null
           over_195: number | null
           over_205: number | null
+          over_be: number | null
           over_edge_185: number | null
           over_odds: number | null
-          p_r: number | null
-          p_s: number | null
           player_a: string | null
           player_b: string | null
+          pr: number | null
+          ps: number | null
           score_a: number | null
           score_b: number | null
           serves_left: number | null
+          spread_a: number | null
+          spread_be: number | null
           spread_edge_m15: number | null
           spread_line: number | null
-          spread_odds: number | null
           status: string | null
           total_line: number | null
-          total_points: number | null
+          under_be: number | null
           under_edge_185: number | null
           under_odds: number | null
-          updated_at: string | null
           win_prob_a: number | null
         }
         Relationships: []
       }
       tt_best_opportunities: {
         Row: {
-          best_bet_tag: string | null
           best_edge: number | null
+          cover_m15: number | null
           match_id: string | null
+          metrics_updated_at: string | null
+          ml_a: number | null
+          ml_break_even: number | null
           ml_edge: number | null
           next_server: string | null
+          over_185: number | null
+          over_break_even: number | null
+          over_edge: number | null
+          over_odds: number | null
           player_a: string | null
           player_b: string | null
           score_a: number | null
           score_b: number | null
           serves_left: number | null
+          spread_a: number | null
+          spread_break_even: number | null
           spread_edge: number | null
+          spread_line: number | null
           status: string | null
+          total_line: number | null
+          under_odds: number | null
+          win_prob_a: number | null
+        }
+        Relationships: []
+      }
+      tt_live_learned_probs: {
+        Row: {
+          a_serve_points: number | null
+          b_serve_points: number | null
+          match_id: string | null
+          pr: number | null
+          ps: number | null
+        }
+        Relationships: []
+      }
+      tt_live_model: {
+        Row: {
+          match_id: string | null
           win_prob_a: number | null
         }
         Relationships: []
@@ -5979,12 +6247,26 @@ export type Database = {
         }
         Relationships: []
       }
+      tt_momentum_shock: {
+        Row: {
+          created_at: string | null
+          match_id: string | null
+          score_a: number | null
+          score_b: number | null
+          spread_jump: number | null
+          win_prob_a: number | null
+          win_prob_jump: number | null
+        }
+        Relationships: []
+      }
       tt_momentum_signal: {
         Row: {
+          created_at: string | null
           match_id: string | null
           momentum_level: string | null
-          player_a: string | null
-          player_b: string | null
+          score_a: number | null
+          score_b: number | null
+          spread_jump: number | null
           win_prob_a: number | null
           win_prob_jump: number | null
         }
@@ -6475,10 +6757,74 @@ export type Database = {
       }
       settle_bets_on_game: { Args: { p_game_id: string }; Returns: undefined }
       sync_live_scores_via_api: { Args: never; Returns: Json }
+      tt_advance_serve_state: {
+        Args: {
+          a_after: number
+          b_after: number
+          server_before: string
+          serves_left_before: number
+        }
+        Returns: {
+          next_server: string
+          serves_left: number
+        }[]
+      }
+      tt_cover_prob_dp: {
+        Args: {
+          a: number
+          b: number
+          next_server: string
+          pr: number
+          ps: number
+          serves_left: number
+          spread_line: number
+        }
+        Returns: number
+      }
+      tt_deuce_win_prob: { Args: { pr: number; ps: number }; Returns: number }
+      tt_is_terminal: {
+        Args: { a: number; b: number }
+        Returns: {
+          is_terminal: boolean
+          win_a: boolean
+        }[]
+      }
       tt_log_point: {
         Args: { p_match_id: string; p_winner: string }
         Returns: undefined
       }
+      tt_next_state: {
+        Args: {
+          a: number
+          b: number
+          server: string
+          serves_left: number
+          winner: string
+        }
+        Returns: {
+          next_a: number
+          next_b: number
+          next_server: string
+          next_serves: number
+        }[]
+      }
+      tt_over_prob_dp: {
+        Args: {
+          a: number
+          b: number
+          next_server: string
+          pr: number
+          ps: number
+          serves_left: number
+          total_line: number
+        }
+        Returns: number
+      }
+      tt_rebuild_state_from_points: {
+        Args: { p_match_id: string }
+        Returns: undefined
+      }
+      tt_recompute_metrics: { Args: { p_match_id: string }; Returns: undefined }
       tt_reset_match: { Args: { p_match_id: string }; Returns: undefined }
       tt_start_match: {
         Args: {
@@ -6502,6 +6848,38 @@ export type Database = {
           p_under_odds?: number
         }
         Returns: undefined
+      }
+      tt_win_prob: {
+        Args: {
+          a: number
+          b: number
+          pr: number
+          ps: number
+          server: string
+          serves_left: number
+        }
+        Returns: number
+      }
+      tt_win_prob_dp: {
+        Args: {
+          a: number
+          b: number
+          next_server: string
+          pr: number
+          ps: number
+          serves_left: number
+        }
+        Returns: number
+      }
+      tt_win_prob_from_deuce_state: {
+        Args: {
+          a: number
+          b: number
+          next_server: string
+          pr: number
+          ps: number
+        }
+        Returns: number
       }
       unaccent: { Args: { "": string }; Returns: string }
     }
