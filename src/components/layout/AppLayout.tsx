@@ -1,5 +1,6 @@
 import { Outlet, useNavigate } from "react-router-dom";
 import { BottomNav } from "./BottomNav";
+import { CosmicBackground } from "./CosmicBackground";
 import { PropDrawerProvider } from "@/hooks/use-prop-drawer";
 import { useAuth } from "@/hooks/use-auth";
 import { useIsAdmin } from "@/hooks/use-admin";
