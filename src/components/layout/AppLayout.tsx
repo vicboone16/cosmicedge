@@ -1,5 +1,6 @@
 import { Outlet, useNavigate } from "react-router-dom";
 import { BottomNav } from "./BottomNav";
+import { CosmicBackground } from "./CosmicBackground";
 import { PropDrawerProvider } from "@/hooks/use-prop-drawer";
 import { useAuth } from "@/hooks/use-auth";
 import { useIsAdmin } from "@/hooks/use-admin";
@@ -52,6 +53,7 @@ export function AppLayout() {
   });
   return (
     <div className="min-h-screen bg-background star-field">
+      <CosmicBackground />
       {/* Top header with profile dropdown */}
       <div className="fixed top-0 right-0 z-50 p-3 safe-area-top">
         <DropdownMenu>

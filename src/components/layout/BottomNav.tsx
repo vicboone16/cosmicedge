@@ -9,7 +9,7 @@ const navItems = [
   { to: "/nexus", icon: Compass, label: "Nexus", requiresAuth: true },
   { to: "/props", icon: TrendingUp, label: "Props", requiresAuth: true },
   { to: "/skyspread", icon: Crosshair, label: "SkySpread", requiresAuth: true },
-  { to: "/astra", icon: Sparkles, label: "Astra", requiresAuth: true },
+  { to: "/astra", icon: Sparkles, label: "Astra AI", requiresAuth: true },
 ];
 
 export function BottomNav() {
