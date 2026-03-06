@@ -6065,11 +6065,18 @@ export type Database = {
         }
         Relationships: []
       }
+      ce_correlation_flags: {
+        Row: {
+          correlation_flag: string | null
+          player_id: number | null
+        }
+        Relationships: []
+      }
       ce_defense_difficulty: {
         Row: {
-          avg_pts_allowed: number | null
           difficulty_multiplier: number | null
           opponent_team_id: number | null
+          stat_key: string | null
         }
         Relationships: []
       }
@@ -6165,6 +6172,33 @@ export type Database = {
           stat_key: string | null
           under_odds: number | null
           vendor: string | null
+        }
+        Relationships: []
+      }
+      ce_monte_input_supermodel: {
+        Row: {
+          correlation_flag: string | null
+          defense_multiplier: number | null
+          edge_score_v9: number | null
+          game_key: string | null
+          line_value: number | null
+          over_odds: number | null
+          player_id: number | null
+          player_name: string | null
+          projection_mean: number | null
+          provider: string | null
+          ripple_multiplier_auto: number | null
+          sim_std: number | null
+          stat_key: string | null
+          under_odds: number | null
+          vendor: string | null
+        }
+        Relationships: []
+      }
+      ce_player_current_team: {
+        Row: {
+          player_id: number | null
+          team_id: number | null
         }
         Relationships: []
       }
@@ -6486,6 +6520,7 @@ export type Database = {
       }
       ce_scorecards_fast_v9: {
         Row: {
+          defense_multiplier: number | null
           edge_score_v9: number | null
           game_key: string | null
           line_value: number | null
@@ -6494,10 +6529,10 @@ export type Database = {
           player_name: string | null
           projection_v9: number | null
           provider: string | null
+          ripple_multiplier_auto: number | null
           stat_key: string | null
           std_v9: number | null
           under_odds: number | null
-          usage_shift_multiplier: number | null
           vendor: string | null
         }
         Relationships: []
@@ -6574,6 +6609,7 @@ export type Database = {
       }
       ce_scorecards_top_25_v5: {
         Row: {
+          defense_multiplier: number | null
           edge_score_v9: number | null
           game_key: string | null
           line_value: number | null
@@ -6582,10 +6618,10 @@ export type Database = {
           player_name: string | null
           projection_v9: number | null
           provider: string | null
+          ripple_multiplier_auto: number | null
           stat_key: string | null
           std_v9: number | null
           under_odds: number | null
-          usage_shift_multiplier: number | null
           vendor: string | null
         }
         Relationships: []
@@ -6660,6 +6696,7 @@ export type Database = {
       }
       ce_scorecards_top_v5: {
         Row: {
+          defense_multiplier: number | null
           edge_score_v9: number | null
           game_key: string | null
           line_value: number | null
@@ -6668,11 +6705,20 @@ export type Database = {
           player_name: string | null
           projection_v9: number | null
           provider: string | null
+          ripple_multiplier_auto: number | null
           stat_key: string | null
           std_v9: number | null
           under_odds: number | null
-          usage_shift_multiplier: number | null
           vendor: string | null
+        }
+        Relationships: []
+      }
+      ce_stat_correlations: {
+        Row: {
+          player_id: number | null
+          pts_ast_corr: number | null
+          pts_reb_corr: number | null
+          reb_ast_corr: number | null
         }
         Relationships: []
       }
@@ -6689,6 +6735,46 @@ export type Database = {
           streak_multiplier: number | null
           under_hits_10: number | null
           under_hits_5: number | null
+        }
+        Relationships: []
+      }
+      ce_supermodel: {
+        Row: {
+          correlation_flag: string | null
+          defense_multiplier: number | null
+          edge_score_v9: number | null
+          game_key: string | null
+          line_value: number | null
+          over_odds: number | null
+          player_id: number | null
+          player_name: string | null
+          projection_v9: number | null
+          provider: string | null
+          ripple_multiplier_auto: number | null
+          stat_key: string | null
+          std_v9: number | null
+          under_odds: number | null
+          vendor: string | null
+        }
+        Relationships: []
+      }
+      ce_supermodel_top_plays: {
+        Row: {
+          correlation_flag: string | null
+          defense_multiplier: number | null
+          edge_score_v9: number | null
+          game_key: string | null
+          line_value: number | null
+          over_odds: number | null
+          player_id: number | null
+          player_name: string | null
+          projection_v9: number | null
+          provider: string | null
+          ripple_multiplier_auto: number | null
+          stat_key: string | null
+          std_v9: number | null
+          under_odds: number | null
+          vendor: string | null
         }
         Relationships: []
       }
