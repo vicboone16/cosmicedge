@@ -5222,13 +5222,175 @@ export type Database = {
         }
         Relationships: []
       }
+      tt_market_odds: {
+        Row: {
+          match_id: string
+          ml_a: number | null
+          over_odds: number | null
+          spread_a: number | null
+          spread_line: number | null
+          total_line: number | null
+          under_odds: number | null
+          updated_at: string
+        }
+        Insert: {
+          match_id: string
+          ml_a?: number | null
+          over_odds?: number | null
+          spread_a?: number | null
+          spread_line?: number | null
+          total_line?: number | null
+          under_odds?: number | null
+          updated_at?: string
+        }
+        Update: {
+          match_id?: string
+          ml_a?: number | null
+          over_odds?: number | null
+          spread_a?: number | null
+          spread_line?: number | null
+          total_line?: number | null
+          under_odds?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tt_market_odds_match_id_fkey"
+            columns: ["match_id"]
+            isOneToOne: true
+            referencedRelation: "tt_admin_dashboard"
+            referencedColumns: ["match_id"]
+          },
+          {
+            foreignKeyName: "tt_market_odds_match_id_fkey"
+            columns: ["match_id"]
+            isOneToOne: true
+            referencedRelation: "tt_best_opportunities"
+            referencedColumns: ["match_id"]
+          },
+          {
+            foreignKeyName: "tt_market_odds_match_id_fkey"
+            columns: ["match_id"]
+            isOneToOne: true
+            referencedRelation: "tt_match_list"
+            referencedColumns: ["match_id"]
+          },
+          {
+            foreignKeyName: "tt_market_odds_match_id_fkey"
+            columns: ["match_id"]
+            isOneToOne: true
+            referencedRelation: "tt_matches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tt_market_odds_match_id_fkey"
+            columns: ["match_id"]
+            isOneToOne: true
+            referencedRelation: "tt_momentum_signal"
+            referencedColumns: ["match_id"]
+          },
+        ]
+      }
+      tt_match_metrics: {
+        Row: {
+          cover_m05: number
+          cover_m15: number
+          cover_m25: number
+          cover_m35: number
+          cover_m45: number
+          match_id: string
+          over_165: number
+          over_175: number
+          over_185: number
+          over_195: number
+          over_205: number
+          pr: number
+          ps: number
+          updated_at: string
+          win_prob_a: number
+        }
+        Insert: {
+          cover_m05: number
+          cover_m15: number
+          cover_m25: number
+          cover_m35: number
+          cover_m45: number
+          match_id: string
+          over_165: number
+          over_175: number
+          over_185: number
+          over_195: number
+          over_205: number
+          pr: number
+          ps: number
+          updated_at?: string
+          win_prob_a: number
+        }
+        Update: {
+          cover_m05?: number
+          cover_m15?: number
+          cover_m25?: number
+          cover_m35?: number
+          cover_m45?: number
+          match_id?: string
+          over_165?: number
+          over_175?: number
+          over_185?: number
+          over_195?: number
+          over_205?: number
+          pr?: number
+          ps?: number
+          updated_at?: string
+          win_prob_a?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tt_match_metrics_match_id_fkey"
+            columns: ["match_id"]
+            isOneToOne: true
+            referencedRelation: "tt_admin_dashboard"
+            referencedColumns: ["match_id"]
+          },
+          {
+            foreignKeyName: "tt_match_metrics_match_id_fkey"
+            columns: ["match_id"]
+            isOneToOne: true
+            referencedRelation: "tt_best_opportunities"
+            referencedColumns: ["match_id"]
+          },
+          {
+            foreignKeyName: "tt_match_metrics_match_id_fkey"
+            columns: ["match_id"]
+            isOneToOne: true
+            referencedRelation: "tt_match_list"
+            referencedColumns: ["match_id"]
+          },
+          {
+            foreignKeyName: "tt_match_metrics_match_id_fkey"
+            columns: ["match_id"]
+            isOneToOne: true
+            referencedRelation: "tt_matches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tt_match_metrics_match_id_fkey"
+            columns: ["match_id"]
+            isOneToOne: true
+            referencedRelation: "tt_momentum_signal"
+            referencedColumns: ["match_id"]
+          },
+        ]
+      }
       tt_matches: {
         Row: {
+          best_bet_threshold: number | null
           created_at: string
           current_server: string
+          edge_threshold: number | null
           first_server: string
           id: string
           ml_odds_a: number | null
+          next_server: string | null
           over_odds: number | null
           p_r: number
           p_s: number
@@ -5245,11 +5407,14 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          best_bet_threshold?: number | null
           created_at?: string
           current_server?: string
+          edge_threshold?: number | null
           first_server?: string
           id?: string
           ml_odds_a?: number | null
+          next_server?: string | null
           over_odds?: number | null
           p_r?: number
           p_s?: number
@@ -5266,11 +5431,14 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          best_bet_threshold?: number | null
           created_at?: string
           current_server?: string
+          edge_threshold?: number | null
           first_server?: string
           id?: string
           ml_odds_a?: number | null
+          next_server?: string | null
           over_odds?: number | null
           p_r?: number
           p_s?: number
@@ -5332,6 +5500,13 @@ export type Database = {
             columns: ["match_id"]
             isOneToOne: false
             referencedRelation: "tt_best_opportunities"
+            referencedColumns: ["match_id"]
+          },
+          {
+            foreignKeyName: "tt_point_log_match_id_fkey"
+            columns: ["match_id"]
+            isOneToOne: false
+            referencedRelation: "tt_match_list"
             referencedColumns: ["match_id"]
           },
           {
@@ -5699,6 +5874,35 @@ export type Database = {
         }
         Relationships: []
       }
+      tt_match_list: {
+        Row: {
+          cover_m15: number | null
+          match_id: string | null
+          metrics_updated_at: string | null
+          ml_a: number | null
+          ml_break_even: number | null
+          ml_edge: number | null
+          next_server: string | null
+          over_185: number | null
+          over_break_even: number | null
+          over_edge: number | null
+          over_odds: number | null
+          player_a: string | null
+          player_b: string | null
+          score_a: number | null
+          score_b: number | null
+          serves_left: number | null
+          spread_a: number | null
+          spread_break_even: number | null
+          spread_edge: number | null
+          spread_line: number | null
+          status: string | null
+          total_line: number | null
+          under_odds: number | null
+          win_prob_a: number | null
+        }
+        Relationships: []
+      }
       tt_momentum_signal: {
         Row: {
           match_id: string | null
@@ -6046,6 +6250,7 @@ export type Database = {
         Args: { p_game_id?: string }
         Returns: undefined
       }
+      american_to_break_even_prob: { Args: { odds: number }; Returns: number }
       f_unaccent: { Args: { "": string }; Returns: string }
       get_public_profiles: {
         Args: { user_ids: string[] }
