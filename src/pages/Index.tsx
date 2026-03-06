@@ -9,6 +9,9 @@ import { useIsAdmin } from "@/hooks/use-admin";
 import { Switch } from "@/components/ui/switch";
 import type { League } from "@/lib/mock-data";
 import { format, addDays, isToday } from "date-fns";
+import { TrendingPlaysStrip } from "@/components/slate/TrendingPlaysStrip";
+import { LiveNowStrip } from "@/components/slate/LiveNowStrip";
+import { LiveRadarPill } from "@/components/slate/LiveRadarPill";
 
 const Index = () => {
   const [selectedLeague, setSelectedLeague] = useState<League | "ALL">("ALL");
