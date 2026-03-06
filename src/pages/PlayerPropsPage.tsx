@@ -249,6 +249,8 @@ export default function PlayerPropsPage() {
         .from("player_props")
         .select("*")
         .in("game_id", gameIds)
+        .not("over_price", "is", null)
+        .not("under_price", "is", null)
         .order("player_name", { ascending: true });
       if (error) throw error;
       return (data || []) as PropRow[];

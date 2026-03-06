@@ -184,6 +184,8 @@ function PlayerCard({
         .select("market_key, market_label, line, over_price, under_price")
         .eq("game_id", gameId)
         .eq("player_name", player.name)
+        .not("over_price", "is", null)
+        .not("under_price", "is", null)
         .limit(10);
       return data || [];
     },

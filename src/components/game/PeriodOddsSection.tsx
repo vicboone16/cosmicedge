@@ -67,6 +67,8 @@ export function PeriodOddsSection({ gameId }: PeriodOddsProps) {
         .from("player_props")
         .select("*")
         .eq("game_id", gameId)
+        .not("over_price", "is", null)
+        .not("under_price", "is", null)
         .order("market_key", { ascending: true });
       if (error) throw error;
       return (data || []) as PropRow[];
