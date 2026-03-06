@@ -251,7 +251,7 @@ Deno.serve(async (req) => {
   } catch (error) {
     console.error("fetch-players error:", error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: "An internal error occurred." }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }

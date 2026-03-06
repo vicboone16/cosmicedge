@@ -129,7 +129,7 @@ Deno.serve(async (req) => {
   } catch (error) {
     console.error("[pbpstats-ingest] Error:", error);
     return new Response(
-      JSON.stringify({ error: error.message, latency_ms: Date.now() - t0 }),
+      JSON.stringify({ error: "An internal error occurred.", latency_ms: Date.now() - t0 }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
