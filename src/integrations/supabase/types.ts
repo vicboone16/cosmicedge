@@ -5331,8 +5331,22 @@ export type Database = {
             foreignKeyName: "tt_point_log_match_id_fkey"
             columns: ["match_id"]
             isOneToOne: false
+            referencedRelation: "tt_best_opportunities"
+            referencedColumns: ["match_id"]
+          },
+          {
+            foreignKeyName: "tt_point_log_match_id_fkey"
+            columns: ["match_id"]
+            isOneToOne: false
             referencedRelation: "tt_matches"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tt_point_log_match_id_fkey"
+            columns: ["match_id"]
+            isOneToOne: false
+            referencedRelation: "tt_momentum_signal"
+            referencedColumns: ["match_id"]
           },
         ]
       }
@@ -5664,6 +5678,35 @@ export type Database = {
           under_odds: number | null
           updated_at: string | null
           win_prob_a: number | null
+        }
+        Relationships: []
+      }
+      tt_best_opportunities: {
+        Row: {
+          best_bet_tag: string | null
+          best_edge: number | null
+          match_id: string | null
+          ml_edge: number | null
+          next_server: string | null
+          player_a: string | null
+          player_b: string | null
+          score_a: number | null
+          score_b: number | null
+          serves_left: number | null
+          spread_edge: number | null
+          status: string | null
+          win_prob_a: number | null
+        }
+        Relationships: []
+      }
+      tt_momentum_signal: {
+        Row: {
+          match_id: string | null
+          momentum_level: string | null
+          player_a: string | null
+          player_b: string | null
+          win_prob_a: number | null
+          win_prob_jump: number | null
         }
         Relationships: []
       }
