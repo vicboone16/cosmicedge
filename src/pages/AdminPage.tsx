@@ -44,6 +44,7 @@ export default function AdminPage() {
             <TabsTrigger value="nba-pbp" className="text-[10px]">NBA PBP</TabsTrigger>
             <TabsTrigger value="backtest" className="text-[10px]">Backtest</TabsTrigger>
             <TabsTrigger value="backend" className="text-[10px]">Backend</TabsTrigger>
+            <TabsTrigger value="tt-edge" className="text-[10px]" onClick={() => navigate("/admin/tt-edge")}>TT Edge</TabsTrigger>
           </TabsList>
 
           <TabsContent value="imports" className="mt-4">

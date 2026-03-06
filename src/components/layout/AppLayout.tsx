@@ -93,10 +93,16 @@ export function AppLayout() {
                   Subscription
                 </DropdownMenuItem>
                 {isAdmin && (
-                  <DropdownMenuItem onClick={() => navigate("/admin")} className="gap-2 cursor-pointer">
-                    <Shield className="h-4 w-4" />
-                    Admin
-                  </DropdownMenuItem>
+                  <>
+                    <DropdownMenuItem onClick={() => navigate("/admin")} className="gap-2 cursor-pointer">
+                      <Shield className="h-4 w-4" />
+                      Admin
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => navigate("/admin/tt-edge")} className="gap-2 cursor-pointer">
+                      <Sparkles className="h-4 w-4" />
+                      TT Edge Lab
+                    </DropdownMenuItem>
+                  </>
                 )}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
