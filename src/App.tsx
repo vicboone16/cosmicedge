@@ -43,6 +43,7 @@ const FeedPage = lazy(() => import("./pages/FeedPage"));
 const AdminImportPage = lazy(() => import("./pages/AdminImportPage"));
 const AdminGamesPage = lazy(() => import("./pages/AdminGamesPage"));
 const AdminPage = lazy(() => import("./pages/AdminPage"));
+const TTEdgePage = lazy(() => import("./pages/TTEdgePage"));
 const HealthPage = lazy(() => import("./pages/HealthPage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const PrivacyPage = lazy(() => import("./pages/PrivacyPage"));
@@ -131,6 +132,7 @@ const App = () => {
                   <Route path="/admin/import" element={<RequireAuth><AdminImportPage /></RequireAuth>} />
                   <Route path="/admin/games" element={<RequireAuth><AdminGamesPage /></RequireAuth>} />
                   <Route path="/admin" element={<RequireAuth><AdminPage /></RequireAuth>} />
+                  <Route path="/admin/tt-edge" element={<RequireAuth><TTEdgePage /></RequireAuth>} />
                   <Route path="/paywall" element={<RequireAuth><PaywallPage /></RequireAuth>} />
                   <Route path="/subscription" element={<RequireAuth><SubscriptionPage /></RequireAuth>} />
                 </Route>
