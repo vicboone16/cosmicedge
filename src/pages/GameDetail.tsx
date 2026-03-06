@@ -345,7 +345,7 @@ const GameDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { formatInUserTZ, getTZAbbrev } = useTimezone();
-  const [activeTab, setActiveTab] = useState<"odds" | "insights" | "matchup" | "pbp" | "stats" | "oracle">("insights");
+  const [activeTab, setActiveTab] = useState<"odds" | "insights" | "matchup" | "pbp" | "stats" | "oracle" | "liveprops">("insights");
   const [gameSubTab, setGameSubTab] = useState<"gamelines" | "player_props" | "team_props" | "game_props">("gamelines");
   const [transitSelectedPlayer, setTransitSelectedPlayer] = useState<{ id: string; name: string; position: string | null; team: string | null; birth_date: string | null } | null>(null);
 
