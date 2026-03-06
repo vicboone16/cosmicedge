@@ -33,11 +33,17 @@ function getSignals(prop: TopProp): string[] {
 }
 
 export function PropChip({ prop, size = "compact", onClick }: PropChipProps) {
+  const { openProp } = usePropDrawer();
   const edgeScore = prop.edge_score_v11 ?? prop.edge_score;
   const tier = getEdgeTier(edgeScore);
   const isOver = prop.side === "over" || prop.side == null;
   const signals = getSignals(prop);
   const propLabel = getPropLabel(prop.prop_type);
+
+  const handleClick = () => {
+    if (onClick) onClick();
+    else openProp(prop);
+  };
 
   if (size === "compact") {
     return (

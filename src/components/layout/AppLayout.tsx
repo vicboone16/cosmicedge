@@ -140,9 +140,11 @@ export function AppLayout() {
           <span className="opacity-60">{envRef.slice(0, 6)}</span>
         </span>
       </div>
-      <main className="pb-[4.5rem]">
-        <Outlet />
-      </main>
+      <PropDrawerProvider>
+        <main className="pb-[4.5rem]">
+          <Outlet />
+        </main>
+      </PropDrawerProvider>
       <BottomNav />
     </div>
   );
