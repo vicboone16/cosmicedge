@@ -471,6 +471,27 @@ export type Database = {
           },
         ]
       }
+      ce_injury_overrides: {
+        Row: {
+          injury_multiplier: number | null
+          note: string | null
+          player_id: number
+          updated_at: string | null
+        }
+        Insert: {
+          injury_multiplier?: number | null
+          note?: string | null
+          player_id: number
+          updated_at?: string | null
+        }
+        Update: {
+          injury_multiplier?: number | null
+          note?: string | null
+          player_id?: number
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       ce_injury_status: {
         Row: {
           player_id: number | null
@@ -492,6 +513,30 @@ export type Database = {
           team_id?: number | null
           updated_at?: string | null
           usage_impact?: number | null
+        }
+        Relationships: []
+      }
+      ce_matchup_overrides: {
+        Row: {
+          matchup_multiplier: number | null
+          note: string | null
+          player_id: number
+          stat_key: string
+          updated_at: string | null
+        }
+        Insert: {
+          matchup_multiplier?: number | null
+          note?: string | null
+          player_id: number
+          stat_key: string
+          updated_at?: string | null
+        }
+        Update: {
+          matchup_multiplier?: number | null
+          note?: string | null
+          player_id?: number
+          stat_key?: string
+          updated_at?: string | null
         }
         Relationships: []
       }
@@ -5930,15 +5975,6 @@ export type Database = {
         }
         Relationships: []
       }
-      ce_injury_ripple: {
-        Row: {
-          injury_multiplier: number | null
-          missing_usage: number | null
-          player_id: number | null
-          prop_id: string | null
-        }
-        Relationships: []
-      }
       ce_momentum_live: {
         Row: {
           last_10_avg: number | null
@@ -5947,6 +5983,27 @@ export type Database = {
           player_id: number | null
           season_avg: number | null
           stat_key: string | null
+        }
+        Relationships: []
+      }
+      ce_monte_input_heavy: {
+        Row: {
+          astro_tone: string | null
+          edge_score_v6: number | null
+          game_key: string | null
+          injury_multiplier: number | null
+          line_value: number | null
+          matchup_multiplier: number | null
+          over_odds: number | null
+          player_id: number | null
+          player_name: string | null
+          projection_mean: number | null
+          provider: string | null
+          sim_std: number | null
+          stat_key: string | null
+          streak_flag: string | null
+          under_odds: number | null
+          vendor: string | null
         }
         Relationships: []
       }
@@ -6194,6 +6251,8 @@ export type Database = {
           astro_conf_multiplier: number | null
           astro_mean_multiplier: number | null
           astro_tone: string | null
+          base_prob_v4: number | null
+          base_prob_v5: number | null
           base_prob_v6: number | null
           edge_score_v4: number | null
           edge_score_v5: number | null
@@ -6240,23 +6299,6 @@ export type Database = {
           risk_label: string | null
           stat_key: string | null
           std_dev: number | null
-          under_odds: number | null
-          vendor: string | null
-        }
-        Relationships: []
-      }
-      ce_scorecards_top: {
-        Row: {
-          adjusted_projection_v3: number | null
-          astro_tone: string | null
-          edge_score_v3: number | null
-          game_key: string | null
-          line_value: number | null
-          over_odds: number | null
-          player_id: number | null
-          player_name: string | null
-          provider: string | null
-          stat_key: string | null
           under_odds: number | null
           vendor: string | null
         }
