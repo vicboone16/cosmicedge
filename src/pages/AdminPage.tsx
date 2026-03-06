@@ -15,7 +15,10 @@ import AdminTeamStatsEditor from "@/components/admin/AdminTeamStatsEditor";
 import AdminModelRunner from "@/components/admin/AdminModelRunner";
 import AdminManualPropsEntry from "@/components/admin/AdminManualPropsEntry";
 import AdminPeriodAveragesEditor from "@/components/admin/AdminPeriodAveragesEditor";
+import { useNavigate } from "react-router-dom";
+
 export default function AdminPage() {
+  const navigate = useNavigate();
   const { isAdmin, isLoading } = useIsAdmin();
 
   if (isLoading) return <div className="p-6 text-muted-foreground">Loading...</div>;
