@@ -592,6 +592,7 @@ const GameDetail = () => {
         <div className="flex gap-1 justify-center border-b border-border/50 -mx-4 px-4 overflow-x-auto no-scrollbar">
         {([
             { val: "oracle" as const, label: "Oracle" },
+            { val: "liveprops" as const, label: "Live Props" },
             { val: "insights" as const, label: "Insights" },
             { val: "matchup" as const, label: "Matchup" },
             { val: "odds" as const, label: "Odds" },
@@ -605,9 +606,13 @@ const GameDetail = () => {
                 "px-4 py-2.5 text-xs font-semibold transition-colors whitespace-nowrap border-b-2",
                 activeTab === t.val
                   ? "text-primary border-primary"
-                  : "text-muted-foreground border-transparent hover:text-foreground"
+                  : "text-muted-foreground border-transparent hover:text-foreground",
+                t.val === "liveprops" && (game.status === "live" || game.status === "in_progress") && activeTab !== t.val && "text-cosmic-green"
               )}
             >
+              {t.val === "liveprops" && (game.status === "live" || game.status === "in_progress") && (
+                <span className="inline-block h-1.5 w-1.5 rounded-full bg-cosmic-green mr-1 animate-pulse-glow" />
+              )}
               {t.label}
             </button>
           ))}
