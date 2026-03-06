@@ -6457,8 +6457,12 @@ export type Database = {
       ce_scorecards_fast: {
         Row: {
           adjusted_projection: number | null
+          astro_multiplier: number | null
+          base_prob: number | null
+          edge_score: number | null
           game_date: string | null
           game_key: string | null
+          lean: string | null
           line_value: number | null
           over_odds: number | null
           pie_mean: number | null
