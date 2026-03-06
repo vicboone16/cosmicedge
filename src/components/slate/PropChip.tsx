@@ -48,7 +48,7 @@ export function PropChip({ prop, size = "compact", onClick }: PropChipProps) {
   if (size === "compact") {
     return (
       <button
-        onClick={onClick}
+        onClick={handleClick}
         className="shrink-0 cosmic-card rounded-xl p-2.5 w-[140px] space-y-1.5 text-left hover:border-primary/30 transition-colors"
       >
         <div className="flex items-center justify-between">
