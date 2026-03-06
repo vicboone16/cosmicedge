@@ -2,6 +2,7 @@ import { cn } from "@/lib/utils";
 import { TrendingUp, TrendingDown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { getPropLabel, getEdgeTier, type TopProp } from "@/hooks/use-top-props";
+import { usePropDrawer } from "@/hooks/use-prop-drawer";
 
 interface PropChipProps {
   prop: TopProp;
