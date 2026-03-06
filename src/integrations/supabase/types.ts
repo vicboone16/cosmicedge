@@ -5599,6 +5599,82 @@ export type Database = {
       }
     }
     Views: {
+      ce_player_game_logs_src: {
+        Row: {
+          ast: number | null
+          blk: number | null
+          fg3m: number | null
+          game_date: string | null
+          game_id: string | null
+          minutes: number | null
+          opponent_team_id: number | null
+          pie: number | null
+          player_id: number | null
+          plus_minus: number | null
+          pts: number | null
+          reb: number | null
+          stl: number | null
+          team_id: number | null
+          tov: number | null
+        }
+        Insert: {
+          ast?: never
+          blk?: never
+          fg3m?: never
+          game_date?: never
+          game_id?: string | null
+          minutes?: never
+          opponent_team_id?: never
+          pie?: never
+          player_id?: never
+          plus_minus?: never
+          pts?: never
+          reb?: never
+          stl?: never
+          team_id?: never
+          tov?: never
+        }
+        Update: {
+          ast?: never
+          blk?: never
+          fg3m?: never
+          game_date?: never
+          game_id?: string | null
+          minutes?: never
+          opponent_team_id?: never
+          pie?: never
+          player_id?: never
+          plus_minus?: never
+          pts?: never
+          reb?: never
+          stl?: never
+          team_id?: never
+          tov?: never
+        }
+        Relationships: [
+          {
+            foreignKeyName: "player_game_stats_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "player_game_stats_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "v_game_live_state"
+            referencedColumns: ["game_id"]
+          },
+        ]
+      }
+      ce_players_name_map: {
+        Row: {
+          model_player_id: number | null
+          player_name_norm: string | null
+        }
+        Relationships: []
+      }
       np_player_prop_stat_long: {
         Row: {
           game_id: string | null
@@ -6251,6 +6327,7 @@ export type Database = {
         Returns: undefined
       }
       american_to_break_even_prob: { Args: { odds: number }; Returns: number }
+      ce_uuid_to_bigint: { Args: { p_text: string }; Returns: number }
       f_unaccent: { Args: { "": string }; Returns: string }
       get_public_profiles: {
         Args: { user_ids: string[] }
