@@ -3178,6 +3178,7 @@ export type Database = {
           assist_player_id: string | null
           away_score: number | null
           clock: string | null
+          clock_seconds: number | null
           created_at: string
           description: string | null
           event_type: string
@@ -3186,6 +3187,8 @@ export type Database = {
           id: string
           player_id: string | null
           quarter: number
+          seconds_elapsed_game: number | null
+          seconds_remaining_game: number | null
           sequence: number
           team_abbr: string | null
         }
@@ -3193,6 +3196,7 @@ export type Database = {
           assist_player_id?: string | null
           away_score?: number | null
           clock?: string | null
+          clock_seconds?: number | null
           created_at?: string
           description?: string | null
           event_type: string
@@ -3201,6 +3205,8 @@ export type Database = {
           id?: string
           player_id?: string | null
           quarter: number
+          seconds_elapsed_game?: number | null
+          seconds_remaining_game?: number | null
           sequence: number
           team_abbr?: string | null
         }
@@ -3208,6 +3214,7 @@ export type Database = {
           assist_player_id?: string | null
           away_score?: number | null
           clock?: string | null
+          clock_seconds?: number | null
           created_at?: string
           description?: string | null
           event_type?: string
@@ -3216,6 +3223,8 @@ export type Database = {
           id?: string
           player_id?: string | null
           quarter?: number
+          seconds_elapsed_game?: number | null
+          seconds_remaining_game?: number | null
           sequence?: number
           team_abbr?: string | null
         }
@@ -6118,6 +6127,133 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "players"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      play_by_play_ordered: {
+        Row: {
+          assist_player_id: string | null
+          away_score: number | null
+          clock: string | null
+          clock_seconds: number | null
+          created_at: string | null
+          description: string | null
+          event_index: number | null
+          event_type: string | null
+          game_id: string | null
+          home_score: number | null
+          id: string | null
+          player_id: string | null
+          quarter: number | null
+          seconds_elapsed_game: number | null
+          seconds_remaining_game: number | null
+          sequence: number | null
+          team_abbr: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "play_by_play_assist_player_id_fkey"
+            columns: ["assist_player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "play_by_play_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "play_by_play_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "v_game_live_state"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "play_by_play_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      play_by_play_quarter_corrected: {
+        Row: {
+          assist_player_id: string | null
+          away_score: number | null
+          clock: string | null
+          clock_seconds: number | null
+          created_at: string | null
+          description: string | null
+          event_index: number | null
+          event_type: string | null
+          game_id: string | null
+          home_score: number | null
+          id: string | null
+          player_id: string | null
+          quarter: number | null
+          quarter_corrected: number | null
+          seconds_elapsed_game: number | null
+          seconds_remaining_game: number | null
+          sequence: number | null
+          team_abbr: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "play_by_play_assist_player_id_fkey"
+            columns: ["assist_player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "play_by_play_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "play_by_play_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "v_game_live_state"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "play_by_play_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      play_by_play_scores: {
+        Row: {
+          away_score_corrected: number | null
+          game_id: string | null
+          home_score_corrected: number | null
+          seconds_elapsed_game: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "play_by_play_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "play_by_play_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "v_game_live_state"
+            referencedColumns: ["game_id"]
           },
         ]
       }
