@@ -15,7 +15,10 @@ import AdminTeamStatsEditor from "@/components/admin/AdminTeamStatsEditor";
 import AdminModelRunner from "@/components/admin/AdminModelRunner";
 import AdminManualPropsEntry from "@/components/admin/AdminManualPropsEntry";
 import AdminPeriodAveragesEditor from "@/components/admin/AdminPeriodAveragesEditor";
+import { useNavigate } from "react-router-dom";
+
 export default function AdminPage() {
+  const navigate = useNavigate();
   const { isAdmin, isLoading } = useIsAdmin();
 
   if (isLoading) return <div className="p-6 text-muted-foreground">Loading...</div>;
@@ -41,6 +44,7 @@ export default function AdminPage() {
             <TabsTrigger value="nba-pbp" className="text-[10px]">NBA PBP</TabsTrigger>
             <TabsTrigger value="backtest" className="text-[10px]">Backtest</TabsTrigger>
             <TabsTrigger value="backend" className="text-[10px]">Backend</TabsTrigger>
+            <TabsTrigger value="tt-edge" className="text-[10px]" onClick={() => navigate("/admin/tt-edge")}>TT Edge</TabsTrigger>
           </TabsList>
 
           <TabsContent value="imports" className="mt-4">
