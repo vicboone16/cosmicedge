@@ -516,6 +516,201 @@ export type Database = {
         }
         Relationships: []
       }
+      ce_engine_registry: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          display_order: number | null
+          engine_key: string
+          engine_name: string
+          id: string
+          input_objects: Json | null
+          layer: string | null
+          notes: string | null
+          output_objects: Json | null
+          purpose: string | null
+          status: string | null
+          updated_at: string | null
+          version: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          display_order?: number | null
+          engine_key: string
+          engine_name: string
+          id?: string
+          input_objects?: Json | null
+          layer?: string | null
+          notes?: string | null
+          output_objects?: Json | null
+          purpose?: string | null
+          status?: string | null
+          updated_at?: string | null
+          version?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          display_order?: number | null
+          engine_key?: string
+          engine_name?: string
+          id?: string
+          input_objects?: Json | null
+          layer?: string | null
+          notes?: string | null
+          output_objects?: Json | null
+          purpose?: string | null
+          status?: string | null
+          updated_at?: string | null
+          version?: string | null
+        }
+        Relationships: []
+      }
+      ce_formulas: {
+        Row: {
+          category: string | null
+          created_at: string | null
+          display_order: number | null
+          example_input: Json | null
+          example_output: Json | null
+          formula_name: string
+          formula_text: string | null
+          id: string
+          is_featured: boolean | null
+          notes: string | null
+          plain_english: string | null
+          slug: string | null
+          updated_at: string | null
+          variables: Json | null
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string | null
+          display_order?: number | null
+          example_input?: Json | null
+          example_output?: Json | null
+          formula_name: string
+          formula_text?: string | null
+          id?: string
+          is_featured?: boolean | null
+          notes?: string | null
+          plain_english?: string | null
+          slug?: string | null
+          updated_at?: string | null
+          variables?: Json | null
+        }
+        Update: {
+          category?: string | null
+          created_at?: string | null
+          display_order?: number | null
+          example_input?: Json | null
+          example_output?: Json | null
+          formula_name?: string
+          formula_text?: string | null
+          id?: string
+          is_featured?: boolean | null
+          notes?: string | null
+          plain_english?: string | null
+          slug?: string | null
+          updated_at?: string | null
+          variables?: Json | null
+        }
+        Relationships: []
+      }
+      ce_glossary: {
+        Row: {
+          category: string | null
+          created_at: string | null
+          display_order: number | null
+          full_definition: string | null
+          id: string
+          is_featured: boolean | null
+          related_terms: Json | null
+          short_definition: string | null
+          slug: string | null
+          tags: Json | null
+          term: string
+          updated_at: string | null
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string | null
+          display_order?: number | null
+          full_definition?: string | null
+          id?: string
+          is_featured?: boolean | null
+          related_terms?: Json | null
+          short_definition?: string | null
+          slug?: string | null
+          tags?: Json | null
+          term: string
+          updated_at?: string | null
+        }
+        Update: {
+          category?: string | null
+          created_at?: string | null
+          display_order?: number | null
+          full_definition?: string | null
+          id?: string
+          is_featured?: boolean | null
+          related_terms?: Json | null
+          short_definition?: string | null
+          slug?: string | null
+          tags?: Json | null
+          term?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      ce_info_pages: {
+        Row: {
+          audience: string | null
+          body_md: string | null
+          created_at: string | null
+          display_order: number | null
+          id: string
+          is_published: boolean | null
+          page_type: string | null
+          sections: Json | null
+          slug: string
+          summary: string | null
+          tags: Json | null
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          audience?: string | null
+          body_md?: string | null
+          created_at?: string | null
+          display_order?: number | null
+          id?: string
+          is_published?: boolean | null
+          page_type?: string | null
+          sections?: Json | null
+          slug: string
+          summary?: string | null
+          tags?: Json | null
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          audience?: string | null
+          body_md?: string | null
+          created_at?: string | null
+          display_order?: number | null
+          id?: string
+          is_published?: boolean | null
+          page_type?: string | null
+          sections?: Json | null
+          slug?: string
+          summary?: string | null
+          tags?: Json | null
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       ce_injury_overrides: {
         Row: {
           injury_multiplier: number | null
@@ -6077,6 +6272,201 @@ export type Database = {
           difficulty_multiplier: number | null
           opponent_team_id: number | null
           stat_key: string | null
+        }
+        Relationships: []
+      }
+      ce_engine_registry_active: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          display_order: number | null
+          engine_key: string | null
+          engine_name: string | null
+          id: string | null
+          input_objects: Json | null
+          layer: string | null
+          notes: string | null
+          output_objects: Json | null
+          purpose: string | null
+          status: string | null
+          updated_at: string | null
+          version: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          display_order?: number | null
+          engine_key?: string | null
+          engine_name?: string | null
+          id?: string | null
+          input_objects?: Json | null
+          layer?: string | null
+          notes?: string | null
+          output_objects?: Json | null
+          purpose?: string | null
+          status?: string | null
+          updated_at?: string | null
+          version?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          display_order?: number | null
+          engine_key?: string | null
+          engine_name?: string | null
+          id?: string | null
+          input_objects?: Json | null
+          layer?: string | null
+          notes?: string | null
+          output_objects?: Json | null
+          purpose?: string | null
+          status?: string | null
+          updated_at?: string | null
+          version?: string | null
+        }
+        Relationships: []
+      }
+      ce_formulas_featured: {
+        Row: {
+          category: string | null
+          created_at: string | null
+          display_order: number | null
+          example_input: Json | null
+          example_output: Json | null
+          formula_name: string | null
+          formula_text: string | null
+          id: string | null
+          is_featured: boolean | null
+          notes: string | null
+          plain_english: string | null
+          slug: string | null
+          updated_at: string | null
+          variables: Json | null
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string | null
+          display_order?: number | null
+          example_input?: Json | null
+          example_output?: Json | null
+          formula_name?: string | null
+          formula_text?: string | null
+          id?: string | null
+          is_featured?: boolean | null
+          notes?: string | null
+          plain_english?: string | null
+          slug?: string | null
+          updated_at?: string | null
+          variables?: Json | null
+        }
+        Update: {
+          category?: string | null
+          created_at?: string | null
+          display_order?: number | null
+          example_input?: Json | null
+          example_output?: Json | null
+          formula_name?: string | null
+          formula_text?: string | null
+          id?: string | null
+          is_featured?: boolean | null
+          notes?: string | null
+          plain_english?: string | null
+          slug?: string | null
+          updated_at?: string | null
+          variables?: Json | null
+        }
+        Relationships: []
+      }
+      ce_glossary_featured: {
+        Row: {
+          category: string | null
+          created_at: string | null
+          display_order: number | null
+          full_definition: string | null
+          id: string | null
+          is_featured: boolean | null
+          related_terms: Json | null
+          short_definition: string | null
+          slug: string | null
+          tags: Json | null
+          term: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string | null
+          display_order?: number | null
+          full_definition?: string | null
+          id?: string | null
+          is_featured?: boolean | null
+          related_terms?: Json | null
+          short_definition?: string | null
+          slug?: string | null
+          tags?: Json | null
+          term?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          category?: string | null
+          created_at?: string | null
+          display_order?: number | null
+          full_definition?: string | null
+          id?: string | null
+          is_featured?: boolean | null
+          related_terms?: Json | null
+          short_definition?: string | null
+          slug?: string | null
+          tags?: Json | null
+          term?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      ce_info_pages_published: {
+        Row: {
+          audience: string | null
+          body_md: string | null
+          created_at: string | null
+          display_order: number | null
+          id: string | null
+          is_published: boolean | null
+          page_type: string | null
+          sections: Json | null
+          slug: string | null
+          summary: string | null
+          tags: Json | null
+          title: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          audience?: string | null
+          body_md?: string | null
+          created_at?: string | null
+          display_order?: number | null
+          id?: string | null
+          is_published?: boolean | null
+          page_type?: string | null
+          sections?: Json | null
+          slug?: string | null
+          summary?: string | null
+          tags?: Json | null
+          title?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          audience?: string | null
+          body_md?: string | null
+          created_at?: string | null
+          display_order?: number | null
+          id?: string | null
+          is_published?: boolean | null
+          page_type?: string | null
+          sections?: Json | null
+          slug?: string | null
+          summary?: string | null
+          tags?: Json | null
+          title?: string | null
+          updated_at?: string | null
         }
         Relationships: []
       }
