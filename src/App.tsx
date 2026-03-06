@@ -32,6 +32,7 @@ const SkySpreadPage = lazy(() => import("./pages/SkySpreadPage"));
 const PlayerPropsPage = lazy(() => import("./pages/PlayerPropsPage"));
 const TrendsPage = lazy(() => import("./pages/TrendsPage"));
 const SignalLabPage = lazy(() => import("./pages/SignalLabPage"));
+const NexusPage = lazy(() => import("./pages/NexusPage"));
 const CLVCalculatorPage = lazy(() => import("./pages/CLVCalculatorPage"));
 const AstraPage = lazy(() => import("./pages/AstraPage"));
 const ProfilePage = lazy(() => import("./pages/ProfilePage"));
