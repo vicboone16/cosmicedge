@@ -92,7 +92,7 @@ export function PropChip({ prop, size = "compact", onClick }: PropChipProps) {
   // medium / full size
   return (
     <button
-      onClick={onClick}
+      onClick={handleClick}
       className={cn(
         "cosmic-card rounded-xl p-3 space-y-2 text-left hover:border-primary/30 transition-colors",
         size === "full" ? "w-full" : "w-[200px] shrink-0"
