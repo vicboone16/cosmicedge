@@ -999,19 +999,31 @@ const GameDetail = () => {
         )}
 
         {activeTab === "oracle" && (
-          <OracleTab
+          <>
+            <OracleTab
+              gameId={game.id}
+              homeAbbr={game.home_abbr}
+              awayAbbr={game.away_abbr}
+              homeTeam={game.home_team}
+              awayTeam={game.away_team}
+              league={game.league}
+              bookMLHome={game.odds.moneyline.home}
+              bookMLAway={game.odds.moneyline.away}
+              bookSpread={game.odds.spread.line}
+              bookTotal={game.odds.total.line}
+              homeScore={game.home_score}
+              awayScore={game.away_score}
+              isLive={game.status === "live" || game.status === "in_progress"}
+            />
+            <BestPropsSection gameId={game.id} />
+          </>
+        )}
+
+        {activeTab === "liveprops" && (
+          <LivePropsTab
             gameId={game.id}
             homeAbbr={game.home_abbr}
             awayAbbr={game.away_abbr}
-            homeTeam={game.home_team}
-            awayTeam={game.away_team}
-            league={game.league}
-            bookMLHome={game.odds.moneyline.home}
-            bookMLAway={game.odds.moneyline.away}
-            bookSpread={game.odds.spread.line}
-            bookTotal={game.odds.total.line}
-            homeScore={game.home_score}
-            awayScore={game.away_score}
             isLive={game.status === "live" || game.status === "in_progress"}
           />
         )}
