@@ -118,6 +118,8 @@ export default function TrendsPage() {
         .from("player_props")
         .select("*")
         .in("game_id", gameIds)
+        .not("over_price", "is", null)
+        .not("under_price", "is", null)
         .order("player_name", { ascending: true });
       return data || [];
     },

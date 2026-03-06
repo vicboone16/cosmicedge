@@ -79,6 +79,8 @@ export default function PropBuilderDialog({ userId }: PropBuilderDialogProps) {
       let query = supabase
         .from("player_props")
         .select("*")
+        .not("over_price", "is", null)
+        .not("under_price", "is", null)
         .order("captured_at", { ascending: false })
         .limit(100);
 
