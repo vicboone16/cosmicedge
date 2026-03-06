@@ -4,12 +4,32 @@ import { corsHeaders } from "../_shared/cors.ts";
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
-  const supabase = createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-  );
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-  // Get all distinct game_ids from game_quarters
+  // --- Admin authentication ---
+  const authHeader = req.headers.get("authorization");
+  if (!authHeader) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
+  }
+
+  const userClient = createClient(supabaseUrl, supabaseAnonKey, {
+    global: { headers: { Authorization: authHeader } },
+  });
+  const { data: { user }, error: userErr } = await userClient.auth.getUser();
+  if (userErr || !user) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
+  }
+
+  const { data: isAdmin } = await userClient.rpc("has_role", { _user_id: user.id, _role: "admin" });
+  if (!isAdmin) {
+    return new Response(JSON.stringify({ error: "Forbidden" }), { status: 403, headers: corsHeaders });
+  }
+
+  // --- Authorized: proceed with export ---
+  const supabase = createClient(supabaseUrl, serviceRoleKey);
+
   const { data: gqIds } = await supabase
     .from("game_quarters")
     .select("game_id")
@@ -17,13 +37,12 @@ Deno.serve(async (req) => {
 
   const uniqueIds = [...new Set((gqIds || []).map((r: any) => r.game_id))];
 
-  // Fetch full game records for those IDs
   const { data: games, error } = await supabase
     .from("games")
     .select("*")
     .in("id", uniqueIds);
 
-  if (error) return new Response(JSON.stringify({ error }), { status: 500, headers: corsHeaders });
+  if (error) return new Response(JSON.stringify({ error: "An internal error occurred" }), { status: 500, headers: corsHeaders });
 
   const escSql = (v: any) => {
     if (v === null || v === undefined) return "NULL";
@@ -31,7 +50,6 @@ Deno.serve(async (req) => {
     return `'${String(v).replace(/'/g, "''")}'`;
   };
 
-  // Generate INSERT SQL in batches of 50
   const batchSize = 50;
   const batches: string[] = [];
 

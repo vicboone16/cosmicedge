@@ -4,17 +4,37 @@ import { corsHeaders } from "../_shared/cors.ts";
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
-  const supabase = createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-  );
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+  // --- Admin authentication ---
+  const authHeader = req.headers.get("authorization");
+  if (!authHeader) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
+  }
+
+  const userClient = createClient(supabaseUrl, supabaseAnonKey, {
+    global: { headers: { Authorization: authHeader } },
+  });
+  const { data: { user }, error: userErr } = await userClient.auth.getUser();
+  if (userErr || !user) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
+  }
+
+  const { data: isAdmin } = await userClient.rpc("has_role", { _user_id: user.id, _role: "admin" });
+  if (!isAdmin) {
+    return new Response(JSON.stringify({ error: "Forbidden" }), { status: 403, headers: corsHeaders });
+  }
+
+  // --- Authorized: proceed with export ---
+  const supabase = createClient(supabaseUrl, serviceRoleKey);
 
   const { searchParams } = new URL(req.url);
   const date = searchParams.get("date") || "2026-02-24";
   const offset = parseInt(searchParams.get("offset") || "0");
   const limit = parseInt(searchParams.get("limit") || "1000");
 
-  // Step 1: Get game IDs for the target date
   const dayStart = `${date}T00:00:00+00`;
   const dayEnd = `${date}T23:59:59+00`;
 
@@ -24,14 +44,13 @@ Deno.serve(async (req) => {
     .gte("start_time", dayStart)
     .lte("start_time", dayEnd);
 
-  if (gErr) return new Response(JSON.stringify({ error: gErr }), { status: 500, headers: corsHeaders });
+  if (gErr) return new Response(JSON.stringify({ error: "An internal error occurred" }), { status: 500, headers: corsHeaders });
   if (!games || games.length === 0) {
     return new Response(`-- No games found for ${date}\n`, { headers: { ...corsHeaders, "Content-Type": "text/plain" } });
   }
 
   const gameIds = games.map((g: any) => g.id);
 
-  // Step 2: Fetch props for those games
   const { data: props, error } = await supabase
     .from("player_props")
     .select("*")
@@ -39,7 +58,7 @@ Deno.serve(async (req) => {
     .order("id")
     .range(offset, offset + limit - 1);
 
-  if (error) return new Response(JSON.stringify({ error }), { status: 500, headers: corsHeaders });
+  if (error) return new Response(JSON.stringify({ error: "An internal error occurred" }), { status: 500, headers: corsHeaders });
 
   const escSql = (v: any) => {
     if (v === null || v === undefined) return "NULL";
