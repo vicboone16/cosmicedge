@@ -55,6 +55,10 @@ export default function SplashScreen({ onComplete }: { onComplete: () => void })
           <motion.img
             src={cosmicLogo}
             alt="Cosmic Edge"
+            width={200}
+            height={200}
+            fetchPriority="high"
+            decoding="async"
             className="relative z-10 rounded-3xl"
             style={{ width: 200, height: 200, objectFit: "contain" }}
           />
