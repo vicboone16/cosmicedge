@@ -500,7 +500,7 @@ Deno.serve(async (req) => {
     console.error("astrology-api error:", error);
     const isQuota = error.message?.startsWith("QUOTA_EXCEEDED");
     return new Response(
-      JSON.stringify({ error: error.message, quota_exceeded: isQuota }),
+      JSON.stringify({ error: isQuota ? "API quota exceeded. Please try again later." : "An internal error occurred.", quota_exceeded: isQuota }),
       { status: isQuota ? 429 : 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
