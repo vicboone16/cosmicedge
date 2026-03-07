@@ -7040,8 +7040,13 @@ export type Database = {
           away_abbr: string | null
           book: string | null
           confidence: number | null
+          confidence_adjustment: number | null
+          confidence_tier: string | null
           created_at: string | null
+          edge_raw: number | null
           edge_score: number | null
+          edge_score_v11: number | null
+          edge_score_v20: number | null
           game_id: string | null
           game_start_time: string | null
           headshot_url: string | null
@@ -7055,6 +7060,10 @@ export type Database = {
           mu: number | null
           odds: number | null
           one_liner: string | null
+          p_implied: number | null
+          p_model: number | null
+          pace_mu_adjust: number | null
+          pace_sigma_adjust: number | null
           player_id: string | null
           player_name: string | null
           player_team: string | null
@@ -7064,7 +7073,9 @@ export type Database = {
           side: string | null
           sigma: number | null
           streak: number | null
+          transit_boost_factor: number | null
           updated_at: string | null
+          volatility_shift: number | null
         }
         Relationships: [
           {
@@ -7096,8 +7107,13 @@ export type Database = {
           away_abbr: string | null
           book: string | null
           confidence: number | null
+          confidence_adjustment: number | null
+          confidence_tier: string | null
           created_at: string | null
+          edge_raw: number | null
           edge_score: number | null
+          edge_score_v11: number | null
+          edge_score_v20: number | null
           game_id: string | null
           game_start_time: string | null
           headshot_url: string | null
@@ -7111,6 +7127,10 @@ export type Database = {
           mu: number | null
           odds: number | null
           one_liner: string | null
+          p_implied: number | null
+          p_model: number | null
+          pace_mu_adjust: number | null
+          pace_sigma_adjust: number | null
           player_id: string | null
           player_name: string | null
           player_team: string | null
@@ -7120,7 +7140,9 @@ export type Database = {
           side: string | null
           sigma: number | null
           streak: number | null
+          transit_boost_factor: number | null
           updated_at: string | null
+          volatility_shift: number | null
         }
         Relationships: [
           {
