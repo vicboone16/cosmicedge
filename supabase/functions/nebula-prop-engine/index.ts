@@ -728,7 +728,7 @@ Deno.serve(async (req) => {
   } catch (err) {
     console.error("nebula-prop-engine error:", err);
     return new Response(
-      JSON.stringify({ error: "Internal error", detail: String(err) }),
+      JSON.stringify({ error: "An internal error occurred." }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   }
