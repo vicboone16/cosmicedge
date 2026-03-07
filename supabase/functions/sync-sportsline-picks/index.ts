@@ -34,7 +34,7 @@ Deno.serve(async (req) => {
     if (!res.ok) {
       const err = await res.text();
       console.error("[sync-sportsline-picks] Apify failed:", err);
-      return new Response(JSON.stringify({ error: "Apify failed", detail: err }), {
+      return new Response(JSON.stringify({ error: "An internal error occurred." }), {
         status: 502,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -68,7 +68,7 @@ Deno.serve(async (req) => {
     });
   } catch (e) {
     console.error("[sync-sportsline-picks] Error:", e);
-    return new Response(JSON.stringify({ error: String(e) }), {
+    return new Response(JSON.stringify({ error: "An internal error occurred." }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

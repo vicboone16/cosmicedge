@@ -185,7 +185,7 @@ Deno.serve(async (req) => {
 
   } catch (err) {
     console.error("oracle-pregame error:", err);
-    return new Response(JSON.stringify({ ok: false, error: String(err) }), {
+    return new Response(JSON.stringify({ ok: false, error: "An internal error occurred." }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

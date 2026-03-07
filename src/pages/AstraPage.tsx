@@ -110,18 +110,27 @@ function AstraChat() {
             ) : (
               <div className="cosmic-card rounded-xl px-3 py-2 text-xs leading-relaxed max-w-[85%] text-foreground">
                 {m.content.split("\n").map((line, j) => {
-                  const escaped = line
-                    .replace(/&/g, '&amp;')
-                    .replace(/</g, '&lt;')
-                    .replace(/>/g, '&gt;')
-                    .replace(/"/g, '&quot;')
-                    .replace(/'/g, '&#039;');
+                  const parts: React.ReactNode[] = [];
+                  // Split by bold (**...**) and italic (*...*)
+                  const regex = /\*\*(.+?)\*\*|\*(.+?)\*/g;
+                  let lastIndex = 0;
+                  let match;
+                  while ((match = regex.exec(line)) !== null) {
+                    if (match.index > lastIndex) {
+                      parts.push(line.slice(lastIndex, match.index));
+                    }
+                    if (match[1]) {
+                      parts.push(<strong key={`${j}-b-${match.index}`} className="font-bold text-primary">{match[1]}</strong>);
+                    } else if (match[2]) {
+                      parts.push(<em key={`${j}-i-${match.index}`}>{match[2]}</em>);
+                    }
+                    lastIndex = regex.lastIndex;
+                  }
+                  if (lastIndex < line.length) {
+                    parts.push(line.slice(lastIndex));
+                  }
                   return (
-                    <p key={j} className={j > 0 ? "mt-1" : ""} dangerouslySetInnerHTML={{
-                      __html: escaped
-                        .replace(/\*\*(.+?)\*\*/g, '<strong class="font-bold text-primary">$1</strong>')
-                        .replace(/\*(.+?)\*/g, '<em>$1</em>')
-                    }} />
+                    <p key={j} className={j > 0 ? "mt-1" : ""}>{parts.length > 0 ? parts : line}</p>
                   );
                 })}
               </div>
