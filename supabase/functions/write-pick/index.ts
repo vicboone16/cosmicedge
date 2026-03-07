@@ -160,7 +160,7 @@ Deno.serve(async (req) => {
       const { data, error } = await supabase.from("bets").update(updates).eq("id", body.id).eq("user_id", user.id).select().single();
       if (error) {
         log("error", "pick:update:db_error", { code: error.code, message: error.message });
-        return mkError("DB_ERROR", error.message, 500);
+        return mkError("DB_ERROR", "An internal error occurred.", 500);
       }
 
       await supabase.from("audit_log" as any).insert({
