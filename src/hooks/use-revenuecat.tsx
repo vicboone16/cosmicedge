@@ -11,6 +11,8 @@ import { useAuth } from "@/hooks/use-auth";
 import { logger } from "@/lib/logger";
 
 // ─── Constants ────────────────────────────────────────────────
+// RevenueCat public API key — safe for client-side use (not a secret key).
+// See: https://www.revenuecat.com/docs/api-keys
 const RC_API_KEY = import.meta.env.VITE_REVENUECAT_API_KEY || "";
 const ENTITLEMENT_ID = "CosmicEdge Premium";
 
