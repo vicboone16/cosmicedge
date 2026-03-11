@@ -536,6 +536,9 @@ export default function PlayerPropsPage() {
         )}
       </header>
 
+      {activeTab === "explore" ? (
+        <PropsExploreTab />
+      ) : (
       <div className="px-4 py-4">
         {view === "odds" ? (
           <>
