@@ -163,6 +163,18 @@ export default function TTEdgePage() {
     return () => clearInterval(iv);
   }, [selectedMatchId, fetchDashboard, fetchMomentum]);
 
+  // Pre-populate odds form from dashboard data
+  useEffect(() => {
+    if (!dashboard) return;
+    setMlOddsA(dashboard.ml_a != null ? String(dashboard.ml_a) : "");
+    setSpreadLine(dashboard.spread_line != null ? String(dashboard.spread_line) : "");
+    setSpreadOdds(dashboard.spread_a != null ? String(dashboard.spread_a) : "");
+    setTotalLine(dashboard.total_line != null ? String(dashboard.total_line) : "");
+    setOverOdds(dashboard.over_odds != null ? String(dashboard.over_odds) : "");
+    setUnderOdds(dashboard.under_odds != null ? String(dashboard.under_odds) : "");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedMatchId]);
+
   /* ── auth guard ── */
   if (authLoading || adminLoading) {
     return <div className="min-h-screen flex items-center justify-center"><div className="h-6 w-6 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>;
