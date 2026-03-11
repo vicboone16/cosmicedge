@@ -503,15 +503,14 @@ export default function HistoricalPage() {
 
       <div className="px-4 py-4">
         <Tabs defaultValue="results" className="w-full">
-          <TabsList className={`w-full grid h-8 ${isAdmin ? "grid-cols-6" : "grid-cols-5"}`}>
+          <TabsList className="w-full grid h-8 grid-cols-6">
             <TabsTrigger value="results" className="text-[9px] px-1"><Trophy className="h-3 w-3 mr-0.5" />Results</TabsTrigger>
             <TabsTrigger value="odds" className="text-[9px] px-1"><TrendingUp className="h-3 w-3 mr-0.5" />Odds</TabsTrigger>
             <TabsTrigger value="astro" className="text-[9px] px-1"><Star className="h-3 w-3 mr-0.5" />Astro</TabsTrigger>
             <TabsTrigger value="players" className="text-[9px] px-1"><Users className="h-3 w-3 mr-0.5" />Stats</TabsTrigger>
             <TabsTrigger value="markets" className="text-[9px] px-1"><Target className="h-3 w-3 mr-0.5" />ATS</TabsTrigger>
-            {isAdmin && (
-              <TabsTrigger value="backtest" className="text-[9px] px-1"><FlaskConical className="h-3 w-3 mr-0.5" />Backtest</TabsTrigger>
-            )}
+            <TabsTrigger value="backtest" className="text-[9px] px-1"><FlaskConical className="h-3 w-3 mr-0.5" />Backtest</TabsTrigger>
+          </TabsList>
           </TabsList>
 
           {/* Tab 1: Game Results */}

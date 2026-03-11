@@ -375,6 +375,18 @@ function TeamsTab() {
                       ))}
                     </div>
                   </div>
+                  {/* Inline team ratings */}
+                  {paceData?.get(t.team_abbr) && (
+                    <div className="flex gap-2 mt-1.5 text-[9px] tabular-nums">
+                      <span className="text-foreground font-semibold">{Number(paceData.get(t.team_abbr).off_rating).toFixed(1)}<span className="text-muted-foreground font-normal ml-0.5">ORtg</span></span>
+                      <span className="text-foreground font-semibold">{Number(paceData.get(t.team_abbr).def_rating).toFixed(1)}<span className="text-muted-foreground font-normal ml-0.5">DRtg</span></span>
+                      {paceData.get(t.team_abbr).net_rating != null && (
+                        <span className={cn("font-semibold", Number(paceData.get(t.team_abbr).net_rating) >= 0 ? "text-cosmic-green" : "text-cosmic-red")}>
+                          {Number(paceData.get(t.team_abbr).net_rating) > 0 ? "+" : ""}{Number(paceData.get(t.team_abbr).net_rating).toFixed(1)}<span className="text-muted-foreground font-normal ml-0.5">Net</span>
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </button>
                 {/* Drill-down: last 5 scores */}
                 {isExpanded && drillDown.length > 0 && (
