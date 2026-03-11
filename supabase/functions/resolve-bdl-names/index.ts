@@ -66,7 +66,7 @@ Deno.serve(async (req) => {
       // Cache
       await sb.from("bdl_player_cache").upsert({
         bdl_id: String(bdlId),
-        first_name: fn, last_name: ln, full_name: fullName,
+        first_name: fn, last_name: ln,
         team: teamAbbr,
       }, { onConflict: "bdl_id" });
 
@@ -79,7 +79,7 @@ Deno.serve(async (req) => {
       if (updErr) console.error(`[resolve] Update error for ${bdlId}:`, updErr.message);
 
       resolved++;
-      console.log(`[resolve] ${bdlId} → ${fullName} (${count} rows updated)`);
+      console.log(`[resolve] ${bdlId} → ${fullName}`);
     } catch (e) {
       console.error(`[resolve] Error for ${bdlId}:`, e);
       errors++;

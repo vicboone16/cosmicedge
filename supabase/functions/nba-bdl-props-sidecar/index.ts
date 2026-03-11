@@ -4,15 +4,15 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 /**
  * NBA BDL Props Sidecar
  *
- * Runs once per minute via pg_cron, internally loops ~12 times (every 5s).
- * Fetches player props for all live NBA games from BallDontLie.
+ * Runs once per minute via pg_cron, internally loops ~6 times (every 8s).
+ * Fetches player props for live NBA games from BallDontLie ONE AT A TIME.
  * Budget: ~96 BDL req/min (8 games × 12 runs)
  */
 
 const BDL_BASE = "https://api.balldontlie.io";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const MAX_RUNTIME_MS = 55_000;
-const TICK_INTERVAL_MS = 5_000;
+const TICK_INTERVAL_MS = 8_000;
 
 function bdlPropToMarketKey(key: string): string {
   const map: Record<string, string> = {
@@ -76,13 +76,22 @@ Deno.serve(async (req) => {
   const sb = createClient(SUPABASE_URL, SERVICE_KEY);
   const bdlHeaders = { Authorization: `Bearer ${BDL_KEY}`, "X-Api-Key": BDL_KEY };
 
-  const totals = { ticks: 0, props: 0, archived: 0, errors: 0 };
+  const totals = { ticks: 0, props: 0, archived: 0, errors: 0, skipped429: 0 };
+  let backoffUntil = 0; // timestamp ms — skip BDL calls until this time
   const startMs = Date.now();
 
   while (Date.now() - startMs < MAX_RUNTIME_MS) {
     totals.ticks++;
 
     try {
+      // If we're in backoff, skip this tick
+      if (Date.now() < backoffUntil) {
+        console.log("[props-sidecar] In backoff, skipping tick");
+        totals.skipped429++;
+        await sleep(TICK_INTERVAL_MS);
+        continue;
+      }
+
       // Get live BDL game IDs from provider_game_map for currently live games
       const { data: liveGames } = await sb
         .from("games")
@@ -110,14 +119,11 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      // Fetch props for each game (parallel, max 5)
-      const chunks: typeof mappings[] = [];
-      for (let i = 0; i < mappings.length; i += 5) {
-        chunks.push(mappings.slice(i, i + 5));
-      }
+      // Round-robin: pick ONE game per tick based on tick count
+      const gameIdx = (totals.ticks - 1) % mappings.length;
+      const m = mappings[gameIdx];
+      {
 
-      for (const chunk of chunks) {
-        await Promise.all(chunk.map(async (m) => {
           const bdlGameId = m.provider_game_id;
           const gk = m.game_key;
 
@@ -125,12 +131,10 @@ Deno.serve(async (req) => {
             const propsRes = await fetch(`${BDL_BASE}/v2/odds/player_props?game_id=${bdlGameId}`, { headers: bdlHeaders });
 
             if (propsRes.status === 429) {
-              console.warn(`[props-sidecar] 429 on props for game ${bdlGameId}, backing off`);
-              return;
-            }
-
-            if (!propsRes.ok) return;
-
+              console.warn(`[props-sidecar] 429 on props for game ${bdlGameId}, backing off 30s`);
+              backoffUntil = Date.now() + 30_000;
+              // still continue to next tick
+            } else if (propsRes.ok) {
             const propItems: any[] = (await propsRes.json()).data || [];
             const liveRows: any[] = [];
             const archiveRows: any[] = [];
@@ -145,7 +149,6 @@ Deno.serve(async (req) => {
             )] as string[];
 
             if (allBdlIds.length > 0) {
-              // Check cache first
               const { data: cached } = await sb
                 .from("bdl_player_cache")
                 .select("bdl_id,full_name")
@@ -157,11 +160,12 @@ Deno.serve(async (req) => {
                 }
               }
 
-              // For uncached IDs, call BDL player API and cache
+              // For uncached IDs, resolve max 5 per tick to avoid 429
               const uncached = allBdlIds.filter(id => !bdlNameById.has(id));
-              for (const pid of uncached.slice(0, 20)) {
+              for (const pid of uncached.slice(0, 5)) {
                 try {
                   const pRes = await fetch(`${BDL_BASE}/v2/players/${pid}`, { headers: bdlHeaders });
+                  if (pRes.status === 429) { backoffUntil = Date.now() + 30_000; break; }
                   if (pRes.ok) {
                     const pData = (await pRes.json()).data || await pRes.json();
                     const fn = pData.first_name || "";
@@ -171,7 +175,6 @@ Deno.serve(async (req) => {
                       bdlNameById.set(pid, fullName);
                       await sb.from("bdl_player_cache").upsert({
                         bdl_id: pid, first_name: fn, last_name: ln,
-                        full_name: fullName,
                         team: pData.team?.abbreviation || null,
                       }, { onConflict: "bdl_id" });
                     }
@@ -271,8 +274,8 @@ Deno.serve(async (req) => {
 
             if (liveRows.length > 0) {
               for (let i = 0; i < liveRows.length; i += 100) {
-                const chunk = liveRows.slice(i, i + 100);
-                const { error } = await sb.from("nba_player_props_live").upsert(chunk, {
+                const batch = liveRows.slice(i, i + 100);
+                const { error } = await sb.from("nba_player_props_live").upsert(batch, {
                   onConflict: "game_key,provider,vendor,player_id,prop_type,line_value,market_type",
                 });
                 if (error) console.error("[props-sidecar] upsert error:", error.message);
@@ -300,12 +303,12 @@ Deno.serve(async (req) => {
               await sb.from("nba_player_props_archive").insert(archiveRows);
               totals.archived += archiveRows.length;
             }
+            } // end propsRes.ok
           } catch (e) {
             console.error(`[props-sidecar] props error game ${bdlGameId}:`, e);
             totals.errors++;
           }
-        }));
-      }
+      } // end single-game block
 
     } catch (e) {
       console.error("[props-sidecar] tick error:", e);
