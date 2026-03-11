@@ -109,11 +109,42 @@ export default function TrendsPage() {
     enabled: teamAbbrs.length > 0,
   });
 
-  // Fetch player props for those games
+  // Fetch player props for those games — uses nba_player_props_live (primary) with player_props fallback
   const { data: props, isLoading: propsLoading, refetch, isFetching } = useQuery({
     queryKey: ["trends-props", gameIds],
     queryFn: async () => {
       if (gameIds.length === 0) return [];
+
+      // Primary: nba_player_props_live (BDL live props)
+      const { data: liveProps } = await supabase
+        .from("nba_player_props_live")
+        .select("id, game_key, player_name, prop_type, line_value, over_odds, under_odds")
+        .in("game_key", gameIds)
+        .order("player_name", { ascending: true })
+        .limit(1000);
+
+      if (liveProps && liveProps.length > 0) {
+        // Deduplicate by player + prop_type per game (keep first / best)
+        const seen = new Set<string>();
+        return liveProps
+          .filter(p => {
+            const key = `${p.player_name}::${p.prop_type}::${p.game_key}`;
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+          })
+          .map(p => ({
+            id: p.id,
+            game_id: p.game_key,
+            player_name: p.player_name,
+            market_key: p.prop_type || "",
+            line: p.line_value,
+            over_price: p.over_odds,
+            under_price: p.under_odds,
+          }));
+      }
+
+      // Fallback: player_props table
       const { data } = await supabase
         .from("player_props")
         .select("*")
