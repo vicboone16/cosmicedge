@@ -243,7 +243,7 @@ export default function TrendsPage() {
       if (hitRate < filters.hitRateMin) continue;
 
       results.push({
-        id: prop.id, playerName: prop.player_name, teamAbbr: game.away_abbr,
+        id: String(prop.id), playerName: prop.player_name, teamAbbr: game.away_abbr,
         matchup: `${game.away_abbr} vs ${game.home_abbr}`, startTime: timeStr,
         insightText: generateInsightText(prop.player_name, direction, prop.line, propLabel, hitCount, sampleSize, avg),
         direction, propLabel, line: prop.line,
