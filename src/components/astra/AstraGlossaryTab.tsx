@@ -20,6 +20,8 @@ const CATEGORIES = [
   { key: "all", label: "All" },
   { key: "model", label: "Model" },
   { key: "astro", label: "Astro" },
+  { key: "signal", label: "Signals" },
+  { key: "game-script", label: "Game Scripts" },
   { key: "basketball-stat", label: "Stats" },
   { key: "traditional", label: "Traditional" },
   { key: "dignities", label: "Dignities" },
