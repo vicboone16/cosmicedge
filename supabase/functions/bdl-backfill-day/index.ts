@@ -35,17 +35,30 @@ Deno.serve(async (req) => {
 
     const url = new URL(req.url);
     const targetDate = url.searchParams.get("date") || new Date().toISOString().split("T")[0];
+    const singleGameId = url.searchParams.get("game_id"); // optional: process only one game
+    const skipOdds = url.searchParams.get("skip_odds") === "1";
+    const skipPbp = url.searchParams.get("skip_pbp") === "1";
+    const skipProps = url.searchParams.get("skip_props") === "1";
+    const onlyQuarters = url.searchParams.get("only_quarters") === "1"; // fetch only quarter stats
 
     // Find NBA games for this date (using UTC date ± 1 day window)
     const d = new Date(targetDate + "T00:00:00Z");
     const dayBefore = new Date(d.getTime() - 86400000).toISOString().split("T")[0];
     const dayAfter = new Date(d.getTime() + 86400000).toISOString().split("T")[0];
 
-    const { data: dbGames } = await supabase.from("games")
+    let gamesQuery = supabase.from("games")
       .select("id, home_abbr, away_abbr, start_time, status, external_id")
-      .eq("league", "NBA")
-      .gte("start_time", dayBefore + "T00:00:00Z")
-      .lte("start_time", dayAfter + "T23:59:59Z");
+      .eq("league", "NBA");
+
+    if (singleGameId) {
+      gamesQuery = gamesQuery.eq("id", singleGameId);
+    } else {
+      gamesQuery = gamesQuery
+        .gte("start_time", dayBefore + "T00:00:00Z")
+        .lte("start_time", dayAfter + "T23:59:59Z");
+    }
+
+    const { data: dbGames } = await gamesQuery;
 
     if (!dbGames || dbGames.length === 0) {
       return new Response(JSON.stringify({ ok: true, msg: "no games found", date: targetDate }),
