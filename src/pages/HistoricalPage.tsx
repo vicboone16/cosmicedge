@@ -1126,7 +1126,6 @@ export default function HistoricalPage() {
               </div>
             )}
           </TabsContent>
-          )}
         </Tabs>
       </div>
     </div>
