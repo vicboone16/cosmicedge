@@ -192,6 +192,7 @@ Deno.serve(async (req) => {
     // Step 3: Fetch PBP + Props per game
     for (const [gk, { bdlId }] of gameMap) {
       // PBP
+      if (!skipPbp && !onlyQuarters) {
       try {
         const pbpRes = await fetch(`${BDL_BASE}/v1/plays?game_id=${bdlId}`, { headers: hdrs });
         if (pbpRes.ok) {
