@@ -291,8 +291,19 @@ export function LivePropsTab({ gameId, homeAbbr, awayAbbr, isLive }: Props) {
     return perPlayer;
   }, [rawProps]);
 
-  const handleAddToSkySpread = useCallback((prop: RawLiveProp) => {
-    setSelectedProp(prop);
+  const handleAddToSkySpread = useCallback((prop: RawLiveProp | CarouselProp) => {
+    // Normalize to RawLiveProp for the sheet
+    const raw: RawLiveProp = 'line_value' in prop ? prop as RawLiveProp : {
+      id: prop.id,
+      player_name: prop.player_name,
+      player_id: prop.player_id,
+      prop_type: prop.prop_type,
+      line_value: prop.line ?? 0,
+      over_odds: prop.over_odds,
+      under_odds: prop.under_odds,
+      vendor: prop.vendor || "",
+    };
+    setSelectedProp(raw);
     setSkySpreadOpen(true);
   }, []);
 
