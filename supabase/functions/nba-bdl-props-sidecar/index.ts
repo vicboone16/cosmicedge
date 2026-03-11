@@ -175,7 +175,6 @@ Deno.serve(async (req) => {
                       bdlNameById.set(pid, fullName);
                       await sb.from("bdl_player_cache").upsert({
                         bdl_id: pid, first_name: fn, last_name: ln,
-                        full_name: fullName,
                         team: pData.team?.abbreviation || null,
                       }, { onConflict: "bdl_id" });
                     }
