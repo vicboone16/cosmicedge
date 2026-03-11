@@ -404,8 +404,8 @@ export default function PlayerPropsPage() {
           </button>
         </div>
 
-        {/* Player / Team Props toggle */}
-        {view === "odds" && (
+        {/* Player / Team Props toggle — Markets tab only */}
+        {activeTab === "markets" && view === "odds" && (
           <div className="flex bg-secondary rounded-lg p-0.5 mb-3 w-fit">
             <button
               onClick={() => setPropsMode("player")}
