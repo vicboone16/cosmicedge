@@ -76,7 +76,8 @@ Deno.serve(async (req) => {
   const sb = createClient(SUPABASE_URL, SERVICE_KEY);
   const bdlHeaders = { Authorization: `Bearer ${BDL_KEY}`, "X-Api-Key": BDL_KEY };
 
-  const totals = { ticks: 0, props: 0, archived: 0, errors: 0 };
+  const totals = { ticks: 0, props: 0, archived: 0, errors: 0, skipped429: 0 };
+  let backoffUntil = 0; // timestamp ms — skip BDL calls until this time
   const startMs = Date.now();
 
   while (Date.now() - startMs < MAX_RUNTIME_MS) {
