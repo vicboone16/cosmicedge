@@ -5,8 +5,8 @@ import { cn } from "@/lib/utils";
 import { FlaskConical, TrendingUp, Flame, Activity, Shield, Sparkles, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { useNavigate } from "react-router-dom";
-import { getPropLabel, getEdgeTier } from "@/hooks/use-top-props";
+import { getPropLabel, getEdgeTier, type TopProp } from "@/hooks/use-top-props";
+import { usePropDrawer } from "@/hooks/use-prop-drawer";
 
 const SIGNAL_TABS = [
   { key: "streaks", label: "Over Streaks", icon: Flame },
