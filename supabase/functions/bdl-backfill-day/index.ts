@@ -114,7 +114,7 @@ Deno.serve(async (req) => {
 
     // Step 2: Fetch odds for all mapped games
     const allBdlIds = [...gameMap.values()].map(v => v.bdlId);
-    if (allBdlIds.length > 0) {
+    if (allBdlIds.length > 0 && !skipOdds && !onlyQuarters) {
       const idsParam = allBdlIds.map(id => `game_ids[]=${id}`).join("&");
       try {
         const oddsRes = await fetch(`${BDL_BASE}/v2/odds?${idsParam}`, { headers: hdrs });
