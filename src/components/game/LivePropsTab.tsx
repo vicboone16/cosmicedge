@@ -351,7 +351,10 @@ export function LivePropsTab({ gameId, homeAbbr, awayAbbr, isLive }: Props) {
     const perPlayer = new Map<string, PropGroup[]>();
     for (const [, props] of byPlayerStat) {
       const first = props[0];
-      const name = first.player_name || `Player ${first.player_id}`;
+      const rawName = first.player_name;
+      const name = (!rawName || /^Player \d+$/.test(rawName) || /^\d+$/.test(rawName))
+        ? "Unknown Player"
+        : rawName;
       const { best, alts } = pickBest(props);
       const group: PropGroup = { playerName: name, playerId: first.player_id, propType: first.prop_type, best, alts };
       if (!perPlayer.has(name)) perPlayer.set(name, []);
