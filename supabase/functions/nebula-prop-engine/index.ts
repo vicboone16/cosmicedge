@@ -350,21 +350,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 2. Fetch player_props for this game
-    const { data: rawProps } = await sb
-      .from("player_props")
-      .select("id, game_id, player_name, market_key, line, over_price, under_price, bookmaker")
-      .eq("game_id", gameId)
-      .order("bookmaker", { ascending: true });
-
-    if (!rawProps || rawProps.length === 0) {
-      return new Response(
-        JSON.stringify({ ok: true, message: "No props found for game", predictions: 0 }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
-    }
-
-    // 3. Map market_key → prop_type and deduplicate
+    // 2. Fetch props — try legacy player_props first, fall back to nba_player_props_live
     interface MappedProp {
       player_name: string;
       prop_type: string;
@@ -376,26 +362,73 @@ Deno.serve(async (req) => {
 
     const seenKeys = new Set<string>();
     const mappedProps: MappedProp[] = [];
-    for (const p of rawProps) {
-      const propType = MARKET_TO_PROP[p.market_key];
-      if (!propType) continue;
-      const key = `${p.player_name}:${propType}`;
-      if (seenKeys.has(key)) continue;
-      seenKeys.add(key);
-      mappedProps.push({
-        player_name: p.player_name,
-        prop_type: propType,
-        line: p.line ?? 0,
-        over_price: p.over_price,
-        under_price: p.under_price,
-        bookmaker: p.bookmaker ?? "consensus",
-      });
+
+    // 2a. Legacy player_props table
+    const { data: rawProps } = await sb
+      .from("player_props")
+      .select("id, game_id, player_name, market_key, line, over_price, under_price, bookmaker")
+      .eq("game_id", gameId)
+      .order("bookmaker", { ascending: true });
+
+    if (rawProps && rawProps.length > 0) {
+      for (const p of rawProps) {
+        const propType = MARKET_TO_PROP[p.market_key];
+        if (!propType) continue;
+        const key = `${p.player_name}:${propType}`;
+        if (seenKeys.has(key)) continue;
+        seenKeys.add(key);
+        mappedProps.push({
+          player_name: p.player_name,
+          prop_type: propType,
+          line: p.line ?? 0,
+          over_price: p.over_price,
+          under_price: p.under_price,
+          bookmaker: p.bookmaker ?? "consensus",
+        });
+      }
+    }
+
+    // 2b. If legacy empty, try nba_player_props_live (BDL pipeline target)
+    if (mappedProps.length === 0) {
+      const { data: liveProps } = await sb
+        .from("nba_player_props_live")
+        .select("id, game_key, player_name, prop_type, line_value, over_odds, under_odds, vendor")
+        .eq("game_key", gameId)
+        .limit(1000);
+
+      if (liveProps && liveProps.length > 0) {
+        for (const p of liveProps) {
+          // prop_type in nba_player_props_live may already be canonical or market-style
+          const propType = MARKET_TO_PROP[p.prop_type] ?? p.prop_type;
+          if (!COUNTING_PROPS.has(propType)) continue;
+          const pName = p.player_name ?? "Unknown";
+          const key = `${pName}:${propType}`;
+          if (seenKeys.has(key)) continue;
+          seenKeys.add(key);
+          mappedProps.push({
+            player_name: pName,
+            prop_type: propType,
+            line: p.line_value ?? 0,
+            over_price: p.over_odds,
+            under_price: p.under_odds,
+            bookmaker: p.vendor ?? "balldontlie",
+          });
+        }
+      }
+    }
+
+    if (mappedProps.length === 0) {
+      return new Response(
+        JSON.stringify({ ok: true, message: "No props found for game", predictions: 0 }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
     }
 
     // 4. Resolve player names → player IDs
     const uniqueNames = [...new Set(mappedProps.map((p) => p.player_name))];
     const playerMap: Record<string, { id: string; team: string }> = {};
 
+    // 4a. Direct name match
     for (let i = 0; i < uniqueNames.length; i += 50) {
       const batch = uniqueNames.slice(i, i + 50);
       const { data: players } = await sb
@@ -405,6 +438,78 @@ Deno.serve(async (req) => {
       if (players) {
         for (const pl of players) {
           playerMap[pl.name] = { id: pl.id, team: pl.team };
+        }
+      }
+    }
+
+    // 4b. For "Player {bdlId}" names, resolve via bdl_player_cache → players
+    const unresolvedBdlNames = uniqueNames.filter(n => n.startsWith("Player ") && !playerMap[n]);
+    if (unresolvedBdlNames.length > 0) {
+      const bdlIds = unresolvedBdlNames.map(n => n.replace("Player ", ""));
+      const { data: cached } = await sb
+        .from("bdl_player_cache")
+        .select("bdl_id, full_name, first_name, last_name")
+        .in("bdl_id", bdlIds);
+
+      if (cached && cached.length > 0) {
+        const resolvedNames = cached
+          .map(c => c.full_name || `${c.first_name || ""} ${c.last_name || ""}`.trim())
+          .filter(n => n && !n.startsWith("Player "));
+
+        if (resolvedNames.length > 0) {
+          const { data: players2 } = await sb
+            .from("players")
+            .select("id, name, team")
+            .in("name", resolvedNames);
+
+          if (players2) {
+            for (const c of cached) {
+              const fullName = c.full_name || `${c.first_name || ""} ${c.last_name || ""}`.trim();
+              const pl = players2.find(p => p.name === fullName);
+              if (pl) {
+                const origName = `Player ${c.bdl_id}`;
+                playerMap[origName] = { id: pl.id, team: pl.team };
+              }
+            }
+          }
+        }
+      }
+
+      // 4c. For still-unresolved, try BDL API directly (max 20)
+      const stillUnresolved = unresolvedBdlNames.filter(n => !playerMap[n]).slice(0, 20);
+      const BDL_KEY = Deno.env.get("BALLDONTLIE_KEY")?.trim()?.replace(/^Bearer\s+/i, "") ?? "";
+      if (BDL_KEY && stillUnresolved.length > 0) {
+        for (const name of stillUnresolved) {
+          const bdlId = name.replace("Player ", "");
+          try {
+            const res = await fetch(`https://api.balldontlie.io/v2/players/${bdlId}`, {
+              headers: { Authorization: `Bearer ${BDL_KEY}`, "X-Api-Key": BDL_KEY },
+            });
+            if (res.ok) {
+              const pData = (await res.json()).data || await res.json();
+              const fn = pData.first_name || "";
+              const ln = pData.last_name || "";
+              const fullName = `${fn} ${ln}`.trim();
+              if (fullName) {
+                // Cache it
+                await sb.from("bdl_player_cache").upsert({
+                  bdl_id: bdlId, first_name: fn, last_name: ln,
+                  full_name: fullName,
+                  team: pData.team?.abbreviation || null,
+                }, { onConflict: "bdl_id" });
+
+                // Match to players table
+                const { data: pl } = await sb
+                  .from("players")
+                  .select("id, name, team")
+                  .eq("name", fullName)
+                  .limit(1);
+                if (pl && pl.length > 0) {
+                  playerMap[name] = { id: pl[0].id, team: pl[0].team };
+                }
+              }
+            }
+          } catch { /* skip */ }
         }
       }
     }
