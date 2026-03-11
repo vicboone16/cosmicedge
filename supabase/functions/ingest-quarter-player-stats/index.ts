@@ -431,7 +431,7 @@ async function autoComputeHalves(supabase: any, rows: any[], periodLabel: string
       sum.ft_attempted += q.ft_attempted ?? 0;
       sum.off_rebounds += q.off_rebounds ?? 0;
       sum.def_rebounds += q.def_rebounds ?? 0;
-      sum.personal_fouls += q.personal_fouls ?? 0;
+      sum.fouls += q.fouls ?? 0;
     }
     halfRows.push(sum);
   }
