@@ -437,7 +437,7 @@ export function LivePropsTab({ gameId, homeAbbr, awayAbbr, isLive }: Props) {
               {trendAlerts.map(prop => {
                 const propLabel = getPropLabel(prop.prop_type);
                 return (
-                  <div key={prop.id} className="cosmic-card rounded-lg px-3 py-2 flex items-center justify-between">
+                  <button key={prop.id} onClick={() => openProp(prop)} className="w-full cosmic-card rounded-lg px-3 py-2 flex items-center justify-between hover:border-primary/30 transition-colors text-left">
                     <div className="flex items-center gap-2 min-w-0">
                       <span className="text-[10px] font-semibold text-foreground truncate">{prop.player_name}</span>
                       <span className="text-[9px] text-muted-foreground uppercase">{propLabel}</span>
@@ -445,7 +445,7 @@ export function LivePropsTab({ gameId, homeAbbr, awayAbbr, isLive }: Props) {
                     <span className="text-[10px] text-cosmic-green font-semibold shrink-0">
                       {prop.streak}× streak
                     </span>
-                  </div>
+                  </button>
                 );
               })}
             </div>
