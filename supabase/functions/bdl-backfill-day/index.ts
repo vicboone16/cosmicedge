@@ -284,6 +284,7 @@ Deno.serve(async (req) => {
           break;
         }
       } catch (e) { console.error(`[bdl-backfill] Props error game ${gk}:`, e); }
+      } // end skipProps guard
 
       // Step 4: Fetch per-quarter player stats (Q1-Q4)
       for (const period of [1, 2, 3, 4]) {
