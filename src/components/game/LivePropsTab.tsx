@@ -463,7 +463,7 @@ export function LivePropsTab({ gameId, homeAbbr, awayAbbr, isLive }: Props) {
                 const diff = prop.mu - (prop.line ?? 0);
                 const sign = diff >= 0 ? "+" : "";
                 return (
-                  <div key={prop.id} className="cosmic-card rounded-lg px-3 py-2 flex items-center justify-between">
+                  <button key={prop.id} onClick={() => openProp(prop)} className="w-full cosmic-card rounded-lg px-3 py-2 flex items-center justify-between hover:border-primary/30 transition-colors text-left">
                     <div className="min-w-0">
                       <span className="text-[10px] font-semibold text-foreground">
                         {prop.player_name?.split(" ").pop()} {propLabel} line {prop.line}
@@ -475,7 +475,7 @@ export function LivePropsTab({ gameId, homeAbbr, awayAbbr, isLive }: Props) {
                     <Badge variant="outline" className={cn("text-[8px] px-1.5 py-0 h-3.5 font-bold", getEdgeTier(prop.edge_score_v11 ?? prop.edge_score).className)}>
                       {(prop.edge_score_v11 ?? prop.edge_score).toFixed(0)}
                     </Badge>
-                  </div>
+                  </button>
                 );
               })}
             </div>
