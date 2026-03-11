@@ -430,108 +430,110 @@ export default function PlayerPropsPage() {
           </div>
         )}
 
-        {/* Global player/team search */}
-        <div className="mb-3">
-          <EntitySearch navigate={navigate} />
-        </div>
-
-        {/* Date nav */}
-        <div className="flex items-center gap-2 mb-3">
-          <button onClick={goBack} className="p-1 rounded hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors">
-            <ChevronLeft className="h-3.5 w-3.5" />
-          </button>
-          <button onClick={goToday} className="text-xs text-muted-foreground hover:text-foreground transition-colors">
-            {isToday(selectedDate)
-              ? `${format(selectedDate, "EEE, MMM d")} · Today`
-              : format(selectedDate, "EEE, MMM d")}
-          </button>
-          <button onClick={goForward} disabled={!canGoForward} className="p-1 rounded hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors disabled:opacity-30">
-            <ChevronRight className="h-3.5 w-3.5" />
-          </button>
-          {!isToday(selectedDate) && (
-            <button onClick={goToday} className="text-[10px] text-primary hover:underline ml-1">Today</button>
-          )}
-        </div>
-
-        {/* League filter chips */}
-        <div className="flex gap-1.5 mb-3 overflow-x-auto no-scrollbar">
-          {["ALL", "NBA", "NHL", "MLB", "NFL", "NCAAB"].map((lg) => (
-            <button
-              key={lg}
-              onClick={() => setLeagueFilter(lg)}
-              className={cn(
-                "px-3 py-1 rounded-full text-[11px] font-semibold transition-colors whitespace-nowrap",
-                leagueFilter === lg
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-secondary/60 text-muted-foreground hover:bg-secondary hover:text-foreground"
-              )}
-            >
-              {lg}
-            </button>
-          ))}
-        </div>
-
-        {view === "odds" && (
+        {/* Markets-only filters */}
+        {activeTab === "markets" && (
           <>
-            {/* Alternates toggle */}
-            <button
-              onClick={() => setIncludeAlternates(!includeAlternates)}
-              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors mb-2"
-            >
-              {includeAlternates ? <ToggleRight className="h-4 w-4 text-primary" /> : <ToggleLeft className="h-4 w-4" />}
-              <span className={includeAlternates ? "text-primary font-medium" : ""}>
-                {includeAlternates ? "Alternates ON" : "Include Alternates"}
-              </span>
-            </button>
+            {/* Global player/team search */}
+            <div className="mb-3">
+              <EntitySearch navigate={navigate} />
+            </div>
 
-            {/* Category chips */}
-            <div className="flex gap-1.5 mb-3">
-              {([
-                { val: "all" as MarketCategory, label: "All Types" },
-                { val: "standard" as MarketCategory, label: "Standard" },
-                { val: "alternate" as MarketCategory, label: "Alternate" },
-                { val: "period" as MarketCategory, label: "Periods" },
-              ]).map((c) => (
+            {/* Date nav */}
+            <div className="flex items-center gap-2 mb-3">
+              <button onClick={goBack} className="p-1 rounded hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors">
+                <ChevronLeft className="h-3.5 w-3.5" />
+              </button>
+              <button onClick={goToday} className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+                {isToday(selectedDate)
+                  ? `${format(selectedDate, "EEE, MMM d")} · Today`
+                  : format(selectedDate, "EEE, MMM d")}
+              </button>
+              <button onClick={goForward} disabled={!canGoForward} className="p-1 rounded hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors disabled:opacity-30">
+                <ChevronRight className="h-3.5 w-3.5" />
+              </button>
+              {!isToday(selectedDate) && (
+                <button onClick={goToday} className="text-[10px] text-primary hover:underline ml-1">Today</button>
+              )}
+            </div>
+
+            {/* League filter chips */}
+            <div className="flex gap-1.5 mb-3 overflow-x-auto no-scrollbar">
+              {["ALL", "NBA", "NHL", "MLB", "NFL", "NCAAB"].map((lg) => (
                 <button
-                  key={c.val}
-                  onClick={() => setCategoryFilter(c.val)}
+                  key={lg}
+                  onClick={() => setLeagueFilter(lg)}
                   className={cn(
-                    "px-2.5 py-0.5 rounded-full text-[10px] font-medium transition-colors",
-                    categoryFilter === c.val
-                      ? "bg-accent text-accent-foreground"
-                      : "bg-secondary/40 text-muted-foreground hover:bg-secondary hover:text-foreground"
+                    "px-3 py-1 rounded-full text-[11px] font-semibold transition-colors whitespace-nowrap",
+                    leagueFilter === lg
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-secondary/60 text-muted-foreground hover:bg-secondary hover:text-foreground"
                   )}
                 >
-                  {c.label}
+                  {lg}
                 </button>
               ))}
             </div>
 
-            {/* Prop-specific search + market filter */}
-            <div className="flex gap-2">
-              <div className="relative flex-1">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                <Input
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Filter by player name..."
-                  className="pl-8 h-8 text-xs"
-                />
-              </div>
-              <Select value={marketFilter} onValueChange={setMarketFilter}>
-                <SelectTrigger className="w-[120px] h-8 text-xs">
-                  <SelectValue placeholder="Market" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Markets</SelectItem>
-                  {uniqueMarkets.map((m) => (
-                    <SelectItem key={m} value={m}>
-                      {getMarketShort(m)}
-                    </SelectItem>
+            {view === "odds" && (
+              <>
+                <button
+                  onClick={() => setIncludeAlternates(!includeAlternates)}
+                  className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors mb-2"
+                >
+                  {includeAlternates ? <ToggleRight className="h-4 w-4 text-primary" /> : <ToggleLeft className="h-4 w-4" />}
+                  <span className={includeAlternates ? "text-primary font-medium" : ""}>
+                    {includeAlternates ? "Alternates ON" : "Include Alternates"}
+                  </span>
+                </button>
+
+                <div className="flex gap-1.5 mb-3">
+                  {([
+                    { val: "all" as MarketCategory, label: "All Types" },
+                    { val: "standard" as MarketCategory, label: "Standard" },
+                    { val: "alternate" as MarketCategory, label: "Alternate" },
+                    { val: "period" as MarketCategory, label: "Periods" },
+                  ]).map((c) => (
+                    <button
+                      key={c.val}
+                      onClick={() => setCategoryFilter(c.val)}
+                      className={cn(
+                        "px-2.5 py-0.5 rounded-full text-[10px] font-medium transition-colors",
+                        categoryFilter === c.val
+                          ? "bg-accent text-accent-foreground"
+                          : "bg-secondary/40 text-muted-foreground hover:bg-secondary hover:text-foreground"
+                      )}
+                    >
+                      {c.label}
+                    </button>
                   ))}
-                </SelectContent>
-              </Select>
-            </div>
+                </div>
+
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                    <Input
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                      placeholder="Filter by player name..."
+                      className="pl-8 h-8 text-xs"
+                    />
+                  </div>
+                  <Select value={marketFilter} onValueChange={setMarketFilter}>
+                    <SelectTrigger className="w-[120px] h-8 text-xs">
+                      <SelectValue placeholder="Market" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Markets</SelectItem>
+                      {uniqueMarkets.map((m) => (
+                        <SelectItem key={m} value={m}>
+                          {getMarketShort(m)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </>
+            )}
           </>
         )}
       </header>
