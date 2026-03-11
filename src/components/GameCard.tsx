@@ -48,7 +48,7 @@ export const GameCard = memo(function GameCard({ game }: { game: GameWithOdds })
   const isLive = game.status === "live" || game.status === "in_progress";
   const isFinal = game.status === "final";
   const hasStarted = new Date(game.start_time) <= new Date();
-  const hasScores = game.home_score != null && game.away_score != null && hasStarted && (game.home_score > 0 || game.away_score > 0);
+  const hasScores = game.status !== "scheduled" && game.home_score != null && game.away_score != null && hasStarted && (game.home_score > 0 || game.away_score > 0);
 
   const { pregame } = useOracle(
     game.id,
