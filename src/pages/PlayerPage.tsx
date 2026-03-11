@@ -416,7 +416,7 @@ const PlayerPage = () => {
               {zodiac ? zodiac.symbol : player.name.slice(0, 2).toUpperCase()}
             </AvatarFallback>
           </Avatar>
-          <div>
+          <div className="flex-1 min-w-0">
             <h1 className="text-xl font-bold font-display">{player.name}</h1>
             <div className="flex items-center gap-2 mt-1">
               <span className="text-xs text-muted-foreground">{player.position || "—"}</span>
@@ -424,17 +424,55 @@ const PlayerPage = () => {
               <button onClick={() => navigate(`/team/${player.league || "NBA"}/${player.team}`)} className="text-xs text-primary hover:underline">
                 {player.team}
               </button>
+              {zodiac && (
+                <>
+                  <span className="text-xs text-muted-foreground">·</span>
+                  <span className="text-xs text-cosmic-gold">{zodiac.symbol} {zodiac.sign}</span>
+                </>
+              )}
             </div>
           </div>
         </div>
-        <div className="mt-3 flex gap-2">
+
+        {/* L5 Trend Sparkline */}
+        {gameLogs && gameLogs.length >= 3 && (
+          <div className="mt-3 flex items-end gap-0.5 h-8">
+            {gameLogs.slice(0, 10).reverse().map((g, i) => {
+              const pts = g.points ?? 0;
+              const maxPts = Math.max(...gameLogs.slice(0, 10).map(l => l.points ?? 0), 1);
+              const pct = Math.max((pts / maxPts) * 100, 8);
+              const isRecent = i >= Math.max(gameLogs.slice(0, 10).length - 3, 0);
+              return (
+                <div key={i} className="flex-1 flex flex-col items-center gap-0.5">
+                  <div
+                    className={cn("w-full rounded-sm transition-all", isRecent ? "bg-primary" : "bg-primary/30")}
+                    style={{ height: `${pct}%` }}
+                  />
+                </div>
+              );
+            })}
+            <span className="text-[9px] text-muted-foreground ml-1 whitespace-nowrap">
+              L{Math.min(gameLogs.length, 10)} PTS
+            </span>
+          </div>
+        )}
+
+        <div className="mt-2 flex gap-2">
           <button
             onClick={() => navigate("/trends")}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-secondary/60 text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors"
           >
             <BarChart3 className="h-3.5 w-3.5" />
-            View Trends
+            Trends
           </button>
+          {avgStats && (
+            <div className="flex items-center gap-2 ml-auto">
+              <span className="text-[10px] text-muted-foreground">L{avgStats.games}</span>
+              <span className="text-xs font-bold tabular-nums">{avgStats.pts}p</span>
+              <span className="text-xs tabular-nums text-muted-foreground">{avgStats.reb}r</span>
+              <span className="text-xs tabular-nums text-muted-foreground">{avgStats.ast}a</span>
+            </div>
+          )}
         </div>
 
         {/* Profile tabs */}
