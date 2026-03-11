@@ -1,10 +1,18 @@
-import { useMemo } from "react";
+import { useMemo, useState, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
-import { Zap, TrendingUp, TrendingDown } from "lucide-react";
+import { Zap, TrendingUp, TrendingDown, ChevronDown, ChevronUp, Plus } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { getPropLabel, getEdgeTier, type TopProp } from "@/hooks/use-top-props";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { toast } from "sonner";
+import { useAuth } from "@/hooks/use-auth";
 
 interface Props {
   gameId: string;
@@ -24,12 +32,249 @@ interface RawLiveProp {
   vendor: string;
 }
 
+/** A group: best line + alt lines for a player+stat combo */
+interface PropGroup {
+  playerName: string;
+  playerId: string;
+  propType: string;
+  best: RawLiveProp;
+  alts: RawLiveProp[];
+}
+
 function formatOdds(odds: number | null): string {
   if (odds == null) return "—";
   return odds > 0 ? `+${odds}` : `${odds}`;
 }
 
+/** Pick the "best" prop from a set of lines: best = highest absolute over_odds (most plus-money) */
+function pickBest(props: RawLiveProp[]): { best: RawLiveProp; alts: RawLiveProp[] } {
+  // Sort by over_odds descending (best value first), fallback to lowest line
+  const sorted = [...props].sort((a, b) => {
+    const oa = a.over_odds ?? -999;
+    const ob = b.over_odds ?? -999;
+    if (ob !== oa) return ob - oa;
+    return a.line_value - b.line_value;
+  });
+  return { best: sorted[0], alts: sorted.slice(1) };
+}
+
+// ─── Add-to-SkySpread Sheet ───
+interface AddToSkySpreadSheetProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  prop: RawLiveProp | null;
+  gameId: string;
+}
+
+function AddToSkySpreadSheet({ open, onOpenChange, prop, gameId }: AddToSkySpreadSheetProps) {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const [side, setSide] = useState<"over" | "under">("over");
+  const [stakeAmount, setStakeAmount] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  const odds = side === "over" ? prop?.over_odds : prop?.under_odds;
+
+  const handleSubmit = async () => {
+    if (!user || !prop) return;
+    setSubmitting(true);
+    const { error } = await supabase.from("bets").insert({
+      user_id: user.id,
+      game_id: gameId,
+      market_type: "player_prop",
+      selection: `${prop.player_name} ${side.toUpperCase()} ${prop.line_value} ${getPropLabel(prop.prop_type)}`,
+      side,
+      line: prop.line_value,
+      odds: odds ?? -110,
+      book: prop.vendor || null,
+      stake_amount: stakeAmount ? parseFloat(stakeAmount) : null,
+      stake_unit: "$",
+    });
+    setSubmitting(false);
+    if (error) {
+      toast.error("Failed to add bet");
+    } else {
+      toast.success("Added to SkySpread!");
+      onOpenChange(false);
+    }
+  };
+
+  const handleGoToSkySpread = () => {
+    if (!prop) return;
+    navigate(
+      `/skyspread?prefill=true&player=${encodeURIComponent(prop.player_name)}&market=${encodeURIComponent(prop.prop_type)}&line=${prop.line_value}&odds=${odds ?? ""}&game_id=${gameId}`
+    );
+    onOpenChange(false);
+  };
+
+  if (!prop) return null;
+
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent side="bottom" className="rounded-t-2xl max-h-[70vh]">
+        <SheetHeader>
+          <SheetTitle className="text-sm font-display">Add to SkySpread</SheetTitle>
+        </SheetHeader>
+        <div className="space-y-4 pt-4">
+          {/* Prop summary */}
+          <div className="cosmic-card rounded-xl p-3 space-y-1">
+            <p className="text-xs font-semibold text-foreground">{prop.player_name}</p>
+            <p className="text-[10px] text-muted-foreground uppercase">
+              {getPropLabel(prop.prop_type)} · Line {prop.line_value} · {prop.vendor}
+            </p>
+            <div className="flex gap-2 text-xs tabular-nums mt-2">
+              <span className="text-cosmic-green font-semibold">O {formatOdds(prop.over_odds)}</span>
+              <span className="text-cosmic-red font-semibold">U {formatOdds(prop.under_odds)}</span>
+            </div>
+          </div>
+
+          {/* Side picker */}
+          <div className="flex gap-2">
+            <button
+              onClick={() => setSide("over")}
+              className={cn(
+                "flex-1 py-2 rounded-lg text-xs font-semibold transition-colors",
+                side === "over"
+                  ? "bg-cosmic-green/15 text-cosmic-green border border-cosmic-green/30"
+                  : "bg-secondary text-muted-foreground"
+              )}
+            >
+              Over {formatOdds(prop.over_odds)}
+            </button>
+            <button
+              onClick={() => setSide("under")}
+              className={cn(
+                "flex-1 py-2 rounded-lg text-xs font-semibold transition-colors",
+                side === "under"
+                  ? "bg-cosmic-red/15 text-cosmic-red border border-cosmic-red/30"
+                  : "bg-secondary text-muted-foreground"
+              )}
+            >
+              Under {formatOdds(prop.under_odds)}
+            </button>
+          </div>
+
+          {/* Stake */}
+          <div className="space-y-1">
+            <Label className="text-xs">Stake ($)</Label>
+            <Input
+              type="number"
+              placeholder="0.00"
+              value={stakeAmount}
+              onChange={(e) => setStakeAmount(e.target.value)}
+              className="h-9"
+            />
+          </div>
+
+          {/* Actions */}
+          <div className="flex gap-2">
+            <Button
+              onClick={handleSubmit}
+              disabled={submitting || !user}
+              className="flex-1"
+              size="sm"
+            >
+              <Plus className="h-3.5 w-3.5 mr-1" />
+              {submitting ? "Adding…" : "Quick Add"}
+            </Button>
+            <Button
+              variant="outline"
+              onClick={handleGoToSkySpread}
+              size="sm"
+              className="flex-1"
+            >
+              Open in SkySpread
+            </Button>
+          </div>
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+// ─── Expandable Prop Row ───
+interface PropRowProps {
+  group: PropGroup;
+  onAddToSkySpread: (prop: RawLiveProp) => void;
+  onPlayerClick: (playerId: string, playerName: string) => void;
+}
+
+function PropGroupRow({ group, onAddToSkySpread, onPlayerClick }: PropRowProps) {
+  const [expanded, setExpanded] = useState(false);
+  const propLabel = getPropLabel(group.propType);
+  const hasAlts = group.alts.length > 0;
+
+  return (
+    <div className="space-y-0">
+      {/* Best line row */}
+      <button
+        className="w-full cosmic-card rounded-lg px-3 py-2.5 flex items-center justify-between hover:bg-secondary/30 transition-colors"
+        onClick={() => hasAlts && setExpanded(!expanded)}
+      >
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="text-[10px] font-bold text-muted-foreground uppercase w-8 shrink-0">{propLabel}</span>
+          <span className="text-sm font-bold tabular-nums">{group.best.line_value}</span>
+          {hasAlts && (
+            expanded
+              ? <ChevronUp className="h-3 w-3 text-muted-foreground" />
+              : <ChevronDown className="h-3 w-3 text-muted-foreground" />
+          )}
+        </div>
+        <div className="flex items-center gap-2 text-[10px] tabular-nums shrink-0">
+          <span className="flex items-center gap-0.5 text-cosmic-green font-semibold">
+            <TrendingUp className="h-3 w-3" />
+            O {formatOdds(group.best.over_odds)}
+          </span>
+          <span className="flex items-center gap-0.5 text-cosmic-red font-semibold">
+            <TrendingDown className="h-3 w-3" />
+            U {formatOdds(group.best.under_odds)}
+          </span>
+          <span className="text-[8px] text-muted-foreground w-16 text-right truncate">{group.best.vendor}</span>
+          <button
+            onClick={(e) => { e.stopPropagation(); onAddToSkySpread(group.best); }}
+            className="ml-1 h-5 w-5 rounded-full bg-primary/10 text-primary flex items-center justify-center hover:bg-primary/20 transition-colors"
+            title="Add to SkySpread"
+          >
+            <Plus className="h-3 w-3" />
+          </button>
+        </div>
+      </button>
+
+      {/* Alt lines (expanded) */}
+      {expanded && group.alts.length > 0 && (
+        <div className="ml-4 border-l border-border/50 pl-3 space-y-0.5 py-1">
+          {group.alts.map((alt) => (
+            <div key={alt.id} className="flex items-center justify-between px-2 py-1.5 rounded-md hover:bg-secondary/20 transition-colors">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="text-[10px] font-bold text-muted-foreground uppercase w-8 shrink-0">{propLabel}</span>
+                <span className="text-xs font-semibold tabular-nums">{alt.line_value}</span>
+              </div>
+              <div className="flex items-center gap-2 text-[10px] tabular-nums shrink-0">
+                <span className="text-cosmic-green font-semibold">O {formatOdds(alt.over_odds)}</span>
+                <span className="text-cosmic-red font-semibold">U {formatOdds(alt.under_odds)}</span>
+                <span className="text-[8px] text-muted-foreground w-16 text-right truncate">{alt.vendor}</span>
+                <button
+                  onClick={() => onAddToSkySpread(alt)}
+                  className="ml-1 h-5 w-5 rounded-full bg-primary/10 text-primary flex items-center justify-center hover:bg-primary/20 transition-colors"
+                  title="Add to SkySpread"
+                >
+                  <Plus className="h-3 w-3" />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Main Component ───
 export function LivePropsTab({ gameId, homeAbbr, awayAbbr, isLive }: Props) {
+  const navigate = useNavigate();
+  const [skySpreadOpen, setSkySpreadOpen] = useState(false);
+  const [selectedProp, setSelectedProp] = useState<RawLiveProp | null>(null);
+
   // Primary: overlay with model predictions
   const { data: overlays, isLoading: overlayLoading } = useQuery({
     queryKey: ["live-props-tab", gameId],
@@ -67,23 +312,23 @@ export function LivePropsTab({ gameId, homeAbbr, awayAbbr, isLive }: Props) {
         const bdlIds = [...new Set(needsResolve.map(r => r.player_id))];
         const { data: cached } = await supabase
           .from("bdl_player_cache" as any)
-          .select("bdl_id,full_name")
+          .select("bdl_id,first_name,last_name")
           .in("bdl_id", bdlIds);
-        const nameMap = new Map((cached || []).map((c: any) => [c.bdl_id, c.full_name?.trim()]));
+        const nameMap = new Map(
+          (cached || []).map((c: any) => [
+            c.bdl_id,
+            [c.first_name, c.last_name].filter(Boolean).join(" ").trim() || null,
+          ])
+        );
         for (const r of rows) {
           if (r.player_name?.startsWith("Player ") && nameMap.has(r.player_id)) {
-            r.player_name = nameMap.get(r.player_id)!;
+            const resolved = nameMap.get(r.player_id);
+            if (resolved) r.player_name = resolved;
           }
         }
       }
 
-      // Deduplicate: keep best odds per player+prop_type (lowest line or first seen)
-      const seen = new Map<string, RawLiveProp>();
-      for (const r of rows) {
-        const key = `${r.player_id}|${r.prop_type}|${r.line_value}`;
-        if (!seen.has(key)) seen.set(key, r);
-      }
-      return [...seen.values()];
+      return rows;
     },
     enabled: needsFallback,
     staleTime: 30_000,
@@ -92,17 +337,44 @@ export function LivePropsTab({ gameId, homeAbbr, awayAbbr, isLive }: Props) {
 
   const isLoading = overlayLoading || (needsFallback && rawLoading);
 
-  // Group raw props by player for display
-  const groupedRawProps = useMemo(() => {
-    if (!rawProps) return new Map<string, RawLiveProp[]>();
-    const map = new Map<string, RawLiveProp[]>();
+  // Group raw props: player -> propType -> best + alts
+  const playerGroups = useMemo(() => {
+    if (!rawProps) return new Map<string, PropGroup[]>();
+    // Group by player_id + prop_type
+    const byPlayerStat = new Map<string, RawLiveProp[]>();
     for (const p of rawProps) {
-      const name = p.player_name || `Player ${p.player_id}`;
-      if (!map.has(name)) map.set(name, []);
-      map.get(name)!.push(p);
+      const key = `${p.player_id}|${p.prop_type}`;
+      if (!byPlayerStat.has(key)) byPlayerStat.set(key, []);
+      byPlayerStat.get(key)!.push(p);
     }
-    return map;
+    // Build groups per player
+    const perPlayer = new Map<string, PropGroup[]>();
+    for (const [, props] of byPlayerStat) {
+      const first = props[0];
+      const name = first.player_name || `Player ${first.player_id}`;
+      const { best, alts } = pickBest(props);
+      const group: PropGroup = { playerName: name, playerId: first.player_id, propType: first.prop_type, best, alts };
+      if (!perPlayer.has(name)) perPlayer.set(name, []);
+      perPlayer.get(name)!.push(group);
+    }
+    return perPlayer;
   }, [rawProps]);
+
+  const handleAddToSkySpread = useCallback((prop: RawLiveProp) => {
+    setSelectedProp(prop);
+    setSkySpreadOpen(true);
+  }, []);
+
+  const handlePlayerClick = useCallback(async (playerId: string, playerName: string) => {
+    // Try to find player in our players table
+    const { data } = await supabase.rpc("search_players_unaccent", {
+      search_query: playerName,
+      max_results: 1,
+    });
+    if (data && data.length > 0) {
+      navigate(`/player/${(data[0] as any).player_id}`);
+    }
+  }, [navigate]);
 
   const { hotEdges, trendAlerts, newEdges } = useMemo(() => {
     if (!overlays) return { hotEdges: [], trendAlerts: [], newEdges: [] };
@@ -209,10 +481,11 @@ export function LivePropsTab({ gameId, homeAbbr, awayAbbr, isLive }: Props) {
     );
   }
 
-  // Fallback: show raw live props from nba_player_props_live
-  if (groupedRawProps.size > 0) {
+  // Fallback: show raw live props grouped by player with best-odds + expandable alts
+  if (playerGroups.size > 0) {
+    const totalProps = rawProps?.length ?? 0;
     return (
-      <div className="space-y-6">
+      <div className="space-y-5">
         <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
           {isLive && (
             <span className="flex items-center gap-1 text-cosmic-green font-semibold">
@@ -221,38 +494,46 @@ export function LivePropsTab({ gameId, homeAbbr, awayAbbr, isLive }: Props) {
             </span>
           )}
           <span>Live market lines from sportsbooks</span>
-          <span className="ml-auto tabular-nums">{rawProps?.length ?? 0} props</span>
+          <span className="ml-auto tabular-nums">{totalProps} props</span>
         </div>
 
-        {[...groupedRawProps.entries()].map(([playerName, props]) => (
-          <section key={playerName}>
-            <h3 className="text-xs font-semibold text-foreground mb-2 truncate">{playerName}</h3>
-            <div className="space-y-1.5">
-              {props.map(p => {
-                const propLabel = getPropLabel(p.prop_type);
-                return (
-                  <div key={p.id} className="cosmic-card rounded-lg px-3 py-2 flex items-center justify-between">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className="text-[10px] font-bold text-muted-foreground uppercase">{propLabel}</span>
-                      <span className="text-sm font-bold tabular-nums">{p.line_value}</span>
-                    </div>
-                    <div className="flex items-center gap-3 text-[10px] tabular-nums shrink-0">
-                      <span className="flex items-center gap-0.5 text-cosmic-green font-semibold">
-                        <TrendingUp className="h-3 w-3" />
-                        O {formatOdds(p.over_odds)}
-                      </span>
-                      <span className="flex items-center gap-0.5 text-cosmic-red font-semibold">
-                        <TrendingDown className="h-3 w-3" />
-                        U {formatOdds(p.under_odds)}
-                      </span>
-                      <span className="text-[8px] text-muted-foreground">{p.vendor}</span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </section>
-        ))}
+        {[...playerGroups.entries()].map(([playerName, groups]) => {
+          const playerId = groups[0]?.playerId;
+          const isResolved = !playerName.startsWith("Player ");
+
+          return (
+            <section key={playerName}>
+              <button
+                onClick={() => isResolved && handlePlayerClick(playerId, playerName)}
+                className={cn(
+                  "text-xs font-semibold mb-2 truncate block",
+                  isResolved
+                    ? "text-primary hover:underline cursor-pointer"
+                    : "text-foreground cursor-default"
+                )}
+              >
+                {playerName}
+              </button>
+              <div className="space-y-1">
+                {groups.map((g) => (
+                  <PropGroupRow
+                    key={`${g.playerId}-${g.propType}`}
+                    group={g}
+                    onAddToSkySpread={handleAddToSkySpread}
+                    onPlayerClick={handlePlayerClick}
+                  />
+                ))}
+              </div>
+            </section>
+          );
+        })}
+
+        <AddToSkySpreadSheet
+          open={skySpreadOpen}
+          onOpenChange={setSkySpreadOpen}
+          prop={selectedProp}
+          gameId={gameId}
+        />
       </div>
     );
   }
