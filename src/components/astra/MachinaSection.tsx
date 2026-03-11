@@ -410,6 +410,11 @@ export default function MachinaSection() {
       {activeTab === "formula-sandbox" && <FormulaSandbox />}
       {activeTab === "backtest" && <BacktestConsole />}
       {activeTab === "saved" && <SavedModels />}
+      {activeTab === "compute-debug" && (
+        <Suspense fallback={<div className="text-center py-8"><Loader2 className="h-5 w-5 animate-spin text-primary mx-auto" /></div>}>
+          <AstraComputeDebug />
+        </Suspense>
+      )}
     </div>
   );
 }
