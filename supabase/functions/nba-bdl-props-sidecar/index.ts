@@ -84,6 +84,14 @@ Deno.serve(async (req) => {
     totals.ticks++;
 
     try {
+      // If we're in backoff, skip this tick
+      if (Date.now() < backoffUntil) {
+        console.log("[props-sidecar] In backoff, skipping tick");
+        totals.skipped429++;
+        await sleep(TICK_INTERVAL_MS);
+        continue;
+      }
+
       // Get live BDL game IDs from provider_game_map for currently live games
       const { data: liveGames } = await sb
         .from("games")
@@ -111,11 +119,10 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      // Fetch props for each game (parallel, max 5)
-      const chunks: typeof mappings[] = [];
-      for (let i = 0; i < mappings.length; i += 5) {
-        chunks.push(mappings.slice(i, i + 5));
-      }
+      // Round-robin: pick ONE game per tick based on tick count
+      const gameIdx = (totals.ticks - 1) % mappings.length;
+      const m = mappings[gameIdx];
+      {
 
       for (const chunk of chunks) {
         await Promise.all(chunk.map(async (m) => {
