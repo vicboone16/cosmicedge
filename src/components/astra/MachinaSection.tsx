@@ -397,8 +397,8 @@ function OutputBox({ label, value }: { label: string; value: string }) {
 }
 
 // ── Main Machina Section ──
-export default function MachinaSection() {
-  const [activeTab, setActiveTab] = useState<MachinaTab>("model-lab");
+export default function MachinaSection({ initialFormulaSlug }: { initialFormulaSlug?: string | null }) {
+  const [activeTab, setActiveTab] = useState<MachinaTab>(initialFormulaSlug ? "formula-sandbox" : "model-lab");
 
   return (
     <div className="space-y-4">
