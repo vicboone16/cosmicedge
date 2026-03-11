@@ -54,9 +54,13 @@ export default function AstraAboutTab() {
                 {page.summary && (
                   <p className="text-[11px] text-muted-foreground leading-relaxed">{page.summary}</p>
                 )}
-                {page.body_md && (
-                  <p className="text-xs text-foreground/80 leading-relaxed">{page.body_md}</p>
-                )}
+              {page.body_md && (
+                <div className="text-xs text-foreground/80 leading-relaxed space-y-2">
+                  {page.body_md.split('\n\n').map((para: string, pi: number) => (
+                    <p key={pi}>{para}</p>
+                  ))}
+                </div>
+              )}
               </div>
             );
           })}
