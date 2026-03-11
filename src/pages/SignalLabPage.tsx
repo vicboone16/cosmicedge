@@ -19,7 +19,7 @@ const SIGNAL_TABS = [
 type SignalTab = typeof SIGNAL_TABS[number]["key"];
 
 export default function SignalLabPage() {
-  const navigate = useNavigate();
+  const { openProp } = usePropDrawer();
   const [activeTab, setActiveTab] = useState<SignalTab>("streaks");
   const [search, setSearch] = useState("");
 
