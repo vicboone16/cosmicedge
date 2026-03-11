@@ -700,6 +700,7 @@ export default function PlayerPropsPage() {
           <TrendsEmbed leagueFilter={leagueFilter === "ALL" ? "NBA" : leagueFilter} />
         )}
       </div>
+      )}
     </div>
   );
 }
