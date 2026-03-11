@@ -552,16 +552,20 @@ export function LivePropsTab({ gameId, homeAbbr, awayAbbr, isLive }: Props) {
 }
 
 function LivePropCard({ prop }: { prop: TopProp }) {
+  const { openProp } = usePropDrawer();
   const edgeScore = prop.edge_score_v11 ?? prop.edge_score;
   const tier = getEdgeTier(edgeScore);
   const isOver = prop.side === "over" || prop.side == null;
   const propLabel = getPropLabel(prop.prop_type);
 
   return (
-    <div className={cn(
-      "cosmic-card rounded-xl p-3 space-y-2",
-      edgeScore >= 70 && "border-cosmic-green/30 shadow-[0_0_12px_-4px] shadow-cosmic-green/20"
-    )}>
+    <button
+      onClick={() => openProp(prop)}
+      className={cn(
+        "w-full cosmic-card rounded-xl p-3 space-y-2 text-left hover:border-primary/30 transition-colors",
+        edgeScore >= 70 && "border-cosmic-green/30 shadow-[0_0_12px_-4px] shadow-cosmic-green/20"
+      )}
+    >
       <div className="flex items-center justify-between">
         <div className="min-w-0">
           <span className="text-xs font-semibold text-foreground truncate block">{prop.player_name}</span>
@@ -614,6 +618,6 @@ function LivePropCard({ prop }: { prop: TopProp }) {
           <span className="text-[8px] px-1.5 py-0.5 rounded-full font-semibold bg-blue-400/10 text-blue-400">Strong Signal</span>
         )}
       </div>
-    </div>
+    </button>
   );
 }
