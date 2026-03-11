@@ -137,24 +137,45 @@ Deno.serve(async (req) => {
             const flatAggregates = new Map<string, any>();
             const bdlNameById = new Map<string, string>();
 
-            // Resolve missing player names from our players table using external_id
-            const unresolvedIds = [...new Set(
+            // Resolve player names from bdl_player_cache first
+            const allBdlIds = [...new Set(
               propItems
                 .map((p: any) => p?.player_id ? String(p.player_id) : (p?.player?.id ? String(p.player.id) : null))
                 .filter((id: string | null) => !!id)
             )] as string[];
 
-            if (unresolvedIds.length > 0) {
-              const { data: playerRows } = await sb
-                .from("players")
-                .select("external_id,name")
-                .eq("league", "NBA")
-                .in("external_id", unresolvedIds);
+            if (allBdlIds.length > 0) {
+              // Check cache first
+              const { data: cached } = await sb
+                .from("bdl_player_cache")
+                .select("bdl_id,full_name")
+                .in("bdl_id", allBdlIds);
 
-              for (const row of (playerRows || [])) {
-                if (row.external_id && row.name) {
-                  bdlNameById.set(String(row.external_id), row.name);
+              for (const row of (cached || [])) {
+                if (row.bdl_id && row.full_name?.trim()) {
+                  bdlNameById.set(row.bdl_id, row.full_name.trim());
                 }
+              }
+
+              // For uncached IDs, call BDL player API and cache
+              const uncached = allBdlIds.filter(id => !bdlNameById.has(id));
+              for (const pid of uncached.slice(0, 20)) {
+                try {
+                  const pRes = await fetch(`${BDL_BASE}/v2/players/${pid}`, { headers: bdlHeaders });
+                  if (pRes.ok) {
+                    const pData = (await pRes.json()).data || await pRes.json();
+                    const fn = pData.first_name || "";
+                    const ln = pData.last_name || "";
+                    const fullName = `${fn} ${ln}`.trim();
+                    if (fullName) {
+                      bdlNameById.set(pid, fullName);
+                      await sb.from("bdl_player_cache").upsert({
+                        bdl_id: pid, first_name: fn, last_name: ln,
+                        team: pData.team?.abbreviation || null,
+                      }, { onConflict: "bdl_id" });
+                    }
+                  }
+                } catch { /* skip */ }
               }
             }
 
