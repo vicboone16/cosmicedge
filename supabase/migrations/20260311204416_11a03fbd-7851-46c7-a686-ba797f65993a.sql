@@ -1,0 +1,40 @@
+
+-- Fix security definer views: set all public views to security_invoker = true
+-- This ensures views respect the querying user's RLS policies instead of the view owner's
+
+ALTER VIEW public.ce_active_prop_date SET (security_invoker = true);
+ALTER VIEW public.ce_defense_difficulty SET (security_invoker = true);
+ALTER VIEW public.ce_momentum_live SET (security_invoker = true);
+ALTER VIEW public.ce_player_game_logs_src SET (security_invoker = true);
+ALTER VIEW public.ce_players_name_map SET (security_invoker = true);
+ALTER VIEW public.ce_scorecards_fast SET (security_invoker = true);
+ALTER VIEW public.ce_scorecards_live SET (security_invoker = true);
+ALTER VIEW public.ce_stat_correlations SET (security_invoker = true);
+ALTER VIEW public.ce_streaks_live SET (security_invoker = true);
+ALTER VIEW public.ce_usage_baseline SET (security_invoker = true);
+ALTER VIEW public.ce_usage_shift SET (security_invoker = true);
+ALTER VIEW public.ce_usage_spikes SET (security_invoker = true);
+ALTER VIEW public.np_player_prop_stat_long SET (security_invoker = true);
+ALTER VIEW public.np_v_backtest_overlay SET (security_invoker = true);
+ALTER VIEW public.np_v_backtest_results SET (security_invoker = true);
+ALTER VIEW public.np_v_closing_lines SET (security_invoker = true);
+ALTER VIEW public.np_v_latest_prop_predictions SET (security_invoker = true);
+ALTER VIEW public.np_v_prop_overlay SET (security_invoker = true);
+ALTER VIEW public.play_by_play_ordered SET (security_invoker = true);
+ALTER VIEW public.play_by_play_quarter_corrected SET (security_invoker = true);
+ALTER VIEW public.play_by_play_scores SET (security_invoker = true);
+ALTER VIEW public.tt_admin_dashboard SET (security_invoker = true);
+ALTER VIEW public.tt_best_opportunities SET (security_invoker = true);
+ALTER VIEW public.tt_live_learned_probs SET (security_invoker = true);
+ALTER VIEW public.tt_live_model SET (security_invoker = true);
+ALTER VIEW public.tt_match_list SET (security_invoker = true);
+ALTER VIEW public.tt_momentum_shock SET (security_invoker = true);
+ALTER VIEW public.tt_momentum_signal SET (security_invoker = true);
+ALTER VIEW public.v_game_latest_snapshot SET (security_invoker = true);
+ALTER VIEW public.v_game_live_state SET (security_invoker = true);
+ALTER VIEW public.v_nfl_player_game_metrics SET (security_invoker = true);
+ALTER VIEW public.v_nfl_player_quarter_metrics SET (security_invoker = true);
+ALTER VIEW public.v_oracle_ml_mlb_v1 SET (security_invoker = true);
+ALTER VIEW public.v_oracle_ml_nba_v1 SET (security_invoker = true);
+ALTER VIEW public.v_oracle_ml_nfl_v1 SET (security_invoker = true);
+ALTER VIEW public.v_oracle_ml_nhl_v1 SET (security_invoker = true);
