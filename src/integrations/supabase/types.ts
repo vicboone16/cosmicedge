@@ -6980,46 +6980,12 @@ export type Database = {
       }
       np_v_backtest_results: {
         Row: {
-          book: string | null
-          closing_line: number | null
-          closing_odds: number | null
-          closing_ts: string | null
-          clv_line_diff: number | null
-          confidence: number | null
-          edge_score: number | null
           game_id: string | null
           player_id: string | null
-          pred_line: number | null
-          pred_odds: number | null
-          pred_ts: string | null
           prop_type: string | null
-          side: string | null
           stat_value: number | null
-          win_flag: number | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "nebula_prop_predictions_game_id_fkey"
-            columns: ["game_id"]
-            isOneToOne: false
-            referencedRelation: "games"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "nebula_prop_predictions_game_id_fkey"
-            columns: ["game_id"]
-            isOneToOne: false
-            referencedRelation: "v_game_live_state"
-            referencedColumns: ["game_id"]
-          },
-          {
-            foreignKeyName: "nebula_prop_predictions_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
-            referencedRelation: "players"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       np_v_closing_lines: {
         Row: {
@@ -7831,6 +7797,7 @@ export type Database = {
         Args: { source_id: string; target_id: string }
         Returns: undefined
       }
+      mmss_to_seconds: { Args: { p_clock: string }; Returns: number }
       nba_team_conference: { Args: { p_abbr: string }; Returns: string }
       np_apply_edgescore_v11: { Args: { hours_back?: number }; Returns: number }
       np_build_pace_features: {
