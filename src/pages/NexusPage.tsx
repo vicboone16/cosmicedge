@@ -250,6 +250,24 @@ function TeamsTab() {
     refetchInterval: 3 * 60_000,
   });
 
+  // Fetch team_season_pace for ORtg/DRtg/Pace
+  const { data: paceData } = useQuery({
+    queryKey: ["nexus-team-pace", league],
+    queryFn: async () => {
+      const now = new Date();
+      const season = now.getMonth() >= 9 ? now.getFullYear() : now.getFullYear() - 1;
+      const { data } = await supabase
+        .from("team_season_pace")
+        .select("team_abbr, off_rating, def_rating, avg_pace, net_rating")
+        .eq("league", league)
+        .eq("season", season);
+      const map = new Map<string, any>();
+      for (const r of (data || [])) map.set(r.team_abbr, r);
+      return map;
+    },
+    staleTime: 5 * 60_000,
+  });
+
   // Fetch last 5 results from actual games
   const teamAbbrs = useMemo(() => (teams || []).map(t => t.team_abbr), [teams]);
 
