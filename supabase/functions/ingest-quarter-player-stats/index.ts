@@ -112,7 +112,7 @@ async function handleBdlFormat(supabase: any, body: any, t0: number) {
       ft_attempted: s.fta ?? 0,
       off_rebounds: s.oreb ?? 0,
       def_rebounds: s.dreb ?? 0,
-      personal_fouls: s.pf ?? 0,
+      fouls: s.pf ?? 0,
     });
   }
 
@@ -184,7 +184,7 @@ async function handleInternalFormat(supabase: any, stats: any[], t0: number) {
       ft_attempted: s.ft_attempted ?? 0,
       off_rebounds: s.off_rebounds ?? 0,
       def_rebounds: s.def_rebounds ?? 0,
-      personal_fouls: s.personal_fouls ?? 0,
+      fouls: s.fouls ?? s.personal_fouls ?? 0,
     });
   }
 
@@ -413,7 +413,7 @@ async function autoComputeHalves(supabase: any, rows: any[], periodLabel: string
       period: halfPeriod,
       points: 0, rebounds: 0, assists: 0, steals: 0, blocks: 0, turnovers: 0,
       minutes: 0, fg_made: 0, fg_attempted: 0, three_made: 0, three_attempted: 0,
-      ft_made: 0, ft_attempted: 0, off_rebounds: 0, def_rebounds: 0, personal_fouls: 0,
+      ft_made: 0, ft_attempted: 0, off_rebounds: 0, def_rebounds: 0, fouls: 0,
     };
     for (const q of qRows) {
       sum.points += q.points ?? 0;
@@ -431,7 +431,7 @@ async function autoComputeHalves(supabase: any, rows: any[], periodLabel: string
       sum.ft_attempted += q.ft_attempted ?? 0;
       sum.off_rebounds += q.off_rebounds ?? 0;
       sum.def_rebounds += q.def_rebounds ?? 0;
-      sum.personal_fouls += q.personal_fouls ?? 0;
+      sum.fouls += q.fouls ?? 0;
     }
     halfRows.push(sum);
   }
