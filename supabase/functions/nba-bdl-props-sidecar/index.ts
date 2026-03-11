@@ -124,8 +124,6 @@ Deno.serve(async (req) => {
       const m = mappings[gameIdx];
       {
 
-      for (const chunk of chunks) {
-        await Promise.all(chunk.map(async (m) => {
           const bdlGameId = m.provider_game_id;
           const gk = m.game_key;
 
@@ -133,12 +131,10 @@ Deno.serve(async (req) => {
             const propsRes = await fetch(`${BDL_BASE}/v2/odds/player_props?game_id=${bdlGameId}`, { headers: bdlHeaders });
 
             if (propsRes.status === 429) {
-              console.warn(`[props-sidecar] 429 on props for game ${bdlGameId}, backing off`);
-              return;
-            }
-
-            if (!propsRes.ok) return;
-
+              console.warn(`[props-sidecar] 429 on props for game ${bdlGameId}, backing off 30s`);
+              backoffUntil = Date.now() + 30_000;
+              // still continue to next tick
+            } else if (propsRes.ok) {
             const propItems: any[] = (await propsRes.json()).data || [];
             const liveRows: any[] = [];
             const archiveRows: any[] = [];
@@ -153,7 +149,6 @@ Deno.serve(async (req) => {
             )] as string[];
 
             if (allBdlIds.length > 0) {
-              // Check cache first
               const { data: cached } = await sb
                 .from("bdl_player_cache")
                 .select("bdl_id,full_name")
@@ -165,11 +160,12 @@ Deno.serve(async (req) => {
                 }
               }
 
-              // For uncached IDs, call BDL player API and cache
+              // For uncached IDs, resolve max 5 per tick to avoid 429
               const uncached = allBdlIds.filter(id => !bdlNameById.has(id));
-              for (const pid of uncached.slice(0, 20)) {
+              for (const pid of uncached.slice(0, 5)) {
                 try {
                   const pRes = await fetch(`${BDL_BASE}/v2/players/${pid}`, { headers: bdlHeaders });
+                  if (pRes.status === 429) { backoffUntil = Date.now() + 30_000; break; }
                   if (pRes.ok) {
                     const pData = (await pRes.json()).data || await pRes.json();
                     const fn = pData.first_name || "";
@@ -279,8 +275,8 @@ Deno.serve(async (req) => {
 
             if (liveRows.length > 0) {
               for (let i = 0; i < liveRows.length; i += 100) {
-                const chunk = liveRows.slice(i, i + 100);
-                const { error } = await sb.from("nba_player_props_live").upsert(chunk, {
+                const batch = liveRows.slice(i, i + 100);
+                const { error } = await sb.from("nba_player_props_live").upsert(batch, {
                   onConflict: "game_key,provider,vendor,player_id,prop_type,line_value,market_type",
                 });
                 if (error) console.error("[props-sidecar] upsert error:", error.message);
@@ -308,12 +304,12 @@ Deno.serve(async (req) => {
               await sb.from("nba_player_props_archive").insert(archiveRows);
               totals.archived += archiveRows.length;
             }
+            } // end propsRes.ok
           } catch (e) {
             console.error(`[props-sidecar] props error game ${bdlGameId}:`, e);
             totals.errors++;
           }
-        }));
-      }
+      } // end single-game block
 
     } catch (e) {
       console.error("[props-sidecar] tick error:", e);
