@@ -273,6 +273,7 @@ function PropGroupRow({ group, onAddToSkySpread, onPlayerClick }: PropRowProps) 
 // ─── Main Component ───
 export function LivePropsTab({ gameId, homeAbbr, awayAbbr, isLive }: Props) {
   const navigate = useNavigate();
+  const { openProp } = usePropDrawer();
   const [skySpreadOpen, setSkySpreadOpen] = useState(false);
   const [selectedProp, setSelectedProp] = useState<RawLiveProp | null>(null);
 
