@@ -1,13 +1,12 @@
 import { useState } from "react";
 import { X, Zap } from "lucide-react";
-import { useTopPropsToday } from "@/hooks/use-top-props";
-import { getPropLabel } from "@/hooks/use-top-props";
-import { useNavigate } from "react-router-dom";
+import { useTopPropsToday, getPropLabel } from "@/hooks/use-top-props";
+import { usePropDrawer } from "@/hooks/use-prop-drawer";
 
 export function LiveRadarPill() {
   const [dismissed, setDismissed] = useState(false);
   const { data: props } = useTopPropsToday(1);
-  const navigate = useNavigate();
+  const { openProp } = usePropDrawer();
 
   if (dismissed || !props || props.length === 0) return null;
   const top = props[0];
@@ -25,7 +24,7 @@ export function LiveRadarPill() {
         <span className="text-[9px] text-muted-foreground ml-1.5">ES {edgeScore.toFixed(0)}</span>
       </div>
       <button
-        onClick={() => navigate(`/game/${top.game_id}`)}
+        onClick={() => openProp(top)}
         className="text-[9px] text-primary font-semibold hover:underline shrink-0"
       >
         View
