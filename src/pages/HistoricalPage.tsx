@@ -511,7 +511,6 @@ export default function HistoricalPage() {
             <TabsTrigger value="markets" className="text-[9px] px-1"><Target className="h-3 w-3 mr-0.5" />ATS</TabsTrigger>
             <TabsTrigger value="backtest" className="text-[9px] px-1"><FlaskConical className="h-3 w-3 mr-0.5" />Backtest</TabsTrigger>
           </TabsList>
-          </TabsList>
 
           {/* Tab 1: Game Results */}
           <TabsContent value="results" className="space-y-1 mt-3">
