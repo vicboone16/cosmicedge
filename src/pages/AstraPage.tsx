@@ -212,9 +212,15 @@ type TabKey = typeof PUBLIC_TABS[number]["key"] | "machina";
 
 export default function AstraPage() {
   const [tab, setTab] = useState<TabKey>("chat");
+  const [machinaFormulaSlug, setMachinaFormulaSlug] = useState<string | null>(null);
   const { isAdmin } = useIsAdmin();
 
   const allTabs = isAdmin ? [...PUBLIC_TABS, ADMIN_TAB] : [...PUBLIC_TABS];
+
+  const handleRunInMachina = (slug: string) => {
+    setMachinaFormulaSlug(slug);
+    setTab("machina");
+  };
 
   return (
     <div className="min-h-screen">
@@ -251,11 +257,11 @@ export default function AstraPage() {
         {tab === "chat" && <AstraChat />}
         {tab === "about" && <AstraAboutTab />}
         {tab === "glossary" && <AstraGlossaryTab />}
-        {tab === "engines" && <AstraFormulasEnginesTab />}
+        {tab === "engines" && <AstraFormulasEnginesTab onRunInMachina={isAdmin ? handleRunInMachina : undefined} />}
         {tab === "methodology" && <AstraMethodologyTab />}
         {tab === "machina" && isAdmin && (
           <Suspense fallback={<div className="text-center py-8"><Loader2 className="h-5 w-5 animate-spin text-primary mx-auto" /></div>}>
-            <MachinaSection />
+            <MachinaSection initialFormulaSlug={machinaFormulaSlug} />
           </Suspense>
         )}
       </div>

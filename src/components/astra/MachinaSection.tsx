@@ -1,6 +1,8 @@
-import { useState, lazy, Suspense } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
-import { Cpu, FlaskConical, BarChart3, Save, SlidersHorizontal, ToggleLeft, Play, Copy, Sparkles, Bug, Loader2 } from "lucide-react";
+import { Cpu, FlaskConical, BarChart3, Save, SlidersHorizontal, Play, Copy, Sparkles, Bug, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
