@@ -1,7 +1,18 @@
+import { useState, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { cn } from "@/lib/utils";
 import { DollarSign } from "lucide-react";
+import { PlayerPropCarousel, type CarouselProp } from "@/components/props/PlayerPropCarousel";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Plus } from "lucide-react";
+import { toast } from "sonner";
+import { useAuth } from "@/hooks/use-auth";
+import { getPropLabel } from "@/hooks/use-top-props";
+import { cn } from "@/lib/utils";
 
 interface PlayerPropsSectionProps {
   playerId: string;
@@ -9,41 +20,20 @@ interface PlayerPropsSectionProps {
   teamAbbr: string;
 }
 
-interface PropRow {
-  id: string;
-  game_id: string;
-  player_name: string;
-  market_key: string;
-  market_label: string;
-  bookmaker: string;
-  line: number | null;
-  over_price: number | null;
-  under_price: number | null;
-}
-
-// Core prop markets we want to display
-const DISPLAY_ORDER = [
-  "player_points",
-  "player_rebounds",
-  "player_assists",
-  "player_points_rebounds_assists",
-  "player_threes",
-  "player_steals",
-  "player_blocks",
-  "player_turnovers",
-  "player_points_rebounds",
-  "player_points_assists",
-  "player_rebounds_assists",
-  "player_blocks_steals",
-];
-
 function formatPrice(price: number | null): string {
   if (price == null) return "—";
   return price > 0 ? `+${price}` : `${price}`;
 }
 
 export function PlayerPropsSection({ playerId, playerName, teamAbbr }: PlayerPropsSectionProps) {
-  // Find the player's next/current game (include live games started up to 4h ago)
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const [skySpreadOpen, setSkySpreadOpen] = useState(false);
+  const [selectedProp, setSelectedProp] = useState<CarouselProp | null>(null);
+  const [side, setSide] = useState<"over" | "under">("over");
+  const [stakeAmount, setStakeAmount] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
   const { data: nextGame } = useQuery({
     queryKey: ["player-props-next-game", teamAbbr],
     queryFn: async () => {
@@ -62,30 +52,36 @@ export function PlayerPropsSection({ playerId, playerName, teamAbbr }: PlayerPro
     enabled: !!teamAbbr,
   });
 
-  // Fetch player props for that game
   const { data: props } = useQuery({
     queryKey: ["player-props-data", nextGame?.id, playerName],
     queryFn: async () => {
       if (!nextGame?.id) return [];
-      // Search by player name (player_props doesn't have player_id, only player_name)
       const { data } = await supabase
         .from("player_props")
         .select("*")
         .eq("game_id", nextGame.id)
         .ilike("player_name", `%${playerName.split(" ").pop()}%`);
 
-      // Filter to best match
       const filtered = (data || []).filter((p: any) => {
         const pName = p.player_name?.toLowerCase() || "";
         const searchName = playerName.toLowerCase();
         return pName.includes(searchName) || searchName.includes(pName);
       });
-      return filtered as PropRow[];
+
+      // Deduplicate by market_key, keep first
+      const seen = new Set<string>();
+      const deduped: any[] = [];
+      for (const p of filtered) {
+        if (!seen.has(p.market_key)) {
+          seen.add(p.market_key);
+          deduped.push(p);
+        }
+      }
+      return deduped;
     },
     enabled: !!nextGame?.id && !!playerName,
   });
 
-  // Also get game odds for context
   const { data: gameOdds } = useQuery({
     queryKey: ["player-game-odds", nextGame?.id],
     queryFn: async () => {
@@ -100,41 +96,59 @@ export function PlayerPropsSection({ playerId, playerName, teamAbbr }: PlayerPro
     enabled: !!nextGame?.id,
   });
 
-  // Deduplicate props: keep first bookmaker per market_key
-  const dedupedProps = props
-    ? DISPLAY_ORDER
-        .map((key) => props.find((p) => p.market_key === key))
-        .filter(Boolean) as PropRow[]
-    : [];
+  // Convert to CarouselProp format
+  const carouselProps: CarouselProp[] = (props || [])
+    .filter((p: any) => p.over_price != null && p.under_price != null)
+    .map((p: any) => ({
+      id: p.id,
+      player_name: playerName,
+      player_id: playerId,
+      player_team: teamAbbr,
+      prop_type: p.market_key,
+      line: p.line,
+      over_odds: p.over_price,
+      under_odds: p.under_price,
+      vendor: p.bookmaker,
+      game_id: nextGame?.id,
+    }));
 
-  // Get any additional props not in our display order
-  const extraProps = props
-    ? props.filter(
-        (p) =>
-          !DISPLAY_ORDER.includes(p.market_key) &&
-          !dedupedProps.find((d) => d.market_key === p.market_key)
-      )
-      .filter((p, i, arr) => arr.findIndex((x) => x.market_key === p.market_key) === i)
-    : [];
+  const handleAddToSkySpread = useCallback((prop: CarouselProp) => {
+    setSelectedProp(prop);
+    setSkySpreadOpen(true);
+  }, []);
 
-  const allProps = [...dedupedProps, ...extraProps];
+  const handleSubmit = async () => {
+    if (!user || !selectedProp) return;
+    setSubmitting(true);
+    const odds = side === "over" ? selectedProp.over_odds : selectedProp.under_odds;
+    const { error } = await supabase.from("bets").insert({
+      user_id: user.id,
+      game_id: selectedProp.game_id || nextGame?.id || "",
+      market_type: "player_prop",
+      selection: `${selectedProp.player_name} ${side.toUpperCase()} ${selectedProp.line} ${getPropLabel(selectedProp.prop_type)}`,
+      side,
+      line: selectedProp.line,
+      odds: odds ?? -110,
+      book: selectedProp.vendor || null,
+      stake_amount: stakeAmount ? parseFloat(stakeAmount) : null,
+      stake_unit: "$",
+    });
+    setSubmitting(false);
+    if (error) toast.error("Failed to add"); else { toast.success("Added to SkySpread!"); setSkySpreadOpen(false); }
+  };
 
   if (!nextGame) return null;
-  if (allProps.length === 0 && (!gameOdds || gameOdds.length === 0)) return null;
+  if (carouselProps.length === 0 && (!gameOdds || gameOdds.length === 0)) return null;
 
   const isHome = nextGame.home_abbr === teamAbbr;
   const opponent = isHome ? nextGame.away_abbr : nextGame.home_abbr;
   const dateStr = new Date(nextGame.start_time).toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
+    month: "short", day: "numeric", hour: "numeric", minute: "2-digit",
   });
 
-  // Get game-level lines
-  const latestML = gameOdds?.find((o) => o.market_type === "moneyline");
   const latestSpread = gameOdds?.find((o) => o.market_type === "spread");
   const latestTotal = gameOdds?.find((o) => o.market_type === "total");
+  const latestML = gameOdds?.find((o) => o.market_type === "moneyline");
 
   return (
     <section>
@@ -147,9 +161,7 @@ export function PlayerPropsSection({ playerId, playerName, teamAbbr }: PlayerPro
       <div className="cosmic-card rounded-xl p-3 mb-3">
         <div className="flex items-center justify-between">
           <div>
-            <span className="text-xs font-semibold">
-              {isHome ? "vs" : "@"} {opponent}
-            </span>
+            <span className="text-xs font-semibold">{isHome ? "vs" : "@"} {opponent}</span>
             <span className="text-[10px] text-muted-foreground ml-2">{dateStr}</span>
           </div>
           <div className="flex items-center gap-3">
@@ -181,51 +193,69 @@ export function PlayerPropsSection({ playerId, playerName, teamAbbr }: PlayerPro
         </div>
       </div>
 
-      {/* Player Props */}
-      {allProps.length > 0 ? (
-        <div className="space-y-1.5">
-          {allProps.map((prop) => (
-            <div
-              key={prop.market_key}
-              className="cosmic-card rounded-lg p-2.5 flex items-center justify-between"
-            >
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-medium">{prop.market_label}</span>
-                {prop.line != null && (
-                  <span className="text-xs font-bold text-primary tabular-nums">{prop.line}</span>
-                )}
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="text-center min-w-[40px]">
-                  <p className="text-[8px] text-muted-foreground uppercase">Over</p>
-                  <p className={cn(
-                    "text-[11px] font-semibold tabular-nums",
-                    prop.over_price != null && prop.over_price < 0 ? "text-cosmic-green" : ""
-                  )}>
-                    {formatPrice(prop.over_price)}
-                  </p>
-                </div>
-                <div className="text-center min-w-[40px]">
-                  <p className="text-[8px] text-muted-foreground uppercase">Under</p>
-                  <p className={cn(
-                    "text-[11px] font-semibold tabular-nums",
-                    prop.under_price != null && prop.under_price < 0 ? "text-cosmic-green" : ""
-                  )}>
-                    {formatPrice(prop.under_price)}
-                  </p>
-                </div>
-              </div>
-            </div>
-          ))}
-          <p className="text-[9px] text-muted-foreground text-center mt-2">
-            via {allProps[0]?.bookmaker || "—"}
-          </p>
-        </div>
+      {/* Player Props Carousel */}
+      {carouselProps.length > 0 ? (
+        <PlayerPropCarousel
+          playerName={playerName}
+          playerId={playerId}
+          team={teamAbbr}
+          props={carouselProps}
+          gameId={nextGame.id}
+          onPlayerClick={(id, name) => navigate(`/player/${id}`)}
+          onAddToSkySpread={handleAddToSkySpread}
+        />
       ) : (
         <p className="text-[10px] text-muted-foreground text-center py-3">
           No player props available yet — lines will appear closer to game time.
         </p>
       )}
+
+      {/* SkySpread Sheet */}
+      <Sheet open={skySpreadOpen} onOpenChange={setSkySpreadOpen}>
+        <SheetContent side="bottom" className="rounded-t-2xl max-h-[60vh]">
+          <SheetHeader>
+            <SheetTitle className="text-sm font-display">Add to SkySpread</SheetTitle>
+          </SheetHeader>
+          {selectedProp && (
+            <div className="space-y-4 pt-4">
+              <div className="cosmic-card rounded-xl p-3 space-y-1">
+                <p className="text-xs font-semibold">{selectedProp.player_name}</p>
+                <p className="text-[10px] text-muted-foreground uppercase">
+                  {getPropLabel(selectedProp.prop_type)} · Line {selectedProp.line} · {selectedProp.vendor}
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setSide("over")}
+                  className={cn(
+                    "flex-1 py-2 rounded-lg text-xs font-semibold transition-colors",
+                    side === "over" ? "bg-cosmic-green/15 text-cosmic-green border border-cosmic-green/30" : "bg-secondary text-muted-foreground"
+                  )}
+                >
+                  Over {formatPrice(selectedProp.over_odds)}
+                </button>
+                <button
+                  onClick={() => setSide("under")}
+                  className={cn(
+                    "flex-1 py-2 rounded-lg text-xs font-semibold transition-colors",
+                    side === "under" ? "bg-cosmic-red/15 text-cosmic-red border border-cosmic-red/30" : "bg-secondary text-muted-foreground"
+                  )}
+                >
+                  Under {formatPrice(selectedProp.under_odds)}
+                </button>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Stake ($)</Label>
+                <Input type="number" placeholder="0.00" value={stakeAmount} onChange={(e) => setStakeAmount(e.target.value)} className="h-9" />
+              </div>
+              <Button onClick={handleSubmit} disabled={submitting || !user} className="w-full" size="sm">
+                <Plus className="h-3.5 w-3.5 mr-1" />
+                {submitting ? "Adding…" : "Add to SkySpread"}
+              </Button>
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
     </section>
   );
 }
