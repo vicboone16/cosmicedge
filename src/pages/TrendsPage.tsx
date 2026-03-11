@@ -208,7 +208,7 @@ export default function TrendsPage() {
       if (sampleSize === 0) {
         const direction: "over" | "under" = (prop.over_price ?? 0) < (prop.under_price ?? 0) ? "over" : "under";
         results.push({
-          id: prop.id, playerName: prop.player_name, teamAbbr: game.away_abbr,
+           id: String(prop.id), playerName: prop.player_name, teamAbbr: game.away_abbr,
           matchup: `${game.away_abbr} vs ${game.home_abbr}`, startTime: timeStr,
           insightText: `${prop.player_name} — ${propLabel} line at ${prop.line}.`,
           direction, propLabel, line: prop.line,
