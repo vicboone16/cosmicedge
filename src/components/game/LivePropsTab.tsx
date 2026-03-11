@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
-import { Zap, TrendingUp, TrendingDown, ChevronDown, ChevronUp, Plus } from "lucide-react";
+import { Zap, TrendingUp, TrendingDown, Plus } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { getPropLabel, getEdgeTier, type TopProp } from "@/hooks/use-top-props";
 import { usePropDrawer } from "@/hooks/use-prop-drawer";
@@ -11,9 +11,9 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/use-auth";
+import { PlayerPropCarousel, type CarouselProp } from "@/components/props/PlayerPropCarousel";
 
 interface Props {
   gameId: string;
