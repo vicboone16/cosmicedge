@@ -195,8 +195,11 @@ function EntitySearch({ navigate }: { navigate: (path: string) => void }) {
   );
 }
 
+type PropsTab = "explore" | "markets";
+
 export default function PlayerPropsPage() {
   const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState<PropsTab>("explore");
   const [search, setSearch] = useState("");
   const [marketFilter, setMarketFilter] = useState<string>("all");
   const [categoryFilter, setCategoryFilter] = useState<MarketCategory>("all");
@@ -207,8 +210,6 @@ export default function PlayerPropsPage() {
   const [includeAlternates, setIncludeAlternates] = useState(false);
   const [view, setView] = useState<PropsView>("odds");
   const [propsMode, setPropsMode] = useState<PropsMode>("player");
-
-  // Player name -> ID lookup cache
   const [playerIdCache, setPlayerIdCache] = useState<Map<string, string>>(new Map());
 
   const canGoForward = selectedDate < addDays(new Date(), 7);
@@ -223,7 +224,6 @@ export default function PlayerPropsPage() {
       start.setHours(0, 0, 0, 0);
       const end = new Date(selectedDate);
       end.setHours(23, 59, 59, 999);
-
       const { data } = await supabase
         .from("games")
         .select("id, home_abbr, away_abbr, start_time, league")
@@ -363,42 +363,44 @@ export default function PlayerPropsPage() {
   return (
     <div className="min-h-screen pb-24">
       <header className="sticky top-0 z-40 px-4 pt-12 pb-4 bg-background/80 backdrop-blur-xl border-b border-border/50">
-        <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center justify-between mb-3">
           <h1 className="text-lg font-bold font-display flex items-center gap-2">
             <TrendingUp className="h-5 w-5 text-primary" />
             Props
           </h1>
-          <button
-            onClick={handleRefreshAll}
-            disabled={isFetching || isManualFetching}
-            className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1 px-3 py-1.5 rounded-lg bg-secondary/50 hover:bg-secondary"
-          >
-            <RefreshCw className={`h-3 w-3 ${(isFetching || isManualFetching) ? "animate-spin" : ""}`} />
-            {isManualFetching ? "Fetching..." : isFetching ? "Loading..." : "Refresh"}
-          </button>
+          {activeTab === "markets" && (
+            <button
+              onClick={handleRefreshAll}
+              disabled={isFetching || isManualFetching}
+              className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1 px-3 py-1.5 rounded-lg bg-secondary/50 hover:bg-secondary"
+            >
+              <RefreshCw className={`h-3 w-3 ${(isFetching || isManualFetching) ? "animate-spin" : ""}`} />
+              {isManualFetching ? "Fetching..." : isFetching ? "Loading..." : "Refresh"}
+            </button>
+          )}
         </div>
 
-        {/* View toggle: Odds / Trends */}
+        {/* Primary Explore / Markets toggle */}
         <div className="flex bg-secondary rounded-full p-0.5 mb-3">
           <button
-            onClick={() => setView("odds")}
+            onClick={() => setActiveTab("explore")}
             className={cn(
               "flex-1 flex items-center justify-center gap-1.5 py-2 rounded-full text-xs font-semibold transition-colors",
-              view === "odds" ? "bg-foreground text-background" : "text-muted-foreground"
+              activeTab === "explore" ? "bg-foreground text-background" : "text-muted-foreground"
             )}
           >
-            <TrendingUp className="h-3.5 w-3.5" />
-            Odds
+            <Sparkles className="h-3.5 w-3.5" />
+            Explore
           </button>
           <button
-            onClick={() => setView("trends")}
+            onClick={() => setActiveTab("markets")}
             className={cn(
               "flex-1 flex items-center justify-center gap-1.5 py-2 rounded-full text-xs font-semibold transition-colors",
-              view === "trends" ? "bg-foreground text-background" : "text-muted-foreground"
+              activeTab === "markets" ? "bg-foreground text-background" : "text-muted-foreground"
             )}
           >
-            <Flame className="h-3.5 w-3.5" />
-            Trends
+            <TableProperties className="h-3.5 w-3.5" />
+            Markets
           </button>
         </div>
 
