@@ -80,11 +80,11 @@ export function PlayerPropsSection({ gameId }: PlayerPropsProps) {
             .from("bdl_player_cache")
             .select("bdl_id,first_name,last_name")
             .in("bdl_id", bdlIds);
-          const nameMap = new Map(
+          const nameMap = new Map<string, string | null>(
             (cached || []).map((c: any) => [
-              c.bdl_id,
+              String(c.bdl_id),
               [c.first_name, c.last_name].filter(Boolean).join(" ").trim() || null,
-            ])
+            ] as [string, string | null])
           );
           for (const r of rows) {
             if (r.player_name?.startsWith("Player ") && r.player_id && nameMap.has(r.player_id)) {
