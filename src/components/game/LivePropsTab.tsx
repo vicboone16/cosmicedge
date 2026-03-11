@@ -193,82 +193,8 @@ function AddToSkySpreadSheet({ open, onOpenChange, prop, gameId }: AddToSkySprea
   );
 }
 
-// ─── Expandable Prop Row ───
-interface PropRowProps {
-  group: PropGroup;
-  onAddToSkySpread: (prop: RawLiveProp) => void;
-  onPlayerClick: (playerId: string, playerName: string) => void;
-}
+// PropGroupRow kept for overlay model view alt-lines (not used in carousel fallback)
 
-function PropGroupRow({ group, onAddToSkySpread, onPlayerClick }: PropRowProps) {
-  const [expanded, setExpanded] = useState(false);
-  const propLabel = getPropLabel(group.propType);
-  const hasAlts = group.alts.length > 0;
-
-  return (
-    <div className="space-y-0">
-      {/* Best line row */}
-      <button
-        className="w-full cosmic-card rounded-lg px-3 py-2.5 flex items-center justify-between hover:bg-secondary/30 transition-colors"
-        onClick={() => hasAlts && setExpanded(!expanded)}
-      >
-        <div className="flex items-center gap-2 min-w-0">
-          <span className="text-[10px] font-bold text-muted-foreground uppercase w-8 shrink-0">{propLabel}</span>
-          <span className="text-sm font-bold tabular-nums">{group.best.line_value}</span>
-          {hasAlts && (
-            expanded
-              ? <ChevronUp className="h-3 w-3 text-muted-foreground" />
-              : <ChevronDown className="h-3 w-3 text-muted-foreground" />
-          )}
-        </div>
-        <div className="flex items-center gap-2 text-[10px] tabular-nums shrink-0">
-          <span className="flex items-center gap-0.5 text-cosmic-green font-semibold">
-            <TrendingUp className="h-3 w-3" />
-            O {formatOdds(group.best.over_odds)}
-          </span>
-          <span className="flex items-center gap-0.5 text-cosmic-red font-semibold">
-            <TrendingDown className="h-3 w-3" />
-            U {formatOdds(group.best.under_odds)}
-          </span>
-          <span className="text-[8px] text-muted-foreground w-16 text-right truncate">{group.best.vendor}</span>
-          <button
-            onClick={(e) => { e.stopPropagation(); onAddToSkySpread(group.best); }}
-            className="ml-1 h-5 w-5 rounded-full bg-primary/10 text-primary flex items-center justify-center hover:bg-primary/20 transition-colors"
-            title="Add to SkySpread"
-          >
-            <Plus className="h-3 w-3" />
-          </button>
-        </div>
-      </button>
-
-      {/* Alt lines (expanded) */}
-      {expanded && group.alts.length > 0 && (
-        <div className="ml-4 border-l border-border/50 pl-3 space-y-0.5 py-1">
-          {group.alts.map((alt) => (
-            <div key={alt.id} className="flex items-center justify-between px-2 py-1.5 rounded-md hover:bg-secondary/20 transition-colors">
-              <div className="flex items-center gap-2 min-w-0">
-                <span className="text-[10px] font-bold text-muted-foreground uppercase w-8 shrink-0">{propLabel}</span>
-                <span className="text-xs font-semibold tabular-nums">{alt.line_value}</span>
-              </div>
-              <div className="flex items-center gap-2 text-[10px] tabular-nums shrink-0">
-                <span className="text-cosmic-green font-semibold">O {formatOdds(alt.over_odds)}</span>
-                <span className="text-cosmic-red font-semibold">U {formatOdds(alt.under_odds)}</span>
-                <span className="text-[8px] text-muted-foreground w-16 text-right truncate">{alt.vendor}</span>
-                <button
-                  onClick={() => onAddToSkySpread(alt)}
-                  className="ml-1 h-5 w-5 rounded-full bg-primary/10 text-primary flex items-center justify-center hover:bg-primary/20 transition-colors"
-                  title="Add to SkySpread"
-                >
-                  <Plus className="h-3 w-3" />
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
 
 // ─── Main Component ───
 export function LivePropsTab({ gameId, homeAbbr, awayAbbr, isLive }: Props) {
