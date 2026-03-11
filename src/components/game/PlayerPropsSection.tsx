@@ -1,12 +1,19 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-import { TrendingUp, TrendingDown, RefreshCw, Search, Plus, User } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { TrendingUp, RefreshCw, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { TrackPropButton } from "@/components/tracking/TrackedProps";
 import { cn } from "@/lib/utils";
 import { assertGameKeyUUID } from "@/lib/game-key-guard";
+import { PlayerPropCarousel, type CarouselProp } from "@/components/props/PlayerPropCarousel";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Plus } from "lucide-react";
+import { toast } from "sonner";
+import { useAuth } from "@/hooks/use-auth";
+import { getPropLabel } from "@/hooks/use-top-props";
 
 interface PlayerPropsProps {
   gameId: string;
@@ -15,6 +22,7 @@ interface PlayerPropsProps {
 interface PropRow {
   id: string;
   player_name: string;
+  player_id?: string;
   market_key: string;
   market_label: string | null;
   bookmaker: string;
@@ -23,22 +31,6 @@ interface PropRow {
   under_price: number | null;
 }
 
-const MARKET_SHORT: Record<string, string> = {
-  player_points: "PTS",
-  player_rebounds: "REB",
-  player_assists: "AST",
-  player_threes: "3PM",
-  player_blocks: "BLK",
-  player_steals: "STL",
-  player_points_rebounds_assists: "PRA",
-  player_turnovers: "TO",
-  player_double_double: "DD",
-  player_points_rebounds: "PTS+REB",
-  player_points_assists: "PTS+AST",
-  player_rebounds_assists: "REB+AST",
-  player_blocks_steals: "BLK+STL",
-};
-
 function formatPrice(price: number | null): string {
   if (price == null) return "—";
   return price > 0 ? `+${price}` : `${price}`;
@@ -46,14 +38,19 @@ function formatPrice(price: number | null): string {
 
 export function PlayerPropsSection({ gameId }: PlayerPropsProps) {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [search, setSearch] = useState("");
-  const [selectedPlayer, setSelectedPlayer] = useState<string | null>(null);
+  const [skySpreadOpen, setSkySpreadOpen] = useState(false);
+  const [selectedProp, setSelectedProp] = useState<CarouselProp | null>(null);
+  const [side, setSide] = useState<"over" | "under">("over");
+  const [stakeAmount, setStakeAmount] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   const { data: props, isLoading, refetch, isFetching } = useQuery({
     queryKey: ["player-props", gameId],
     queryFn: async () => {
       assertGameKeyUUID(gameId, "PlayerPropsSection");
-      // Tier 1: BDL nba_player_props_live (primary for NBA)
+      // Tier 1: BDL nba_player_props_live
       const { data: bdlProps } = await (supabase as any)
         .from("nba_player_props_live")
         .select("*")
@@ -63,9 +60,10 @@ export function PlayerPropsSection({ gameId }: PlayerPropsProps) {
         .order("player_name", { ascending: true });
 
       if (bdlProps && bdlProps.length > 0) {
-        return (bdlProps as any[]).map((p: any) => ({
+        const rows = (bdlProps as any[]).map((p: any) => ({
           id: `bdl-${p.id}`,
           player_name: p.player_name || "Unknown",
+          player_id: String(p.player_id || ""),
           market_key: p.prop_type,
           market_label: null,
           bookmaker: p.vendor,
@@ -73,9 +71,33 @@ export function PlayerPropsSection({ gameId }: PlayerPropsProps) {
           over_price: p.over_odds,
           under_price: p.under_odds,
         })) as PropRow[];
+
+        // Resolve "Player XXXX" names
+        const needsResolve = rows.filter(r => r.player_name?.startsWith("Player "));
+        if (needsResolve.length > 0) {
+          const bdlIds = [...new Set(needsResolve.map(r => r.player_id).filter(Boolean))];
+          const { data: cached } = await (supabase as any)
+            .from("bdl_player_cache")
+            .select("bdl_id,first_name,last_name")
+            .in("bdl_id", bdlIds);
+          const nameMap = new Map<string, string | null>(
+            (cached || []).map((c: any) => [
+              String(c.bdl_id),
+              [c.first_name, c.last_name].filter(Boolean).join(" ").trim() || null,
+            ] as [string, string | null])
+          );
+          for (const r of rows) {
+            if (r.player_name?.startsWith("Player ") && r.player_id && nameMap.has(r.player_id)) {
+              const resolved = nameMap.get(r.player_id);
+              if (resolved) r.player_name = resolved;
+            }
+          }
+        }
+
+        return rows;
       }
 
-      // Tier 2: Legacy player_props (SGO dual-write)
+      // Tier 2: Legacy player_props
       const { data, error } = await supabase
         .from("player_props")
         .select("*")
@@ -110,7 +132,7 @@ export function PlayerPropsSection({ gameId }: PlayerPropsProps) {
 
   const handleRefresh = async () => {
     try {
-      const response = await fetch(
+      await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/fetch-player-props?game_id=${gameId}&league=NBA`,
         {
           method: "POST",
@@ -120,35 +142,79 @@ export function PlayerPropsSection({ gameId }: PlayerPropsProps) {
           },
         }
       );
-      if (!response.ok) console.warn("Props refresh failed:", response.status);
-    } catch (e) {
-      console.warn("Props refresh error:", e);
-    }
+    } catch {}
     refetch();
   };
 
-  // Group props by player, then by market
-  const grouped = useMemo(() => {
-    const map = new Map<string, Map<string, PropRow>>();
-    for (const prop of props || []) {
-      if (!map.has(prop.player_name)) map.set(prop.player_name, new Map());
-      const markets = map.get(prop.player_name)!;
-      if (!markets.has(prop.market_key)) markets.set(prop.market_key, prop);
+  // Group by player → deduplicate by market_key → build CarouselProp[]
+  const playerCarousels = useMemo(() => {
+    if (!props || props.length === 0) return [];
+    const byPlayer = new Map<string, Map<string, PropRow>>();
+    for (const p of props) {
+      const name = (!p.player_name || /^\d+$/.test(p.player_name)) ? "Unknown Player" : p.player_name;
+      if (!byPlayer.has(name)) byPlayer.set(name, new Map());
+      const markets = byPlayer.get(name)!;
+      if (!markets.has(p.market_key)) markets.set(p.market_key, p);
     }
-    return map;
-  }, [props]);
 
-  const playerNames = useMemo(() => {
-    const names = Array.from(grouped.keys());
-    if (search) {
-      const q = search.toLowerCase();
-      return names.filter(n => n.toLowerCase().includes(q));
+    const result: { playerName: string; playerId: string; props: CarouselProp[] }[] = [];
+    for (const [playerName, markets] of byPlayer) {
+      const first = [...markets.values()][0];
+      const carouselProps: CarouselProp[] = [...markets.values()].map(p => ({
+        id: p.id,
+        player_name: playerName,
+        player_id: p.player_id || first?.player_id || "",
+        prop_type: p.market_key,
+        line: p.line,
+        over_odds: p.over_price,
+        under_odds: p.under_price,
+        vendor: p.bookmaker,
+        game_id: gameId,
+      }));
+      result.push({ playerName, playerId: first?.player_id || "", props: carouselProps });
     }
-    return names;
-  }, [grouped, search]);
+    return result;
+  }, [props, gameId]);
 
-  const handleAddToSkySpread = (playerName: string, marketKey: string, line: number | null, odds: number | null) => {
-    navigate(`/skyspread?prefill=true&player=${encodeURIComponent(playerName)}&market=${encodeURIComponent(marketKey)}&line=${line ?? ""}&odds=${odds ?? ""}&game_id=${gameId}`);
+  const filteredCarousels = useMemo(() => {
+    if (!search) return playerCarousels;
+    const q = search.toLowerCase();
+    return playerCarousels.filter(c => c.playerName.toLowerCase().includes(q));
+  }, [playerCarousels, search]);
+
+  const handleAddToSkySpread = useCallback((prop: CarouselProp) => {
+    setSelectedProp(prop);
+    setSkySpreadOpen(true);
+  }, []);
+
+  const handlePlayerClick = useCallback(async (playerId: string, playerName: string) => {
+    const { data } = await supabase.rpc("search_players_unaccent", {
+      search_query: playerName,
+      max_results: 1,
+    });
+    if (data && data.length > 0) {
+      navigate(`/player/${(data[0] as any).player_id}`);
+    }
+  }, [navigate]);
+
+  const handleSubmit = async () => {
+    if (!user || !selectedProp) return;
+    setSubmitting(true);
+    const odds = side === "over" ? selectedProp.over_odds : selectedProp.under_odds;
+    const { error } = await supabase.from("bets").insert({
+      user_id: user.id,
+      game_id: selectedProp.game_id || gameId,
+      market_type: "player_prop",
+      selection: `${selectedProp.player_name} ${side.toUpperCase()} ${selectedProp.line} ${getPropLabel(selectedProp.prop_type)}`,
+      side,
+      line: selectedProp.line,
+      odds: odds ?? -110,
+      book: selectedProp.vendor || null,
+      stake_amount: stakeAmount ? parseFloat(stakeAmount) : null,
+      stake_unit: "$",
+    });
+    setSubmitting(false);
+    if (error) toast.error("Failed to add"); else { toast.success("Added to SkySpread!"); setSkySpreadOpen(false); }
   };
 
   if (isLoading) {
@@ -188,7 +254,7 @@ export function PlayerPropsSection({ gameId }: PlayerPropsProps) {
         <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search players..." className="pl-8 h-8 text-xs" />
       </div>
 
-      {playerNames.length === 0 ? (
+      {filteredCarousels.length === 0 ? (
         <div className="cosmic-card rounded-xl p-6 text-center space-y-2">
           <p className="text-xs text-muted-foreground">
             {(props || []).length === 0
@@ -202,102 +268,67 @@ export function PlayerPropsSection({ gameId }: PlayerPropsProps) {
           )}
         </div>
       ) : (
-        <div className="space-y-2">
-          {playerNames.map(playerName => {
-            const markets = grouped.get(playerName)!;
-            const isExpanded = selectedPlayer === playerName;
-
-            return (
-              <div key={playerName} className="cosmic-card rounded-xl overflow-hidden">
-                <button
-                  onClick={() => setSelectedPlayer(isExpanded ? null : playerName)}
-                  className="w-full px-3 py-2.5 flex items-center justify-between hover:bg-secondary/30 transition-colors"
-                >
-                  <div className="flex items-center gap-2">
-                    <User className="h-3.5 w-3.5 text-primary" />
-                    <span className="text-xs font-semibold text-foreground">{playerName}</span>
-                    <span className="text-[10px] text-muted-foreground">{markets.size} markets</span>
-                  </div>
-                  <span className="text-[10px] text-muted-foreground">{isExpanded ? "▲" : "▼"}</span>
-                </button>
-
-                {/* Stat chips (always visible) */}
-                {!isExpanded && (
-                  <div className="px-3 pb-2.5 flex flex-wrap gap-1.5">
-                    {Array.from(markets.entries()).map(([marketKey, prop]) => (
-                      <div key={marketKey} className="bg-secondary/50 rounded-lg px-2.5 py-1.5 text-center min-w-[60px]">
-                        <p className="text-[9px] text-muted-foreground uppercase tracking-wider">
-                          {MARKET_SHORT[marketKey] || marketKey.replace(/^player_/, "").replace(/_/g, " ").toUpperCase()}
-                        </p>
-                        <p className="text-sm font-bold tabular-nums text-foreground">
-                          {prop.line != null ? prop.line : "—"}
-                        </p>
-                        <div className="flex items-center justify-center gap-1 mt-0.5">
-                          {prop.over_price != null && (
-                            <span className="text-[9px] tabular-nums text-cosmic-green flex items-center gap-0.5">
-                              <TrendingUp className="h-2 w-2" />
-                              {formatPrice(prop.over_price)}
-                            </span>
-                          )}
-                          {prop.under_price != null && (
-                            <span className="text-[9px] tabular-nums text-cosmic-red flex items-center gap-0.5">
-                              <TrendingDown className="h-2 w-2" />
-                              {formatPrice(prop.under_price)}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* Expanded detail view */}
-                {isExpanded && (
-                  <div className="border-t border-border/30 divide-y divide-border/20">
-                    {Array.from(markets.entries()).map(([marketKey, prop]) => (
-                      <div key={marketKey} className="px-3 py-2.5 flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10px] font-bold text-foreground uppercase">
-                            {MARKET_SHORT[marketKey] || marketKey.replace(/^player_/, "").replace(/_/g, " ").toUpperCase()}
-                          </span>
-                          <span className="text-sm font-bold tabular-nums">{prop.line ?? "—"}</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {prop.over_price != null && (
-                            <span className="text-[10px] tabular-nums text-cosmic-green">
-                              ↑{formatPrice(prop.over_price)}
-                            </span>
-                          )}
-                          {prop.under_price != null && (
-                            <span className="text-[10px] tabular-nums text-cosmic-red">
-                              ↓{formatPrice(prop.under_price)}
-                            </span>
-                          )}
-                          <TrackPropButton
-                            gameId={gameId}
-                            playerName={playerName}
-                            marketType={marketKey}
-                            line={prop.line ?? 0}
-                            overPrice={prop.over_price}
-                            underPrice={prop.under_price}
-                          />
-                          <button
-                            onClick={() => handleAddToSkySpread(playerName, marketKey, prop.line, prop.over_price)}
-                            className="p-1 rounded hover:bg-primary/10 text-muted-foreground hover:text-primary"
-                            title="Add to SkySpread"
-                          >
-                            <Plus className="h-3.5 w-3.5" />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            );
-          })}
+        <div className="space-y-4">
+          {filteredCarousels.map(({ playerName, playerId, props: cProps }) => (
+            <PlayerPropCarousel
+              key={playerName}
+              playerName={playerName}
+              playerId={playerId}
+              props={cProps}
+              gameId={gameId}
+              onPlayerClick={handlePlayerClick}
+              onAddToSkySpread={handleAddToSkySpread}
+            />
+          ))}
         </div>
       )}
+
+      {/* SkySpread Sheet */}
+      <Sheet open={skySpreadOpen} onOpenChange={setSkySpreadOpen}>
+        <SheetContent side="bottom" className="rounded-t-2xl max-h-[60vh]">
+          <SheetHeader>
+            <SheetTitle className="text-sm font-display">Add to SkySpread</SheetTitle>
+          </SheetHeader>
+          {selectedProp && (
+            <div className="space-y-4 pt-4">
+              <div className="cosmic-card rounded-xl p-3 space-y-1">
+                <p className="text-xs font-semibold">{selectedProp.player_name}</p>
+                <p className="text-[10px] text-muted-foreground uppercase">
+                  {getPropLabel(selectedProp.prop_type)} · Line {selectedProp.line} · {selectedProp.vendor}
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setSide("over")}
+                  className={cn(
+                    "flex-1 py-2 rounded-lg text-xs font-semibold transition-colors",
+                    side === "over" ? "bg-cosmic-green/15 text-cosmic-green border border-cosmic-green/30" : "bg-secondary text-muted-foreground"
+                  )}
+                >
+                  Over {formatPrice(selectedProp.over_odds)}
+                </button>
+                <button
+                  onClick={() => setSide("under")}
+                  className={cn(
+                    "flex-1 py-2 rounded-lg text-xs font-semibold transition-colors",
+                    side === "under" ? "bg-cosmic-red/15 text-cosmic-red border border-cosmic-red/30" : "bg-secondary text-muted-foreground"
+                  )}
+                >
+                  Under {formatPrice(selectedProp.under_odds)}
+                </button>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Stake ($)</Label>
+                <Input type="number" placeholder="0.00" value={stakeAmount} onChange={(e) => setStakeAmount(e.target.value)} className="h-9" />
+              </div>
+              <Button onClick={handleSubmit} disabled={submitting || !user} className="w-full" size="sm">
+                <Plus className="h-3.5 w-3.5 mr-1" />
+                {submitting ? "Adding…" : "Add to SkySpread"}
+              </Button>
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
     </section>
   );
 }
