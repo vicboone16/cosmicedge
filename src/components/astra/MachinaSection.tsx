@@ -437,7 +437,7 @@ export default function MachinaSection({ initialFormulaSlug }: { initialFormulaS
 
       {/* Content */}
       {activeTab === "model-lab" && <ModelLab />}
-      {activeTab === "formula-sandbox" && <FormulaSandbox />}
+      {activeTab === "formula-sandbox" && <FormulaSandbox initialSlug={initialFormulaSlug} />}
       {activeTab === "backtest" && <BacktestConsole />}
       {activeTab === "saved" && <SavedModels />}
       {activeTab === "compute-debug" && (
