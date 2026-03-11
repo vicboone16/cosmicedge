@@ -2,6 +2,7 @@ import { useTopPropsForGame, getPropLabel, getEdgeTier } from "@/hooks/use-top-p
 import { cn } from "@/lib/utils";
 import { TrendingUp, TrendingDown, Target } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { usePropDrawer } from "@/hooks/use-prop-drawer";
 
 interface Props {
   gameId: string;
@@ -9,6 +10,7 @@ interface Props {
 
 export function BestPropsSection({ gameId }: Props) {
   const { data: props } = useTopPropsForGame(gameId, 5);
+  const { openProp } = usePropDrawer();
 
   if (!props || props.length === 0) return null;
 
@@ -26,7 +28,11 @@ export function BestPropsSection({ gameId }: Props) {
           const propLabel = getPropLabel(prop.prop_type);
 
           return (
-            <div key={prop.id} className="cosmic-card rounded-xl p-3 space-y-1.5">
+            <button
+              key={prop.id}
+              onClick={() => openProp(prop)}
+              className="w-full cosmic-card rounded-xl p-3 space-y-1.5 text-left hover:border-primary/30 transition-colors"
+            >
               <div className="flex items-center justify-between">
                 <div className="min-w-0">
                   <span className="text-xs font-semibold text-foreground truncate block">{prop.player_name}</span>
@@ -53,7 +59,7 @@ export function BestPropsSection({ gameId }: Props) {
               {prop.one_liner && (
                 <p className="text-[10px] text-muted-foreground italic">{prop.one_liner}</p>
               )}
-            </div>
+            </button>
           );
         })}
       </div>

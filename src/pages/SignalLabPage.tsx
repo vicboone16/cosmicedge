@@ -176,7 +176,7 @@ function SignalCard({ overlay, tab, onTap }: { overlay: any; tab: SignalTab; onT
   })();
 
   return (
-    <button onClick={onNavigate} className="w-full cosmic-card rounded-xl p-3 text-left hover:border-primary/30 transition-colors space-y-1.5">
+    <button onClick={onTap} className="w-full cosmic-card rounded-xl p-3 text-left hover:border-primary/30 transition-colors space-y-1.5">
       <div className="flex items-center justify-between">
         <div className="min-w-0">
           <span className="text-xs font-semibold text-foreground truncate block">{overlay.player_name}</span>

@@ -1,6 +1,5 @@
 import { useTopPropsForGame } from "@/hooks/use-top-props";
 import { PropChip } from "./PropChip";
-import { useNavigate } from "react-router-dom";
 import { Zap } from "lucide-react";
 
 interface Props {
@@ -9,7 +8,6 @@ interface Props {
 
 export function QuickPropsRail({ gameId }: Props) {
   const { data: props } = useTopPropsForGame(gameId, 5);
-  const navigate = useNavigate();
 
   if (!props || props.length === 0) return null;
 
@@ -21,12 +19,7 @@ export function QuickPropsRail({ gameId }: Props) {
       </h4>
       <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
         {props.map(p => (
-          <PropChip
-            key={p.id}
-            prop={p}
-            size="compact"
-            onClick={() => navigate(`/game/${gameId}`)}
-          />
+          <PropChip key={p.id} prop={p} size="compact" />
         ))}
       </div>
     </div>
