@@ -71,11 +71,12 @@ Deno.serve(async (req) => {
       }, { onConflict: "bdl_id" });
 
       // Update live props
-      const { count } = await sb
+      const { error: updErr } = await sb
         .from("nba_player_props_live")
         .update({ player_name: fullName })
-        .eq("player_id", String(bdlId))
-        .select("id", { count: "exact", head: true });
+        .eq("player_id", String(bdlId));
+
+      if (updErr) console.error(`[resolve] Update error for ${bdlId}:`, updErr.message);
 
       resolved++;
       console.log(`[resolve] ${bdlId} → ${fullName} (${count} rows updated)`);
