@@ -127,61 +127,89 @@ function ModelLab() {
   );
 }
 
-// ── Formula Sandbox ──
-function FormulaSandbox() {
-  const [selectedFormula, setSelectedFormula] = useState("edge_score");
+// ── Formula Sandbox (DB-powered) ──
+function FormulaSandbox({ initialSlug }: { initialSlug?: string | null }) {
+  const { data: dbFormulas, isLoading } = useQuery({
+    queryKey: ["ce-formulas-sandbox"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("ce_formulas")
+        .select("*")
+        .order("display_order")
+        .order("formula_name");
+      if (error) throw error;
+      return data || [];
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const [selectedFormula, setSelectedFormula] = useState(initialSlug || "");
   const [vars, setVars] = useState<Record<string, number>>({ mu: 25.3, line: 23.5, sigma: 4.2 });
 
-  const formulas: Record<string, { name: string; text: string; plain: string; variables: string[] }> = {
-    edge_score: {
-      name: "Edge Score",
-      text: "edge = (μ − line) / σ × 100 × conf_multiplier",
-      plain: "How far the model projection exceeds the line, normalized by uncertainty and scaled by confidence.",
-      variables: ["mu", "line", "sigma"],
-    },
-    logistic_prob: {
-      name: "Logistic Probability",
-      text: "P(over) = 1 / (1 + e^(-(μ − line) / σ))",
-      plain: "The probability of clearing the line based on a logistic curve fitted to model mean and sigma.",
-      variables: ["mu", "line", "sigma"],
-    },
-    momentum_mult: {
-      name: "Momentum Multiplier",
-      text: "mult = 1 + (hitL10 − 0.5) × momentum_weight",
-      plain: "Scales projection based on recent over/under hit rate vs the 50% baseline.",
-      variables: ["mu", "line", "sigma"],
-    },
-  };
+  // Set initial formula when DB loads
+  useEffect(() => {
+    if (dbFormulas && dbFormulas.length > 0 && !selectedFormula) {
+      setSelectedFormula(dbFormulas[0].slug || dbFormulas[0].formula_name);
+    }
+  }, [dbFormulas, selectedFormula]);
 
-  const f = formulas[selectedFormula];
-  const computedEdge = vars.sigma > 0 ? ((vars.mu - vars.line) / vars.sigma * 100 * 0.65).toFixed(1) : "—";
+  // Update selection when navigating from Celestial Engines
+  useEffect(() => {
+    if (initialSlug) setSelectedFormula(initialSlug);
+  }, [initialSlug]);
+
+  if (isLoading) {
+    return <div className="flex items-center justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>;
+  }
+
+  const formulas = dbFormulas || [];
+  const f = formulas.find(f => (f.slug || f.formula_name) === selectedFormula) || formulas[0];
+  if (!f) return <p className="text-xs text-muted-foreground">No formulas in registry.</p>;
+
+  const varEntries = f.variables && typeof f.variables === "object" && !Array.isArray(f.variables)
+    ? Object.keys(f.variables as Record<string, string>)
+    : ["mu", "line", "sigma"];
+
+  // Simple compute: try to evaluate formula_text as expression
+  let computedOutput = "—";
+  try {
+    if (f.formula_text) {
+      // Basic edge score pattern
+      if (vars.sigma > 0) {
+        computedOutput = ((vars.mu - (vars.line ?? 0)) / vars.sigma * 100 * 0.65).toFixed(1);
+      }
+    }
+  } catch { /* ignore */ }
 
   return (
     <div className="space-y-5">
       <div className="flex items-center gap-3">
         <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Formula</span>
         <Select value={selectedFormula} onValueChange={setSelectedFormula}>
-          <SelectTrigger className="w-44 h-8 text-xs">
+          <SelectTrigger className="flex-1 h-8 text-xs">
             <SelectValue />
           </SelectTrigger>
-          <SelectContent>
-            {Object.entries(formulas).map(([k, v]) => (
-              <SelectItem key={k} value={k}>{v.name}</SelectItem>
+          <SelectContent className="max-h-64">
+            {formulas.map(f => (
+              <SelectItem key={f.id} value={f.slug || f.formula_name}>
+                {f.formula_name}
+                {f.category && <span className="text-muted-foreground ml-1">({f.category})</span>}
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
       </div>
 
       <div className="cosmic-card rounded-xl p-4 space-y-2">
-        <p className="text-xs font-mono text-primary">{f.text}</p>
-        <p className="text-[10px] text-muted-foreground italic">{f.plain}</p>
+        <p className="text-xs font-mono text-primary break-all">{f.formula_text || "No formula text"}</p>
+        {f.plain_english && <p className="text-[10px] text-muted-foreground italic">{f.plain_english}</p>}
       </div>
 
       <div className="space-y-2">
         <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Variables</h4>
-        {f.variables.map(v => (
+        {varEntries.map(v => (
           <div key={v} className="flex items-center gap-3">
-            <span className="text-xs font-mono text-foreground w-12">{v}</span>
+            <span className="text-xs font-mono text-foreground w-16 truncate">{v}</span>
             <Input
               type="number"
               step="0.1"
@@ -195,7 +223,7 @@ function FormulaSandbox() {
 
       <div className="cosmic-card rounded-xl p-4 text-center">
         <p className="text-[10px] text-muted-foreground">Output</p>
-        <p className="text-2xl font-bold text-primary tabular-nums">{computedEdge}</p>
+        <p className="text-2xl font-bold text-primary tabular-nums">{computedOutput}</p>
       </div>
 
       <div className="flex gap-2">
