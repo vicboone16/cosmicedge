@@ -486,9 +486,27 @@ export function LivePropsTab({ gameId, homeAbbr, awayAbbr, isLive }: Props) {
     );
   }
 
-  // Fallback: show raw live props grouped by player with best-odds + expandable alts
+  // Fallback: show raw live props grouped by player as horizontal carousels
   if (playerGroups.size > 0) {
     const totalProps = rawProps?.length ?? 0;
+
+    // Convert grouped props to CarouselProp format per player
+    const playerCarousels = [...playerGroups.entries()].map(([playerName, groups]) => {
+      const playerId = groups[0]?.playerId;
+      const carouselProps: CarouselProp[] = groups.map(g => ({
+        id: g.best.id,
+        player_name: playerName,
+        player_id: g.playerId,
+        prop_type: g.propType,
+        line: g.best.line_value,
+        over_odds: g.best.over_odds,
+        under_odds: g.best.under_odds,
+        vendor: g.best.vendor,
+        game_id: gameId,
+      }));
+      return { playerName, playerId, carouselProps };
+    });
+
     return (
       <div className="space-y-5">
         <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
@@ -502,36 +520,17 @@ export function LivePropsTab({ gameId, homeAbbr, awayAbbr, isLive }: Props) {
           <span className="ml-auto tabular-nums">{totalProps} props</span>
         </div>
 
-        {[...playerGroups.entries()].map(([playerName, groups]) => {
-          const playerId = groups[0]?.playerId;
-          const isResolved = !playerName.startsWith("Player ");
-
-          return (
-            <section key={playerName}>
-              <button
-                onClick={() => isResolved && handlePlayerClick(playerId, playerName)}
-                className={cn(
-                  "text-xs font-semibold mb-2 truncate block",
-                  isResolved
-                    ? "text-primary hover:underline cursor-pointer"
-                    : "text-foreground cursor-default"
-                )}
-              >
-                {playerName}
-              </button>
-              <div className="space-y-1">
-                {groups.map((g) => (
-                  <PropGroupRow
-                    key={`${g.playerId}-${g.propType}`}
-                    group={g}
-                    onAddToSkySpread={handleAddToSkySpread}
-                    onPlayerClick={handlePlayerClick}
-                  />
-                ))}
-              </div>
-            </section>
-          );
-        })}
+        {playerCarousels.map(({ playerName, playerId, carouselProps }) => (
+          <PlayerPropCarousel
+            key={playerName}
+            playerName={playerName}
+            playerId={playerId}
+            props={carouselProps}
+            gameId={gameId}
+            onPlayerClick={handlePlayerClick}
+            onAddToSkySpread={handleAddToSkySpread}
+          />
+        ))}
 
         <AddToSkySpreadSheet
           open={skySpreadOpen}
