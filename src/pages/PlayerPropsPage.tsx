@@ -3,10 +3,11 @@ import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { TrendingUp, TrendingDown, RefreshCw, ArrowUpDown, Search, ChevronLeft, ChevronRight, ToggleLeft, ToggleRight, Flame, Users, User, X, Plus } from "lucide-react";
+import { TrendingUp, TrendingDown, RefreshCw, ArrowUpDown, Search, ChevronLeft, ChevronRight, ToggleLeft, ToggleRight, Flame, Users, User, X, Plus, Sparkles, TableProperties } from "lucide-react";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { format, addDays, isToday } from "date-fns";
 import { Input } from "@/components/ui/input";
+import { PropsExploreTab } from "@/components/props/PropsExploreTab";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
@@ -194,8 +195,11 @@ function EntitySearch({ navigate }: { navigate: (path: string) => void }) {
   );
 }
 
+type PropsTab = "explore" | "markets";
+
 export default function PlayerPropsPage() {
   const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState<PropsTab>("explore");
   const [search, setSearch] = useState("");
   const [marketFilter, setMarketFilter] = useState<string>("all");
   const [categoryFilter, setCategoryFilter] = useState<MarketCategory>("all");
@@ -206,8 +210,6 @@ export default function PlayerPropsPage() {
   const [includeAlternates, setIncludeAlternates] = useState(false);
   const [view, setView] = useState<PropsView>("odds");
   const [propsMode, setPropsMode] = useState<PropsMode>("player");
-
-  // Player name -> ID lookup cache
   const [playerIdCache, setPlayerIdCache] = useState<Map<string, string>>(new Map());
 
   const canGoForward = selectedDate < addDays(new Date(), 7);
@@ -222,7 +224,6 @@ export default function PlayerPropsPage() {
       start.setHours(0, 0, 0, 0);
       const end = new Date(selectedDate);
       end.setHours(23, 59, 59, 999);
-
       const { data } = await supabase
         .from("games")
         .select("id, home_abbr, away_abbr, start_time, league")
@@ -362,47 +363,49 @@ export default function PlayerPropsPage() {
   return (
     <div className="min-h-screen pb-24">
       <header className="sticky top-0 z-40 px-4 pt-12 pb-4 bg-background/80 backdrop-blur-xl border-b border-border/50">
-        <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center justify-between mb-3">
           <h1 className="text-lg font-bold font-display flex items-center gap-2">
             <TrendingUp className="h-5 w-5 text-primary" />
             Props
           </h1>
-          <button
-            onClick={handleRefreshAll}
-            disabled={isFetching || isManualFetching}
-            className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1 px-3 py-1.5 rounded-lg bg-secondary/50 hover:bg-secondary"
-          >
-            <RefreshCw className={`h-3 w-3 ${(isFetching || isManualFetching) ? "animate-spin" : ""}`} />
-            {isManualFetching ? "Fetching..." : isFetching ? "Loading..." : "Refresh"}
-          </button>
+          {activeTab === "markets" && (
+            <button
+              onClick={handleRefreshAll}
+              disabled={isFetching || isManualFetching}
+              className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1 px-3 py-1.5 rounded-lg bg-secondary/50 hover:bg-secondary"
+            >
+              <RefreshCw className={`h-3 w-3 ${(isFetching || isManualFetching) ? "animate-spin" : ""}`} />
+              {isManualFetching ? "Fetching..." : isFetching ? "Loading..." : "Refresh"}
+            </button>
+          )}
         </div>
 
-        {/* View toggle: Odds / Trends */}
+        {/* Primary Explore / Markets toggle */}
         <div className="flex bg-secondary rounded-full p-0.5 mb-3">
           <button
-            onClick={() => setView("odds")}
+            onClick={() => setActiveTab("explore")}
             className={cn(
               "flex-1 flex items-center justify-center gap-1.5 py-2 rounded-full text-xs font-semibold transition-colors",
-              view === "odds" ? "bg-foreground text-background" : "text-muted-foreground"
+              activeTab === "explore" ? "bg-foreground text-background" : "text-muted-foreground"
             )}
           >
-            <TrendingUp className="h-3.5 w-3.5" />
-            Odds
+            <Sparkles className="h-3.5 w-3.5" />
+            Explore
           </button>
           <button
-            onClick={() => setView("trends")}
+            onClick={() => setActiveTab("markets")}
             className={cn(
               "flex-1 flex items-center justify-center gap-1.5 py-2 rounded-full text-xs font-semibold transition-colors",
-              view === "trends" ? "bg-foreground text-background" : "text-muted-foreground"
+              activeTab === "markets" ? "bg-foreground text-background" : "text-muted-foreground"
             )}
           >
-            <Flame className="h-3.5 w-3.5" />
-            Trends
+            <TableProperties className="h-3.5 w-3.5" />
+            Markets
           </button>
         </div>
 
-        {/* Player / Team Props toggle */}
-        {view === "odds" && (
+        {/* Player / Team Props toggle — Markets tab only */}
+        {activeTab === "markets" && view === "odds" && (
           <div className="flex bg-secondary rounded-lg p-0.5 mb-3 w-fit">
             <button
               onClick={() => setPropsMode("player")}
@@ -427,112 +430,117 @@ export default function PlayerPropsPage() {
           </div>
         )}
 
-        {/* Global player/team search */}
-        <div className="mb-3">
-          <EntitySearch navigate={navigate} />
-        </div>
-
-        {/* Date nav */}
-        <div className="flex items-center gap-2 mb-3">
-          <button onClick={goBack} className="p-1 rounded hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors">
-            <ChevronLeft className="h-3.5 w-3.5" />
-          </button>
-          <button onClick={goToday} className="text-xs text-muted-foreground hover:text-foreground transition-colors">
-            {isToday(selectedDate)
-              ? `${format(selectedDate, "EEE, MMM d")} · Today`
-              : format(selectedDate, "EEE, MMM d")}
-          </button>
-          <button onClick={goForward} disabled={!canGoForward} className="p-1 rounded hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors disabled:opacity-30">
-            <ChevronRight className="h-3.5 w-3.5" />
-          </button>
-          {!isToday(selectedDate) && (
-            <button onClick={goToday} className="text-[10px] text-primary hover:underline ml-1">Today</button>
-          )}
-        </div>
-
-        {/* League filter chips */}
-        <div className="flex gap-1.5 mb-3 overflow-x-auto no-scrollbar">
-          {["ALL", "NBA", "NHL", "MLB", "NFL", "NCAAB"].map((lg) => (
-            <button
-              key={lg}
-              onClick={() => setLeagueFilter(lg)}
-              className={cn(
-                "px-3 py-1 rounded-full text-[11px] font-semibold transition-colors whitespace-nowrap",
-                leagueFilter === lg
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-secondary/60 text-muted-foreground hover:bg-secondary hover:text-foreground"
-              )}
-            >
-              {lg}
-            </button>
-          ))}
-        </div>
-
-        {view === "odds" && (
+        {/* Markets-only filters */}
+        {activeTab === "markets" && (
           <>
-            {/* Alternates toggle */}
-            <button
-              onClick={() => setIncludeAlternates(!includeAlternates)}
-              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors mb-2"
-            >
-              {includeAlternates ? <ToggleRight className="h-4 w-4 text-primary" /> : <ToggleLeft className="h-4 w-4" />}
-              <span className={includeAlternates ? "text-primary font-medium" : ""}>
-                {includeAlternates ? "Alternates ON" : "Include Alternates"}
-              </span>
-            </button>
+            {/* Global player/team search */}
+            <div className="mb-3">
+              <EntitySearch navigate={navigate} />
+            </div>
 
-            {/* Category chips */}
-            <div className="flex gap-1.5 mb-3">
-              {([
-                { val: "all" as MarketCategory, label: "All Types" },
-                { val: "standard" as MarketCategory, label: "Standard" },
-                { val: "alternate" as MarketCategory, label: "Alternate" },
-                { val: "period" as MarketCategory, label: "Periods" },
-              ]).map((c) => (
+            {/* Date nav */}
+            <div className="flex items-center gap-2 mb-3">
+              <button onClick={goBack} className="p-1 rounded hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors">
+                <ChevronLeft className="h-3.5 w-3.5" />
+              </button>
+              <button onClick={goToday} className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+                {isToday(selectedDate)
+                  ? `${format(selectedDate, "EEE, MMM d")} · Today`
+                  : format(selectedDate, "EEE, MMM d")}
+              </button>
+              <button onClick={goForward} disabled={!canGoForward} className="p-1 rounded hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors disabled:opacity-30">
+                <ChevronRight className="h-3.5 w-3.5" />
+              </button>
+              {!isToday(selectedDate) && (
+                <button onClick={goToday} className="text-[10px] text-primary hover:underline ml-1">Today</button>
+              )}
+            </div>
+
+            {/* League filter chips */}
+            <div className="flex gap-1.5 mb-3 overflow-x-auto no-scrollbar">
+              {["ALL", "NBA", "NHL", "MLB", "NFL", "NCAAB"].map((lg) => (
                 <button
-                  key={c.val}
-                  onClick={() => setCategoryFilter(c.val)}
+                  key={lg}
+                  onClick={() => setLeagueFilter(lg)}
                   className={cn(
-                    "px-2.5 py-0.5 rounded-full text-[10px] font-medium transition-colors",
-                    categoryFilter === c.val
-                      ? "bg-accent text-accent-foreground"
-                      : "bg-secondary/40 text-muted-foreground hover:bg-secondary hover:text-foreground"
+                    "px-3 py-1 rounded-full text-[11px] font-semibold transition-colors whitespace-nowrap",
+                    leagueFilter === lg
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-secondary/60 text-muted-foreground hover:bg-secondary hover:text-foreground"
                   )}
                 >
-                  {c.label}
+                  {lg}
                 </button>
               ))}
             </div>
 
-            {/* Prop-specific search + market filter */}
-            <div className="flex gap-2">
-              <div className="relative flex-1">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                <Input
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Filter by player name..."
-                  className="pl-8 h-8 text-xs"
-                />
-              </div>
-              <Select value={marketFilter} onValueChange={setMarketFilter}>
-                <SelectTrigger className="w-[120px] h-8 text-xs">
-                  <SelectValue placeholder="Market" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Markets</SelectItem>
-                  {uniqueMarkets.map((m) => (
-                    <SelectItem key={m} value={m}>
-                      {getMarketShort(m)}
-                    </SelectItem>
+            {view === "odds" && (
+              <>
+                <button
+                  onClick={() => setIncludeAlternates(!includeAlternates)}
+                  className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors mb-2"
+                >
+                  {includeAlternates ? <ToggleRight className="h-4 w-4 text-primary" /> : <ToggleLeft className="h-4 w-4" />}
+                  <span className={includeAlternates ? "text-primary font-medium" : ""}>
+                    {includeAlternates ? "Alternates ON" : "Include Alternates"}
+                  </span>
+                </button>
+
+                <div className="flex gap-1.5 mb-3">
+                  {([
+                    { val: "all" as MarketCategory, label: "All Types" },
+                    { val: "standard" as MarketCategory, label: "Standard" },
+                    { val: "alternate" as MarketCategory, label: "Alternate" },
+                    { val: "period" as MarketCategory, label: "Periods" },
+                  ]).map((c) => (
+                    <button
+                      key={c.val}
+                      onClick={() => setCategoryFilter(c.val)}
+                      className={cn(
+                        "px-2.5 py-0.5 rounded-full text-[10px] font-medium transition-colors",
+                        categoryFilter === c.val
+                          ? "bg-accent text-accent-foreground"
+                          : "bg-secondary/40 text-muted-foreground hover:bg-secondary hover:text-foreground"
+                      )}
+                    >
+                      {c.label}
+                    </button>
                   ))}
-                </SelectContent>
-              </Select>
-            </div>
+                </div>
+
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                    <Input
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                      placeholder="Filter by player name..."
+                      className="pl-8 h-8 text-xs"
+                    />
+                  </div>
+                  <Select value={marketFilter} onValueChange={setMarketFilter}>
+                    <SelectTrigger className="w-[120px] h-8 text-xs">
+                      <SelectValue placeholder="Market" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Markets</SelectItem>
+                      {uniqueMarkets.map((m) => (
+                        <SelectItem key={m} value={m}>
+                          {getMarketShort(m)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </>
+            )}
           </>
         )}
       </header>
 
+      {activeTab === "explore" ? (
+        <PropsExploreTab />
+      ) : (
       <div className="px-4 py-4">
         {view === "odds" ? (
           <>
@@ -694,6 +702,7 @@ export default function PlayerPropsPage() {
           <TrendsEmbed leagueFilter={leagueFilter === "ALL" ? "NBA" : leagueFilter} />
         )}
       </div>
+      )}
     </div>
   );
 }
