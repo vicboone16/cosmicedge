@@ -38,11 +38,11 @@ interface DashboardRow {
   status: string;
   win_prob_a: number;
   total_points: number;
-  p_s: number;
-  p_r: number;
-  ml_odds_a: number | null;
+  ps: number;
+  pr: number;
+  ml_a: number | null;
   spread_line: number | null;
-  spread_odds: number | null;
+  spread_a: number | null;
   total_line: number | null;
   over_odds: number | null;
   under_odds: number | null;
@@ -162,6 +162,18 @@ export default function TTEdgePage() {
     }, 1000);
     return () => clearInterval(iv);
   }, [selectedMatchId, fetchDashboard, fetchMomentum]);
+
+  // Pre-populate odds form from dashboard data
+  useEffect(() => {
+    if (!dashboard) return;
+    setMlOddsA(dashboard.ml_a != null ? String(dashboard.ml_a) : "");
+    setSpreadLine(dashboard.spread_line != null ? String(dashboard.spread_line) : "");
+    setSpreadOdds(dashboard.spread_a != null ? String(dashboard.spread_a) : "");
+    setTotalLine(dashboard.total_line != null ? String(dashboard.total_line) : "");
+    setOverOdds(dashboard.over_odds != null ? String(dashboard.over_odds) : "");
+    setUnderOdds(dashboard.under_odds != null ? String(dashboard.under_odds) : "");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedMatchId]);
 
   /* ── auth guard ── */
   if (authLoading || adminLoading) {
