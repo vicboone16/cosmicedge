@@ -4,8 +4,8 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 /**
  * NBA BDL Props Sidecar
  *
- * Runs once per minute via pg_cron, internally loops ~12 times (every 5s).
- * Fetches player props for all live NBA games from BallDontLie.
+ * Runs once per minute via pg_cron, internally loops ~6 times (every 8s).
+ * Fetches player props for live NBA games from BallDontLie ONE AT A TIME.
  * Budget: ~96 BDL req/min (8 games × 12 runs)
  */
 
