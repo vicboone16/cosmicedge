@@ -797,8 +797,7 @@ export default function HistoricalPage() {
             ))}
           </TabsContent>
 
-          {/* Tab 6: Backtest (Admin Only) */}
-          {isAdmin && (
+          {/* Tab 6: Backtest */}
           <TabsContent value="backtest" className="space-y-3 mt-3">
             <div className="cosmic-card rounded-xl p-4 space-y-3">
               <h3 className="text-xs font-semibold text-primary uppercase tracking-widest flex items-center gap-1.5">
