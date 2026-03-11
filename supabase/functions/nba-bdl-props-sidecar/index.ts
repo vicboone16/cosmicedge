@@ -12,7 +12,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 const BDL_BASE = "https://api.balldontlie.io";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const MAX_RUNTIME_MS = 55_000;
-const TICK_INTERVAL_MS = 5_000;
+const TICK_INTERVAL_MS = 8_000;
 
 function bdlPropToMarketKey(key: string): string {
   const map: Record<string, string> = {
