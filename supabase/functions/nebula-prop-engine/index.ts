@@ -350,21 +350,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 2. Fetch player_props for this game
-    const { data: rawProps } = await sb
-      .from("player_props")
-      .select("id, game_id, player_name, market_key, line, over_price, under_price, bookmaker")
-      .eq("game_id", gameId)
-      .order("bookmaker", { ascending: true });
-
-    if (!rawProps || rawProps.length === 0) {
-      return new Response(
-        JSON.stringify({ ok: true, message: "No props found for game", predictions: 0 }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
-    }
-
-    // 3. Map market_key → prop_type and deduplicate
+    // 2. Fetch props — try legacy player_props first, fall back to nba_player_props_live
     interface MappedProp {
       player_name: string;
       prop_type: string;
@@ -376,20 +362,66 @@ Deno.serve(async (req) => {
 
     const seenKeys = new Set<string>();
     const mappedProps: MappedProp[] = [];
-    for (const p of rawProps) {
-      const propType = MARKET_TO_PROP[p.market_key];
-      if (!propType) continue;
-      const key = `${p.player_name}:${propType}`;
-      if (seenKeys.has(key)) continue;
-      seenKeys.add(key);
-      mappedProps.push({
-        player_name: p.player_name,
-        prop_type: propType,
-        line: p.line ?? 0,
-        over_price: p.over_price,
-        under_price: p.under_price,
-        bookmaker: p.bookmaker ?? "consensus",
-      });
+
+    // 2a. Legacy player_props table
+    const { data: rawProps } = await sb
+      .from("player_props")
+      .select("id, game_id, player_name, market_key, line, over_price, under_price, bookmaker")
+      .eq("game_id", gameId)
+      .order("bookmaker", { ascending: true });
+
+    if (rawProps && rawProps.length > 0) {
+      for (const p of rawProps) {
+        const propType = MARKET_TO_PROP[p.market_key];
+        if (!propType) continue;
+        const key = `${p.player_name}:${propType}`;
+        if (seenKeys.has(key)) continue;
+        seenKeys.add(key);
+        mappedProps.push({
+          player_name: p.player_name,
+          prop_type: propType,
+          line: p.line ?? 0,
+          over_price: p.over_price,
+          under_price: p.under_price,
+          bookmaker: p.bookmaker ?? "consensus",
+        });
+      }
+    }
+
+    // 2b. If legacy empty, try nba_player_props_live (BDL pipeline target)
+    if (mappedProps.length === 0) {
+      const { data: liveProps } = await sb
+        .from("nba_player_props_live")
+        .select("id, game_key, player_name, prop_type, line_value, over_odds, under_odds, vendor")
+        .eq("game_key", gameId)
+        .limit(1000);
+
+      if (liveProps && liveProps.length > 0) {
+        for (const p of liveProps) {
+          // prop_type in nba_player_props_live may already be canonical or market-style
+          const propType = MARKET_TO_PROP[p.prop_type] ?? p.prop_type;
+          if (!COUNTING_PROPS.has(propType)) continue;
+          const pName = p.player_name ?? "Unknown";
+          const key = `${pName}:${propType}`;
+          if (seenKeys.has(key)) continue;
+          seenKeys.add(key);
+          mappedProps.push({
+            player_name: pName,
+            prop_type: propType,
+            line: p.line_value ?? 0,
+            over_price: p.over_odds,
+            under_price: p.under_odds,
+            bookmaker: p.vendor ?? "balldontlie",
+          });
+        }
+      }
+    }
+
+    if (mappedProps.length === 0) {
+      return new Response(
+        JSON.stringify({ ok: true, message: "No props found for game", predictions: 0 }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
     }
 
     // 4. Resolve player names → player IDs
