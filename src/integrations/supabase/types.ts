@@ -323,6 +323,33 @@ export type Database = {
         }
         Relationships: []
       }
+      bdl_player_cache: {
+        Row: {
+          bdl_id: string
+          fetched_at: string | null
+          first_name: string | null
+          full_name: string | null
+          last_name: string | null
+          team: string | null
+        }
+        Insert: {
+          bdl_id: string
+          fetched_at?: string | null
+          first_name?: string | null
+          full_name?: string | null
+          last_name?: string | null
+          team?: string | null
+        }
+        Update: {
+          bdl_id?: string
+          fetched_at?: string | null
+          first_name?: string | null
+          full_name?: string | null
+          last_name?: string | null
+          team?: string | null
+        }
+        Relationships: []
+      }
       bets: {
         Row: {
           away_team: string | null

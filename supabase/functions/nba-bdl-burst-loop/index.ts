@@ -327,7 +327,7 @@ Deno.serve(async (req) => {
         if (status !== "final") liveGameIds.push(g.id);
       }
 
-      // 3. Fetch odds (batched)
+      // 3. Fetch odds (batched) — supports both v2 flat and legacy nested format
       if (liveGameIds.length > 0) {
         try {
           const idsParam = liveGameIds.map(id => `game_ids[]=${id}`).join("&");
@@ -335,25 +335,71 @@ Deno.serve(async (req) => {
           if (oddsRes.ok) {
             const oddsItems: any[] = (await oddsRes.json()).data || [];
             for (const o of oddsItems) {
-              const gk = gameKeyMap.get(o.game?.id);
+              // v2 flat format: game_id is top-level number
+              const bdlGameId = o.game?.id ?? o.game_id ?? null;
+              const gk = bdlGameId ? gameKeyMap.get(Number(bdlGameId)) : null;
               if (!gk) continue;
+              const vendor = o.vendor || o.bookmaker || "unknown";
+              const now = new Date().toISOString();
+
+              // v2 flat format detection (has moneyline_home_odds or spread_home_line)
+              if (o.moneyline_home_odds != null || o.spread_home_line != null || o.total_over_odds != null) {
+                if (o.moneyline_home_odds != null || o.moneyline_away_odds != null) {
+                  await sb.from("nba_game_odds").upsert({
+                    game_key: gk, provider: "balldontlie", vendor, market: "moneyline",
+                    home_odds: o.moneyline_home_odds ?? null,
+                    away_odds: o.moneyline_away_odds ?? null,
+                    home_line: null, away_line: null, total: null,
+                    over_odds: null, under_odds: null,
+                    raw: o, updated_at: now,
+                  }, { onConflict: "game_key,provider,vendor,market" });
+                  totals.odds++;
+                }
+                if (o.spread_home_line != null) {
+                  await sb.from("nba_game_odds").upsert({
+                    game_key: gk, provider: "balldontlie", vendor, market: "spread",
+                    home_line: o.spread_home_line ?? null,
+                    away_line: o.spread_away_line ?? (o.spread_home_line ? -o.spread_home_line : null),
+                    home_odds: o.spread_home_odds ?? null,
+                    away_odds: o.spread_away_odds ?? null,
+                    total: null, over_odds: null, under_odds: null,
+                    raw: o, updated_at: now,
+                  }, { onConflict: "game_key,provider,vendor,market" });
+                  totals.odds++;
+                }
+                if (o.total_over_odds != null || o.total_line != null) {
+                  await sb.from("nba_game_odds").upsert({
+                    game_key: gk, provider: "balldontlie", vendor, market: "total",
+                    total: o.total_line ?? null,
+                    over_odds: o.total_over_odds ?? null,
+                    under_odds: o.total_under_odds ?? null,
+                    home_line: null, away_line: null,
+                    home_odds: null, away_odds: null,
+                    raw: o, updated_at: now,
+                  }, { onConflict: "game_key,provider,vendor,market" });
+                  totals.odds++;
+                }
+                continue;
+              }
+
+              // Legacy nested bookmakers format fallback
               for (const book of (o.bookmakers || [])) {
-                const vendor = book.name || book.key || "unknown";
+                const legacyVendor = book.name || book.key || "unknown";
                 for (const mkt of (book.markets || [])) {
                   const market = mkt.key || mkt.name || "unknown";
                   const outcomes = mkt.outcomes || [];
                   const home = outcomes.find((x: any) => x.name === "Home" || x.name === homeTeamFor(gk, gameKeyMap, games));
-                  const away = outcomes.find((x: any) => x.name === "Away" || x.name !== home?.name);
+                  const away = outcomes.find((x: any) => x.name === "Away" || (home && x.name !== home.name));
                   const over = outcomes.find((x: any) => x.name === "Over");
                   const under = outcomes.find((x: any) => x.name === "Under");
 
                   await sb.from("nba_game_odds").upsert({
-                    game_key: gk, provider: "balldontlie", vendor, market,
+                    game_key: gk, provider: "balldontlie", vendor: legacyVendor, market,
                     home_line: home?.point ?? null, away_line: away?.point ?? null,
                     total: over?.point ?? under?.point ?? null,
                     home_odds: home?.price ?? null, away_odds: away?.price ?? null,
                     over_odds: over?.price ?? null, under_odds: under?.price ?? null,
-                    raw: mkt, updated_at: new Date().toISOString(),
+                    raw: mkt, updated_at: now,
                   }, { onConflict: "game_key,provider,vendor,market" });
                   totals.odds++;
                 }
