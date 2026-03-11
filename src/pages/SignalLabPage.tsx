@@ -151,7 +151,7 @@ export default function SignalLabPage() {
   );
 }
 
-function SignalCard({ overlay, tab, onNavigate }: { overlay: any; tab: SignalTab; onNavigate: () => void }) {
+function SignalCard({ overlay, tab, onTap }: { overlay: any; tab: SignalTab; onTap: () => void }) {
   const edgeScore = overlay.edge_score_v11 ?? overlay.edge_score ?? 0;
   const tier = getEdgeTier(edgeScore);
   const propLabel = getPropLabel(overlay.prop_type || "");
