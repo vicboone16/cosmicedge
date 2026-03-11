@@ -223,8 +223,10 @@ Deno.serve(async (req) => {
           break;
         }
       } catch (e) { console.error(`[bdl-backfill] PBP error game ${gk}:`, e); }
+      } // end skipPbp guard
 
       // Player Props
+      if (!skipProps && !onlyQuarters) {
       try {
         const propsRes = await fetch(`${BDL_BASE}/v2/odds/player_props?game_id=${bdlId}`, { headers: hdrs });
         if (propsRes.ok) {
