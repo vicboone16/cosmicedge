@@ -269,6 +269,123 @@ Deno.serve(async (req) => {
         }
       } catch (e) { console.error(`[bdl-backfill] Props error game ${gk}:`, e); }
 
+      // Step 4: Fetch per-quarter player stats (Q1-Q4)
+      for (const period of [1, 2, 3, 4]) {
+        try {
+          const statsRes = await fetch(`${BDL_BASE}/v1/stats?game_ids[]=${bdlId}&per_page=100&periods[]=${period}`, { headers: hdrs });
+          if (statsRes.status === 429) {
+            console.warn(`[bdl-backfill] Rate limited on Q${period} stats, stopping`);
+            break;
+          }
+          if (!statsRes.ok) continue;
+          const statsData = await statsRes.json();
+          const playerStats: any[] = statsData.data || [];
+          if (playerStats.length === 0) continue;
+
+          const periodLabel = `Q${period}`;
+          const qRows: any[] = [];
+
+          for (const s of playerStats) {
+            const playerName = `${s.player?.first_name || ""} ${s.player?.last_name || ""}`.trim();
+            const teamAbbr = s.team?.abbreviation || null;
+
+            // Resolve player to internal UUID
+            const { data: playerMatch } = await supabase
+              .from("players")
+              .select("id")
+              .ilike("name", playerName)
+              .limit(1)
+              .maybeSingle();
+
+            if (!playerMatch?.id) {
+              console.warn(`[bdl-backfill] Q${period}: Could not resolve player '${playerName}'`);
+              continue;
+            }
+
+            qRows.push({
+              game_id: gk,
+              player_id: playerMatch.id,
+              team_abbr: teamAbbr,
+              period: periodLabel,
+              points: s.pts ?? 0,
+              rebounds: s.reb ?? 0,
+              assists: s.ast ?? 0,
+              steals: s.stl ?? 0,
+              blocks: s.blk ?? 0,
+              turnovers: s.turnover ?? 0,
+              minutes: s.min ? parseInt(String(s.min), 10) : 0,
+              fg_made: s.fgm ?? 0,
+              fg_attempted: s.fga ?? 0,
+              three_made: s.fg3m ?? 0,
+              three_attempted: s.fg3a ?? 0,
+              ft_made: s.ftm ?? 0,
+              ft_attempted: s.fta ?? 0,
+              off_rebounds: s.oreb ?? 0,
+              def_rebounds: s.dreb ?? 0,
+              personal_fouls: s.pf ?? 0,
+            });
+          }
+
+          if (qRows.length > 0) {
+            const { error: upsertErr } = await supabase
+              .from("player_game_stats")
+              .upsert(qRows, { onConflict: "game_id,player_id,period" });
+            if (upsertErr) {
+              console.error(`[bdl-backfill] Q${period} upsert error:`, upsertErr.message);
+            } else {
+              stats.quarter_stats += qRows.length;
+              console.log(`[bdl-backfill] ${qRows.length} ${periodLabel} stats for game ${gk}`);
+            }
+          }
+        } catch (e) { console.error(`[bdl-backfill] Q${period} stats error game ${gk}:`, e); }
+      }
+
+      // Auto-compute 1H (Q1+Q2) and 2H (Q3+Q4) aggregates
+      try {
+        for (const [halfLabel, quarters] of [["1H", ["Q1", "Q2"]], ["2H", ["Q3", "Q4"]]] as const) {
+          const { data: qData } = await supabase
+            .from("player_game_stats")
+            .select("*")
+            .eq("game_id", gk)
+            .in("period", quarters);
+
+          if (!qData || qData.length === 0) continue;
+
+          // Group by player_id
+          const byPlayer = new Map<string, any[]>();
+          for (const row of qData) {
+            const pid = row.player_id;
+            if (!byPlayer.has(pid)) byPlayer.set(pid, []);
+            byPlayer.get(pid)!.push(row);
+          }
+
+          const halfRows: any[] = [];
+          for (const [pid, rows] of byPlayer) {
+            if (rows.length < 2) continue;
+            const sum: any = {
+              game_id: gk, player_id: pid, team_abbr: rows[0].team_abbr, period: halfLabel,
+              points: 0, rebounds: 0, assists: 0, steals: 0, blocks: 0, turnovers: 0,
+              minutes: 0, fg_made: 0, fg_attempted: 0, three_made: 0, three_attempted: 0,
+              ft_made: 0, ft_attempted: 0, off_rebounds: 0, def_rebounds: 0, personal_fouls: 0,
+            };
+            for (const q of rows) {
+              for (const k of ["points","rebounds","assists","steals","blocks","turnovers","minutes",
+                "fg_made","fg_attempted","three_made","three_attempted","ft_made","ft_attempted",
+                "off_rebounds","def_rebounds","personal_fouls"]) {
+                sum[k] += q[k] ?? 0;
+              }
+            }
+            halfRows.push(sum);
+          }
+
+          if (halfRows.length > 0) {
+            await supabase.from("player_game_stats").upsert(halfRows, { onConflict: "game_id,player_id,period" });
+            stats.quarter_stats += halfRows.length;
+            console.log(`[bdl-backfill] ${halfRows.length} ${halfLabel} computed for game ${gk}`);
+          }
+        }
+      } catch (e) { console.error(`[bdl-backfill] Half computation error game ${gk}:`, e); }
+
       // Small delay between games to avoid rate limits
       await new Promise(r => setTimeout(r, 500));
     }
