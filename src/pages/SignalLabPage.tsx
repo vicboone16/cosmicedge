@@ -196,7 +196,7 @@ function SignalCard({ overlay, tab, onTap }: { overlay: any; tab: SignalTab; onT
       </div>
       <p className="text-[10px] text-muted-foreground">{signalDetail}</p>
       <div className="flex gap-2 pt-1">
-        <span className="text-[9px] text-primary font-semibold">View Game →</span>
+        <span className="text-[9px] text-primary font-semibold">View Details →</span>
       </div>
     </button>
   );

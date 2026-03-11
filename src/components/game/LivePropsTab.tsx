@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { Zap, TrendingUp, TrendingDown, ChevronDown, ChevronUp, Plus } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { getPropLabel, getEdgeTier, type TopProp } from "@/hooks/use-top-props";
+import { usePropDrawer } from "@/hooks/use-prop-drawer";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
