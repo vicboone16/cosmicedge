@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
@@ -8,6 +8,115 @@ interface PlayByPlayTabProps {
   homeAbbr: string;
   awayAbbr: string;
   league: string;
+}
+
+/* ─── Win‑probability helper (client‑side logistic, mirrors server model) ─── */
+function computeWP(
+  homeScore: number,
+  awayScore: number,
+  quarter: number,
+  clockSecRemaining: number,
+  sport: string = "NBA"
+): number {
+  const sd = homeScore - awayScore;
+  let T: number, sigma: number, periodCount: number;
+  switch (sport) {
+    case "NFL": T = 3600; sigma = 14; periodCount = 4; break;
+    case "NHL": T = 3600; sigma = 2.5; periodCount = 3; break;
+    case "MLB": T = 54; sigma = 4; periodCount = 9; break;
+    default: T = 2880; sigma = 12.5; periodCount = 4;
+  }
+  const elapsed = Math.min(
+    T,
+    (quarter - 1) * (T / periodCount) + ((T / periodCount) - clockSecRemaining)
+  );
+  const remaining = Math.max(T - elapsed, 1);
+  const beta1 = 1.6, beta4 = 0.15;
+  const timeRatio = elapsed / Math.max(T, 1);
+  const z = beta1 * (sd / sigma) * Math.log((T + 1) / (remaining + 1))
+          + beta4 * Math.sqrt(timeRatio);
+  const wp = 1 / (1 + Math.exp(-z));
+  return Math.max(0.001, Math.min(0.999, wp));
+}
+
+/* ─── Parse clock strings like "5:32", "Q2 5:32", "12:00.0" → seconds ─── */
+function parseClockToSeconds(raw: string | null | undefined): number | null {
+  if (!raw) return null;
+  let cleaned = raw.replace(/^Q\d+\s+/i, "").trim();
+  if (/final|half/i.test(cleaned)) return 0;
+  cleaned = cleaned.replace(/\.\d+$/, "");
+  if (cleaned.startsWith(":")) cleaned = "0" + cleaned;
+  const parts = cleaned.split(":");
+  if (parts.length !== 2) return null;
+  const m = parseInt(parts[0], 10);
+  const s = parseInt(parts[1], 10);
+  if (isNaN(m) || isNaN(s)) return null;
+  return m * 60 + s;
+}
+
+/* ─── Format seconds back to MM:SS ─── */
+function formatClock(seconds: number | null): string {
+  if (seconds == null) return "";
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m}:${s.toString().padStart(2, "0")}`;
+}
+
+/* ─── Resolve "Player XXXX" strings via BDL cache ─── */
+async function resolvePlayerNames(events: any[]): Promise<Map<string, string>> {
+  const idPattern = /^Player (\d+)$/;
+  const playerFields = ["player", "player_name"];
+  const idsToResolve = new Set<string>();
+
+  for (const ev of events) {
+    for (const field of playerFields) {
+      const val = ev[field];
+      if (typeof val === "string") {
+        const match = val.match(idPattern);
+        if (match) idsToResolve.add(match[1]);
+      }
+    }
+    // Also check description for "Player XXXX" patterns
+    if (typeof ev.description === "string") {
+      const matches = ev.description.matchAll(/Player (\d+)/g);
+      for (const m of matches) idsToResolve.add(m[1]);
+    }
+  }
+
+  if (idsToResolve.size === 0) return new Map();
+
+  const { data: cached } = await supabase
+    .from("bdl_player_cache" as any)
+    .select("bdl_id,first_name,last_name")
+    .in("bdl_id", [...idsToResolve]);
+
+  const nameMap = new Map<string, string>();
+  for (const c of (cached || []) as any[]) {
+    const name = [c.first_name, c.last_name].filter(Boolean).join(" ").trim();
+    if (name) nameMap.set(c.bdl_id, name);
+  }
+  return nameMap;
+}
+
+function applyNameResolution(text: string | null, nameMap: Map<string, string>): string | null {
+  if (!text) return text;
+  return text.replace(/Player (\d+)/g, (match, id) => {
+    return nameMap.get(id) || match;
+  });
+}
+
+/* ─── Normalized event structure ─── */
+interface NormalizedEvent {
+  key: string;
+  period: number;
+  clockSeconds: number | null;
+  clockDisplay: string;
+  team: string | null;
+  player: string | null;
+  description: string | null;
+  homeScore: number | null;
+  awayScore: number | null;
+  wp: number | null; // home win probability 0-1
 }
 
 export function PlayByPlayTab({ gameId, homeAbbr, awayAbbr, league }: PlayByPlayTabProps) {
@@ -160,37 +269,118 @@ export function PlayByPlayTab({ gameId, homeAbbr, awayAbbr, league }: PlayByPlay
 
   const isLoading = isNBA ? (nbaLoading && livePbpLoading && bdlPbpLoading) : genericLoading;
 
-  // ── Normalize events (NO score extraction from events) ──
-  const normalizedBdlEvents = (bdlPbpEvents || []).map((ev: any) => ({
-    ...ev,
-    play_id: ev.provider_event_id,
-    team: ev.team_abbr,
-    remaining_time: ev.event_ts_game,
-    player: ev.player_name,
-    description: ev.description || ev.raw?.text || ev.event_type || null,
-    away_score: ev.away_score ?? ev.raw?.away_score ?? null,
-    home_score: ev.home_score ?? ev.raw?.home_score ?? null,
-  }));
+  // ── Choose best source ──
+  const rawSource = isNBA
+    ? (bdlPbpEvents && bdlPbpEvents.length > 0
+        ? "bdl"
+        : livePbpEvents && (livePbpEvents as any[]).length > 0
+        ? "live"
+        : "historical")
+    : "generic";
 
-  const normalizedLivePbp = (livePbpEvents || []).map((ev: any) => ({
-    ...ev,
-    play_id: ev.provider_event_id,
-    team: ev.team_abbr,
-    remaining_time: ev.clock,
-    player: ev.player_name,
-  }));
+  const rawEvents: any[] = isNBA
+    ? rawSource === "bdl" ? bdlPbpEvents || []
+      : rawSource === "live" ? (livePbpEvents as any[]) || []
+      : (nbaEvents as any[]) || []
+    : (genericEvents as any[]) || [];
 
-  const events = isNBA
-    ? (normalizedBdlEvents.length > 0 ? normalizedBdlEvents
-      : normalizedLivePbp.length > 0 ? normalizedLivePbp
-      : nbaEvents)
-    : genericEvents;
+  // ── Resolve player names (BDL IDs) ──
+  const { data: nameMap } = useQuery({
+    queryKey: ["pbp-name-resolve", rawSource, rawEvents.length],
+    queryFn: async () => resolvePlayerNames(rawEvents),
+    enabled: rawEvents.length > 0,
+    staleTime: 120_000,
+  });
+
+  // ── Normalize & sort events ──
+  const normalizedEvents: NormalizedEvent[] = useMemo(() => {
+    const names = nameMap || new Map<string, string>();
+
+    return rawEvents.map((ev: any, i: number) => {
+      let period: number;
+      let clockRaw: string | null;
+      let team: string | null;
+      let player: string | null;
+      let desc: string | null;
+      let homeScore: number | null;
+      let awayScore: number | null;
+      let key: string;
+
+      if (rawSource === "bdl") {
+        period = ev.period ?? 1;
+        clockRaw = ev.event_ts_game;
+        team = ev.team_abbr;
+        player = ev.player_name;
+        desc = ev.description || ev.raw?.text || ev.event_type || null;
+        homeScore = ev.home_score ?? ev.raw?.home_score ?? null;
+        awayScore = ev.away_score ?? ev.raw?.away_score ?? null;
+        key = `bdl-${ev.id ?? ev.provider_event_id ?? i}`;
+      } else if (rawSource === "live") {
+        period = ev.period ?? 1;
+        clockRaw = ev.clock;
+        team = ev.team_abbr;
+        player = ev.player_name;
+        desc = ev.description;
+        homeScore = ev.home_score;
+        awayScore = ev.away_score;
+        key = `live-${ev.provider_event_id ?? ev.id ?? i}`;
+      } else if (rawSource === "historical") {
+        period = ev.period ?? 1;
+        clockRaw = ev.remaining_time;
+        team = ev.team;
+        player = ev.player;
+        desc = ev.description;
+        homeScore = ev.home_score;
+        awayScore = ev.away_score;
+        key = `hist-${ev.play_id ?? i}`;
+      } else {
+        // generic
+        period = ev.quarter ?? ev.period ?? 1;
+        clockRaw = ev.clock;
+        team = ev.team_abbr;
+        player = ev.player_name || ev.player_id;
+        desc = ev.description;
+        homeScore = ev.home_score;
+        awayScore = ev.away_score;
+        key = `gen-${ev.id ?? i}`;
+      }
+
+      // Resolve player names
+      player = applyNameResolution(player, names);
+      desc = applyNameResolution(desc, names);
+
+      // Fallback: if player is still a numeric-only string, show "Unknown Player"
+      if (player && /^\d+$/.test(player.trim())) {
+        player = "Unknown Player";
+      }
+
+      const clockSeconds = parseClockToSeconds(clockRaw);
+      const clockDisplay = clockSeconds != null ? formatClock(clockSeconds) : (clockRaw || "");
+
+      // Compute WP if we have scores
+      let wp: number | null = null;
+      if (homeScore != null && awayScore != null && (homeScore > 0 || awayScore > 0)) {
+        wp = computeWP(homeScore, awayScore, period, clockSeconds ?? 720, league);
+        // Validate: no NaN
+        if (isNaN(wp)) wp = null;
+      }
+
+      return { key, period, clockSeconds, clockDisplay, team, player, description: desc, homeScore, awayScore, wp };
+    }).sort((a, b) => {
+      // Sort by period ASC, then by clockSeconds DESC (more time remaining = earlier in period)
+      if (a.period !== b.period) return a.period - b.period;
+      const ca = a.clockSeconds ?? -1;
+      const cb = b.clockSeconds ?? -1;
+      // Higher clock = earlier in the period
+      return cb - ca;
+    });
+  }, [rawEvents, rawSource, nameMap, league]);
 
   if (isLoading) {
     return <p className="text-sm text-muted-foreground text-center py-8">Loading play-by-play…</p>;
   }
 
-  if (!events || events.length === 0) {
+  if (normalizedEvents.length === 0) {
     return (
       <div className="text-center py-8">
         <p className="text-sm text-muted-foreground">No play-by-play data available for this game.</p>
@@ -198,30 +388,33 @@ export function PlayByPlayTab({ gameId, homeAbbr, awayAbbr, league }: PlayByPlay
     );
   }
 
-  const periods = [...new Set(
-    isNBA
-      ? (events as any[]).map(e => e.period).filter(Boolean)
-      : (events as any[]).map(e => e.quarter).filter(Boolean)
-  )].sort((a, b) => a - b);
+  const periods = [...new Set(normalizedEvents.map(e => e.period))].sort((a, b) => a - b);
 
   const filtered = periodFilter != null
-    ? (events as any[]).filter(e => (isNBA ? e.period : e.quarter) === periodFilter)
-    : (events as any[]);
+    ? normalizedEvents.filter(e => e.period === periodFilter)
+    : normalizedEvents;
 
   const periodLabel = (p: number) => {
     if (league === "NHL") return p <= 3 ? `Period ${p}` : "OT";
     if (league === "NFL") return `Q${p}`;
+    if (league === "MLB") return `Inn ${p}`;
     return p <= 4 ? `Q${p}` : `OT${p - 4}`;
   };
 
+  const periodLongLabel = (p: number) => {
+    if (league === "NHL") return p <= 3 ? `${p === 1 ? "1st" : p === 2 ? "2nd" : "3rd"} Period` : "Overtime";
+    if (league === "MLB") return `Inning ${p}`;
+    if (p <= 4) return `${p === 1 ? "1st" : p === 2 ? "2nd" : p === 3 ? "3rd" : "4th"} Quarter`;
+    return `Overtime ${p - 4}`;
+  };
+
   // Group events by period
-  const groupedByPeriod: { period: number; events: any[] }[] = [];
+  const groupedByPeriod: { period: number; events: NormalizedEvent[] }[] = [];
   let currentPeriod: number | null = null;
   for (const ev of filtered) {
-    const p = isNBA ? ev.period : ev.quarter;
-    if (p !== currentPeriod) {
-      currentPeriod = p;
-      groupedByPeriod.push({ period: p, events: [] });
+    if (ev.period !== currentPeriod) {
+      currentPeriod = ev.period;
+      groupedByPeriod.push({ period: ev.period, events: [] });
     }
     groupedByPeriod[groupedByPeriod.length - 1].events.push(ev);
   }
@@ -277,31 +470,34 @@ export function PlayByPlayTab({ gameId, homeAbbr, awayAbbr, league }: PlayByPlay
           <div key={period}>
             <div className="sticky top-0 z-10 flex items-center justify-between px-3 py-2 bg-primary/10 border-y border-border/50">
               <span className="text-[10px] font-bold text-primary uppercase tracking-wider">
-                {league === "NHL" ? (period <= 3 ? `${period}${period === 1 ? "st" : period === 2 ? "nd" : "rd"} Period` : "Overtime")
-                  : league === "MLB" ? `Inning ${period}`
-                  : period <= 4 ? `${period === 1 ? "1st" : period === 2 ? "2nd" : period === 3 ? "3rd" : "4th"} Quarter` : `Overtime ${period - 4}`}
+                {periodLongLabel(period)}
               </span>
               <div className="flex items-center gap-3 text-[10px] font-bold text-muted-foreground">
                 <span>{awayAbbr}</span>
                 <span>{homeAbbr}</span>
+                <span className="w-10 text-center">WP</span>
               </div>
             </div>
 
-            {periodEvents.map((ev: any, i: number) => {
-              const isHome = isNBA ? ev.team === homeAbbr : ev.team_abbr === homeAbbr;
-              const isAway = isNBA ? ev.team === awayAbbr : ev.team_abbr === awayAbbr;
-              const clock = isNBA ? ev.remaining_time : ev.clock;
-              const desc = ev.description;
-              const teamAbbr = isNBA ? ev.team : ev.team_abbr;
+            {periodEvents.map((ev) => {
+              const isHome = ev.team === homeAbbr;
+              const isAway = ev.team === awayAbbr;
 
-              // Show per-event scores if present (0 is a valid score)
-              const evAway = ev.away_score != null ? ev.away_score : null;
-              const evHome = ev.home_score != null ? ev.home_score : null;
-              const hasEventScore = evAway != null || evHome != null;
+              // Format WP display
+              const wpDisplay = ev.wp != null
+                ? `${(ev.wp * 100).toFixed(0)}%`
+                : null;
+
+              // WP color: >55% = green (home favored), <45% = red (away favored)
+              const wpColor = ev.wp != null
+                ? ev.wp >= 0.55 ? "text-cosmic-green"
+                  : ev.wp <= 0.45 ? "text-cosmic-red"
+                  : "text-muted-foreground"
+                : "text-muted-foreground";
 
               return (
                 <div
-                  key={isNBA ? `${ev.game_id}-${ev.play_id}` : ev.id ?? i}
+                  key={ev.key}
                   className="flex items-start gap-2 px-3 py-2.5 border-b border-border/20 transition-colors"
                 >
                   {/* Team indicator */}
@@ -311,7 +507,7 @@ export function PlayByPlayTab({ gameId, homeAbbr, awayAbbr, league }: PlayByPlay
                         "text-[9px] font-bold px-1.5 py-0.5 rounded",
                         isHome ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"
                       )}>
-                        {teamAbbr}
+                        {ev.team}
                       </span>
                     )}
                   </div>
@@ -319,21 +515,25 @@ export function PlayByPlayTab({ gameId, homeAbbr, awayAbbr, league }: PlayByPlay
                   {/* Content */}
                   <div className="flex-1 min-w-0">
                     <p className="text-xs leading-relaxed text-muted-foreground">
-                      <span className="tabular-nums text-muted-foreground mr-1.5">{clock || ""}</span>
-                      {desc || ev.event_type || "—"}
+                      <span className="tabular-nums text-muted-foreground mr-1.5">{ev.clockDisplay}</span>
+                      {ev.description || ev.player || "—"}
                     </p>
-                    {isNBA && ev.player && !desc?.includes(ev.player) && (
+                    {ev.player && ev.description && !ev.description.includes(ev.player) && (
                       <span className="text-[9px] text-primary/70">{ev.player}</span>
                     )}
                   </div>
 
-                  {/* Per-event running score — show "—" if missing */}
+                  {/* Per-event running score */}
                   <div className="flex items-center gap-3 shrink-0">
                     <span className="text-[10px] tabular-nums font-medium text-muted-foreground w-5 text-right">
-                      {evAway != null ? evAway : ""}
+                      {ev.awayScore != null ? ev.awayScore : ""}
                     </span>
                     <span className="text-[10px] tabular-nums font-medium text-muted-foreground w-5 text-right">
-                      {evHome != null ? evHome : ""}
+                      {ev.homeScore != null ? ev.homeScore : ""}
+                    </span>
+                    {/* Win Probability */}
+                    <span className={cn("text-[9px] tabular-nums font-semibold w-10 text-center", wpColor)}>
+                      {wpDisplay || ""}
                     </span>
                   </div>
                 </div>
