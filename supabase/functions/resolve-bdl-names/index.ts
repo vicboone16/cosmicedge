@@ -36,18 +36,30 @@ Deno.serve(async (req) => {
 
   for (const bdlId of uniqueIds.slice(0, 50)) {
     try {
-      const res = await fetch(`https://api.balldontlie.io/v2/players/${bdlId}`, { headers: bdlHeaders });
-      if (!res.ok) {
-        console.log(`[resolve] BDL ${bdlId} → ${res.status}`);
-        errors++;
-        continue;
+      // Try v1 first (some BDL odds use v1 IDs), then v2
+      let fullName = "";
+      let fn = "";
+      let ln = "";
+      let teamAbbr: string | null = null;
+      
+      for (const ver of ["v1", "v2"]) {
+        const res = await fetch(`https://api.balldontlie.io/${ver}/players/${bdlId}`, { headers: bdlHeaders });
+        if (res.status === 429) {
+          console.log(`[resolve] BDL ${bdlId} → 429 (${ver}), stopping`);
+          // Return what we have so far
+          return new Response(JSON.stringify({ ok: true, resolved, errors, total_ids: uniqueIds.length, stopped: "rate_limit" }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        if (!res.ok) continue;
+        const body = await res.json();
+        const pData = body.data || body;
+        fn = pData.first_name || "";
+        ln = pData.last_name || "";
+        fullName = `${fn} ${ln}`.trim();
+        teamAbbr = pData.team?.abbreviation || null;
+        if (fullName) break;
       }
-      const body = await res.json();
-      const pData = body.data || body;
-      const fn = pData.first_name || "";
-      const ln = pData.last_name || "";
-      const fullName = `${fn} ${ln}`.trim();
-      if (!fullName || fullName.startsWith("Player")) continue;
 
       // Cache
       await sb.from("bdl_player_cache").upsert({
