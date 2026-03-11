@@ -89,11 +89,38 @@ export default {
           "0%, 100%": { opacity: "0.4" },
           "50%": { opacity: "1" },
         },
+        "twinkle-slow": {
+          "0%, 100%": { opacity: "0.3" },
+          "50%": { opacity: "0.7" },
+        },
+        "twinkle-fast": {
+          "0%, 100%": { opacity: "0.2" },
+          "40%": { opacity: "0.6" },
+          "80%": { opacity: "0.15" },
+        },
+        "nebula-pulse": {
+          "0%, 100%": { opacity: "0.6", transform: "scale(1)" },
+          "50%": { opacity: "1", transform: "scale(1.08)" },
+        },
+        "nebula-drift": {
+          "0%, 100%": { opacity: "0.5", transform: "translate(0, 0) scale(1)" },
+          "33%": { opacity: "0.9", transform: "translate(10px, -8px) scale(1.05)" },
+          "66%": { opacity: "0.6", transform: "translate(-6px, 5px) scale(0.97)" },
+        },
+        "nebula-pulse-slow": {
+          "0%, 100%": { opacity: "0.4", transform: "scale(1)" },
+          "50%": { opacity: "0.8", transform: "scale(1.12)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
         "pulse-glow": "pulse-glow 3s ease-in-out infinite",
+        "twinkle-slow": "twinkle-slow 6s ease-in-out infinite",
+        "twinkle-fast": "twinkle-fast 4s ease-in-out infinite",
+        "nebula-pulse": "nebula-pulse 8s ease-in-out infinite",
+        "nebula-drift": "nebula-drift 12s ease-in-out infinite",
+        "nebula-pulse-slow": "nebula-pulse-slow 10s ease-in-out infinite",
       },
     },
   },
