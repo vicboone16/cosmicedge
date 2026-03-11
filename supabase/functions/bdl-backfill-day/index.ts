@@ -383,7 +383,7 @@ Deno.serve(async (req) => {
               game_id: gk, player_id: pid, team_abbr: rows[0].team_abbr, period: halfLabel,
               points: 0, rebounds: 0, assists: 0, steals: 0, blocks: 0, turnovers: 0,
               minutes: 0, fg_made: 0, fg_attempted: 0, three_made: 0, three_attempted: 0,
-              ft_made: 0, ft_attempted: 0, off_rebounds: 0, def_rebounds: 0, personal_fouls: 0,
+              ft_made: 0, ft_attempted: 0, off_rebounds: 0, def_rebounds: 0, fouls: 0,
             };
             for (const q of rows) {
               for (const k of ["points","rebounds","assists","steals","blocks","turnovers","minutes",
