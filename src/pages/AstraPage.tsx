@@ -33,26 +33,57 @@ function AstraChat() {
     setIsLoading(true);
 
     try {
-      const { data, error } = await supabase.functions.invoke("astro-interpret", {
-        body: { mode: "freeform", delivery_mode: "chat", custom_prompt: text },
+      // Try compute pipeline first
+      const { data: computeData, error: computeError } = await supabase.functions.invoke("astra-compute", {
+        body: { question: text },
       });
-      if (error) throw error;
 
-      if (data?.cosmic_edge) {
-        setMessages((prev) => [...prev, {
-          role: "assistant",
-          content: data.cosmic_edge.astro?.answer?.narrative || "",
-          structured: data.cosmic_edge as CosmicEdgeResponse,
-        }]);
-      } else if (data?.structured) {
-        setMessages((prev) => [...prev, {
-          role: "assistant",
-          content: data.structured.answer?.narrative || "",
-          structured: data.structured as AstraResponse,
-        }]);
+      if (!computeError && computeData?.success && computeData?.answer) {
+        // Build a rich compute-aware response
+        let content = computeData.answer;
+
+        // Append computed value badge if available
+        if (computeData.computed_value != null) {
+          content = `**${computeData.computed_value}**\n\n${content}`;
+        }
+
+        // Append formula info
+        if (computeData.formula_used) {
+          content += `\n\n*Formula: ${computeData.formula_used.name}*`;
+          if (computeData.formula_used.text) {
+            content += `\n\`${computeData.formula_used.text}\``;
+          }
+        }
+
+        // Append fallback info
+        if (computeData.fallback_info?.length) {
+          content += `\n\n⚠️ ${computeData.fallback_info.join(" · ")}`;
+        }
+
+        setMessages((prev) => [...prev, { role: "assistant", content }]);
       } else {
-        const reply = data?.interpretation || "I couldn't generate a response. Please try again.";
-        setMessages((prev) => [...prev, { role: "assistant", content: reply }]);
+        // Fallback to astro-interpret
+        const { data, error } = await supabase.functions.invoke("astro-interpret", {
+          body: { mode: "freeform", delivery_mode: "chat", custom_prompt: text },
+        });
+        if (error) throw error;
+
+        if (data?.cosmic_edge) {
+          setMessages((prev) => [...prev, {
+            role: "assistant",
+            content: data.cosmic_edge.astro?.answer?.narrative || "",
+            structured: data.cosmic_edge as CosmicEdgeResponse,
+          }]);
+        } else if (data?.structured) {
+          setMessages((prev) => [...prev, {
+            role: "assistant",
+            content: data.structured.answer?.narrative || "",
+            structured: data.structured as AstraResponse,
+          }]);
+        } else {
+          const reply = data?.interpretation || "I couldn't generate a response. Please try again.";
+          setMessages((prev) => [...prev, { role: "assistant", content: reply }]);
+        }
       }
     } catch (e) {
       console.error("Chat error:", e);
