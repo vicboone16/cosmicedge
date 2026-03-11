@@ -53,7 +53,7 @@ Deno.serve(async (req) => {
     }
 
     console.log(`[bdl-backfill] ${dbGames.length} games around ${targetDate}`);
-    const stats = { games: dbGames.length, odds: 0, plays: 0, props: 0, mapped: 0 };
+    const stats = { games: dbGames.length, odds: 0, plays: 0, props: 0, mapped: 0, quarter_stats: 0 };
 
     // Step 1: Resolve BDL IDs (try both dates)
     const gameMap = new Map<string, { dbGame: typeof dbGames[0]; bdlId: number }>();
