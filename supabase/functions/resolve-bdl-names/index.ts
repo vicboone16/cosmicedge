@@ -66,7 +66,7 @@ Deno.serve(async (req) => {
       // Cache
       await sb.from("bdl_player_cache").upsert({
         bdl_id: String(bdlId),
-        first_name: fn, last_name: ln, full_name: fullName,
+        first_name: fn, last_name: ln,
         team: teamAbbr,
       }, { onConflict: "bdl_id" });
 
