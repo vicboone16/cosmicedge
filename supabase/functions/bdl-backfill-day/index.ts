@@ -388,7 +388,7 @@ Deno.serve(async (req) => {
             for (const q of rows) {
               for (const k of ["points","rebounds","assists","steals","blocks","turnovers","minutes",
                 "fg_made","fg_attempted","three_made","three_attempted","ft_made","ft_attempted",
-                "off_rebounds","def_rebounds","personal_fouls"]) {
+                "off_rebounds","def_rebounds","fouls"]) {
                 sum[k] += q[k] ?? 0;
               }
             }
