@@ -5,8 +5,8 @@ import { cn } from "@/lib/utils";
 import { FlaskConical, TrendingUp, Flame, Activity, Shield, Sparkles, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { useNavigate } from "react-router-dom";
-import { getPropLabel, getEdgeTier } from "@/hooks/use-top-props";
+import { getPropLabel, getEdgeTier, type TopProp } from "@/hooks/use-top-props";
+import { usePropDrawer } from "@/hooks/use-prop-drawer";
 
 const SIGNAL_TABS = [
   { key: "streaks", label: "Over Streaks", icon: Flame },
@@ -19,7 +19,7 @@ const SIGNAL_TABS = [
 type SignalTab = typeof SIGNAL_TABS[number]["key"];
 
 export default function SignalLabPage() {
-  const navigate = useNavigate();
+  const { openProp } = usePropDrawer();
   const [activeTab, setActiveTab] = useState<SignalTab>("streaks");
   const [search, setSearch] = useState("");
 
@@ -143,7 +143,7 @@ export default function SignalLabPage() {
           </div>
         ) : (
           cards.map((o: any) => (
-            <SignalCard key={o.id} overlay={o} tab={activeTab} onNavigate={() => navigate(`/game/${o.game_id}`)} />
+            <SignalCard key={o.id} overlay={o} tab={activeTab} onTap={() => openProp(o as TopProp)} />
           ))
         )}
       </div>
@@ -151,7 +151,7 @@ export default function SignalLabPage() {
   );
 }
 
-function SignalCard({ overlay, tab, onNavigate }: { overlay: any; tab: SignalTab; onNavigate: () => void }) {
+function SignalCard({ overlay, tab, onTap }: { overlay: any; tab: SignalTab; onTap: () => void }) {
   const edgeScore = overlay.edge_score_v11 ?? overlay.edge_score ?? 0;
   const tier = getEdgeTier(edgeScore);
   const propLabel = getPropLabel(overlay.prop_type || "");
@@ -176,7 +176,7 @@ function SignalCard({ overlay, tab, onNavigate }: { overlay: any; tab: SignalTab
   })();
 
   return (
-    <button onClick={onNavigate} className="w-full cosmic-card rounded-xl p-3 text-left hover:border-primary/30 transition-colors space-y-1.5">
+    <button onClick={onTap} className="w-full cosmic-card rounded-xl p-3 text-left hover:border-primary/30 transition-colors space-y-1.5">
       <div className="flex items-center justify-between">
         <div className="min-w-0">
           <span className="text-xs font-semibold text-foreground truncate block">{overlay.player_name}</span>
@@ -196,7 +196,7 @@ function SignalCard({ overlay, tab, onNavigate }: { overlay: any; tab: SignalTab
       </div>
       <p className="text-[10px] text-muted-foreground">{signalDetail}</p>
       <div className="flex gap-2 pt-1">
-        <span className="text-[9px] text-primary font-semibold">View Game →</span>
+        <span className="text-[9px] text-primary font-semibold">View Details →</span>
       </div>
     </button>
   );

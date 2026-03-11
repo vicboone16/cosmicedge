@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { Zap, TrendingUp, TrendingDown, ChevronDown, ChevronUp, Plus } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { getPropLabel, getEdgeTier, type TopProp } from "@/hooks/use-top-props";
+import { usePropDrawer } from "@/hooks/use-prop-drawer";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -272,6 +273,7 @@ function PropGroupRow({ group, onAddToSkySpread, onPlayerClick }: PropRowProps) 
 // ─── Main Component ───
 export function LivePropsTab({ gameId, homeAbbr, awayAbbr, isLive }: Props) {
   const navigate = useNavigate();
+  const { openProp } = usePropDrawer();
   const [skySpreadOpen, setSkySpreadOpen] = useState(false);
   const [selectedProp, setSelectedProp] = useState<RawLiveProp | null>(null);
 
@@ -436,7 +438,7 @@ export function LivePropsTab({ gameId, homeAbbr, awayAbbr, isLive }: Props) {
               {trendAlerts.map(prop => {
                 const propLabel = getPropLabel(prop.prop_type);
                 return (
-                  <div key={prop.id} className="cosmic-card rounded-lg px-3 py-2 flex items-center justify-between">
+                  <button key={prop.id} onClick={() => openProp(prop)} className="w-full cosmic-card rounded-lg px-3 py-2 flex items-center justify-between hover:border-primary/30 transition-colors text-left">
                     <div className="flex items-center gap-2 min-w-0">
                       <span className="text-[10px] font-semibold text-foreground truncate">{prop.player_name}</span>
                       <span className="text-[9px] text-muted-foreground uppercase">{propLabel}</span>
@@ -444,7 +446,7 @@ export function LivePropsTab({ gameId, homeAbbr, awayAbbr, isLive }: Props) {
                     <span className="text-[10px] text-cosmic-green font-semibold shrink-0">
                       {prop.streak}× streak
                     </span>
-                  </div>
+                  </button>
                 );
               })}
             </div>
@@ -462,7 +464,7 @@ export function LivePropsTab({ gameId, homeAbbr, awayAbbr, isLive }: Props) {
                 const diff = prop.mu - (prop.line ?? 0);
                 const sign = diff >= 0 ? "+" : "";
                 return (
-                  <div key={prop.id} className="cosmic-card rounded-lg px-3 py-2 flex items-center justify-between">
+                  <button key={prop.id} onClick={() => openProp(prop)} className="w-full cosmic-card rounded-lg px-3 py-2 flex items-center justify-between hover:border-primary/30 transition-colors text-left">
                     <div className="min-w-0">
                       <span className="text-[10px] font-semibold text-foreground">
                         {prop.player_name?.split(" ").pop()} {propLabel} line {prop.line}
@@ -474,7 +476,7 @@ export function LivePropsTab({ gameId, homeAbbr, awayAbbr, isLive }: Props) {
                     <Badge variant="outline" className={cn("text-[8px] px-1.5 py-0 h-3.5 font-bold", getEdgeTier(prop.edge_score_v11 ?? prop.edge_score).className)}>
                       {(prop.edge_score_v11 ?? prop.edge_score).toFixed(0)}
                     </Badge>
-                  </div>
+                  </button>
                 );
               })}
             </div>
@@ -552,16 +554,20 @@ export function LivePropsTab({ gameId, homeAbbr, awayAbbr, isLive }: Props) {
 }
 
 function LivePropCard({ prop }: { prop: TopProp }) {
+  const { openProp } = usePropDrawer();
   const edgeScore = prop.edge_score_v11 ?? prop.edge_score;
   const tier = getEdgeTier(edgeScore);
   const isOver = prop.side === "over" || prop.side == null;
   const propLabel = getPropLabel(prop.prop_type);
 
   return (
-    <div className={cn(
-      "cosmic-card rounded-xl p-3 space-y-2",
-      edgeScore >= 70 && "border-cosmic-green/30 shadow-[0_0_12px_-4px] shadow-cosmic-green/20"
-    )}>
+    <button
+      onClick={() => openProp(prop)}
+      className={cn(
+        "w-full cosmic-card rounded-xl p-3 space-y-2 text-left hover:border-primary/30 transition-colors",
+        edgeScore >= 70 && "border-cosmic-green/30 shadow-[0_0_12px_-4px] shadow-cosmic-green/20"
+      )}
+    >
       <div className="flex items-center justify-between">
         <div className="min-w-0">
           <span className="text-xs font-semibold text-foreground truncate block">{prop.player_name}</span>
@@ -614,6 +620,6 @@ function LivePropCard({ prop }: { prop: TopProp }) {
           <span className="text-[8px] px-1.5 py-0.5 rounded-full font-semibold bg-blue-400/10 text-blue-400">Strong Signal</span>
         )}
       </div>
-    </div>
+    </button>
   );
 }
