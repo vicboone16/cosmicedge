@@ -503,15 +503,13 @@ export default function HistoricalPage() {
 
       <div className="px-4 py-4">
         <Tabs defaultValue="results" className="w-full">
-          <TabsList className={`w-full grid h-8 ${isAdmin ? "grid-cols-6" : "grid-cols-5"}`}>
+          <TabsList className="w-full grid h-8 grid-cols-6">
             <TabsTrigger value="results" className="text-[9px] px-1"><Trophy className="h-3 w-3 mr-0.5" />Results</TabsTrigger>
             <TabsTrigger value="odds" className="text-[9px] px-1"><TrendingUp className="h-3 w-3 mr-0.5" />Odds</TabsTrigger>
             <TabsTrigger value="astro" className="text-[9px] px-1"><Star className="h-3 w-3 mr-0.5" />Astro</TabsTrigger>
             <TabsTrigger value="players" className="text-[9px] px-1"><Users className="h-3 w-3 mr-0.5" />Stats</TabsTrigger>
             <TabsTrigger value="markets" className="text-[9px] px-1"><Target className="h-3 w-3 mr-0.5" />ATS</TabsTrigger>
-            {isAdmin && (
-              <TabsTrigger value="backtest" className="text-[9px] px-1"><FlaskConical className="h-3 w-3 mr-0.5" />Backtest</TabsTrigger>
-            )}
+            <TabsTrigger value="backtest" className="text-[9px] px-1"><FlaskConical className="h-3 w-3 mr-0.5" />Backtest</TabsTrigger>
           </TabsList>
 
           {/* Tab 1: Game Results */}
@@ -798,8 +796,7 @@ export default function HistoricalPage() {
             ))}
           </TabsContent>
 
-          {/* Tab 6: Backtest (Admin Only) */}
-          {isAdmin && (
+          {/* Tab 6: Backtest */}
           <TabsContent value="backtest" className="space-y-3 mt-3">
             <div className="cosmic-card rounded-xl p-4 space-y-3">
               <h3 className="text-xs font-semibold text-primary uppercase tracking-widest flex items-center gap-1.5">
@@ -1128,7 +1125,6 @@ export default function HistoricalPage() {
               </div>
             )}
           </TabsContent>
-          )}
         </Tabs>
       </div>
     </div>
