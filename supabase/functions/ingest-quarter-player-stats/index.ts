@@ -184,7 +184,7 @@ async function handleInternalFormat(supabase: any, stats: any[], t0: number) {
       ft_attempted: s.ft_attempted ?? 0,
       off_rebounds: s.off_rebounds ?? 0,
       def_rebounds: s.def_rebounds ?? 0,
-      personal_fouls: s.personal_fouls ?? 0,
+      fouls: s.fouls ?? s.personal_fouls ?? 0,
     });
   }
 
