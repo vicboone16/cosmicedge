@@ -61,11 +61,13 @@ Deno.serve(async (req) => {
         if (fullName) break;
       }
 
+      if (!fullName || fullName.startsWith("Player")) { errors++; continue; }
+
       // Cache
       await sb.from("bdl_player_cache").upsert({
         bdl_id: String(bdlId),
         first_name: fn, last_name: ln, full_name: fullName,
-        team: pData.team?.abbreviation || null,
+        team: teamAbbr,
       }, { onConflict: "bdl_id" });
 
       // Update live props
