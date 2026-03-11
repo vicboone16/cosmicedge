@@ -1,8 +1,14 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, Cpu, FlaskConical } from "lucide-react";
+import { Loader2, Cpu, FlaskConical, Play } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 
-export default function AstraFormulasEnginesTab() {
+interface Props {
+  onRunInMachina?: (formulaSlug: string) => void;
+}
+
+export default function AstraFormulasEnginesTab({ onRunInMachina }: Props) {
   const { data: formulas, isLoading: fLoading } = useQuery({
     queryKey: ["ce-formulas"],
     queryFn: async () => {
@@ -49,6 +55,7 @@ export default function AstraFormulasEnginesTab() {
         <div className="flex items-center gap-2">
           <FlaskConical className="h-4 w-4 text-primary" />
           <h2 className="text-sm font-bold text-foreground">Formulas</h2>
+          <span className="text-[9px] text-muted-foreground ml-auto">{formulas?.length ?? 0} registered</span>
         </div>
 
         {formulas && formulas.length > 0 ? (
@@ -58,12 +65,17 @@ export default function AstraFormulasEnginesTab() {
                 ? Object.entries(f.variables as Record<string, string>)
                 : [];
               return (
-                <div key={f.id} className="cosmic-card rounded-lg p-3 space-y-1.5">
+                <div key={f.id} className="cosmic-card rounded-lg p-3 space-y-1.5 hover:border-primary/20 transition-colors">
                   <div className="flex items-center justify-between">
                     <p className="text-xs font-semibold text-foreground">{f.formula_name}</p>
-                    <span className="text-[8px] px-1.5 py-0.5 rounded-full bg-secondary text-muted-foreground">
-                      {f.category}
-                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[8px] px-1.5 py-0.5 rounded-full bg-secondary text-muted-foreground">
+                        {f.category}
+                      </span>
+                      {f.is_featured && (
+                        <span className="text-[7px] px-1 py-0.5 rounded-full bg-cosmic-gold/10 text-cosmic-gold font-semibold">★</span>
+                      )}
+                    </div>
                   </div>
                   {f.formula_text && (
                     <code className="block text-[10px] bg-secondary/50 rounded px-2 py-1 text-primary font-mono break-all">
@@ -84,6 +96,16 @@ export default function AstraFormulasEnginesTab() {
                       ))}
                     </div>
                   )}
+                  {onRunInMachina && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-[10px] h-6 px-2 mt-1 gap-1"
+                      onClick={() => onRunInMachina(f.slug || f.formula_name)}
+                    >
+                      <Play className="h-3 w-3" /> Run in Machina
+                    </Button>
+                  )}
                 </div>
               );
             })}
@@ -98,6 +120,7 @@ export default function AstraFormulasEnginesTab() {
         <div className="flex items-center gap-2">
           <Cpu className="h-4 w-4 text-primary" />
           <h2 className="text-sm font-bold text-foreground">Engines</h2>
+          <span className="text-[9px] text-muted-foreground ml-auto">{engines?.length ?? 0} active</span>
         </div>
 
         {engines && engines.length > 0 ? (
@@ -109,9 +132,14 @@ export default function AstraFormulasEnginesTab() {
                 <div key={e.id} className="cosmic-card rounded-lg p-3 space-y-1.5">
                   <div className="flex items-center justify-between">
                     <p className="text-xs font-semibold text-foreground">{e.engine_name}</p>
-                    <span className="text-[8px] px-1.5 py-0.5 rounded-full bg-secondary text-muted-foreground">
-                      {e.layer}
-                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[8px] px-1.5 py-0.5 rounded-full bg-secondary text-muted-foreground">
+                        {e.layer}
+                      </span>
+                      {e.version && (
+                        <span className="text-[8px] text-muted-foreground">v{e.version}</span>
+                      )}
+                    </div>
                   </div>
                   {e.description && (
                     <p className="text-[10px] text-muted-foreground leading-relaxed">{e.description}</p>

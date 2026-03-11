@@ -1,11 +1,9 @@
 import { Flame } from "lucide-react";
 import { useTopPropsToday } from "@/hooks/use-top-props";
 import { PropChip } from "./PropChip";
-import { useNavigate } from "react-router-dom";
 
 export function TrendingPlaysStrip() {
   const { data: props, isLoading } = useTopPropsToday(10);
-  const navigate = useNavigate();
 
   if (isLoading || !props || props.length === 0) return null;
 
@@ -17,12 +15,7 @@ export function TrendingPlaysStrip() {
       </h2>
       <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
         {props.map(p => (
-          <PropChip
-            key={p.id}
-            prop={p}
-            size="compact"
-            onClick={() => navigate(`/game/${p.game_id}`)}
-          />
+          <PropChip key={p.id} prop={p} size="compact" />
         ))}
       </div>
     </section>
