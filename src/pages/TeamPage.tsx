@@ -300,11 +300,42 @@ const TeamPage = () => {
           <ArrowLeft className="h-4 w-4" />
           <span className="text-sm">Back</span>
         </button>
-        <h1 className="text-xl font-bold font-display">{teamName}</h1>
+        <div className="flex items-center justify-between">
+          <h1 className="text-xl font-bold font-display">{teamName}</h1>
+          {seasonAvg && seasonAvg.net_rating != null && (
+            <span className={cn(
+              "text-xs font-bold px-2 py-1 rounded-lg",
+              seasonAvg.net_rating > 0 ? "bg-cosmic-green/15 text-cosmic-green" : "bg-cosmic-red/15 text-cosmic-red"
+            )}>
+              {seasonAvg.net_rating > 0 ? "+" : ""}{seasonAvg.net_rating.toFixed(1)} NRtg
+            </span>
+          )}
+        </div>
         {standings && (
           <p className="text-xs text-muted-foreground mt-1">
             {standings.wins}W – {standings.losses}L · {standings.conference} · Seed #{standings.playoff_seed || "—"}
           </p>
+        )}
+        {/* Last 10 W/L indicator */}
+        {recentGames && recentGames.length > 0 && (
+          <div className="flex items-center gap-0.5 mt-2">
+            <span className="text-[9px] text-muted-foreground mr-1">L{Math.min(recentGames.length, 10)}</span>
+            {recentGames.slice(0, 10).reverse().map((g, i) => {
+              const isHome = g.home_abbr === abbr;
+              const won = isHome ? (g.home_score ?? 0) > (g.away_score ?? 0) : (g.away_score ?? 0) > (g.home_score ?? 0);
+              return (
+                <div
+                  key={i}
+                  className={cn(
+                    "h-3 w-3 rounded-sm text-[7px] font-bold flex items-center justify-center",
+                    won ? "bg-cosmic-green/20 text-cosmic-green" : "bg-cosmic-red/20 text-cosmic-red"
+                  )}
+                >
+                  {won ? "W" : "L"}
+                </div>
+              );
+            })}
+          </div>
         )}
       </header>
 
