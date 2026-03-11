@@ -30,6 +30,13 @@ const PROP_LABELS: Record<string, string> = {
   points: "PTS", rebounds: "REB", assists: "AST", steals: "STL", blocks: "BLK",
   threes: "3PM", pts_reb_ast: "PRA", pts_reb: "P+R", pts_ast: "P+A", reb_ast: "R+A",
   turnovers: "TOV", fantasy_score: "FPTS",
+  // BDL / market key variants
+  player_points: "PTS", player_rebounds: "REB", player_assists: "AST",
+  player_steals: "STL", player_blocks: "BLK", player_threes: "3PM",
+  player_turnovers: "TOV", player_points_rebounds_assists: "PRA",
+  player_points_rebounds: "P+R", player_points_assists: "P+A",
+  player_rebounds_assists: "R+A", player_blocks_steals: "B+S",
+  player_double_double: "DD", player_triple_double: "TD",
 };
 
 export function getPropLabel(propType: string): string {
