@@ -201,7 +201,17 @@ function PlayersTab() {
                     <p className="text-sm font-semibold text-foreground">{p.name}</p>
                     <p className="text-[10px] text-muted-foreground">{p.position || "—"} · {p.team || "—"}</p>
                   </div>
-                  <span className="text-[10px] text-muted-foreground">{p.league}</span>
+                  <div className="text-right shrink-0">
+                    {(p as any)._stats ? (
+                      <div className="flex gap-2 text-[9px] tabular-nums">
+                        <span className="text-foreground font-semibold">{(p as any)._stats.points_per_game?.toFixed(1) ?? "—"}<span className="text-muted-foreground font-normal ml-0.5">pts</span></span>
+                        <span className="text-foreground font-semibold">{(p as any)._stats.rebounds_per_game?.toFixed(1) ?? "—"}<span className="text-muted-foreground font-normal ml-0.5">reb</span></span>
+                        <span className="text-foreground font-semibold">{(p as any)._stats.assists_per_game?.toFixed(1) ?? "—"}<span className="text-muted-foreground font-normal ml-0.5">ast</span></span>
+                      </div>
+                    ) : (
+                      <span className="text-[10px] text-muted-foreground">{p.league}</span>
+                    )}
+                  </div>
                 </button>
               ))}
             </div>
