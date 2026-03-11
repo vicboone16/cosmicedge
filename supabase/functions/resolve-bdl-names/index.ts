@@ -79,7 +79,7 @@ Deno.serve(async (req) => {
       if (updErr) console.error(`[resolve] Update error for ${bdlId}:`, updErr.message);
 
       resolved++;
-      console.log(`[resolve] ${bdlId} → ${fullName} (${count} rows updated)`);
+      console.log(`[resolve] ${bdlId} → ${fullName}`);
     } catch (e) {
       console.error(`[resolve] Error for ${bdlId}:`, e);
       errors++;
