@@ -109,11 +109,42 @@ export default function TrendsPage() {
     enabled: teamAbbrs.length > 0,
   });
 
-  // Fetch player props for those games
+  // Fetch player props for those games — uses nba_player_props_live (primary) with player_props fallback
   const { data: props, isLoading: propsLoading, refetch, isFetching } = useQuery({
     queryKey: ["trends-props", gameIds],
     queryFn: async () => {
       if (gameIds.length === 0) return [];
+
+      // Primary: nba_player_props_live (BDL live props)
+      const { data: liveProps } = await supabase
+        .from("nba_player_props_live")
+        .select("id, game_key, player_name, prop_type, line_value, over_odds, under_odds")
+        .in("game_key", gameIds)
+        .order("player_name", { ascending: true })
+        .limit(1000);
+
+      if (liveProps && liveProps.length > 0) {
+        // Deduplicate by player + prop_type per game (keep first / best)
+        const seen = new Set<string>();
+        return liveProps
+          .filter(p => {
+            const key = `${p.player_name}::${p.prop_type}::${p.game_key}`;
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+          })
+          .map(p => ({
+            id: p.id,
+            game_id: p.game_key,
+            player_name: p.player_name,
+            market_key: p.prop_type || "",
+            line: p.line_value,
+            over_price: p.over_odds,
+            under_price: p.under_odds,
+          }));
+      }
+
+      // Fallback: player_props table
       const { data } = await supabase
         .from("player_props")
         .select("*")
@@ -177,7 +208,7 @@ export default function TrendsPage() {
       if (sampleSize === 0) {
         const direction: "over" | "under" = (prop.over_price ?? 0) < (prop.under_price ?? 0) ? "over" : "under";
         results.push({
-          id: prop.id, playerName: prop.player_name, teamAbbr: game.away_abbr,
+           id: String(prop.id), playerName: prop.player_name, teamAbbr: game.away_abbr,
           matchup: `${game.away_abbr} vs ${game.home_abbr}`, startTime: timeStr,
           insightText: `${prop.player_name} — ${propLabel} line at ${prop.line}.`,
           direction, propLabel, line: prop.line,
@@ -212,7 +243,7 @@ export default function TrendsPage() {
       if (hitRate < filters.hitRateMin) continue;
 
       results.push({
-        id: prop.id, playerName: prop.player_name, teamAbbr: game.away_abbr,
+        id: String(prop.id), playerName: prop.player_name, teamAbbr: game.away_abbr,
         matchup: `${game.away_abbr} vs ${game.home_abbr}`, startTime: timeStr,
         insightText: generateInsightText(prop.player_name, direction, prop.line, propLabel, hitCount, sampleSize, avg),
         direction, propLabel, line: prop.line,
@@ -434,31 +465,46 @@ export default function TrendsPage() {
                     {game.away_team} @ {game.home_team}
                   </div>
 
-                  {/* Player roster preview */}
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <p className="text-[10px] text-muted-foreground font-semibold mb-1">{game.away_abbr} Roster</p>
-                      <div className="space-y-0.5 max-h-24 overflow-y-auto">
-                        {away.length > 0 ? away.slice(0, 8).map(p => (
-                          <p key={p.id} className="text-[11px] text-foreground truncate">{p.name} <span className="text-muted-foreground">{p.position}</span></p>
-                        )) : <p className="text-[10px] text-muted-foreground italic">No roster data</p>}
-                        {away.length > 8 && <p className="text-[10px] text-muted-foreground">+{away.length - 8} more</p>}
+                  {/* Horizontal prop rail */}
+                  {(() => {
+                    const gameProps = (props || []).filter(p => p.game_id === game.id);
+                    if (gameProps.length === 0) return (
+                      <p className="text-[10px] text-muted-foreground italic text-center">No props available yet — tap Refresh Props to fetch</p>
+                    );
+                    // Group by player, take top 5 players by prop count
+                    const byPlayer = new Map<string, typeof gameProps>();
+                    for (const p of gameProps) {
+                      if (!byPlayer.has(p.player_name)) byPlayer.set(p.player_name, []);
+                      byPlayer.get(p.player_name)!.push(p);
+                    }
+                    const topPlayers = [...byPlayer.entries()]
+                      .sort((a, b) => b[1].length - a[1].length)
+                      .slice(0, 6);
+                    return (
+                      <div className="space-y-2">
+                        {topPlayers.map(([playerName, pProps]) => (
+                          <div key={playerName}>
+                            <p className="text-[10px] font-semibold text-primary mb-1 truncate">{playerName}</p>
+                            <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
+                              {pProps.slice(0, 6).map(p => {
+                                const label = getMarketShort(p.market_key);
+                                return (
+                                  <div key={String(p.id)} className="shrink-0 px-2 py-1 rounded-lg bg-secondary/60 border border-border/30 text-center min-w-[70px]">
+                                    <span className="text-[8px] font-bold text-muted-foreground uppercase block">{label}</span>
+                                    <span className="text-xs font-bold tabular-nums text-foreground block">{p.line ?? "—"}</span>
+                                    <div className="flex items-center justify-center gap-1 text-[8px] tabular-nums">
+                                      <span className="text-cosmic-green font-semibold">O {p.over_price != null ? (p.over_price > 0 ? `+${p.over_price}` : p.over_price) : "—"}</span>
+                                      <span className="text-cosmic-red font-semibold">U {p.under_price != null ? (p.under_price > 0 ? `+${p.under_price}` : p.under_price) : "—"}</span>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        ))}
                       </div>
-                    </div>
-                    <div>
-                      <p className="text-[10px] text-muted-foreground font-semibold mb-1">{game.home_abbr} Roster</p>
-                      <div className="space-y-0.5 max-h-24 overflow-y-auto">
-                        {home.length > 0 ? home.slice(0, 8).map(p => (
-                          <p key={p.id} className="text-[11px] text-foreground truncate">{p.name} <span className="text-muted-foreground">{p.position}</span></p>
-                        )) : <p className="text-[10px] text-muted-foreground italic">No roster data</p>}
-                        {home.length > 8 && <p className="text-[10px] text-muted-foreground">+{home.length - 8} more</p>}
-                      </div>
-                    </div>
-                  </div>
-
-                  {propCount === 0 && (
-                    <p className="text-[10px] text-muted-foreground italic text-center">No props available yet — tap Refresh Props to fetch</p>
-                  )}
+                    );
+                  })()}
                 </div>
               );
             })
