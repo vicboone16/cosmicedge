@@ -38,11 +38,11 @@ interface DashboardRow {
   status: string;
   win_prob_a: number;
   total_points: number;
-  p_s: number;
-  p_r: number;
-  ml_odds_a: number | null;
+  ps: number;
+  pr: number;
+  ml_a: number | null;
   spread_line: number | null;
-  spread_odds: number | null;
+  spread_a: number | null;
   total_line: number | null;
   over_odds: number | null;
   under_odds: number | null;
