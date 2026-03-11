@@ -286,122 +286,170 @@ Deno.serve(async (req) => {
       } catch (e) { console.error(`[bdl-backfill] Props error game ${gk}:`, e); }
       } // end skipProps guard
 
-      // Step 4: Fetch per-quarter player stats (Q1-Q4)
-      for (const period of [1, 2, 3, 4]) {
-        try {
-          const statsRes = await fetch(`${BDL_BASE}/v1/stats?game_ids[]=${bdlId}&per_page=100&periods[]=${period}`, { headers: hdrs });
-          if (statsRes.status === 429) {
-            console.warn(`[bdl-backfill] Rate limited on Q${period} stats, stopping`);
-            break;
-          }
-          if (!statsRes.ok) continue;
-          const statsData = await statsRes.json();
-          const playerStats: any[] = statsData.data || [];
-          if (playerStats.length === 0) continue;
+      // Step 4: Derive per-quarter player stats from PBP events
+      try {
+        const { data: pbpEvents } = await supabase
+          .from("nba_pbp_events")
+          .select("period, event_type, description, team_abbr, home_score, away_score")
+          .eq("game_key", gk)
+          .order("period")
+          .limit(2000);
 
-          const periodLabel = `Q${period}`;
-          const qRows: any[] = [];
+        if (pbpEvents && pbpEvents.length > 0) {
+          // Parse PBP descriptions to aggregate per-player per-quarter stats
+          const playerQStats = new Map<string, any>(); // key: "playerName|Q1"
 
-          for (const s of playerStats) {
-            const playerName = `${s.player?.first_name || ""} ${s.player?.last_name || ""}`.trim();
-            const teamAbbr = s.team?.abbreviation || null;
+          for (const ev of pbpEvents) {
+            const desc = ev.description || "";
+            const q = `Q${ev.period}`;
+            const team = ev.team_abbr || "";
 
-            // Resolve player to internal UUID
-            const { data: playerMatch } = await supabase
-              .from("players")
-              .select("id")
-              .ilike("name", playerName)
-              .limit(1)
-              .maybeSingle();
+            // Extract player name from description patterns
+            // "Player Name makes ..." / "Player Name misses ..." / "Player Name rebound" etc.
+            const nameMatch = desc.match(/^([A-Z][a-zA-Z'\-\.]+(?:\s+[A-Z][a-zA-Z'\-\.]+)+)/);
+            if (!nameMatch) continue;
+            const pName = nameMatch[1].trim();
 
-            if (!playerMatch?.id) {
-              console.warn(`[bdl-backfill] Q${period}: Could not resolve player '${playerName}'`);
-              continue;
+            const key = `${pName}|${q}`;
+            if (!playerQStats.has(key)) {
+              playerQStats.set(key, {
+                player_name: pName, period: q, team_abbr: team,
+                points: 0, rebounds: 0, assists: 0, steals: 0, blocks: 0, turnovers: 0,
+                fg_made: 0, fg_attempted: 0, three_made: 0, three_attempted: 0,
+                ft_made: 0, ft_attempted: 0, off_rebounds: 0, def_rebounds: 0, fouls: 0,
+              });
+            }
+            const s = playerQStats.get(key)!;
+            if (!s.team_abbr && team) s.team_abbr = team;
+
+            const descLower = desc.toLowerCase();
+
+            // Scoring
+            if (descLower.includes("makes")) {
+              if (descLower.includes("free throw")) {
+                s.points += 1; s.ft_made += 1; s.ft_attempted += 1;
+              } else if (descLower.includes("three point") || descLower.includes("3-pt")) {
+                s.points += 3; s.fg_made += 1; s.fg_attempted += 1; s.three_made += 1; s.three_attempted += 1;
+              } else {
+                s.points += 2; s.fg_made += 1; s.fg_attempted += 1;
+              }
+            } else if (descLower.includes("misses")) {
+              if (descLower.includes("free throw")) {
+                s.ft_attempted += 1;
+              } else if (descLower.includes("three point") || descLower.includes("3-pt")) {
+                s.fg_attempted += 1; s.three_attempted += 1;
+              } else {
+                s.fg_attempted += 1;
+              }
             }
 
+            // Rebounds
+            if (descLower.includes("offensive rebound")) { s.rebounds += 1; s.off_rebounds += 1; }
+            else if (descLower.includes("defensive rebound")) { s.rebounds += 1; s.def_rebounds += 1; }
+            else if (descLower.includes("rebound") && !descLower.includes("team")) { s.rebounds += 1; }
+
+            // Assists (from description like "Player makes shot (Assister assists)")
+            const assistMatch = desc.match(/\(([A-Z][a-zA-Z'\-\.]+(?:\s+[A-Z][a-zA-Z'\-\.]+)+)\s+assists?\)/);
+            if (assistMatch) {
+              const assisterName = assistMatch[1].trim();
+              const aKey = `${assisterName}|${q}`;
+              if (!playerQStats.has(aKey)) {
+                playerQStats.set(aKey, {
+                  player_name: assisterName, period: q, team_abbr: team,
+                  points: 0, rebounds: 0, assists: 0, steals: 0, blocks: 0, turnovers: 0,
+                  fg_made: 0, fg_attempted: 0, three_made: 0, three_attempted: 0,
+                  ft_made: 0, ft_attempted: 0, off_rebounds: 0, def_rebounds: 0, fouls: 0,
+                });
+              }
+              playerQStats.get(aKey)!.assists += 1;
+            }
+
+            // Steals
+            if (descLower.includes("steal")) s.steals += 1;
+            // Blocks
+            if (descLower.includes("block")) s.blocks += 1;
+            // Turnovers
+            if (descLower.includes("turnover") || descLower.includes("lost ball") || descLower.includes("bad pass")) s.turnovers += 1;
+            // Fouls
+            if (descLower.includes("foul")) s.fouls += 1;
+          }
+
+          // Resolve player names and upsert
+          const qRows: any[] = [];
+          const resolvedPlayers = new Map<string, string | null>();
+
+          for (const [, pStats] of playerQStats) {
+            // Skip players with no meaningful stats
+            if (pStats.points === 0 && pStats.rebounds === 0 && pStats.assists === 0 &&
+                pStats.steals === 0 && pStats.blocks === 0 && pStats.turnovers === 0) continue;
+
+            let playerId = resolvedPlayers.get(pStats.player_name);
+            if (playerId === undefined) {
+              const { data: match } = await supabase.from("players").select("id")
+                .ilike("name", pStats.player_name).limit(1).maybeSingle();
+              playerId = match?.id || null;
+              resolvedPlayers.set(pStats.player_name, playerId);
+            }
+            if (!playerId) continue;
+
             qRows.push({
-              game_id: gk,
-              player_id: playerMatch.id,
-              team_abbr: teamAbbr,
-              period: periodLabel,
-              points: s.pts ?? 0,
-              rebounds: s.reb ?? 0,
-              assists: s.ast ?? 0,
-              steals: s.stl ?? 0,
-              blocks: s.blk ?? 0,
-              turnovers: s.turnover ?? 0,
-              minutes: s.min ? parseInt(String(s.min), 10) : 0,
-              fg_made: s.fgm ?? 0,
-              fg_attempted: s.fga ?? 0,
-              three_made: s.fg3m ?? 0,
-              three_attempted: s.fg3a ?? 0,
-              ft_made: s.ftm ?? 0,
-              ft_attempted: s.fta ?? 0,
-              off_rebounds: s.oreb ?? 0,
-              def_rebounds: s.dreb ?? 0,
-              fouls: s.pf ?? 0,
+              game_id: gk, player_id: playerId, team_abbr: pStats.team_abbr, period: pStats.period,
+              points: pStats.points, rebounds: pStats.rebounds, assists: pStats.assists,
+              steals: pStats.steals, blocks: pStats.blocks, turnovers: pStats.turnovers,
+              fg_made: pStats.fg_made, fg_attempted: pStats.fg_attempted,
+              three_made: pStats.three_made, three_attempted: pStats.three_attempted,
+              ft_made: pStats.ft_made, ft_attempted: pStats.ft_attempted,
+              off_rebounds: pStats.off_rebounds, def_rebounds: pStats.def_rebounds,
+              fouls: pStats.fouls,
             });
           }
 
           if (qRows.length > 0) {
-            const { error: upsertErr } = await supabase
-              .from("player_game_stats")
-              .upsert(qRows, { onConflict: "game_id,player_id,period" });
-            if (upsertErr) {
-              console.error(`[bdl-backfill] Q${period} upsert error:`, upsertErr.message);
-            } else {
-              stats.quarter_stats += qRows.length;
-              console.log(`[bdl-backfill] ${qRows.length} ${periodLabel} stats for game ${gk}`);
+            for (let i = 0; i < qRows.length; i += 200) {
+              const chunk = qRows.slice(i, i + 200);
+              const { error: upsertErr } = await supabase
+                .from("player_game_stats")
+                .upsert(chunk, { onConflict: "game_id,player_id,period" });
+              if (upsertErr) console.error(`[bdl-backfill] Quarter stats upsert error:`, upsertErr.message);
+              else stats.quarter_stats += chunk.length;
             }
-          }
-        } catch (e) { console.error(`[bdl-backfill] Q${period} stats error game ${gk}:`, e); }
-      }
+            console.log(`[bdl-backfill] ${qRows.length} quarter stat rows from PBP for game ${gk}`);
 
-      // Auto-compute 1H (Q1+Q2) and 2H (Q3+Q4) aggregates
-      try {
-        for (const [halfLabel, quarters] of [["1H", ["Q1", "Q2"]], ["2H", ["Q3", "Q4"]]] as const) {
-          const { data: qData } = await supabase
-            .from("player_game_stats")
-            .select("*")
-            .eq("game_id", gk)
-            .in("period", quarters);
-
-          if (!qData || qData.length === 0) continue;
-
-          // Group by player_id
-          const byPlayer = new Map<string, any[]>();
-          for (const row of qData) {
-            const pid = row.player_id;
-            if (!byPlayer.has(pid)) byPlayer.set(pid, []);
-            byPlayer.get(pid)!.push(row);
-          }
-
-          const halfRows: any[] = [];
-          for (const [pid, rows] of byPlayer) {
-            if (rows.length < 2) continue;
-            const sum: any = {
-              game_id: gk, player_id: pid, team_abbr: rows[0].team_abbr, period: halfLabel,
-              points: 0, rebounds: 0, assists: 0, steals: 0, blocks: 0, turnovers: 0,
-              minutes: 0, fg_made: 0, fg_attempted: 0, three_made: 0, three_attempted: 0,
-              ft_made: 0, ft_attempted: 0, off_rebounds: 0, def_rebounds: 0, fouls: 0,
-            };
-            for (const q of rows) {
-              for (const k of ["points","rebounds","assists","steals","blocks","turnovers","minutes",
-                "fg_made","fg_attempted","three_made","three_attempted","ft_made","ft_attempted",
-                "off_rebounds","def_rebounds","fouls"]) {
-                sum[k] += q[k] ?? 0;
+            // Auto-compute 1H and 2H
+            for (const [halfLabel, quarters] of [["1H", ["Q1", "Q2"]], ["2H", ["Q3", "Q4"]]] as const) {
+              const halfRows: any[] = [];
+              const byPlayer = new Map<string, any[]>();
+              for (const r of qRows) {
+                if (!(quarters as readonly string[]).includes(r.period)) continue;
+                if (!byPlayer.has(r.player_id)) byPlayer.set(r.player_id, []);
+                byPlayer.get(r.player_id)!.push(r);
+              }
+              for (const [pid, rows] of byPlayer) {
+                if (rows.length < 2) continue;
+                const sum: any = {
+                  game_id: gk, player_id: pid, team_abbr: rows[0].team_abbr, period: halfLabel,
+                  points: 0, rebounds: 0, assists: 0, steals: 0, blocks: 0, turnovers: 0,
+                  fg_made: 0, fg_attempted: 0, three_made: 0, three_attempted: 0,
+                  ft_made: 0, ft_attempted: 0, off_rebounds: 0, def_rebounds: 0, fouls: 0,
+                };
+                for (const q of rows) {
+                  for (const k of ["points","rebounds","assists","steals","blocks","turnovers",
+                    "fg_made","fg_attempted","three_made","three_attempted","ft_made","ft_attempted",
+                    "off_rebounds","def_rebounds","fouls"]) {
+                    sum[k] += q[k] ?? 0;
+                  }
+                }
+                halfRows.push(sum);
+              }
+              if (halfRows.length > 0) {
+                await supabase.from("player_game_stats").upsert(halfRows, { onConflict: "game_id,player_id,period" });
+                stats.quarter_stats += halfRows.length;
+                console.log(`[bdl-backfill] ${halfRows.length} ${halfLabel} computed for game ${gk}`);
               }
             }
-            halfRows.push(sum);
-          }
-
-          if (halfRows.length > 0) {
-            await supabase.from("player_game_stats").upsert(halfRows, { onConflict: "game_id,player_id,period" });
-            stats.quarter_stats += halfRows.length;
-            console.log(`[bdl-backfill] ${halfRows.length} ${halfLabel} computed for game ${gk}`);
           }
         }
-      } catch (e) { console.error(`[bdl-backfill] Half computation error game ${gk}:`, e); }
+      } catch (e) { console.error(`[bdl-backfill] Quarter stats from PBP error game ${gk}:`, e); }
 
       // Small delay between games to avoid rate limits
       await new Promise(r => setTimeout(r, 500));
