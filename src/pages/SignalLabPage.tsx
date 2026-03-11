@@ -143,7 +143,7 @@ export default function SignalLabPage() {
           </div>
         ) : (
           cards.map((o: any) => (
-            <SignalCard key={o.id} overlay={o} tab={activeTab} onNavigate={() => navigate(`/game/${o.game_id}`)} />
+            <SignalCard key={o.id} overlay={o} tab={activeTab} onTap={() => openProp(o as TopProp)} />
           ))
         )}
       </div>
