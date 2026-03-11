@@ -112,7 +112,7 @@ async function handleBdlFormat(supabase: any, body: any, t0: number) {
       ft_attempted: s.fta ?? 0,
       off_rebounds: s.oreb ?? 0,
       def_rebounds: s.dreb ?? 0,
-      personal_fouls: s.pf ?? 0,
+      fouls: s.pf ?? 0,
     });
   }
 
