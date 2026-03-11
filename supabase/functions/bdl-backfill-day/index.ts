@@ -1,4 +1,4 @@
-// bdl-backfill-day — One-shot backfill: odds + PBP + props for today's final NBA games via BDL
+// bdl-backfill-day — One-shot backfill: odds + PBP + props + quarter stats for NBA games via BDL
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
@@ -35,13 +35,12 @@ Deno.serve(async (req) => {
 
     const url = new URL(req.url);
     const targetDate = url.searchParams.get("date") || new Date().toISOString().split("T")[0];
-    const singleGameId = url.searchParams.get("game_id"); // optional: process only one game
+    const singleGameId = url.searchParams.get("game_id");
     const skipOdds = url.searchParams.get("skip_odds") === "1";
     const skipPbp = url.searchParams.get("skip_pbp") === "1";
     const skipProps = url.searchParams.get("skip_props") === "1";
-    const onlyQuarters = url.searchParams.get("only_quarters") === "1"; // fetch only quarter stats
+    const onlyQuarters = url.searchParams.get("only_quarters") === "1";
 
-    // Find NBA games for this date (using UTC date ± 1 day window)
     const d = new Date(targetDate + "T00:00:00Z");
     const dayBefore = new Date(d.getTime() - 86400000).toISOString().split("T")[0];
     const dayAfter = new Date(d.getTime() + 86400000).toISOString().split("T")[0];
@@ -68,11 +67,10 @@ Deno.serve(async (req) => {
     console.log(`[bdl-backfill] ${dbGames.length} games around ${targetDate}`);
     const stats = { games: dbGames.length, odds: 0, plays: 0, props: 0, mapped: 0, quarter_stats: 0 };
 
-    // Step 1: Resolve BDL IDs (try both dates)
+    // Step 1: Resolve BDL IDs
     const gameMap = new Map<string, { dbGame: typeof dbGames[0]; bdlId: number }>();
 
     for (const game of dbGames) {
-      // Check existing mapping
       const { data: mapped } = await supabase.from("provider_game_map")
         .select("provider_game_id").eq("game_key", game.id).eq("provider", "balldontlie").maybeSingle();
 
@@ -81,7 +79,6 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      // Search BDL with multiple date candidates
       const gameDate = game.start_time.split("T")[0];
       const prevDate = new Date(new Date(gameDate + "T00:00:00Z").getTime() - 86400000).toISOString().split("T")[0];
 
@@ -133,7 +130,6 @@ Deno.serve(async (req) => {
             const vendor = item.vendor || "unknown";
             const now = new Date().toISOString();
 
-            // BDL v2 flat format
             if (item.moneyline_home_odds != null) {
               await supabase.from("nba_game_odds").upsert({
                 game_key: gk, provider: "balldontlie", vendor, market: "moneyline",
@@ -163,7 +159,6 @@ Deno.serve(async (req) => {
               stats.odds++;
             }
 
-            // Nested bookmakers fallback
             for (const book of (item.bookmakers || [])) {
               const bkVendor = book.name || book.key || "unknown";
               for (const mkt of (book.markets || [])) {
@@ -193,263 +188,228 @@ Deno.serve(async (req) => {
     for (const [gk, { bdlId }] of gameMap) {
       // PBP
       if (!skipPbp && !onlyQuarters) {
-      try {
-        const pbpRes = await fetch(`${BDL_BASE}/v1/plays?game_id=${bdlId}`, { headers: hdrs });
-        if (pbpRes.ok) {
-          const pbpData = await pbpRes.json();
-          const plays: any[] = pbpData.data || [];
-          const rows = plays.map((play: any) => ({
-            game_key: gk, provider: "balldontlie", provider_game_id: String(bdlId),
-            provider_event_id: String(play.id || `${play.period}-${play.clock}-${(play.description||"").slice(0,20)}`),
-            period: play.period ?? 1,
-            event_ts_game: play.clock ?? play.time ?? null,
-            event_type: play.type ?? play.event_type ?? null,
-            description: play.text ?? play.description ?? null,
-            team_abbr: play.team?.abbreviation ?? null,
-            player_id: play.player?.id ? String(play.player.id) : null,
-            player_name: play.player ? `${play.player.first_name || ""} ${play.player.last_name || ""}`.trim() : null,
-            home_score: play.home_score ?? null,
-            away_score: play.away_score ?? null,
-            raw: play,
-          }));
-          for (let i = 0; i < rows.length; i += 100) {
-            const chunk = rows.slice(i, i + 100);
-            await supabase.from("nba_pbp_events").upsert(chunk, { onConflict: "game_key,provider,provider_event_id" });
+        try {
+          const pbpRes = await fetch(`${BDL_BASE}/v1/plays?game_id=${bdlId}`, { headers: hdrs });
+          if (pbpRes.ok) {
+            const pbpData = await pbpRes.json();
+            const plays: any[] = pbpData.data || [];
+            const rows = plays.map((play: any) => ({
+              game_key: gk, provider: "balldontlie", provider_game_id: String(bdlId),
+              provider_event_id: String(play.id || `${play.period}-${play.clock}-${(play.description||"").slice(0,20)}`),
+              period: play.period ?? 1,
+              event_ts_game: play.clock ?? play.time ?? null,
+              event_type: play.type ?? play.event_type ?? null,
+              description: play.text ?? play.description ?? null,
+              team_abbr: play.team?.abbreviation ?? null,
+              player_id: play.player?.id ? String(play.player.id) : null,
+              player_name: play.player ? `${play.player.first_name || ""} ${play.player.last_name || ""}`.trim() : null,
+              home_score: play.home_score ?? null,
+              away_score: play.away_score ?? null,
+              raw: play,
+            }));
+            for (let i = 0; i < rows.length; i += 100) {
+              const chunk = rows.slice(i, i + 100);
+              await supabase.from("nba_pbp_events").upsert(chunk, { onConflict: "game_key,provider,provider_event_id" });
+            }
+            stats.plays += rows.length;
+            console.log(`[bdl-backfill] ${rows.length} PBP events for game ${gk}`);
+          } else if (pbpRes.status === 429) {
+            console.warn("[bdl-backfill] Rate limited on PBP, stopping");
+            break;
           }
-          stats.plays += rows.length;
-          console.log(`[bdl-backfill] ${rows.length} PBP events for game ${gk}`);
-        } else if (pbpRes.status === 429) {
-          console.warn("[bdl-backfill] Rate limited on PBP, stopping");
-          break;
-        }
-      } catch (e) { console.error(`[bdl-backfill] PBP error game ${gk}:`, e); }
-      } // end skipPbp guard
+        } catch (e) { console.error(`[bdl-backfill] PBP error game ${gk}:`, e); }
+      }
 
       // Player Props
       if (!skipProps && !onlyQuarters) {
-      try {
-        const propsRes = await fetch(`${BDL_BASE}/v2/odds/player_props?game_id=${bdlId}`, { headers: hdrs });
-        if (propsRes.ok) {
-          const propsData = await propsRes.json();
-          const propItems: any[] = propsData.data || [];
+        try {
+          const propsRes = await fetch(`${BDL_BASE}/v2/odds/player_props?game_id=${bdlId}`, { headers: hdrs });
+          if (propsRes.ok) {
+            const propsData = await propsRes.json();
+            const propItems: any[] = propsData.data || [];
 
-          for (const prop of propItems) {
-            const player = prop.player;
-            const playerId = player?.id ? String(player.id) : "unknown";
-            const playerName = player ? `${player.first_name || ""} ${player.last_name || ""}`.trim() : null;
+            for (const prop of propItems) {
+              const player = prop.player;
+              const playerId = player?.id ? String(player.id) : "unknown";
+              const playerName = player ? `${player.first_name || ""} ${player.last_name || ""}`.trim() : null;
 
-            // BDL v2 flat props (pts, reb, ast at root level)
-            const flatKeys = ["pts", "reb", "ast", "fg3m", "blk", "stl", "turnover", "pra", "pr", "pa", "ra", "dd", "td", "fgm"];
-            for (const fk of flatKeys) {
-              const overKey = `${fk}_over_odds`;
-              const underKey = `${fk}_under_odds`;
-              const lineKey = `${fk}_line`;
-              if (prop[overKey] != null || prop[underKey] != null || prop[lineKey] != null) {
-                const mktKey = bdlPropToMarketKey(fk);
-                const line = prop[lineKey] != null ? Number(prop[lineKey]) : 0;
-                await supabase.from("nba_player_props_live").upsert({
-                  game_key: gk, provider: "balldontlie", vendor: "balldontlie",
-                  player_id: playerId, player_name: playerName,
-                  prop_type: mktKey, line_value: line, market_type: "over_under",
-                  over_odds: prop[overKey] ?? null, under_odds: prop[underKey] ?? null,
-                  raw: prop, updated_at: new Date().toISOString(),
-                }, { onConflict: "game_key,provider,vendor,player_id,prop_type,line_value,market_type" });
-                stats.props++;
+              const flatKeys = ["pts", "reb", "ast", "fg3m", "blk", "stl", "turnover", "pra", "pr", "pa", "ra", "dd", "td", "fgm"];
+              for (const fk of flatKeys) {
+                const overKey = `${fk}_over_odds`;
+                const underKey = `${fk}_under_odds`;
+                const lineKey = `${fk}_line`;
+                if (prop[overKey] != null || prop[underKey] != null || prop[lineKey] != null) {
+                  const mktKey = bdlPropToMarketKey(fk);
+                  const line = prop[lineKey] != null ? Number(prop[lineKey]) : 0;
+                  await supabase.from("nba_player_props_live").upsert({
+                    game_key: gk, provider: "balldontlie", vendor: "balldontlie",
+                    player_id: playerId, player_name: playerName,
+                    prop_type: mktKey, line_value: line, market_type: "over_under",
+                    over_odds: prop[overKey] ?? null, under_odds: prop[underKey] ?? null,
+                    raw: prop, updated_at: new Date().toISOString(),
+                  }, { onConflict: "game_key,provider,vendor,player_id,prop_type,line_value,market_type" });
+                  stats.props++;
+                }
+              }
+
+              for (const book of (prop.bookmakers || [])) {
+                const vendor = book.name || book.key || "unknown";
+                for (const mkt of (book.markets || [])) {
+                  const propType = bdlPropToMarketKey(mkt.key || mkt.name || "unknown");
+                  const outcomes = mkt.outcomes || [];
+                  const over = outcomes.find((x: any) => x.name === "Over");
+                  const under = outcomes.find((x: any) => x.name === "Under");
+                  const line = over?.point ?? under?.point ?? 0;
+                  await supabase.from("nba_player_props_live").upsert({
+                    game_key: gk, provider: "balldontlie", vendor,
+                    player_id: playerId, player_name: playerName,
+                    prop_type: propType, line_value: Number(line), market_type: "over_under",
+                    over_odds: over?.price ?? null, under_odds: under?.price ?? null,
+                    raw: mkt, updated_at: new Date().toISOString(),
+                  }, { onConflict: "game_key,provider,vendor,player_id,prop_type,line_value,market_type" });
+                  stats.props++;
+                }
               }
             }
-
-            // Nested bookmakers format
-            for (const book of (prop.bookmakers || [])) {
-              const vendor = book.name || book.key || "unknown";
-              for (const mkt of (book.markets || [])) {
-                const propType = bdlPropToMarketKey(mkt.key || mkt.name || "unknown");
-                const outcomes = mkt.outcomes || [];
-                const over = outcomes.find((x: any) => x.name === "Over");
-                const under = outcomes.find((x: any) => x.name === "Under");
-                const line = over?.point ?? under?.point ?? 0;
-                await supabase.from("nba_player_props_live").upsert({
-                  game_key: gk, provider: "balldontlie", vendor,
-                  player_id: playerId, player_name: playerName,
-                  prop_type: propType, line_value: Number(line), market_type: "over_under",
-                  over_odds: over?.price ?? null, under_odds: under?.price ?? null,
-                  raw: mkt, updated_at: new Date().toISOString(),
-                }, { onConflict: "game_key,provider,vendor,player_id,prop_type,line_value,market_type" });
-                stats.props++;
-              }
-            }
+            console.log(`[bdl-backfill] Props for game ${gk}: ${propItems.length} players`);
+          } else if (propsRes.status === 429) {
+            console.warn("[bdl-backfill] Rate limited on props, stopping");
+            break;
           }
-          console.log(`[bdl-backfill] Props for game ${gk}: ${propItems.length} players`);
-        } else if (propsRes.status === 429) {
-          console.warn("[bdl-backfill] Rate limited on props, stopping");
-          break;
-        }
-      } catch (e) { console.error(`[bdl-backfill] Props error game ${gk}:`, e); }
-      } // end skipProps guard
+        } catch (e) { console.error(`[bdl-backfill] Props error game ${gk}:`, e); }
+      }
 
-      // Step 4: Derive per-quarter player stats from PBP events
+      // Step 4: Fetch box scores for per-quarter player stats
       try {
-        const { data: pbpEvents } = await supabase
-          .from("nba_pbp_events")
-          .select("period, event_type, description, team_abbr, home_score, away_score")
-          .eq("game_key", gk)
-          .order("period")
-          .limit(2000);
+        // Try BDL box_scores endpoint (GOAT/ALL-STAR tier)
+        const bsRes = await fetch(`${BDL_BASE}/v1/box_scores?game_ids[]=${bdlId}`, { headers: hdrs });
+        
+        if (bsRes.ok) {
+          const bsData = await bsRes.json();
+          const boxScores: any[] = bsData.data || [];
+          
+          if (boxScores.length > 0) {
+            const bs = boxScores[0];
+            // Box score has home_team_stats and away_team_stats with per-player per-period data
+            const allPlayerStats = [
+              ...(bs.home_team?.players || bs.home_team_stats || []),
+              ...(bs.away_team?.players || bs.away_team_stats || []),
+            ];
 
-        if (pbpEvents && pbpEvents.length > 0) {
-          // Parse PBP descriptions to aggregate per-player per-quarter stats
-          const playerQStats = new Map<string, any>(); // key: "playerName|Q1"
+            // If box score has period-level data, use it
+            let hasPerPeriod = false;
+            const resolvedPlayers = new Map<string, string | null>();
+            const qRows: any[] = [];
 
-          for (const ev of pbpEvents) {
-            const desc = ev.description || "";
-            const q = `Q${ev.period}`;
-            const team = ev.team_abbr || "";
+            for (const ps of allPlayerStats) {
+              // Check if player has quarters array or period stats
+              const quarters = ps.quarters || ps.periods || ps.period_stats;
+              if (!quarters || !Array.isArray(quarters)) continue;
+              hasPerPeriod = true;
 
-            // Extract player name from description patterns
-            // "Player Name makes ..." / "Player Name misses ..." / "Player Name rebound" etc.
-            const nameMatch = desc.match(/^([A-Z][a-zA-Z'\-\.]+(?:\s+[A-Z][a-zA-Z'\-\.]+)+)/);
-            if (!nameMatch) continue;
-            const pName = nameMatch[1].trim();
+              const playerName = ps.player ? `${ps.player.first_name || ""} ${ps.player.last_name || ""}`.trim()
+                : (ps.first_name ? `${ps.first_name} ${ps.last_name}`.trim() : null);
+              if (!playerName) continue;
+              const teamAbbr = ps.team?.abbreviation || ps.team_abbr || null;
 
-            const key = `${pName}|${q}`;
-            if (!playerQStats.has(key)) {
-              playerQStats.set(key, {
-                player_name: pName, period: q, team_abbr: team,
-                points: 0, rebounds: 0, assists: 0, steals: 0, blocks: 0, turnovers: 0,
-                fg_made: 0, fg_attempted: 0, three_made: 0, three_attempted: 0,
-                ft_made: 0, ft_attempted: 0, off_rebounds: 0, def_rebounds: 0, fouls: 0,
-              });
-            }
-            const s = playerQStats.get(key)!;
-            if (!s.team_abbr && team) s.team_abbr = team;
-
-            const descLower = desc.toLowerCase();
-
-            // Scoring
-            if (descLower.includes("makes")) {
-              if (descLower.includes("free throw")) {
-                s.points += 1; s.ft_made += 1; s.ft_attempted += 1;
-              } else if (descLower.includes("three point") || descLower.includes("3-pt")) {
-                s.points += 3; s.fg_made += 1; s.fg_attempted += 1; s.three_made += 1; s.three_attempted += 1;
-              } else {
-                s.points += 2; s.fg_made += 1; s.fg_attempted += 1;
+              let playerId = resolvedPlayers.get(playerName);
+              if (playerId === undefined) {
+                const { data: match } = await supabase.from("players").select("id")
+                  .ilike("name", playerName).limit(1).maybeSingle();
+                playerId = match?.id || null;
+                resolvedPlayers.set(playerName, playerId);
               }
-            } else if (descLower.includes("misses")) {
-              if (descLower.includes("free throw")) {
-                s.ft_attempted += 1;
-              } else if (descLower.includes("three point") || descLower.includes("3-pt")) {
-                s.fg_attempted += 1; s.three_attempted += 1;
-              } else {
-                s.fg_attempted += 1;
-              }
-            }
+              if (!playerId) continue;
 
-            // Rebounds
-            if (descLower.includes("offensive rebound")) { s.rebounds += 1; s.off_rebounds += 1; }
-            else if (descLower.includes("defensive rebound")) { s.rebounds += 1; s.def_rebounds += 1; }
-            else if (descLower.includes("rebound") && !descLower.includes("team")) { s.rebounds += 1; }
+              for (const q of quarters) {
+                const period = q.period || q.quarter;
+                if (!period) continue;
+                const periodLabel = typeof period === "number" ? `Q${period}` : period;
 
-            // Assists (from description like "Player makes shot (Assister assists)")
-            const assistMatch = desc.match(/\(([A-Z][a-zA-Z'\-\.]+(?:\s+[A-Z][a-zA-Z'\-\.]+)+)\s+assists?\)/);
-            if (assistMatch) {
-              const assisterName = assistMatch[1].trim();
-              const aKey = `${assisterName}|${q}`;
-              if (!playerQStats.has(aKey)) {
-                playerQStats.set(aKey, {
-                  player_name: assisterName, period: q, team_abbr: team,
-                  points: 0, rebounds: 0, assists: 0, steals: 0, blocks: 0, turnovers: 0,
-                  fg_made: 0, fg_attempted: 0, three_made: 0, three_attempted: 0,
-                  ft_made: 0, ft_attempted: 0, off_rebounds: 0, def_rebounds: 0, fouls: 0,
+                qRows.push({
+                  game_id: gk, player_id: playerId, team_abbr: teamAbbr, period: periodLabel,
+                  points: q.pts ?? q.points ?? 0,
+                  rebounds: q.reb ?? q.rebounds ?? 0,
+                  assists: q.ast ?? q.assists ?? 0,
+                  steals: q.stl ?? q.steals ?? 0,
+                  blocks: q.blk ?? q.blocks ?? 0,
+                  turnovers: q.turnover ?? q.turnovers ?? q.tov ?? 0,
+                  minutes: q.min ? parseInt(String(q.min), 10) : 0,
+                  fg_made: q.fgm ?? q.fg_made ?? 0,
+                  fg_attempted: q.fga ?? q.fg_attempted ?? 0,
+                  three_made: q.fg3m ?? q.three_made ?? 0,
+                  three_attempted: q.fg3a ?? q.three_attempted ?? 0,
+                  ft_made: q.ftm ?? q.ft_made ?? 0,
+                  ft_attempted: q.fta ?? q.ft_attempted ?? 0,
+                  off_rebounds: q.oreb ?? q.off_rebounds ?? 0,
+                  def_rebounds: q.dreb ?? q.def_rebounds ?? 0,
+                  fouls: q.pf ?? q.fouls ?? 0,
                 });
               }
-              playerQStats.get(aKey)!.assists += 1;
             }
 
-            // Steals
-            if (descLower.includes("steal")) s.steals += 1;
-            // Blocks
-            if (descLower.includes("block")) s.blocks += 1;
-            // Turnovers
-            if (descLower.includes("turnover") || descLower.includes("lost ball") || descLower.includes("bad pass")) s.turnovers += 1;
-            // Fouls
-            if (descLower.includes("foul")) s.fouls += 1;
-          }
-
-          // Resolve player names and upsert
-          const qRows: any[] = [];
-          const resolvedPlayers = new Map<string, string | null>();
-
-          for (const [, pStats] of playerQStats) {
-            // Skip players with no meaningful stats
-            if (pStats.points === 0 && pStats.rebounds === 0 && pStats.assists === 0 &&
-                pStats.steals === 0 && pStats.blocks === 0 && pStats.turnovers === 0) continue;
-
-            let playerId = resolvedPlayers.get(pStats.player_name);
-            if (playerId === undefined) {
-              const { data: match } = await supabase.from("players").select("id")
-                .ilike("name", pStats.player_name).limit(1).maybeSingle();
-              playerId = match?.id || null;
-              resolvedPlayers.set(pStats.player_name, playerId);
-            }
-            if (!playerId) continue;
-
-            qRows.push({
-              game_id: gk, player_id: playerId, team_abbr: pStats.team_abbr, period: pStats.period,
-              points: pStats.points, rebounds: pStats.rebounds, assists: pStats.assists,
-              steals: pStats.steals, blocks: pStats.blocks, turnovers: pStats.turnovers,
-              fg_made: pStats.fg_made, fg_attempted: pStats.fg_attempted,
-              three_made: pStats.three_made, three_attempted: pStats.three_attempted,
-              ft_made: pStats.ft_made, ft_attempted: pStats.ft_attempted,
-              off_rebounds: pStats.off_rebounds, def_rebounds: pStats.def_rebounds,
-              fouls: pStats.fouls,
-            });
-          }
-
-          if (qRows.length > 0) {
-            for (let i = 0; i < qRows.length; i += 200) {
-              const chunk = qRows.slice(i, i + 200);
-              const { error: upsertErr } = await supabase
-                .from("player_game_stats")
-                .upsert(chunk, { onConflict: "game_id,player_id,period" });
-              if (upsertErr) console.error(`[bdl-backfill] Quarter stats upsert error:`, upsertErr.message);
-              else stats.quarter_stats += chunk.length;
-            }
-            console.log(`[bdl-backfill] ${qRows.length} quarter stat rows from PBP for game ${gk}`);
-
-            // Auto-compute 1H and 2H
-            for (const [halfLabel, quarters] of [["1H", ["Q1", "Q2"]], ["2H", ["Q3", "Q4"]]] as const) {
-              const halfRows: any[] = [];
-              const byPlayer = new Map<string, any[]>();
-              for (const r of qRows) {
-                if (!(quarters as readonly string[]).includes(r.period)) continue;
-                if (!byPlayer.has(r.player_id)) byPlayer.set(r.player_id, []);
-                byPlayer.get(r.player_id)!.push(r);
+            if (hasPerPeriod && qRows.length > 0) {
+              for (let i = 0; i < qRows.length; i += 200) {
+                const chunk = qRows.slice(i, i + 200);
+                const { error: upsertErr } = await supabase
+                  .from("player_game_stats")
+                  .upsert(chunk, { onConflict: "game_id,player_id,period" });
+                if (upsertErr) console.error(`[bdl-backfill] Box score quarter stats upsert error:`, upsertErr.message);
+                else stats.quarter_stats += chunk.length;
               }
-              for (const [pid, rows] of byPlayer) {
-                if (rows.length < 2) continue;
-                const sum: any = {
-                  game_id: gk, player_id: pid, team_abbr: rows[0].team_abbr, period: halfLabel,
-                  points: 0, rebounds: 0, assists: 0, steals: 0, blocks: 0, turnovers: 0,
-                  fg_made: 0, fg_attempted: 0, three_made: 0, three_attempted: 0,
-                  ft_made: 0, ft_attempted: 0, off_rebounds: 0, def_rebounds: 0, fouls: 0,
-                };
-                for (const q of rows) {
-                  for (const k of ["points","rebounds","assists","steals","blocks","turnovers",
-                    "fg_made","fg_attempted","three_made","three_attempted","ft_made","ft_attempted",
-                    "off_rebounds","def_rebounds","fouls"]) {
-                    sum[k] += q[k] ?? 0;
-                  }
+              console.log(`[bdl-backfill] ${qRows.length} quarter stats from box score for game ${gk}`);
+
+              // Auto-compute 1H and 2H
+              for (const [halfLabel, quarters] of [["1H", ["Q1", "Q2"]], ["2H", ["Q3", "Q4"]]] as const) {
+                const byPlayer = new Map<string, any[]>();
+                for (const r of qRows) {
+                  if (!(quarters as readonly string[]).includes(r.period)) continue;
+                  if (!byPlayer.has(r.player_id)) byPlayer.set(r.player_id, []);
+                  byPlayer.get(r.player_id)!.push(r);
                 }
-                halfRows.push(sum);
+                const halfRows: any[] = [];
+                for (const [pid, rows] of byPlayer) {
+                  if (rows.length < 2) continue;
+                  const sum: any = {
+                    game_id: gk, player_id: pid, team_abbr: rows[0].team_abbr, period: halfLabel,
+                    points: 0, rebounds: 0, assists: 0, steals: 0, blocks: 0, turnovers: 0,
+                    fg_made: 0, fg_attempted: 0, three_made: 0, three_attempted: 0,
+                    ft_made: 0, ft_attempted: 0, off_rebounds: 0, def_rebounds: 0, fouls: 0,
+                  };
+                  for (const q of rows) {
+                    for (const k of ["points","rebounds","assists","steals","blocks","turnovers",
+                      "fg_made","fg_attempted","three_made","three_attempted","ft_made","ft_attempted",
+                      "off_rebounds","def_rebounds","fouls"]) {
+                      sum[k] += q[k] ?? 0;
+                    }
+                  }
+                  halfRows.push(sum);
+                }
+                if (halfRows.length > 0) {
+                  await supabase.from("player_game_stats").upsert(halfRows, { onConflict: "game_id,player_id,period" });
+                  stats.quarter_stats += halfRows.length;
+                  console.log(`[bdl-backfill] ${halfRows.length} ${halfLabel} computed for game ${gk}`);
+                }
               }
-              if (halfRows.length > 0) {
-                await supabase.from("player_game_stats").upsert(halfRows, { onConflict: "game_id,player_id,period" });
-                stats.quarter_stats += halfRows.length;
-                console.log(`[bdl-backfill] ${halfRows.length} ${halfLabel} computed for game ${gk}`);
+            } else {
+              console.log(`[bdl-backfill] Box score available but no per-period player data for game ${gk}`);
+              // Log what structure we got for debugging
+              if (allPlayerStats.length > 0) {
+                console.log(`[bdl-backfill] Sample player keys: ${JSON.stringify(Object.keys(allPlayerStats[0]))}`);
+              } else {
+                console.log(`[bdl-backfill] Box score keys: ${JSON.stringify(Object.keys(bs))}`);
               }
             }
           }
+        } else if (bsRes.status === 402 || bsRes.status === 403) {
+          console.log(`[bdl-backfill] Box scores not available on current BDL tier (${bsRes.status})`);
+        } else if (bsRes.status === 429) {
+          console.warn("[bdl-backfill] Rate limited on box scores, stopping");
+          break;
+        } else {
+          console.warn(`[bdl-backfill] Box scores returned ${bsRes.status}`);
         }
-      } catch (e) { console.error(`[bdl-backfill] Quarter stats from PBP error game ${gk}:`, e); }
+      } catch (e) { console.error(`[bdl-backfill] Box score error game ${gk}:`, e); }
 
       // Small delay between games to avoid rate limits
       await new Promise(r => setTimeout(r, 500));
