@@ -7902,6 +7902,7 @@ export type Database = {
         Returns: number
       }
       rebuild_nba_standings: { Args: { p_season?: number }; Returns: number }
+      refresh_game_live_wp: { Args: { p_game_id: string }; Returns: undefined }
       safe_delete_game: { Args: { p_game_id: string }; Returns: Json }
       safe_delete_player: { Args: { p_player_id: string }; Returns: Json }
       search_players_unaccent: {
