@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, lazy, Suspense } from "react";
 import { cn } from "@/lib/utils";
-import { Cpu, FlaskConical, BarChart3, Save, SlidersHorizontal, ToggleLeft, Play, Copy, Sparkles } from "lucide-react";
+import { Cpu, FlaskConical, BarChart3, Save, SlidersHorizontal, ToggleLeft, Play, Copy, Sparkles, Bug, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
@@ -9,11 +9,14 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 
+const AstraComputeDebug = lazy(() => import("@/components/astra/AstraComputeDebug"));
+
 const MACHINA_TABS = [
   { key: "model-lab", label: "Model Lab", icon: SlidersHorizontal },
   { key: "formula-sandbox", label: "Formula Sandbox", icon: FlaskConical },
   { key: "backtest", label: "Backtest Console", icon: BarChart3 },
   { key: "saved", label: "Saved Models", icon: Save },
+  { key: "compute-debug", label: "Compute Debug", icon: Bug },
 ] as const;
 
 type MachinaTab = typeof MACHINA_TABS[number]["key"];
