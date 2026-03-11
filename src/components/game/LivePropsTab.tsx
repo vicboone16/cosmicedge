@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
-import { Zap, TrendingUp, TrendingDown, ChevronDown, ChevronUp, Plus } from "lucide-react";
+import { Zap, TrendingUp, TrendingDown, Plus } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { getPropLabel, getEdgeTier, type TopProp } from "@/hooks/use-top-props";
 import { usePropDrawer } from "@/hooks/use-prop-drawer";
@@ -11,9 +11,9 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/use-auth";
+import { PlayerPropCarousel, type CarouselProp } from "@/components/props/PlayerPropCarousel";
 
 interface Props {
   gameId: string;
@@ -193,82 +193,8 @@ function AddToSkySpreadSheet({ open, onOpenChange, prop, gameId }: AddToSkySprea
   );
 }
 
-// ─── Expandable Prop Row ───
-interface PropRowProps {
-  group: PropGroup;
-  onAddToSkySpread: (prop: RawLiveProp) => void;
-  onPlayerClick: (playerId: string, playerName: string) => void;
-}
+// PropGroupRow kept for overlay model view alt-lines (not used in carousel fallback)
 
-function PropGroupRow({ group, onAddToSkySpread, onPlayerClick }: PropRowProps) {
-  const [expanded, setExpanded] = useState(false);
-  const propLabel = getPropLabel(group.propType);
-  const hasAlts = group.alts.length > 0;
-
-  return (
-    <div className="space-y-0">
-      {/* Best line row */}
-      <button
-        className="w-full cosmic-card rounded-lg px-3 py-2.5 flex items-center justify-between hover:bg-secondary/30 transition-colors"
-        onClick={() => hasAlts && setExpanded(!expanded)}
-      >
-        <div className="flex items-center gap-2 min-w-0">
-          <span className="text-[10px] font-bold text-muted-foreground uppercase w-8 shrink-0">{propLabel}</span>
-          <span className="text-sm font-bold tabular-nums">{group.best.line_value}</span>
-          {hasAlts && (
-            expanded
-              ? <ChevronUp className="h-3 w-3 text-muted-foreground" />
-              : <ChevronDown className="h-3 w-3 text-muted-foreground" />
-          )}
-        </div>
-        <div className="flex items-center gap-2 text-[10px] tabular-nums shrink-0">
-          <span className="flex items-center gap-0.5 text-cosmic-green font-semibold">
-            <TrendingUp className="h-3 w-3" />
-            O {formatOdds(group.best.over_odds)}
-          </span>
-          <span className="flex items-center gap-0.5 text-cosmic-red font-semibold">
-            <TrendingDown className="h-3 w-3" />
-            U {formatOdds(group.best.under_odds)}
-          </span>
-          <span className="text-[8px] text-muted-foreground w-16 text-right truncate">{group.best.vendor}</span>
-          <button
-            onClick={(e) => { e.stopPropagation(); onAddToSkySpread(group.best); }}
-            className="ml-1 h-5 w-5 rounded-full bg-primary/10 text-primary flex items-center justify-center hover:bg-primary/20 transition-colors"
-            title="Add to SkySpread"
-          >
-            <Plus className="h-3 w-3" />
-          </button>
-        </div>
-      </button>
-
-      {/* Alt lines (expanded) */}
-      {expanded && group.alts.length > 0 && (
-        <div className="ml-4 border-l border-border/50 pl-3 space-y-0.5 py-1">
-          {group.alts.map((alt) => (
-            <div key={alt.id} className="flex items-center justify-between px-2 py-1.5 rounded-md hover:bg-secondary/20 transition-colors">
-              <div className="flex items-center gap-2 min-w-0">
-                <span className="text-[10px] font-bold text-muted-foreground uppercase w-8 shrink-0">{propLabel}</span>
-                <span className="text-xs font-semibold tabular-nums">{alt.line_value}</span>
-              </div>
-              <div className="flex items-center gap-2 text-[10px] tabular-nums shrink-0">
-                <span className="text-cosmic-green font-semibold">O {formatOdds(alt.over_odds)}</span>
-                <span className="text-cosmic-red font-semibold">U {formatOdds(alt.under_odds)}</span>
-                <span className="text-[8px] text-muted-foreground w-16 text-right truncate">{alt.vendor}</span>
-                <button
-                  onClick={() => onAddToSkySpread(alt)}
-                  className="ml-1 h-5 w-5 rounded-full bg-primary/10 text-primary flex items-center justify-center hover:bg-primary/20 transition-colors"
-                  title="Add to SkySpread"
-                >
-                  <Plus className="h-3 w-3" />
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
 
 // ─── Main Component ───
 export function LivePropsTab({ gameId, homeAbbr, awayAbbr, isLive }: Props) {
@@ -365,8 +291,19 @@ export function LivePropsTab({ gameId, homeAbbr, awayAbbr, isLive }: Props) {
     return perPlayer;
   }, [rawProps]);
 
-  const handleAddToSkySpread = useCallback((prop: RawLiveProp) => {
-    setSelectedProp(prop);
+  const handleAddToSkySpread = useCallback((prop: RawLiveProp | CarouselProp) => {
+    // Normalize to RawLiveProp for the sheet
+    const raw: RawLiveProp = 'line_value' in prop ? prop as RawLiveProp : {
+      id: prop.id,
+      player_name: prop.player_name,
+      player_id: prop.player_id,
+      prop_type: prop.prop_type,
+      line_value: prop.line ?? 0,
+      over_odds: prop.over_odds,
+      under_odds: prop.under_odds,
+      vendor: prop.vendor || "",
+    };
+    setSelectedProp(raw);
     setSkySpreadOpen(true);
   }, []);
 
@@ -486,9 +423,27 @@ export function LivePropsTab({ gameId, homeAbbr, awayAbbr, isLive }: Props) {
     );
   }
 
-  // Fallback: show raw live props grouped by player with best-odds + expandable alts
+  // Fallback: show raw live props grouped by player as horizontal carousels
   if (playerGroups.size > 0) {
     const totalProps = rawProps?.length ?? 0;
+
+    // Convert grouped props to CarouselProp format per player
+    const playerCarousels = [...playerGroups.entries()].map(([playerName, groups]) => {
+      const playerId = groups[0]?.playerId;
+      const carouselProps: CarouselProp[] = groups.map(g => ({
+        id: g.best.id,
+        player_name: playerName,
+        player_id: g.playerId,
+        prop_type: g.propType,
+        line: g.best.line_value,
+        over_odds: g.best.over_odds,
+        under_odds: g.best.under_odds,
+        vendor: g.best.vendor,
+        game_id: gameId,
+      }));
+      return { playerName, playerId, carouselProps };
+    });
+
     return (
       <div className="space-y-5">
         <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
@@ -502,36 +457,17 @@ export function LivePropsTab({ gameId, homeAbbr, awayAbbr, isLive }: Props) {
           <span className="ml-auto tabular-nums">{totalProps} props</span>
         </div>
 
-        {[...playerGroups.entries()].map(([playerName, groups]) => {
-          const playerId = groups[0]?.playerId;
-          const isResolved = !playerName.startsWith("Player ");
-
-          return (
-            <section key={playerName}>
-              <button
-                onClick={() => isResolved && handlePlayerClick(playerId, playerName)}
-                className={cn(
-                  "text-xs font-semibold mb-2 truncate block",
-                  isResolved
-                    ? "text-primary hover:underline cursor-pointer"
-                    : "text-foreground cursor-default"
-                )}
-              >
-                {playerName}
-              </button>
-              <div className="space-y-1">
-                {groups.map((g) => (
-                  <PropGroupRow
-                    key={`${g.playerId}-${g.propType}`}
-                    group={g}
-                    onAddToSkySpread={handleAddToSkySpread}
-                    onPlayerClick={handlePlayerClick}
-                  />
-                ))}
-              </div>
-            </section>
-          );
-        })}
+        {playerCarousels.map(({ playerName, playerId, carouselProps }) => (
+          <PlayerPropCarousel
+            key={playerName}
+            playerName={playerName}
+            playerId={playerId}
+            props={carouselProps}
+            gameId={gameId}
+            onPlayerClick={handlePlayerClick}
+            onAddToSkySpread={handleAddToSkySpread}
+          />
+        ))}
 
         <AddToSkySpreadSheet
           open={skySpreadOpen}
