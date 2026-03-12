@@ -307,20 +307,30 @@ function extractVariables(scorecardData: any[], playerStats: any, modelPredictio
     if (sc.adjusted_projection != null) vars.adjusted_projection = sc.adjusted_projection;
     if (sc.adjusted_projection_v2 != null) vars.adjusted_projection_v2 = sc.adjusted_projection_v2;
     if (sc.adjusted_projection_v6 != null) vars.adjusted_projection_v6 = sc.adjusted_projection_v6;
+    if (sc.adjusted_projection_v9 != null) vars.adjusted_projection_v9 = sc.adjusted_projection_v9;
     if (sc.line_value != null) vars.line_value = sc.line_value;
     if (sc.std_dev != null) vars.std_dev = sc.std_dev;
     if (sc.momentum_score != null) vars.momentum_score = sc.momentum_score;
     if (sc.momentum_multiplier != null) vars.momentum_multiplier = sc.momentum_multiplier;
+    if (sc.edge_score_v9 != null) vars.edge_score_v9 = sc.edge_score_v9;
     if (sc.edge_score_v6 != null) vars.edge_score_v6 = sc.edge_score_v6;
     if (sc.pie_mean != null) vars.pie_mean = sc.pie_mean;
     if (sc.pie_multiplier != null) vars.pie_multiplier = sc.pie_multiplier;
     if (sc.plus_minus_mean != null) vars.plus_minus_mean = sc.plus_minus_mean;
     if (sc.injury_multiplier != null) vars.injury_multiplier = sc.injury_multiplier;
     if (sc.matchup_multiplier != null) vars.matchup_multiplier = sc.matchup_multiplier;
+    if (sc.defense_difficulty_multiplier != null) vars.defense_difficulty_multiplier = sc.defense_difficulty_multiplier;
+    if (sc.usage_shift_multiplier != null) vars.usage_shift_multiplier = sc.usage_shift_multiplier;
     if (sc.streak_flag != null) vars.streak_flag = sc.streak_flag;
     if (sc.streak_multiplier != null) vars.streak_multiplier = sc.streak_multiplier;
-    // Map for formula convenience
-    vars.mu = sc.adjusted_projection_v6 ?? sc.adjusted_projection_v2 ?? sc.adjusted_projection ?? sc.projection_mean ?? 0;
+    if (sc.confidence_tier != null) vars.confidence_tier_raw = sc.confidence_tier;
+    if (sc.supermodel_lean != null) vars.supermodel_lean = sc.supermodel_lean;
+    // Correlation flags
+    if (sc.pts_ast_correlated != null) vars.pts_ast_correlated = sc.pts_ast_correlated ? 1 : 0;
+    if (sc.pts_reb_correlated != null) vars.pts_reb_correlated = sc.pts_reb_correlated ? 1 : 0;
+    if (sc.reb_ast_correlated != null) vars.reb_ast_correlated = sc.reb_ast_correlated ? 1 : 0;
+    // Map for formula convenience — prefer v9 supermodel projection
+    vars.mu = sc.adjusted_projection_v9 ?? sc.adjusted_projection_v6 ?? sc.adjusted_projection_v2 ?? sc.adjusted_projection ?? sc.projection_mean ?? 0;
     vars.line = sc.line_value ?? 0;
     vars.sigma = sc.std_dev ?? 1;
   }
