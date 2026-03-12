@@ -216,7 +216,7 @@ export default function AdminBdlPaste() {
             .from("players")
             .select("id")
             .eq("name", playerName)
-            .eq("league", "NBA")
+            .eq("league", league)
             .maybeSingle();
 
           if (!pl) {
@@ -224,7 +224,7 @@ export default function AdminBdlPaste() {
               name: playerName,
               team: teamAbbr,
               position: row.player.position || "",
-              league: "NBA",
+              league,
             }).select("id").single();
             pl = newPl;
             createdPlayers++;
