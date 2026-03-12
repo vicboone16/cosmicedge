@@ -160,7 +160,7 @@ export default function AdminBdlPaste() {
           const { data: fuzzy } = await supabase
             .from("games")
             .select("id")
-            .eq("league", "NBA")
+            .eq("league", league)
             .eq("home_abbr", homeAbbr)
             .eq("away_abbr", awayAbbr)
             .gte("start_time", prevDay.toISOString().split("T")[0] + "T00:00:00Z")
