@@ -86,6 +86,7 @@ interface BdlStatRow {
 
 export default function AdminBdlPaste() {
   const [raw, setRaw] = useState("");
+  const [league, setLeague] = useState("NBA");
   const [period, setPeriod] = useState("full");
   const [loading, setLoading] = useState(false);
   const [log, setLog] = useState<string[]>([]);
