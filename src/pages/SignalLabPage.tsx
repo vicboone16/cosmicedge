@@ -39,7 +39,8 @@ export default function SignalLabPage() {
         .order("edge_score_v11", { ascending: false, nullsFirst: false } as any)
         .order("edge_score", { ascending: false })
         .limit(200);
-      return (data || []) as any[];
+      const rows = (data || []) as any[];
+      return resolveOverlayPlayerNames(rows);
     },
     staleTime: 60_000,
   });
