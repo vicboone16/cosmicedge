@@ -110,3 +110,9 @@ verify_jwt = false
 
 [functions.bdl-quarter-stats]
 verify_jwt = false
+
+[functions.bdl-webhook]
+verify_jwt = false
+
+[functions.bdl-backfill-multi-league]
+verify_jwt = false
