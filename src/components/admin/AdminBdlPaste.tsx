@@ -142,7 +142,7 @@ export default function AdminBdlPaste() {
         const { data: dbGame } = await supabase
           .from("games")
           .select("id")
-          .eq("league", "NBA")
+          .eq("league", league)
           .eq("home_abbr", homeAbbr)
           .eq("away_abbr", awayAbbr)
           .gte("start_time", gameDate + "T00:00:00Z")
