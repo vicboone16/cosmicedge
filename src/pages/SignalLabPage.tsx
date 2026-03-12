@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { resolveOverlayPlayerNames } from "@/lib/resolve-player-names";
 import { cn } from "@/lib/utils";
 import { FlaskConical, TrendingUp, Flame, Activity, Shield, Sparkles, Search, Zap } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -38,7 +39,8 @@ export default function SignalLabPage() {
         .order("edge_score_v11", { ascending: false, nullsFirst: false } as any)
         .order("edge_score", { ascending: false })
         .limit(200);
-      return (data || []) as any[];
+      const rows = (data || []) as any[];
+      return resolveOverlayPlayerNames(rows);
     },
     staleTime: 60_000,
   });

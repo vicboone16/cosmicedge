@@ -2,6 +2,7 @@ import { useMemo, useState, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { resolveOverlayPlayerNames } from "@/lib/resolve-player-names";
 import { cn } from "@/lib/utils";
 import { Zap, TrendingUp, TrendingDown, Plus } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -214,7 +215,8 @@ export function LivePropsTab({ gameId, homeAbbr, awayAbbr, isLive }: Props) {
         .order("edge_score_v11", { ascending: false, nullsFirst: false } as any)
         .order("edge_score", { ascending: false })
         .limit(50);
-      return (data || []) as unknown as TopProp[];
+      const rows = (data || []) as unknown as TopProp[];
+      return resolveOverlayPlayerNames(rows);
     },
     staleTime: 30_000,
     refetchInterval: isLive ? 30_000 : false,

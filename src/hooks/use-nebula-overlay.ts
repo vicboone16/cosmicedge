@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { resolveOverlayPlayerNames } from "@/lib/resolve-player-names";
 
 export interface NebulaOverlay {
   id: string;
@@ -64,7 +65,8 @@ export function useNebulaOverlayByPlayer(playerId: string | undefined) {
         .lte("game_start_time", future.toISOString())
         .order("edge_score_v11", { ascending: false, nullsFirst: false } as any)
         .order("edge_score", { ascending: false });
-      return (data || []) as unknown as NebulaOverlay[];
+      const rows = (data || []) as unknown as NebulaOverlay[];
+      return resolveOverlayPlayerNames(rows);
     },
     enabled: !!playerId,
     staleTime: 60_000,
@@ -81,7 +83,8 @@ export function useNebulaOverlayByGame(gameId: string | undefined) {
         .eq("game_id", gameId!)
         .order("edge_score_v11", { ascending: false, nullsFirst: false } as any)
         .order("edge_score", { ascending: false });
-      return (data || []) as unknown as NebulaOverlay[];
+      const rows = (data || []) as unknown as NebulaOverlay[];
+      return resolveOverlayPlayerNames(rows);
     },
     enabled: !!gameId,
     staleTime: 60_000,
@@ -103,7 +106,8 @@ export function useNebulaOverlayByTeam(teamAbbr: string | undefined) {
         .lte("game_start_time", future.toISOString())
         .order("edge_score_v11", { ascending: false, nullsFirst: false } as any)
         .order("edge_score", { ascending: false });
-      return (data || []) as unknown as NebulaOverlay[];
+      const rows = (data || []) as unknown as NebulaOverlay[];
+      return resolveOverlayPlayerNames(rows);
     },
     enabled: !!teamAbbr,
     staleTime: 60_000,
