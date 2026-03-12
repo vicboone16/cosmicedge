@@ -5,7 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Database, Server, HardDrive, Wrench, Loader2, Trophy, ShieldCheck, GraduationCap, BarChart3 } from "lucide-react";
+import { Database, Server, HardDrive, Wrench, Loader2, Trophy, ShieldCheck, GraduationCap, BarChart3, Globe } from "lucide-react";
 import { toast } from "sonner";
 
 export default function AdminBackend() {
@@ -22,6 +22,9 @@ export default function AdminBackend() {
   const [bdlQSeason, setBdlQSeason] = useState("2025");
   const [bdlQLoading, setBdlQLoading] = useState(false);
   const [bdlQLog, setBdlQLog] = useState<any>(null);
+  const [bdlMultiLeagues, setBdlMultiLeagues] = useState<string[]>(["NHL", "MLB", "NCAAB"]);
+  const [bdlMultiLoading, setBdlMultiLoading] = useState(false);
+  const [bdlMultiLog, setBdlMultiLog] = useState<any>(null);
 
   const toggleLeague = (l: string) =>
     setBackfillLeagues(prev => prev.includes(l) ? prev.filter(x => x !== l) : [...prev, l]);
@@ -151,9 +154,78 @@ export default function AdminBackend() {
     }
   };
 
+  const toggleBdlMultiLeague = (l: string) =>
+    setBdlMultiLeagues(prev => prev.includes(l) ? prev.filter(x => x !== l) : [...prev, l]);
+
+  const runBdlMultiLeague = async () => {
+    setBdlMultiLoading(true);
+    setBdlMultiLog(null);
+    try {
+      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      const leagueParam = bdlMultiLeagues.join(",");
+      const url = `https://${projectId}.supabase.co/functions/v1/bdl-backfill-multi-league?leagues=${leagueParam}`;
+      const res = await fetch(url, {
+        headers: {
+          "Authorization": `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+        },
+      });
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error || `HTTP ${res.status}`);
+      setBdlMultiLog(result);
+      toast.success(`Multi-league backfill: ${result.stats?.total_games_updated ?? 0} games, ${result.stats?.total_periods_upserted ?? 0} periods`);
+    } catch (e: any) {
+      toast.error(e.message || "Multi-league backfill failed");
+      setBdlMultiLog({ error: e.message });
+    } finally {
+      setBdlMultiLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-4">
-      {/* ── BDL Quarter Stats ── */}
+      {/* ── BDL Multi-League Backfill ── */}
+      <Card className="p-4">
+        <h2 className="text-sm font-semibold text-foreground flex items-center gap-2 mb-1">
+          <Globe className="h-4 w-4 text-primary" />
+          BDL Multi-League Score Backfill
+        </h2>
+        <p className="text-xs text-muted-foreground mb-3">
+          Fetch all completed games from BDL for NHL, MLB, and NCAAB this season. Updates final scores + period/inning/half scores.
+        </p>
+        <div className="flex gap-2 flex-wrap mb-3">
+          {["NHL", "MLB", "NCAAB"].map(l => (
+            <button
+              key={l}
+              onClick={() => toggleBdlMultiLeague(l)}
+              className={`text-[11px] px-2 py-1 rounded border font-medium transition-colors ${
+                bdlMultiLeagues.includes(l)
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "bg-transparent text-muted-foreground border-border"
+              }`}
+            >
+              {l}
+            </button>
+          ))}
+        </div>
+        <Button size="sm" onClick={runBdlMultiLeague} disabled={bdlMultiLoading || bdlMultiLeagues.length === 0} className="mb-3">
+          {bdlMultiLoading ? <Loader2 className="h-3 w-3 animate-spin mr-1.5" /> : <Globe className="h-3 w-3 mr-1.5" />}
+          {bdlMultiLoading ? "Backfilling…" : `Backfill ${bdlMultiLeagues.join(", ")}`}
+        </Button>
+        {bdlMultiLog && (
+          <div className="bg-secondary/30 rounded-lg p-3 max-h-64 overflow-y-auto">
+            {bdlMultiLog.log ? (
+              bdlMultiLog.log.map((line: string, i: number) => (
+                <p key={i} className="text-[10px] text-foreground font-mono whitespace-pre-wrap">{line}</p>
+              ))
+            ) : (
+              <pre className="text-[10px] text-foreground font-mono whitespace-pre-wrap">
+                {JSON.stringify(bdlMultiLog, null, 2).slice(0, 3000)}
+              </pre>
+            )}
+          </div>
+        )}
+      </Card>
       <Card className="p-4">
         <h2 className="text-sm font-semibold text-foreground flex items-center gap-2 mb-1">
           <BarChart3 className="h-4 w-4 text-primary" />

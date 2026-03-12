@@ -8,17 +8,31 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Loader2, ClipboardPaste, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 
-const PERIOD_OPTIONS = [
-  { value: "full", label: "Full Game" },
-  { value: "Q1", label: "Q1" },
-  { value: "Q2", label: "Q2" },
-  { value: "Q3", label: "Q3" },
-  { value: "Q4", label: "Q4" },
-  { value: "1H", label: "1st Half" },
-  { value: "2H", label: "2nd Half" },
-  { value: "OT", label: "OT1" },
-  { value: "OT2", label: "OT2" },
-];
+const LEAGUE_OPTIONS = ["NBA", "NHL", "MLB", "NCAAB"];
+
+const PERIOD_OPTIONS: Record<string, { value: string; label: string }[]> = {
+  NBA: [
+    { value: "full", label: "Full Game" },
+    { value: "Q1", label: "Q1" }, { value: "Q2", label: "Q2" },
+    { value: "Q3", label: "Q3" }, { value: "Q4", label: "Q4" },
+    { value: "1H", label: "1st Half" }, { value: "2H", label: "2nd Half" },
+    { value: "OT", label: "OT1" }, { value: "OT2", label: "OT2" },
+  ],
+  NHL: [
+    { value: "full", label: "Full Game" },
+    { value: "P1", label: "P1" }, { value: "P2", label: "P2" },
+    { value: "P3", label: "P3" }, { value: "OT", label: "OT" },
+  ],
+  MLB: [
+    { value: "full", label: "Full Game" },
+    ...Array.from({ length: 9 }, (_, i) => ({ value: `I${i + 1}`, label: `Inning ${i + 1}` })),
+  ],
+  NCAAB: [
+    { value: "full", label: "Full Game" },
+    { value: "H1", label: "1st Half" }, { value: "H2", label: "2nd Half" },
+    { value: "OT", label: "OT1" }, { value: "OT2", label: "OT2" },
+  ],
+};
 
 interface BdlStatRow {
   id: number;
@@ -72,6 +86,7 @@ interface BdlStatRow {
 
 export default function AdminBdlPaste() {
   const [raw, setRaw] = useState("");
+  const [league, setLeague] = useState("NBA");
   const [period, setPeriod] = useState("full");
   const [loading, setLoading] = useState(false);
   const [log, setLog] = useState<string[]>([]);
@@ -127,7 +142,7 @@ export default function AdminBdlPaste() {
         const { data: dbGame } = await supabase
           .from("games")
           .select("id")
-          .eq("league", "NBA")
+          .eq("league", league)
           .eq("home_abbr", homeAbbr)
           .eq("away_abbr", awayAbbr)
           .gte("start_time", gameDate + "T00:00:00Z")
@@ -145,7 +160,7 @@ export default function AdminBdlPaste() {
           const { data: fuzzy } = await supabase
             .from("games")
             .select("id")
-            .eq("league", "NBA")
+            .eq("league", league)
             .eq("home_abbr", homeAbbr)
             .eq("away_abbr", awayAbbr)
             .gte("start_time", prevDay.toISOString().split("T")[0] + "T00:00:00Z")
@@ -201,7 +216,7 @@ export default function AdminBdlPaste() {
             .from("players")
             .select("id")
             .eq("name", playerName)
-            .eq("league", "NBA")
+            .eq("league", league)
             .maybeSingle();
 
           if (!pl) {
@@ -209,7 +224,7 @@ export default function AdminBdlPaste() {
               name: playerName,
               team: teamAbbr,
               position: row.player.position || "",
-              league: "NBA",
+              league,
             }).select("id").single();
             pl = newPl;
             createdPlayers++;
@@ -272,19 +287,29 @@ export default function AdminBdlPaste() {
         className="h-32 text-xs font-mono mb-3"
       />
       <div className="flex items-center gap-3 mb-3">
+        <Select value={league} onValueChange={v => { setLeague(v); setPeriod("full"); }}>
+          <SelectTrigger className="w-28 h-8 text-xs">
+            <SelectValue placeholder="League" />
+          </SelectTrigger>
+          <SelectContent>
+            {LEAGUE_OPTIONS.map(l => (
+              <SelectItem key={l} value={l} className="text-xs">{l}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <Select value={period} onValueChange={setPeriod}>
           <SelectTrigger className="w-32 h-8 text-xs">
             <SelectValue placeholder="Period" />
           </SelectTrigger>
           <SelectContent>
-            {PERIOD_OPTIONS.map(o => (
+            {(PERIOD_OPTIONS[league] || PERIOD_OPTIONS.NBA).map(o => (
               <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>
             ))}
           </SelectContent>
         </Select>
         <Button size="sm" onClick={ingest} disabled={loading || !raw.trim()}>
           {loading ? <Loader2 className="h-3 w-3 animate-spin mr-1.5" /> : <CheckCircle2 className="h-3 w-3 mr-1.5" />}
-          {loading ? "Ingesting…" : `Ingest as ${period === "full" ? "Full Game" : period}`}
+          {loading ? "Ingesting…" : `Ingest ${league} as ${period === "full" ? "Full Game" : period}`}
         </Button>
         {raw.trim() && (
           <Badge variant="outline" className="text-[10px]">
