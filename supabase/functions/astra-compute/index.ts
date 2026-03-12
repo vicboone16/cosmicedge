@@ -559,9 +559,11 @@ Deno.serve(async (req) => {
     if (intent.intent === "model_output" && !computeResult && scorecardResult.data.length > 0) {
       const sc = scorecardResult.data[0];
       computeResult = {
-        result: sc.edge_score_v6 ?? sc.edge_score_v5 ?? sc.edge_score_v4 ?? sc.adjusted_projection_v6 ?? sc.adjusted_projection,
-        computation: `Direct from ${scorecardResult.source}`,
+        result: sc.edge_score_v9 ?? sc.edge_score_v6 ?? sc.edge_score_v5 ?? sc.edge_score_v4 ?? sc.adjusted_projection_v9 ?? sc.adjusted_projection_v6 ?? sc.adjusted_projection,
+        computation: `Direct from ${scorecardResult.source} (Supermodel v9)`,
         missingVars: [],
+        confidence_tier: sc.confidence_tier ?? null,
+        supermodel_lean: sc.supermodel_lean ?? null,
       };
       debugLog.computeResult = computeResult;
     }
