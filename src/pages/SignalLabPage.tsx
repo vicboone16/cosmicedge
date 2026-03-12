@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { resolveOverlayPlayerNames } from "@/lib/resolve-player-names";
 import { cn } from "@/lib/utils";
 import { FlaskConical, TrendingUp, Flame, Activity, Shield, Sparkles, Search, Zap } from "lucide-react";
 import { Input } from "@/components/ui/input";
