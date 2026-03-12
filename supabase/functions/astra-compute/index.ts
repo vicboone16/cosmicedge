@@ -147,26 +147,23 @@ async function fetchGlossaryTerm(sb: any, question: string) {
 /* ─── Scorecard / model data retrieval ─── */
 
 async function fetchScorecardData(sb: any, playerId: string, statKey: string | null) {
-  // Try ce_scorecards_fast_v6 first (most complete)
-  let query = sb
-    .from("ce_scorecards_fast_v6")
-    .select("*")
-    .eq("player_id", playerId);
-
-  if (statKey) {
-    query = query.eq("stat_key", statKey);
+  // Try ce_scorecards_fast_v9 (supermodel) first, then fall back through chain
+  const viewChain = ["ce_scorecards_fast_v9", "ce_scorecards_fast_v6", "ce_scorecards_fast_v2", "ce_scorecards_fast"];
+  
+  for (const viewName of viewChain) {
+    let query = sb.from(viewName).select("*").eq("player_id", playerId);
+    if (statKey) query = query.eq("stat_key", statKey);
+    
+    const { data, error } = await query.limit(10);
+    if (!error && data?.length > 0) {
+      return { source: viewName, data };
+    }
+    if (error) {
+      console.warn(`${viewName} query failed:`, error.message);
+    }
   }
-
-  const { data, error } = await query.limit(10);
-  if (error) {
-    console.warn("Scorecard v6 query failed:", error.message);
-    // Fall back to v2
-    let q2 = sb.from("ce_scorecards_fast_v2").select("*").eq("player_id", playerId);
-    if (statKey) q2 = q2.eq("stat_key", statKey);
-    const { data: d2 } = await q2.limit(10);
-    return { source: "ce_scorecards_fast_v2", data: d2 || [] };
-  }
-  return { source: "ce_scorecards_fast_v6", data: data || [] };
+  
+  return { source: "", data: [] };
 }
 
 /* ─── Player stats retrieval ─── */
