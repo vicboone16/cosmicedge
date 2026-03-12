@@ -287,19 +287,29 @@ export default function AdminBdlPaste() {
         className="h-32 text-xs font-mono mb-3"
       />
       <div className="flex items-center gap-3 mb-3">
+        <Select value={league} onValueChange={v => { setLeague(v); setPeriod("full"); }}>
+          <SelectTrigger className="w-28 h-8 text-xs">
+            <SelectValue placeholder="League" />
+          </SelectTrigger>
+          <SelectContent>
+            {LEAGUE_OPTIONS.map(l => (
+              <SelectItem key={l} value={l} className="text-xs">{l}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <Select value={period} onValueChange={setPeriod}>
           <SelectTrigger className="w-32 h-8 text-xs">
             <SelectValue placeholder="Period" />
           </SelectTrigger>
           <SelectContent>
-            {PERIOD_OPTIONS.map(o => (
+            {(PERIOD_OPTIONS[league] || PERIOD_OPTIONS.NBA).map(o => (
               <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>
             ))}
           </SelectContent>
         </Select>
         <Button size="sm" onClick={ingest} disabled={loading || !raw.trim()}>
           {loading ? <Loader2 className="h-3 w-3 animate-spin mr-1.5" /> : <CheckCircle2 className="h-3 w-3 mr-1.5" />}
-          {loading ? "Ingesting…" : `Ingest as ${period === "full" ? "Full Game" : period}`}
+          {loading ? "Ingesting…" : `Ingest ${league} as ${period === "full" ? "Full Game" : period}`}
         </Button>
         {raw.trim() && (
           <Badge variant="outline" className="text-[10px]">
