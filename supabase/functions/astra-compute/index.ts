@@ -147,26 +147,23 @@ async function fetchGlossaryTerm(sb: any, question: string) {
 /* ─── Scorecard / model data retrieval ─── */
 
 async function fetchScorecardData(sb: any, playerId: string, statKey: string | null) {
-  // Try ce_scorecards_fast_v6 first (most complete)
-  let query = sb
-    .from("ce_scorecards_fast_v6")
-    .select("*")
-    .eq("player_id", playerId);
-
-  if (statKey) {
-    query = query.eq("stat_key", statKey);
+  // Try ce_scorecards_fast_v9 (supermodel) first, then fall back through chain
+  const viewChain = ["ce_scorecards_fast_v9", "ce_scorecards_fast_v6", "ce_scorecards_fast_v2", "ce_scorecards_fast"];
+  
+  for (const viewName of viewChain) {
+    let query = sb.from(viewName).select("*").eq("player_id", playerId);
+    if (statKey) query = query.eq("stat_key", statKey);
+    
+    const { data, error } = await query.limit(10);
+    if (!error && data?.length > 0) {
+      return { source: viewName, data };
+    }
+    if (error) {
+      console.warn(`${viewName} query failed:`, error.message);
+    }
   }
-
-  const { data, error } = await query.limit(10);
-  if (error) {
-    console.warn("Scorecard v6 query failed:", error.message);
-    // Fall back to v2
-    let q2 = sb.from("ce_scorecards_fast_v2").select("*").eq("player_id", playerId);
-    if (statKey) q2 = q2.eq("stat_key", statKey);
-    const { data: d2 } = await q2.limit(10);
-    return { source: "ce_scorecards_fast_v2", data: d2 || [] };
-  }
-  return { source: "ce_scorecards_fast_v6", data: data || [] };
+  
+  return { source: "", data: [] };
 }
 
 /* ─── Player stats retrieval ─── */
@@ -310,20 +307,30 @@ function extractVariables(scorecardData: any[], playerStats: any, modelPredictio
     if (sc.adjusted_projection != null) vars.adjusted_projection = sc.adjusted_projection;
     if (sc.adjusted_projection_v2 != null) vars.adjusted_projection_v2 = sc.adjusted_projection_v2;
     if (sc.adjusted_projection_v6 != null) vars.adjusted_projection_v6 = sc.adjusted_projection_v6;
+    if (sc.adjusted_projection_v9 != null) vars.adjusted_projection_v9 = sc.adjusted_projection_v9;
     if (sc.line_value != null) vars.line_value = sc.line_value;
     if (sc.std_dev != null) vars.std_dev = sc.std_dev;
     if (sc.momentum_score != null) vars.momentum_score = sc.momentum_score;
     if (sc.momentum_multiplier != null) vars.momentum_multiplier = sc.momentum_multiplier;
+    if (sc.edge_score_v9 != null) vars.edge_score_v9 = sc.edge_score_v9;
     if (sc.edge_score_v6 != null) vars.edge_score_v6 = sc.edge_score_v6;
     if (sc.pie_mean != null) vars.pie_mean = sc.pie_mean;
     if (sc.pie_multiplier != null) vars.pie_multiplier = sc.pie_multiplier;
     if (sc.plus_minus_mean != null) vars.plus_minus_mean = sc.plus_minus_mean;
     if (sc.injury_multiplier != null) vars.injury_multiplier = sc.injury_multiplier;
     if (sc.matchup_multiplier != null) vars.matchup_multiplier = sc.matchup_multiplier;
+    if (sc.defense_difficulty_multiplier != null) vars.defense_difficulty_multiplier = sc.defense_difficulty_multiplier;
+    if (sc.usage_shift_multiplier != null) vars.usage_shift_multiplier = sc.usage_shift_multiplier;
     if (sc.streak_flag != null) vars.streak_flag = sc.streak_flag;
     if (sc.streak_multiplier != null) vars.streak_multiplier = sc.streak_multiplier;
-    // Map for formula convenience
-    vars.mu = sc.adjusted_projection_v6 ?? sc.adjusted_projection_v2 ?? sc.adjusted_projection ?? sc.projection_mean ?? 0;
+    if (sc.confidence_tier != null) vars.confidence_tier_raw = sc.confidence_tier;
+    if (sc.supermodel_lean != null) vars.supermodel_lean = sc.supermodel_lean;
+    // Correlation flags
+    if (sc.pts_ast_correlated != null) vars.pts_ast_correlated = sc.pts_ast_correlated ? 1 : 0;
+    if (sc.pts_reb_correlated != null) vars.pts_reb_correlated = sc.pts_reb_correlated ? 1 : 0;
+    if (sc.reb_ast_correlated != null) vars.reb_ast_correlated = sc.reb_ast_correlated ? 1 : 0;
+    // Map for formula convenience — prefer v9 supermodel projection
+    vars.mu = sc.adjusted_projection_v9 ?? sc.adjusted_projection_v6 ?? sc.adjusted_projection_v2 ?? sc.adjusted_projection ?? sc.projection_mean ?? 0;
     vars.line = sc.line_value ?? 0;
     vars.sigma = sc.std_dev ?? 1;
   }
@@ -552,9 +559,11 @@ Deno.serve(async (req) => {
     if (intent.intent === "model_output" && !computeResult && scorecardResult.data.length > 0) {
       const sc = scorecardResult.data[0];
       computeResult = {
-        result: sc.edge_score_v6 ?? sc.edge_score_v5 ?? sc.edge_score_v4 ?? sc.adjusted_projection_v6 ?? sc.adjusted_projection,
-        computation: `Direct from ${scorecardResult.source}`,
+        result: sc.edge_score_v9 ?? sc.edge_score_v6 ?? sc.edge_score_v5 ?? sc.edge_score_v4 ?? sc.adjusted_projection_v9 ?? sc.adjusted_projection_v6 ?? sc.adjusted_projection,
+        computation: `Direct from ${scorecardResult.source} (Supermodel v9)`,
         missingVars: [],
+        confidence_tier: sc.confidence_tier ?? null,
+        supermodel_lean: sc.supermodel_lean ?? null,
       };
       debugLog.computeResult = computeResult;
     }

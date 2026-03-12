@@ -645,6 +645,117 @@ export type Database = {
         }
         Relationships: []
       }
+      ce_game_predictions: {
+        Row: {
+          away_def_rtg: number | null
+          away_net_rating: number | null
+          away_off_rtg: number | null
+          away_pace: number | null
+          blowout_risk: number | null
+          book_implied_home: number | null
+          created_at: string
+          edge_away: number | null
+          edge_home: number | null
+          expected_possessions: number | null
+          fair_ml_away: number | null
+          fair_ml_home: number | null
+          game_id: string
+          home_def_rtg: number | null
+          home_net_rating: number | null
+          home_off_rtg: number | null
+          home_pace: number | null
+          id: string
+          model_key: string
+          mu_away: number | null
+          mu_home: number | null
+          mu_spread_home: number | null
+          mu_total: number | null
+          notes_json: Json | null
+          p_away_win: number | null
+          p_home_win: number | null
+          run_ts: string
+          sport: string
+          updated_at: string
+        }
+        Insert: {
+          away_def_rtg?: number | null
+          away_net_rating?: number | null
+          away_off_rtg?: number | null
+          away_pace?: number | null
+          blowout_risk?: number | null
+          book_implied_home?: number | null
+          created_at?: string
+          edge_away?: number | null
+          edge_home?: number | null
+          expected_possessions?: number | null
+          fair_ml_away?: number | null
+          fair_ml_home?: number | null
+          game_id: string
+          home_def_rtg?: number | null
+          home_net_rating?: number | null
+          home_off_rtg?: number | null
+          home_pace?: number | null
+          id?: string
+          model_key?: string
+          mu_away?: number | null
+          mu_home?: number | null
+          mu_spread_home?: number | null
+          mu_total?: number | null
+          notes_json?: Json | null
+          p_away_win?: number | null
+          p_home_win?: number | null
+          run_ts?: string
+          sport?: string
+          updated_at?: string
+        }
+        Update: {
+          away_def_rtg?: number | null
+          away_net_rating?: number | null
+          away_off_rtg?: number | null
+          away_pace?: number | null
+          blowout_risk?: number | null
+          book_implied_home?: number | null
+          created_at?: string
+          edge_away?: number | null
+          edge_home?: number | null
+          expected_possessions?: number | null
+          fair_ml_away?: number | null
+          fair_ml_home?: number | null
+          game_id?: string
+          home_def_rtg?: number | null
+          home_net_rating?: number | null
+          home_off_rtg?: number | null
+          home_pace?: number | null
+          id?: string
+          model_key?: string
+          mu_away?: number | null
+          mu_home?: number | null
+          mu_spread_home?: number | null
+          mu_total?: number | null
+          notes_json?: Json | null
+          p_away_win?: number | null
+          p_home_win?: number | null
+          run_ts?: string
+          sport?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ce_game_predictions_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ce_game_predictions_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "v_game_live_state"
+            referencedColumns: ["game_id"]
+          },
+        ]
+      }
       ce_glossary: {
         Row: {
           category: string | null
@@ -6283,6 +6394,18 @@ export type Database = {
         }
         Relationships: []
       }
+      ce_correlation_flags: {
+        Row: {
+          player_id: number | null
+          pts_ast_corr: number | null
+          pts_ast_correlated: boolean | null
+          pts_reb_corr: number | null
+          pts_reb_correlated: boolean | null
+          reb_ast_corr: number | null
+          reb_ast_correlated: boolean | null
+        }
+        Relationships: []
+      }
       ce_defense_difficulty: {
         Row: {
           difficulty_multiplier: number | null
@@ -6299,6 +6422,53 @@ export type Database = {
           player_id: number | null
           season_avg: number | null
           stat_key: string | null
+        }
+        Relationships: []
+      }
+      ce_monte_input_heavy_v5: {
+        Row: {
+          confidence_tier: string | null
+          edge_score: number | null
+          game_key: string | null
+          lean: string | null
+          line_value: number | null
+          player_id: number | null
+          player_name: string | null
+          projection_mean: number | null
+          projection_std: number | null
+          stat_key: string | null
+        }
+        Relationships: []
+      }
+      ce_monte_input_supermodel: {
+        Row: {
+          astro_multiplier: number | null
+          confidence_tier: string | null
+          defense_difficulty_multiplier: number | null
+          edge_score: number | null
+          game_key: string | null
+          injury_multiplier: number | null
+          lean: string | null
+          line_value: number | null
+          matchup_multiplier: number | null
+          momentum_multiplier: number | null
+          player_id: number | null
+          player_name: string | null
+          projection_mean: number | null
+          projection_std: number | null
+          pts_ast_correlated: boolean | null
+          pts_reb_correlated: boolean | null
+          reb_ast_correlated: boolean | null
+          stat_key: string | null
+          streak_multiplier: number | null
+          usage_shift_multiplier: number | null
+        }
+        Relationships: []
+      }
+      ce_player_current_team: {
+        Row: {
+          player_id: number | null
+          team_id: number | null
         }
         Relationships: []
       }
@@ -6404,6 +6574,273 @@ export type Database = {
         }
         Relationships: []
       }
+      ce_scorecards_fast_v2: {
+        Row: {
+          adjusted_projection: number | null
+          adjusted_projection_v2: number | null
+          astro_multiplier: number | null
+          base_prob: number | null
+          edge_score: number | null
+          edge_score_v2: number | null
+          game_date: string | null
+          game_key: string | null
+          lean: string | null
+          line_value: number | null
+          momentum_multiplier: number | null
+          momentum_score: number | null
+          over_odds: number | null
+          pie_mean: number | null
+          pie_multiplier: number | null
+          player_id: number | null
+          player_name: string | null
+          plus_minus_mean: number | null
+          projection_mean: number | null
+          prop_id: string | null
+          provider: string | null
+          stat_key: string | null
+          std_dev: number | null
+          under_odds: number | null
+          vendor: string | null
+        }
+        Relationships: []
+      }
+      ce_scorecards_fast_v3: {
+        Row: {
+          adjusted_projection_v3: number | null
+          astro_multiplier: number | null
+          astro_tone: string | null
+          edge_score_v3: number | null
+          game_date: string | null
+          game_key: string | null
+          line_value: number | null
+          momentum_multiplier: number | null
+          momentum_score: number | null
+          over_odds: number | null
+          pie_mean: number | null
+          pie_multiplier: number | null
+          player_id: number | null
+          player_name: string | null
+          plus_minus_mean: number | null
+          projection_mean: number | null
+          prop_id: string | null
+          provider: string | null
+          stat_key: string | null
+          std_dev: number | null
+          under_odds: number | null
+          vendor: string | null
+        }
+        Relationships: []
+      }
+      ce_scorecards_fast_v4: {
+        Row: {
+          adjusted_projection_v3: number | null
+          astro_multiplier: number | null
+          astro_tone: string | null
+          edge_score_v3: number | null
+          game_date: string | null
+          game_key: string | null
+          line_value: number | null
+          momentum_multiplier: number | null
+          momentum_score: number | null
+          over_odds: number | null
+          pie_mean: number | null
+          pie_multiplier: number | null
+          player_id: number | null
+          player_name: string | null
+          plus_minus_mean: number | null
+          projection_mean: number | null
+          prop_id: string | null
+          provider: string | null
+          stat_key: string | null
+          std_dev: number | null
+          streak_flag: string | null
+          streak_multiplier: number | null
+          under_odds: number | null
+          vendor: string | null
+        }
+        Relationships: []
+      }
+      ce_scorecards_fast_v5: {
+        Row: {
+          adjusted_projection_v3: number | null
+          adjusted_projection_v5: number | null
+          astro_multiplier: number | null
+          astro_tone: string | null
+          edge_score_v3: number | null
+          edge_score_v5: number | null
+          game_date: string | null
+          game_key: string | null
+          injury_multiplier: number | null
+          line_value: number | null
+          momentum_multiplier: number | null
+          momentum_score: number | null
+          over_odds: number | null
+          pie_mean: number | null
+          pie_multiplier: number | null
+          player_id: number | null
+          player_name: string | null
+          plus_minus_mean: number | null
+          projection_mean: number | null
+          prop_id: string | null
+          provider: string | null
+          stat_key: string | null
+          std_dev: number | null
+          streak_flag: string | null
+          streak_multiplier: number | null
+          under_odds: number | null
+          vendor: string | null
+        }
+        Relationships: []
+      }
+      ce_scorecards_fast_v6: {
+        Row: {
+          adjusted_projection_v6: number | null
+          astro_multiplier: number | null
+          astro_tone: string | null
+          edge_score_v6: number | null
+          game_date: string | null
+          game_key: string | null
+          injury_multiplier: number | null
+          line_value: number | null
+          matchup_multiplier: number | null
+          momentum_multiplier: number | null
+          momentum_score: number | null
+          over_odds: number | null
+          pie_mean: number | null
+          pie_multiplier: number | null
+          player_id: number | null
+          player_name: string | null
+          plus_minus_mean: number | null
+          projection_mean: number | null
+          prop_id: string | null
+          provider: string | null
+          stat_key: string | null
+          std_dev: number | null
+          streak_flag: string | null
+          streak_multiplier: number | null
+          under_odds: number | null
+          vendor: string | null
+        }
+        Relationships: []
+      }
+      ce_scorecards_fast_v7: {
+        Row: {
+          adjusted_projection_v6: number | null
+          adjusted_projection_v7: number | null
+          astro_multiplier: number | null
+          astro_tone: string | null
+          defense_difficulty_multiplier: number | null
+          edge_score_v6: number | null
+          edge_score_v7: number | null
+          game_date: string | null
+          game_key: string | null
+          injury_multiplier: number | null
+          line_value: number | null
+          matchup_multiplier: number | null
+          momentum_multiplier: number | null
+          momentum_score: number | null
+          over_odds: number | null
+          pie_mean: number | null
+          pie_multiplier: number | null
+          player_id: number | null
+          player_name: string | null
+          plus_minus_mean: number | null
+          projection_mean: number | null
+          prop_id: string | null
+          provider: string | null
+          stat_key: string | null
+          std_dev: number | null
+          streak_flag: string | null
+          streak_multiplier: number | null
+          under_odds: number | null
+          vendor: string | null
+        }
+        Relationships: []
+      }
+      ce_scorecards_fast_v8: {
+        Row: {
+          adjusted_projection_v6: number | null
+          adjusted_projection_v7: number | null
+          adjusted_projection_v8: number | null
+          astro_multiplier: number | null
+          astro_tone: string | null
+          defense_difficulty_multiplier: number | null
+          edge_score_v6: number | null
+          edge_score_v7: number | null
+          edge_score_v8: number | null
+          game_date: string | null
+          game_key: string | null
+          injury_multiplier: number | null
+          line_value: number | null
+          matchup_multiplier: number | null
+          momentum_multiplier: number | null
+          momentum_score: number | null
+          over_odds: number | null
+          pie_mean: number | null
+          pie_multiplier: number | null
+          player_id: number | null
+          player_name: string | null
+          plus_minus_mean: number | null
+          projection_mean: number | null
+          prop_id: string | null
+          provider: string | null
+          stat_key: string | null
+          std_dev: number | null
+          streak_flag: string | null
+          streak_multiplier: number | null
+          under_odds: number | null
+          usage_shift_multiplier: number | null
+          vendor: string | null
+        }
+        Relationships: []
+      }
+      ce_scorecards_fast_v9: {
+        Row: {
+          adjusted_projection_v6: number | null
+          adjusted_projection_v7: number | null
+          adjusted_projection_v8: number | null
+          adjusted_projection_v9: number | null
+          astro_multiplier: number | null
+          astro_tone: string | null
+          confidence_tier: string | null
+          defense_difficulty_multiplier: number | null
+          edge_score_v6: number | null
+          edge_score_v7: number | null
+          edge_score_v8: number | null
+          edge_score_v9: number | null
+          game_date: string | null
+          game_key: string | null
+          injury_multiplier: number | null
+          line_value: number | null
+          matchup_multiplier: number | null
+          momentum_multiplier: number | null
+          momentum_score: number | null
+          over_odds: number | null
+          pie_mean: number | null
+          pie_multiplier: number | null
+          player_id: number | null
+          player_name: string | null
+          plus_minus_mean: number | null
+          projection_mean: number | null
+          prop_id: string | null
+          provider: string | null
+          pts_ast_corr: number | null
+          pts_ast_correlated: boolean | null
+          pts_reb_corr: number | null
+          pts_reb_correlated: boolean | null
+          reb_ast_corr: number | null
+          reb_ast_correlated: boolean | null
+          stat_key: string | null
+          std_dev: number | null
+          streak_flag: string | null
+          streak_multiplier: number | null
+          supermodel_lean: string | null
+          under_odds: number | null
+          usage_shift_multiplier: number | null
+          vendor: string | null
+        }
+        Relationships: []
+      }
       ce_scorecards_live: {
         Row: {
           base_prob: number | null
@@ -6422,6 +6859,100 @@ export type Database = {
           stat_key: string | null
           std_dev: number | null
           under_odds: number | null
+          vendor: string | null
+        }
+        Relationships: []
+      }
+      ce_scorecards_top_25_v4: {
+        Row: {
+          adjusted_projection_v6: number | null
+          adjusted_projection_v7: number | null
+          adjusted_projection_v8: number | null
+          adjusted_projection_v9: number | null
+          astro_multiplier: number | null
+          astro_tone: string | null
+          confidence_tier: string | null
+          defense_difficulty_multiplier: number | null
+          edge_score_v6: number | null
+          edge_score_v7: number | null
+          edge_score_v8: number | null
+          edge_score_v9: number | null
+          game_date: string | null
+          game_key: string | null
+          injury_multiplier: number | null
+          line_value: number | null
+          matchup_multiplier: number | null
+          momentum_multiplier: number | null
+          momentum_score: number | null
+          over_odds: number | null
+          pie_mean: number | null
+          pie_multiplier: number | null
+          player_id: number | null
+          player_name: string | null
+          plus_minus_mean: number | null
+          projection_mean: number | null
+          prop_id: string | null
+          provider: string | null
+          pts_ast_corr: number | null
+          pts_ast_correlated: boolean | null
+          pts_reb_corr: number | null
+          pts_reb_correlated: boolean | null
+          reb_ast_corr: number | null
+          reb_ast_correlated: boolean | null
+          stat_key: string | null
+          std_dev: number | null
+          streak_flag: string | null
+          streak_multiplier: number | null
+          supermodel_lean: string | null
+          under_odds: number | null
+          usage_shift_multiplier: number | null
+          vendor: string | null
+        }
+        Relationships: []
+      }
+      ce_scorecards_top_v4: {
+        Row: {
+          adjusted_projection_v6: number | null
+          adjusted_projection_v7: number | null
+          adjusted_projection_v8: number | null
+          adjusted_projection_v9: number | null
+          astro_multiplier: number | null
+          astro_tone: string | null
+          confidence_tier: string | null
+          defense_difficulty_multiplier: number | null
+          edge_score_v6: number | null
+          edge_score_v7: number | null
+          edge_score_v8: number | null
+          edge_score_v9: number | null
+          game_date: string | null
+          game_key: string | null
+          injury_multiplier: number | null
+          line_value: number | null
+          matchup_multiplier: number | null
+          momentum_multiplier: number | null
+          momentum_score: number | null
+          over_odds: number | null
+          pie_mean: number | null
+          pie_multiplier: number | null
+          player_id: number | null
+          player_name: string | null
+          plus_minus_mean: number | null
+          projection_mean: number | null
+          prop_id: string | null
+          provider: string | null
+          pts_ast_corr: number | null
+          pts_ast_correlated: boolean | null
+          pts_reb_corr: number | null
+          pts_reb_correlated: boolean | null
+          reb_ast_corr: number | null
+          reb_ast_correlated: boolean | null
+          stat_key: string | null
+          std_dev: number | null
+          streak_flag: string | null
+          streak_multiplier: number | null
+          supermodel_lean: string | null
+          under_odds: number | null
+          usage_shift_multiplier: number | null
           vendor: string | null
         }
         Relationships: []
@@ -6448,6 +6979,100 @@ export type Database = {
           streak_multiplier: number | null
           under_hits_10: number | null
           under_hits_5: number | null
+        }
+        Relationships: []
+      }
+      ce_supermodel: {
+        Row: {
+          adjusted_projection_v6: number | null
+          adjusted_projection_v7: number | null
+          adjusted_projection_v8: number | null
+          adjusted_projection_v9: number | null
+          astro_multiplier: number | null
+          astro_tone: string | null
+          confidence_tier: string | null
+          defense_difficulty_multiplier: number | null
+          edge_score_v6: number | null
+          edge_score_v7: number | null
+          edge_score_v8: number | null
+          edge_score_v9: number | null
+          game_date: string | null
+          game_key: string | null
+          injury_multiplier: number | null
+          line_value: number | null
+          matchup_multiplier: number | null
+          momentum_multiplier: number | null
+          momentum_score: number | null
+          over_odds: number | null
+          pie_mean: number | null
+          pie_multiplier: number | null
+          player_id: number | null
+          player_name: string | null
+          plus_minus_mean: number | null
+          projection_mean: number | null
+          prop_id: string | null
+          provider: string | null
+          pts_ast_corr: number | null
+          pts_ast_correlated: boolean | null
+          pts_reb_corr: number | null
+          pts_reb_correlated: boolean | null
+          reb_ast_corr: number | null
+          reb_ast_correlated: boolean | null
+          stat_key: string | null
+          std_dev: number | null
+          streak_flag: string | null
+          streak_multiplier: number | null
+          supermodel_lean: string | null
+          under_odds: number | null
+          usage_shift_multiplier: number | null
+          vendor: string | null
+        }
+        Relationships: []
+      }
+      ce_supermodel_top_plays: {
+        Row: {
+          adjusted_projection_v6: number | null
+          adjusted_projection_v7: number | null
+          adjusted_projection_v8: number | null
+          adjusted_projection_v9: number | null
+          astro_multiplier: number | null
+          astro_tone: string | null
+          confidence_tier: string | null
+          defense_difficulty_multiplier: number | null
+          edge_score_v6: number | null
+          edge_score_v7: number | null
+          edge_score_v8: number | null
+          edge_score_v9: number | null
+          game_date: string | null
+          game_key: string | null
+          injury_multiplier: number | null
+          line_value: number | null
+          matchup_multiplier: number | null
+          momentum_multiplier: number | null
+          momentum_score: number | null
+          over_odds: number | null
+          pie_mean: number | null
+          pie_multiplier: number | null
+          player_id: number | null
+          player_name: string | null
+          plus_minus_mean: number | null
+          projection_mean: number | null
+          prop_id: string | null
+          provider: string | null
+          pts_ast_corr: number | null
+          pts_ast_correlated: boolean | null
+          pts_reb_corr: number | null
+          pts_reb_correlated: boolean | null
+          reb_ast_corr: number | null
+          reb_ast_correlated: boolean | null
+          stat_key: string | null
+          std_dev: number | null
+          streak_flag: string | null
+          streak_multiplier: number | null
+          supermodel_lean: string | null
+          under_odds: number | null
+          usage_shift_multiplier: number | null
+          vendor: string | null
         }
         Relationships: []
       }
