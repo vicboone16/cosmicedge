@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { resolveOverlayPlayerNames } from "@/lib/resolve-player-names";
 
 export interface NebulaOverlay {
   id: string;

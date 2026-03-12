@@ -88,7 +88,8 @@ export function useTopPropsToday(limit = 10) {
         .order("edge_score_v11", { ascending: false, nullsFirst: false } as any)
         .order("edge_score", { ascending: false })
         .limit(limit);
-      return (data || []) as unknown as TopProp[];
+      const rows = (data || []) as unknown as TopProp[];
+      return resolveOverlayPlayerNames(rows);
     },
     staleTime: 60_000,
   });
