@@ -62,7 +62,8 @@ export function useTopPropsForGame(gameId: string | undefined, limit = 5) {
         .order("edge_score_v11", { ascending: false, nullsFirst: false } as any)
         .order("edge_score", { ascending: false })
         .limit(limit);
-      return (data || []) as unknown as TopProp[];
+      const rows = (data || []) as unknown as TopProp[];
+      return resolveOverlayPlayerNames(rows);
     },
     enabled: !!gameId,
     staleTime: 60_000,
