@@ -2,6 +2,7 @@ import { useMemo, useState, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { resolveOverlayPlayerNames } from "@/lib/resolve-player-names";
 import { cn } from "@/lib/utils";
 import { Zap, TrendingUp, TrendingDown, Plus } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
