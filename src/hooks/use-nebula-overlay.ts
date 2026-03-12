@@ -65,7 +65,8 @@ export function useNebulaOverlayByPlayer(playerId: string | undefined) {
         .lte("game_start_time", future.toISOString())
         .order("edge_score_v11", { ascending: false, nullsFirst: false } as any)
         .order("edge_score", { ascending: false });
-      return (data || []) as unknown as NebulaOverlay[];
+      const rows = (data || []) as unknown as NebulaOverlay[];
+      return resolveOverlayPlayerNames(rows);
     },
     enabled: !!playerId,
     staleTime: 60_000,
