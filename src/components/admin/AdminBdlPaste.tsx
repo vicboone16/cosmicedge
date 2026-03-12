@@ -8,17 +8,31 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Loader2, ClipboardPaste, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 
-const PERIOD_OPTIONS = [
-  { value: "full", label: "Full Game" },
-  { value: "Q1", label: "Q1" },
-  { value: "Q2", label: "Q2" },
-  { value: "Q3", label: "Q3" },
-  { value: "Q4", label: "Q4" },
-  { value: "1H", label: "1st Half" },
-  { value: "2H", label: "2nd Half" },
-  { value: "OT", label: "OT1" },
-  { value: "OT2", label: "OT2" },
-];
+const LEAGUE_OPTIONS = ["NBA", "NHL", "MLB", "NCAAB"];
+
+const PERIOD_OPTIONS: Record<string, { value: string; label: string }[]> = {
+  NBA: [
+    { value: "full", label: "Full Game" },
+    { value: "Q1", label: "Q1" }, { value: "Q2", label: "Q2" },
+    { value: "Q3", label: "Q3" }, { value: "Q4", label: "Q4" },
+    { value: "1H", label: "1st Half" }, { value: "2H", label: "2nd Half" },
+    { value: "OT", label: "OT1" }, { value: "OT2", label: "OT2" },
+  ],
+  NHL: [
+    { value: "full", label: "Full Game" },
+    { value: "P1", label: "P1" }, { value: "P2", label: "P2" },
+    { value: "P3", label: "P3" }, { value: "OT", label: "OT" },
+  ],
+  MLB: [
+    { value: "full", label: "Full Game" },
+    ...Array.from({ length: 9 }, (_, i) => ({ value: `I${i + 1}`, label: `Inning ${i + 1}` })),
+  ],
+  NCAAB: [
+    { value: "full", label: "Full Game" },
+    { value: "H1", label: "1st Half" }, { value: "H2", label: "2nd Half" },
+    { value: "OT", label: "OT1" }, { value: "OT2", label: "OT2" },
+  ],
+};
 
 interface BdlStatRow {
   id: number;
