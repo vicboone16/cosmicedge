@@ -112,9 +112,19 @@ Deno.serve(async (req) => {
     });
   }
 
-  const sport = parts[0]; // nba, nhl, mlb, ncaab
+  const sport = parts[0]; // nba only — BDL webhooks are NBA-exclusive
   const action = parts[2]; // started, ended, period_ended, overtime
-  const league = EVENT_LEAGUE_MAP[sport] ?? sport.toUpperCase();
+
+  // BDL webhooks only apply to NBA per league-assignment policy
+  if (sport !== "nba") {
+    console.log(`[bdl-webhook] Ignoring non-NBA event: ${eventType}`);
+    return new Response(JSON.stringify({ ok: true, skipped: true, reason: "non-nba" }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  const league = "NBA";
 
   const game = payload.game ?? payload.data?.game ?? payload.data ?? payload;
   const bdlGameId = String(game.id ?? "");
