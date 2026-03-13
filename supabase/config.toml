@@ -119,3 +119,6 @@ verify_jwt = false
 
 [functions.slip-optimizer]
 verify_jwt = false
+
+[functions.admin-flip-status]
+verify_jwt = false
