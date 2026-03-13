@@ -598,6 +598,11 @@ const SkySpreadPage = () => {
         ) : activeTab === "tracked" ? (
           <TrackedPropsWidget showHeader={false} />
         ) : (
+          <>
+        {/* Live Board Header Section */}
+        {liveItemCount > 0 && (
+          <section>
+            <button
               onClick={() => setShowLive(!showLive)}
               className="w-full flex items-center justify-between py-1 group"
             >
