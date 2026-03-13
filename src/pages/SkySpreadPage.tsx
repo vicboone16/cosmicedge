@@ -541,6 +541,7 @@ const SkySpreadPage = () => {
             <p className="text-xs text-muted-foreground">Where the line meets the sky.</p>
           </div>
           <div className="flex items-center gap-2">
+            <BetSlipImportDialog />
             <PropBuilderDialog userId={userId} />
             <button
               onClick={async () => {
