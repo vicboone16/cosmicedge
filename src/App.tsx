@@ -51,6 +51,7 @@ const PrivacyPage = lazy(() => import("./pages/PrivacyPage"));
 const PaywallPage = lazy(() => import("./pages/PaywallPage"));
 const SubscriptionPage = lazy(() => import("./pages/SubscriptionPage"));
 const AppStorePrivacyScript = lazy(() => import("./pages/AppStorePrivacyScript"));
+const ModelWorkspacePage = lazy(() => import("./pages/ModelWorkspacePage"));
 
 // Bootstrap global error capture immediately
 initErrorCapture();
@@ -135,6 +136,7 @@ const App = () => {
                   <Route path="/admin/games" element={<RequireAuth><AdminGamesPage /></RequireAuth>} />
                   <Route path="/admin" element={<RequireAuth><AdminPage /></RequireAuth>} />
                   <Route path="/admin/tt-edge" element={<RequireAuth><TTEdgePage /></RequireAuth>} />
+                  <Route path="/models" element={<RequireAuth><ModelWorkspacePage /></RequireAuth>} />
                   <Route path="/paywall" element={<RequireAuth><PaywallPage /></RequireAuth>} />
                   <Route path="/subscription" element={<RequireAuth><SubscriptionPage /></RequireAuth>} />
                 </Route>

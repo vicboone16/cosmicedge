@@ -1192,6 +1192,137 @@ export type Database = {
         }
         Relationships: []
       }
+      custom_model_runs: {
+        Row: {
+          calculation_trace: Json | null
+          confidence: number | null
+          created_at: string | null
+          explanation: string | null
+          game_id: string | null
+          id: string
+          inputs: Json | null
+          market_type: string | null
+          model_id: string | null
+          model_key: string | null
+          outputs: Json | null
+          player_id: string | null
+          sport: string | null
+          user_id: string
+        }
+        Insert: {
+          calculation_trace?: Json | null
+          confidence?: number | null
+          created_at?: string | null
+          explanation?: string | null
+          game_id?: string | null
+          id?: string
+          inputs?: Json | null
+          market_type?: string | null
+          model_id?: string | null
+          model_key?: string | null
+          outputs?: Json | null
+          player_id?: string | null
+          sport?: string | null
+          user_id: string
+        }
+        Update: {
+          calculation_trace?: Json | null
+          confidence?: number | null
+          created_at?: string | null
+          explanation?: string | null
+          game_id?: string | null
+          id?: string
+          inputs?: Json | null
+          market_type?: string | null
+          model_id?: string | null
+          model_key?: string | null
+          outputs?: Json | null
+          player_id?: string | null
+          sport?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "custom_model_runs_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "custom_model_runs_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "v_game_live_state"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "custom_model_runs_model_id_fkey"
+            columns: ["model_id"]
+            isOneToOne: false
+            referencedRelation: "custom_models"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "custom_model_runs_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      custom_models: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          factors: Json
+          id: string
+          is_active: boolean | null
+          is_default: boolean | null
+          market_type: string
+          name: string
+          notes: string | null
+          sport: string
+          tags: string[] | null
+          target_output: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          factors?: Json
+          id?: string
+          is_active?: boolean | null
+          is_default?: boolean | null
+          market_type?: string
+          name: string
+          notes?: string | null
+          sport?: string
+          tags?: string[] | null
+          target_output?: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          factors?: Json
+          id?: string
+          is_active?: boolean | null
+          is_default?: boolean | null
+          market_type?: string
+          name?: string
+          notes?: string | null
+          sport?: string
+          tags?: string[] | null
+          target_output?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       depth_charts: {
         Row: {
           created_at: string
