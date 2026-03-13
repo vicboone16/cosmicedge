@@ -446,6 +446,7 @@ export type Database = {
           created_at: string
           entry_type: string | null
           id: string
+          intent_state: string
           notes: string | null
           payout: number | null
           result: string | null
@@ -462,6 +463,7 @@ export type Database = {
           created_at?: string
           entry_type?: string | null
           id?: string
+          intent_state?: string
           notes?: string | null
           payout?: number | null
           result?: string | null
@@ -478,6 +480,7 @@ export type Database = {
           created_at?: string
           entry_type?: string | null
           id?: string
+          intent_state?: string
           notes?: string | null
           payout?: number | null
           result?: string | null

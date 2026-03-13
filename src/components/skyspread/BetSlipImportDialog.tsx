@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { useBetSlips } from "@/hooks/use-bet-slips";
 import { toast } from "@/hooks/use-toast";
+import { SlipIntentSelector, type SlipIntent } from "@/components/skyspread/SlipOptimizer";
 
 type ImportMode = "link" | "screenshot" | "manual";
 
@@ -25,6 +26,7 @@ export default function BetSlipImportDialog() {
   const [entryType, setEntryType] = useState("power");
   const [stake, setStake] = useState("");
   const [payout, setPayout] = useState("");
+  const [intentState, setIntentState] = useState<SlipIntent>("thinking");
   const [manualPicks, setManualPicks] = useState<ManualPick[]>([
     { player_name: "", stat_type: "", line: "", direction: "over" },
   ]);
@@ -57,6 +59,7 @@ export default function BetSlipImportDialog() {
         entry_type: entryType,
         stake: parseFloat(stake) || 0,
         payout: parseFloat(payout) || 0,
+        intent_state: intentState,
       }, {
         onSuccess: () => setOpen(false),
       });
@@ -70,7 +73,7 @@ export default function BetSlipImportDialog() {
         toast({ title: "Enter a share link", variant: "destructive" });
         return;
       }
-      importSlip.mutate({ mode: "link", url, book }, {
+      importSlip.mutate({ mode: "link", url, book, intent_state: intentState }, {
         onSuccess: () => { setOpen(false); setUrl(""); },
       });
     } else if (mode === "manual") {
@@ -91,6 +94,7 @@ export default function BetSlipImportDialog() {
         entry_type: entryType,
         stake: parseFloat(stake) || 0,
         payout: parseFloat(payout) || 0,
+        intent_state: intentState,
       }, {
         onSuccess: () => {
           setOpen(false);
@@ -114,6 +118,9 @@ export default function BetSlipImportDialog() {
         <DialogHeader>
           <DialogTitle className="text-base">Import Bet Slip</DialogTitle>
         </DialogHeader>
+
+        {/* Intent selector */}
+        <SlipIntentSelector value={intentState} onChange={setIntentState} />
 
         {/* Mode tabs */}
         <div className="flex gap-1 bg-secondary/50 p-1 rounded-lg">

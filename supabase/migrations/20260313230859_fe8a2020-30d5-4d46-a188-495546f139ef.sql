@@ -1,0 +1,1 @@
+ALTER TABLE public.bet_slips ADD COLUMN IF NOT EXISTS intent_state text NOT NULL DEFAULT 'tracking_only';
