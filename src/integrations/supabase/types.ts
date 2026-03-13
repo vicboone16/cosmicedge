@@ -350,6 +350,147 @@ export type Database = {
         }
         Relationships: []
       }
+      bet_slip_picks: {
+        Row: {
+          created_at: string
+          direction: string
+          game_id: string | null
+          id: string
+          line: number
+          live_value: number | null
+          match_status: string
+          player_id: string | null
+          player_name_raw: string
+          progress: number | null
+          prop_shell_id: string | null
+          result: string | null
+          slip_id: string
+          stat_type: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          direction?: string
+          game_id?: string | null
+          id?: string
+          line: number
+          live_value?: number | null
+          match_status?: string
+          player_id?: string | null
+          player_name_raw: string
+          progress?: number | null
+          prop_shell_id?: string | null
+          result?: string | null
+          slip_id: string
+          stat_type: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          direction?: string
+          game_id?: string | null
+          id?: string
+          line?: number
+          live_value?: number | null
+          match_status?: string
+          player_id?: string | null
+          player_name_raw?: string
+          progress?: number | null
+          prop_shell_id?: string | null
+          result?: string | null
+          slip_id?: string
+          stat_type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bet_slip_picks_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bet_slip_picks_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "v_game_live_state"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "bet_slip_picks_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bet_slip_picks_prop_shell_id_fkey"
+            columns: ["prop_shell_id"]
+            isOneToOne: false
+            referencedRelation: "tracked_prop_shells"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bet_slip_picks_slip_id_fkey"
+            columns: ["slip_id"]
+            isOneToOne: false
+            referencedRelation: "bet_slips"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bet_slips: {
+        Row: {
+          book: string
+          created_at: string
+          entry_type: string | null
+          id: string
+          notes: string | null
+          payout: number | null
+          result: string | null
+          settled_at: string | null
+          source: string
+          source_url: string | null
+          stake: number | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          book?: string
+          created_at?: string
+          entry_type?: string | null
+          id?: string
+          notes?: string | null
+          payout?: number | null
+          result?: string | null
+          settled_at?: string | null
+          source?: string
+          source_url?: string | null
+          stake?: number | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          book?: string
+          created_at?: string
+          entry_type?: string | null
+          id?: string
+          notes?: string | null
+          payout?: number | null
+          result?: string | null
+          settled_at?: string | null
+          source?: string
+          source_url?: string | null
+          stake?: number | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       bets: {
         Row: {
           away_team: string | null
@@ -5739,6 +5880,97 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      tracked_prop_shells: {
+        Row: {
+          book: string | null
+          created_at: string
+          direction: string | null
+          game_id: string | null
+          game_label_raw: string | null
+          id: string
+          line: number
+          market_scope: string | null
+          market_type: string | null
+          match_status: string
+          notes: string | null
+          opponent: string | null
+          player_id: string | null
+          player_name_raw: string
+          source: string | null
+          sport: string | null
+          stat_label_raw: string | null
+          stat_type: string
+          team: string | null
+          tracking_mode: string | null
+        }
+        Insert: {
+          book?: string | null
+          created_at?: string
+          direction?: string | null
+          game_id?: string | null
+          game_label_raw?: string | null
+          id?: string
+          line: number
+          market_scope?: string | null
+          market_type?: string | null
+          match_status?: string
+          notes?: string | null
+          opponent?: string | null
+          player_id?: string | null
+          player_name_raw: string
+          source?: string | null
+          sport?: string | null
+          stat_label_raw?: string | null
+          stat_type: string
+          team?: string | null
+          tracking_mode?: string | null
+        }
+        Update: {
+          book?: string | null
+          created_at?: string
+          direction?: string | null
+          game_id?: string | null
+          game_label_raw?: string | null
+          id?: string
+          line?: number
+          market_scope?: string | null
+          market_type?: string | null
+          match_status?: string
+          notes?: string | null
+          opponent?: string | null
+          player_id?: string | null
+          player_name_raw?: string
+          source?: string | null
+          sport?: string | null
+          stat_label_raw?: string | null
+          stat_type?: string
+          team?: string | null
+          tracking_mode?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tracked_prop_shells_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tracked_prop_shells_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "v_game_live_state"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "tracked_prop_shells_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       tracked_props: {
         Row: {
