@@ -193,6 +193,7 @@ Only return valid JSON. No markdown. No explanation.`
         payout,
         source: mode,
         source_url: url || null,
+        intent_state,
       })
       .select("id")
       .single();
