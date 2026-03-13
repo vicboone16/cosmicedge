@@ -8,6 +8,10 @@ import AstraGlossaryTab from "@/components/astra/AstraGlossaryTab";
 import AstraFormulasEnginesTab from "@/components/astra/AstraFormulasEnginesTab";
 import AstraMethodologyTab from "@/components/astra/AstraMethodologyTab";
 import { useIsAdmin } from "@/hooks/use-admin";
+import { useCustomModels } from "@/hooks/use-custom-models";
+import { detectModelIntent, resolvePlayer, findModelByName, formatPredictionForChat } from "@/lib/astra-model-router";
+import { fetchPlayerFactors, executeModel, STAT_KEYS } from "@/lib/model-engine";
+import { FACTOR_LIBRARY } from "@/lib/model-factors";
 
 const MachinaSection = lazy(() => import("@/components/astra/MachinaSection"));
 
