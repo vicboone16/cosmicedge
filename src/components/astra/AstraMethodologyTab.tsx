@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2, BookOpen, Compass } from "lucide-react";
+import MarkdownBody from "./MarkdownBody";
 
 export default function AstraMethodologyTab() {
   const { data: pages, isLoading } = useQuery({
