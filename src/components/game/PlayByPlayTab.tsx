@@ -377,6 +377,7 @@ export function PlayByPlayTab({ gameId, homeAbbr, awayAbbr, league }: PlayByPlay
         player = "Unknown Player";
       }
 
+      const clockSeconds = parseClockToSeconds(clockRaw);
       const eventType = ev.event_type || ev.action_type || ev.EventType || null;
       const clockDisplay = clockSeconds != null ? formatClock(clockSeconds, eventType, period) : (clockRaw || "");
 
