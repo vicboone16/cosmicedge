@@ -21,7 +21,7 @@ serve(async (req) => {
     if (authError || !user) throw new Error("Unauthorized");
 
     const body = await req.json();
-    const { mode, url, image_base64, manual_picks, book = "prizepicks" } = body;
+    const { mode, url, image_base64, manual_picks, book = "prizepicks", intent_state = "tracking_only" } = body;
 
     let picks: any[] = [];
     let entry_type = "power";
