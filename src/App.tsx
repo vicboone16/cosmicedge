@@ -136,6 +136,7 @@ const App = () => {
                   <Route path="/admin/games" element={<RequireAuth><AdminGamesPage /></RequireAuth>} />
                   <Route path="/admin" element={<RequireAuth><AdminPage /></RequireAuth>} />
                   <Route path="/admin/tt-edge" element={<RequireAuth><TTEdgePage /></RequireAuth>} />
+                  <Route path="/models" element={<RequireAuth><ModelWorkspacePage /></RequireAuth>} />
                   <Route path="/paywall" element={<RequireAuth><PaywallPage /></RequireAuth>} />
                   <Route path="/subscription" element={<RequireAuth><SubscriptionPage /></RequireAuth>} />
                 </Route>
