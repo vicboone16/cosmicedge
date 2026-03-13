@@ -595,12 +595,9 @@ const SkySpreadPage = () => {
       <div className="px-4 py-4 space-y-4">
         {activeTab === "bankroll" ? (
           <BankrollTab userId={userId} />
+        ) : activeTab === "tracked" ? (
+          <TrackedPropsWidget showHeader={false} />
         ) : (
-          <>
-        {/* Live Board Header Section */}
-        {liveItemCount > 0 && (
-          <section>
-            <button
               onClick={() => setShowLive(!showLive)}
               className="w-full flex items-center justify-between py-1 group"
             >
