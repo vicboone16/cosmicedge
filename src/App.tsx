@@ -52,6 +52,7 @@ const PaywallPage = lazy(() => import("./pages/PaywallPage"));
 const SubscriptionPage = lazy(() => import("./pages/SubscriptionPage"));
 const AppStorePrivacyScript = lazy(() => import("./pages/AppStorePrivacyScript"));
 const ModelWorkspacePage = lazy(() => import("./pages/ModelWorkspacePage"));
+const MachinaPage = lazy(() => import("./pages/MachinaPage"));
 
 // Bootstrap global error capture immediately
 initErrorCapture();
