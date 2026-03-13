@@ -12,6 +12,8 @@ import CreateBetForm from "@/components/skyspread/CreateBetForm";
 import PropBuilderDialog from "@/components/skyspread/PropBuilderDialog";
 import BankrollTab from "@/components/skyspread/BankrollTab";
 import { TrackedPropsWidget } from "@/components/tracking/TrackedProps";
+import BetSlipImportDialog from "@/components/skyspread/BetSlipImportDialog";
+import BetSlipCards from "@/components/skyspread/BetSlipCards";
 import { toast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
