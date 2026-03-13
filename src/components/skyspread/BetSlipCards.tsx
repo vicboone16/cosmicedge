@@ -4,6 +4,9 @@ import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { useBetSlips } from "@/hooks/use-bet-slips";
 import { Badge } from "@/components/ui/badge";
+import { supabase } from "@/integrations/supabase/client";
+import { SlipIntentSelector, SlipOptimizerPanel, INTENT_CONFIG, type SlipIntent } from "@/components/skyspread/SlipOptimizer";
+import { toast } from "@/hooks/use-toast";
 
 const MATCH_BADGES: Record<string, { label: string; className: string }> = {
   exact_match: { label: "Matched", className: "bg-cosmic-green/15 text-cosmic-green" },
@@ -72,7 +75,12 @@ function PickRow({ pick }: { pick: any }) {
 
 function SlipCard({ slip, picks }: { slip: any; picks: any[] }) {
   const [expanded, setExpanded] = useState(false);
+  const [showOptimizer, setShowOptimizer] = useState(false);
   const { deleteSlip } = useBetSlips();
+
+  const intentState: SlipIntent = (slip.intent_state as SlipIntent) || "tracking_only";
+  const intentCfg = INTENT_CONFIG[intentState];
+  const IntentIcon = intentCfg.icon;
 
   const pickCount = picks?.length || 0;
   const hitCount = picks?.filter((p: any) => p.result === "win").length || 0;
@@ -82,6 +90,17 @@ function SlipCard({ slip, picks }: { slip: any; picks: any[] }) {
     ? slip.result === "win" ? CheckCircle : slip.result === "loss" ? XCircle : Clock
     : Clock;
   const StatusIcon = statusIcon;
+
+  const handleIntentChange = async (newIntent: SlipIntent) => {
+    await supabase.from("bet_slips").update({ intent_state: newIntent } as any).eq("id", slip.id);
+    // Optimistic — the refetch will pick up the change
+    slip.intent_state = newIntent;
+    toast({ title: `Slip mode: ${INTENT_CONFIG[newIntent].label}` });
+  };
+
+  const handleOptimizerAction = (action: string) => {
+    toast({ title: `Action: ${action}`, description: "Optimizer integration coming soon" });
+  };
 
   return (
     <div className="cosmic-card rounded-xl overflow-hidden">
@@ -103,11 +122,17 @@ function SlipCard({ slip, picks }: { slip: any; picks: any[] }) {
               <span className="text-[10px] text-muted-foreground capitalize">· {slip.entry_type}</span>
               <span className="text-[10px] text-muted-foreground">· {pickCount} picks</span>
             </div>
-            <p className="text-[10px] text-muted-foreground">
-              {format(new Date(slip.created_at), "MMM d, h:mm a")}
-              {slip.stake > 0 && ` · $${Number(slip.stake).toFixed(2)}`}
-              {slip.payout > 0 && ` → $${Number(slip.payout).toFixed(2)}`}
-            </p>
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <p className="text-[10px] text-muted-foreground">
+                {format(new Date(slip.created_at), "MMM d, h:mm a")}
+                {slip.stake > 0 && ` · $${Number(slip.stake).toFixed(2)}`}
+                {slip.payout > 0 && ` → $${Number(slip.payout).toFixed(2)}`}
+              </p>
+              <span className={cn("flex items-center gap-0.5 text-[9px] font-semibold", intentCfg.color)}>
+                <IntentIcon className="h-2.5 w-2.5" />
+                {intentCfg.label}
+              </span>
+            </div>
           </div>
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
@@ -117,14 +142,45 @@ function SlipCard({ slip, picks }: { slip: any; picks: any[] }) {
         </div>
       </button>
 
-      {/* Expanded picks */}
+      {/* Expanded content */}
       {expanded && (
         <div className="px-3 pb-3 border-t border-border/30">
-          <div className="pt-2">
+          {/* Intent selector (compact) */}
+          <div className="pt-2 pb-2">
+            <SlipIntentSelector value={intentState} onChange={handleIntentChange} compact />
+          </div>
+
+          {/* Picks */}
+          <div>
             {picks?.map((pick: any) => (
               <PickRow key={pick.id} pick={pick} />
             ))}
           </div>
+
+          {/* Optimizer toggle */}
+          <button
+            onClick={(e) => { e.stopPropagation(); setShowOptimizer(!showOptimizer); }}
+            className={cn(
+              "w-full mt-2 py-2 rounded-lg text-[10px] font-semibold flex items-center justify-center gap-1.5 transition-colors border",
+              showOptimizer
+                ? "bg-primary/10 border-primary/30 text-primary"
+                : "border-border text-muted-foreground hover:text-foreground"
+            )}
+          >
+            <Zap className="h-3 w-3" />
+            {showOptimizer ? "Hide Optimizer" : "AI Slip Optimizer"}
+          </button>
+
+          {showOptimizer && (
+            <SlipOptimizerPanel
+              slip={slip}
+              picks={picks}
+              intentState={intentState}
+              onAction={handleOptimizerAction}
+            />
+          )}
+
+          {/* Footer */}
           <div className="flex items-center justify-between mt-2 pt-2 border-t border-border/30">
             <div className="flex items-center gap-1">
               <Badge variant="outline" className="text-[9px] capitalize">{slip.source}</Badge>
