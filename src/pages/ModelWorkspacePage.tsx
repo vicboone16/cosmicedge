@@ -2,17 +2,19 @@ import { useState, lazy, Suspense } from "react";
 import { cn } from "@/lib/utils";
 import { useIsAdmin } from "@/hooks/use-admin";
 import { useSaveModel, type CustomModel } from "@/hooks/use-custom-models";
-import { FlaskConical, Database, Loader2, Wrench, Plus } from "lucide-react";
+import { FlaskConical, Database, Loader2, Wrench, Plus, Play, History } from "lucide-react";
 import type { CustomModelData } from "@/lib/model-factors";
 
 const ModelBuilderForm = lazy(() => import("@/components/models/ModelBuilderForm"));
 const ModelRegistryPanel = lazy(() => import("@/components/models/ModelRegistryPanel"));
+const PredictionStudioPanel = lazy(() => import("@/components/models/PredictionStudioPanel"));
+const BacktestConsolePanel = lazy(() => import("@/components/models/BacktestConsolePanel"));
 
-type Tab = "builder" | "registry";
+type Tab = "studio" | "builder" | "registry" | "backtest";
 
 export default function ModelWorkspacePage() {
   const { isAdmin, isLoading: adminLoading } = useIsAdmin();
-  const [tab, setTab] = useState<Tab>("builder");
+  const [tab, setTab] = useState<Tab>("studio");
   const [editingModel, setEditingModel] = useState<(CustomModelData & { id?: string }) | undefined>();
   const saveMut = useSaveModel();
 
@@ -33,8 +35,10 @@ export default function ModelWorkspacePage() {
   }
 
   const tabs: { key: Tab; label: string; icon: typeof FlaskConical }[] = [
+    { key: "studio", label: "Prediction Studio", icon: Play },
     { key: "builder", label: editingModel?.id ? "Edit Model" : "New Model", icon: editingModel?.id ? Wrench : Plus },
     { key: "registry", label: "My Models", icon: Database },
+    { key: "backtest", label: "Backtest", icon: History },
   ];
 
   function handleSave(data: CustomModelData & { id?: string }) {
@@ -66,6 +70,10 @@ export default function ModelWorkspacePage() {
     setTab("builder");
   }
 
+  function handleRunFromRegistry(_model: CustomModel) {
+    setTab("studio");
+  }
+
   return (
     <div className="min-h-screen">
       <header className="px-4 pt-12 pb-4 bg-background/80 backdrop-blur-xl border-b border-border/50">
@@ -74,9 +82,9 @@ export default function ModelWorkspacePage() {
           <h1 className="text-lg font-bold font-display text-foreground">Model Workspace</h1>
         </div>
         <p className="text-[10px] text-muted-foreground mb-3">
-          Build, manage, and execute custom prediction models
+          Build, manage, execute & backtest custom prediction models
         </p>
-        <div className="flex items-center gap-2">
+        <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
           {tabs.map((t) => (
             <button
               key={t.key}
@@ -97,6 +105,7 @@ export default function ModelWorkspacePage() {
 
       <div className="px-4 py-4">
         <Suspense fallback={<div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>}>
+          {tab === "studio" && <PredictionStudioPanel />}
           {tab === "builder" && (
             <ModelBuilderForm
               key={editingModel?.id ?? "new"}
@@ -106,8 +115,9 @@ export default function ModelWorkspacePage() {
             />
           )}
           {tab === "registry" && (
-            <ModelRegistryPanel onEdit={handleEdit} />
+            <ModelRegistryPanel onEdit={handleEdit} onRun={handleRunFromRegistry} />
           )}
+          {tab === "backtest" && <BacktestConsolePanel />}
         </Suspense>
       </div>
     </div>
