@@ -228,7 +228,7 @@ export function executeModel(
   trace.push(`Final projection: ${baseProjection.toFixed(2)} × ${adjustmentMultiplier.toFixed(4)} = ${projection.toFixed(2)}`);
 
   // ── Step 4: Edge and probability ──
-  const sigma = values.volatility ?? (baseProjection * 0.25) || 1;
+  const sigma = values.volatility ?? ((baseProjection * 0.25) || 1);
   const edge = projection - line;
   const z = edge / sigma;
   const probability = logisticCdf(z * 1.5);
