@@ -307,7 +307,7 @@ const SkySpreadPage = () => {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const userId = user?.id ?? null;
-  const [activeTab, setActiveTab] = useState<"ledger" | "tracked" | "bankroll">("ledger");
+  const [activeTab, setActiveTab] = useState<"ledger" | "tracked" | "slips" | "bankroll">("ledger");
   const [ledgerTab, setLedgerTab] = useState<"open" | "settled">("open");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [sortBy, setSortBy] = useState<string>("confidence");
