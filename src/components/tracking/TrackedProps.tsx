@@ -341,8 +341,9 @@ function LivePropCard({ tp, gameData, onDelete }: { tp: any; gameData?: any; onD
             </span>
           </div>
 
-          {/* Animated progress bar */}
+          {/* Animated progress bar — stat vs line */}
           <div className="relative h-2.5 bg-border rounded-full overflow-hidden">
+            {/* Current stat fill */}
             <div
               className={cn(
                 "h-full rounded-full transition-all duration-700 ease-out",
@@ -350,11 +351,22 @@ function LivePropCard({ tp, gameData, onDelete }: { tp: any; gameData?: any; onD
               )}
               style={{ width: `${pacing.progress}%` }}
             />
-            {/* Game progress marker */}
+            {/* Projected final marker (prop-specific) */}
+            {pacing.projectedFinal > 0 && (
+              <div
+                className={cn(
+                  "absolute top-0 h-full w-0.5 border-l border-dashed",
+                  pacing.onPace ? "border-cosmic-green/70" : "border-cosmic-red/70"
+                )}
+                style={{ left: `${Math.min((pacing.projectedFinal / pacing.line) * 100, 120)}%` }}
+                title={`Projected: ${pacing.projectedFinal}`}
+              />
+            )}
+            {/* Line threshold marker at 100% */}
             <div
-              className="absolute top-0 h-full w-0.5 bg-foreground/30"
-              style={{ left: `${pacing.gameProgress}%` }}
-              title={`Game ${Math.round(pacing.gameProgress)}% complete`}
+              className="absolute top-0 h-full w-0.5 bg-foreground/50"
+              style={{ left: '100%' }}
+              title={`Line: ${pacing.line}`}
             />
           </div>
 
