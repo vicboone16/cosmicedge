@@ -565,33 +565,23 @@ const SkySpreadPage = () => {
 
         {/* Tab Switcher */}
         <div className="flex gap-1 mt-3">
-          <button
-            onClick={() => setActiveTab("ledger")}
-            className={cn(
-              "flex-1 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center justify-center gap-1.5",
-              activeTab === "ledger" ? "bg-primary text-primary-foreground" : "bg-secondary/60 text-muted-foreground hover:text-foreground"
-            )}
-          >
-            <Star className="h-3 w-3" /> Ledger
-          </button>
-          <button
-            onClick={() => setActiveTab("tracked")}
-            className={cn(
-              "flex-1 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center justify-center gap-1.5",
-              activeTab === "tracked" ? "bg-primary text-primary-foreground" : "bg-secondary/60 text-muted-foreground hover:text-foreground"
-            )}
-          >
-            <Target className="h-3 w-3" /> Tracked
-          </button>
-          <button
-            onClick={() => setActiveTab("bankroll")}
-            className={cn(
-              "flex-1 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center justify-center gap-1.5",
-              activeTab === "bankroll" ? "bg-primary text-primary-foreground" : "bg-secondary/60 text-muted-foreground hover:text-foreground"
-            )}
-          >
-            <Wallet className="h-3 w-3" /> Bankroll
-          </button>
+          {([
+            { key: "ledger" as const, label: "Ledger", icon: Star },
+            { key: "tracked" as const, label: "Tracked", icon: Target },
+            { key: "slips" as const, label: "Slips", icon: FileText },
+            { key: "bankroll" as const, label: "Bankroll", icon: Wallet },
+          ]).map(({ key, label, icon: Icon }) => (
+            <button
+              key={key}
+              onClick={() => setActiveTab(key)}
+              className={cn(
+                "flex-1 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center justify-center gap-1.5",
+                activeTab === key ? "bg-primary text-primary-foreground" : "bg-secondary/60 text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <Icon className="h-3 w-3" /> {label}
+            </button>
+          ))}
         </div>
       </header>
 
