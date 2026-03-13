@@ -88,7 +88,14 @@ function ModelLab() {
                     min={0} max={50} step={1}
                     className="flex-1"
                   />
-                  <span className="text-[10px] font-bold text-muted-foreground tabular-nums w-6 text-right">{eng.weight}</span>
+                  <Input
+                    type="number"
+                    min={0}
+                    max={50}
+                    value={eng.weight}
+                    onChange={e => setWeight(eng.key, Math.min(50, Math.max(0, parseInt(e.target.value) || 0)))}
+                    className="h-6 w-14 text-[10px] text-center tabular-nums px-1"
+                  />
                 </div>
               )}
             </div>

@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2, Sparkles, Layers, Brain, Telescope } from "lucide-react";
+import MarkdownBody from "./MarkdownBody";
 
 export default function AstraAboutTab() {
   const { data: pages, isLoading } = useQuery({
@@ -55,11 +56,7 @@ export default function AstraAboutTab() {
                   <p className="text-[11px] text-muted-foreground leading-relaxed">{page.summary}</p>
                 )}
               {page.body_md && (
-                <div className="text-xs text-foreground/80 leading-relaxed space-y-2">
-                  {page.body_md.split('\n\n').map((para: string, pi: number) => (
-                    <p key={pi}>{para}</p>
-                  ))}
-                </div>
+                <MarkdownBody text={page.body_md} />
               )}
               </div>
             );

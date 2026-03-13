@@ -25,7 +25,7 @@ export function CosmicBackground() {
     <div
       className={cn(
         "fixed inset-0 -z-10 pointer-events-none overflow-hidden transition-opacity duration-[1500ms] ease-in-out",
-        isActive ? "opacity-100" : "opacity-0"
+        isActive ? "opacity-100" : "opacity-40"
       )}
     >
       {/* Deep space gradient */}
