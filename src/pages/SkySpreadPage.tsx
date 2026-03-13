@@ -572,6 +572,15 @@ const SkySpreadPage = () => {
             <Star className="h-3 w-3" /> Ledger
           </button>
           <button
+            onClick={() => setActiveTab("tracked")}
+            className={cn(
+              "flex-1 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center justify-center gap-1.5",
+              activeTab === "tracked" ? "bg-primary text-primary-foreground" : "bg-secondary/60 text-muted-foreground hover:text-foreground"
+            )}
+          >
+            <Target className="h-3 w-3" /> Tracked
+          </button>
+          <button
             onClick={() => setActiveTab("bankroll")}
             className={cn(
               "flex-1 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center justify-center gap-1.5",
