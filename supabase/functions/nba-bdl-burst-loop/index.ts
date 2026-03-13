@@ -92,6 +92,31 @@ Deno.serve(async (req) => {
     console.warn("[burst] cosmic_games pre-seed error (non-fatal):", e);
   }
 
+  // ── Time-based fallback: flip "scheduled" → "live" if start_time has passed ──
+  // This ensures games appear on the live slate even if the BDL webhook is delayed.
+  try {
+    const now = new Date().toISOString();
+    const { data: overdue } = await sb
+      .from("games")
+      .select("id, home_abbr, away_abbr")
+      .eq("league", "NBA")
+      .eq("status", "scheduled")
+      .lte("start_time", now);
+
+    if (overdue?.length) {
+      for (const g of overdue) {
+        await sb.from("games").update({
+          status: "live",
+          updated_at: now,
+        }).eq("id", g.id);
+        console.log(`[burst] Time-fallback: flipped ${g.away_abbr}@${g.home_abbr} (${g.id}) → live`);
+      }
+      console.log(`[burst] Time-fallback flipped ${overdue.length} overdue games to live`);
+    }
+  } catch (e) {
+    console.warn("[burst] time-fallback error (non-fatal):", e);
+  }
+
   // ── Caches (persist across ALL ticks) ──
   const playerCache = new Map<string, string | null>(); // name → player.id
   const gameKeyMap = new Map<number, string>();          // bdlId → internal UUID
