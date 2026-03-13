@@ -23,6 +23,7 @@ function AstraChat() {
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const { data: customModels } = useCustomModels();
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
@@ -37,36 +38,65 @@ function AstraChat() {
     setIsLoading(true);
 
     try {
-      // Try compute pipeline first
+      // ── Step 0: Check for model intent ──
+      const intent = detectModelIntent(text);
+
+      if (intent?.type === "run_model" && intent.playerName) {
+        const player = await resolvePlayer(intent.playerName);
+        if (player) {
+          // Find model
+          const model = intent.modelName && customModels
+            ? findModelByName(intent.modelName, customModels)
+            : null;
+
+          const factors = model
+            ? (model.factors as any)
+            : FACTOR_LIBRARY.map((f) => ({ key: f.key, weight: f.defaultWeight, enabled: f.category === "base" || f.category === "environment" }));
+
+          const statKey = intent.statKey ?? "points";
+          const values = await fetchPlayerFactors(player.id, statKey);
+          const line = values.season_avg ?? 20;
+
+          const result = executeModel(factors, values, line, model?.name ?? "CosmicEdge Default", model?.id);
+          const formatted = formatPredictionForChat(result);
+
+          setMessages((prev) => [...prev, { role: "assistant", content: formatted }]);
+          setIsLoading(false);
+          return;
+        }
+      }
+
+      if (intent?.type === "backtest_query") {
+        setMessages((prev) => [...prev, {
+          role: "assistant",
+          content: "📊 Head to the **Model Workspace → Backtest** tab to run a full backtest with your saved models. You can select sport, stat, model, and date range there.",
+        }]);
+        setIsLoading(false);
+        return;
+      }
+
+      // ── Step 1: Try compute pipeline ──
       const { data: computeData, error: computeError } = await supabase.functions.invoke("astra-compute", {
         body: { question: text },
       });
 
       if (!computeError && computeData?.success && computeData?.answer) {
-        // Build a rich compute-aware response
         let content = computeData.answer;
-
-        // Append computed value badge if available
         if (computeData.computed_value != null) {
           content = `**${computeData.computed_value}**\n\n${content}`;
         }
-
-        // Append formula info
         if (computeData.formula_used) {
           content += `\n\n*Formula: ${computeData.formula_used.name}*`;
           if (computeData.formula_used.text) {
             content += `\n\`${computeData.formula_used.text}\``;
           }
         }
-
-        // Append fallback info
         if (computeData.fallback_info?.length) {
           content += `\n\n⚠️ ${computeData.fallback_info.join(" · ")}`;
         }
-
         setMessages((prev) => [...prev, { role: "assistant", content }]);
       } else {
-        // Fallback to astro-interpret
+        // ── Step 2: Fallback to astro-interpret ──
         const { data, error } = await supabase.functions.invoke("astro-interpret", {
           body: { mode: "freeform", delivery_mode: "chat", custom_prompt: text },
         });
