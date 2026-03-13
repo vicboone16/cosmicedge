@@ -131,10 +131,11 @@ function AstraChat() {
   };
 
   const suggestions = [
+    "Run my prop model on Jalen Brunson points",
+    "Predict LeBron rebounds using CosmicEdge Default",
     "How efficient have the Celtics been lately?",
-    "Compare LeBron's PER and usage vs the Knicks",
     "What does Mars in Leo mean for athletic performance?",
-    "Break down the Lakers vs Warriors matchup — stats and astro",
+    "Compare LeBron's PER and usage vs the Knicks",
   ];
 
   return (
