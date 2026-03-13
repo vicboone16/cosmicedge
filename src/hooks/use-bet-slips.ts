@@ -56,6 +56,7 @@ export function useBetSlips() {
       entry_type?: string;
       stake?: number;
       payout?: number;
+      intent_state?: string;
     }) => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error("Not logged in");
