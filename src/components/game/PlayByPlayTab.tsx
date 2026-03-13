@@ -39,11 +39,19 @@ function computeWP(
   return Math.max(0.001, Math.min(0.999, wp));
 }
 
-/* ─── Parse clock strings like "5:32", "Q2 5:32", "12:00.0" → seconds ─── */
+/* ─── Parse clock strings like "5:32", "Q2 5:32", "12:00.0", "0.1" → seconds ─── */
 function parseClockToSeconds(raw: string | null | undefined): number | null {
   if (!raw) return null;
   let cleaned = raw.replace(/^Q\d+\s+/i, "").trim();
   if (/final|half/i.test(cleaned)) return 0;
+
+  // If value is a pure decimal number (e.g. "0.1", "22.6", "125.4") treat as raw seconds
+  if (/^\d+(\.\d+)?$/.test(cleaned)) {
+    const val = parseFloat(cleaned);
+    if (Number.isFinite(val)) return Math.max(0, val);
+    return null;
+  }
+
   cleaned = cleaned.replace(/\.\d+$/, "");
   if (cleaned.startsWith(":")) cleaned = "0" + cleaned;
   const parts = cleaned.split(":");
@@ -54,11 +62,26 @@ function parseClockToSeconds(raw: string | null | undefined): number | null {
   return m * 60 + s;
 }
 
-/* ─── Format seconds back to MM:SS ─── */
-function formatClock(seconds: number | null): string {
+/* ─── Format seconds to basketball clock display (M:SS) ─── */
+function formatClock(seconds: number | null, eventType?: string | null, periodNum?: number): string {
   if (seconds == null) return "";
-  const m = Math.floor(seconds / 60);
-  const s = seconds % 60;
+
+  // Detect period-ending events
+  const isPeriodEnd = eventType != null &&
+    /end.?(period|quarter|half)|period.?end|end_of/i.test(eventType);
+
+  if (isPeriodEnd) {
+    if (periodNum === 2) return "Halftime";
+    const label = periodNum != null && periodNum <= 4 ? `Q${periodNum}` : periodNum != null ? `OT${periodNum - 4}` : "Quarter";
+    return `End of ${label}`;
+  }
+
+  // Sub-second or effectively zero → display 0:00
+  if (seconds < 1) return "0:00";
+
+  const whole = Math.floor(seconds);
+  const m = Math.floor(whole / 60);
+  const s = whole % 60;
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
