@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Star, Filter, ArrowUpDown, CheckSquare, Square, Zap, TrendingUp, AlertTriangle, ChevronDown, ChevronUp, Pin, PinOff, Trash2, CheckCircle, RefreshCw, Wallet, DollarSign, Edit2 } from "lucide-react";
+import { Star, Filter, ArrowUpDown, CheckSquare, Square, Zap, TrendingUp, AlertTriangle, ChevronDown, ChevronUp, Pin, PinOff, Trash2, CheckCircle, RefreshCw, Wallet, DollarSign, Edit2, Target } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
@@ -305,7 +305,7 @@ const SkySpreadPage = () => {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const userId = user?.id ?? null;
-  const [activeTab, setActiveTab] = useState<"ledger" | "bankroll">("ledger");
+  const [activeTab, setActiveTab] = useState<"ledger" | "tracked" | "bankroll">("ledger");
   const [ledgerTab, setLedgerTab] = useState<"open" | "settled">("open");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [sortBy, setSortBy] = useState<string>("confidence");
@@ -572,6 +572,15 @@ const SkySpreadPage = () => {
             <Star className="h-3 w-3" /> Ledger
           </button>
           <button
+            onClick={() => setActiveTab("tracked")}
+            className={cn(
+              "flex-1 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center justify-center gap-1.5",
+              activeTab === "tracked" ? "bg-primary text-primary-foreground" : "bg-secondary/60 text-muted-foreground hover:text-foreground"
+            )}
+          >
+            <Target className="h-3 w-3" /> Tracked
+          </button>
+          <button
             onClick={() => setActiveTab("bankroll")}
             className={cn(
               "flex-1 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center justify-center gap-1.5",
@@ -586,6 +595,8 @@ const SkySpreadPage = () => {
       <div className="px-4 py-4 space-y-4">
         {activeTab === "bankroll" ? (
           <BankrollTab userId={userId} />
+        ) : activeTab === "tracked" ? (
+          <TrackedPropsWidget showHeader={false} />
         ) : (
           <>
         {/* Live Board Header Section */}
