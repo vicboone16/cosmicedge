@@ -590,6 +590,8 @@ const SkySpreadPage = () => {
           <BankrollTab userId={userId} />
         ) : activeTab === "tracked" ? (
           <TrackedPropsWidget showHeader={false} />
+        ) : activeTab === "slips" ? (
+          <BetSlipCards />
         ) : (
           <>
         {/* Live Board Header Section */}
