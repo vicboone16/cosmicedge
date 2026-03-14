@@ -18,6 +18,50 @@ interface ManualPick {
   direction: "over" | "under";
 }
 
+const MAX_IMAGE_DIMENSION = 1800;
+const IMAGE_QUALITY = 0.86;
+
+const readFileAsDataUrl = (file: File): Promise<string> =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(new Error("Failed to read image"));
+    reader.readAsDataURL(file);
+  });
+
+const loadImage = (dataUrl: string): Promise<HTMLImageElement> =>
+  new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error("Failed to process image"));
+    img.src = dataUrl;
+  });
+
+const toOptimizedBase64 = async (file: File): Promise<string> => {
+  const dataUrl = await readFileAsDataUrl(file);
+  const image = await loadImage(dataUrl);
+
+  const longestSide = Math.max(image.width, image.height);
+  const scale = longestSide > MAX_IMAGE_DIMENSION ? MAX_IMAGE_DIMENSION / longestSide : 1;
+  const width = Math.max(1, Math.round(image.width * scale));
+  const height = Math.max(1, Math.round(image.height * scale));
+
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+
+  const context = canvas.getContext("2d");
+  if (!context) {
+    const raw = dataUrl.split(",")[1] || "";
+    return raw;
+  }
+
+  context.drawImage(image, 0, 0, width, height);
+
+  const optimizedDataUrl = canvas.toDataURL("image/jpeg", IMAGE_QUALITY);
+  return optimizedDataUrl.split(",")[1] || "";
+};
+
 export default function BetSlipImportDialog() {
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<ImportMode>("link");
@@ -48,10 +92,19 @@ export default function BetSlipImportDialog() {
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    
-    const reader = new FileReader();
-    reader.onload = async () => {
-      const base64 = (reader.result as string).split(",")[1];
+
+    if (!file.type.startsWith("image/")) {
+      toast({ title: "Please upload an image file", variant: "destructive" });
+      e.target.value = "";
+      return;
+    }
+
+    try {
+      const base64 = await toOptimizedBase64(file);
+      if (!base64) {
+        throw new Error("Could not read screenshot");
+      }
+
       importSlip.mutate({
         mode: "screenshot",
         image_base64: base64,
@@ -63,8 +116,15 @@ export default function BetSlipImportDialog() {
       }, {
         onSuccess: () => setOpen(false),
       });
-    };
-    reader.readAsDataURL(file);
+    } catch (error: any) {
+      toast({
+        title: "Upload failed",
+        description: error?.message || "Could not process screenshot",
+        variant: "destructive",
+      });
+    } finally {
+      e.target.value = "";
+    }
   };
 
   const handleSubmit = () => {
