@@ -7,9 +7,15 @@ import {
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
 import { useSlipOptimizer } from "@/hooks/use-slip-optimizer";
+import { useIsAdmin } from "@/hooks/use-admin";
 import type { SlipScore, LegScore } from "@/lib/slip-optimizer-engine";
+import { SlipLiveTracker } from "./optimizer/SlipLiveTracker";
+import { SlipLegDetailDrawer } from "./optimizer/SlipLegDetailDrawer";
+import { SlipReplacementDrawer } from "./optimizer/SlipReplacementDrawer";
+import { SlipVersionCompare } from "./optimizer/SlipVersionCompare";
+import { SlipHedgeWatch } from "./optimizer/SlipHedgeWatch";
+import { SlipRebuildSuggestions } from "./optimizer/SlipRebuildSuggestions";
 
 export type SlipIntent = "already_placed" | "thinking" | "building" | "tracking_only";
 
@@ -66,8 +72,8 @@ export function SlipIntentSelector({
   );
 }
 
-/* ─── Slip Score Card ─── */
-function SlipScoreCard({ score }: { score: SlipScore }) {
+/* ─── Slip Summary Card ─── */
+function SlipSummaryCard({ score, slip }: { score: SlipScore; slip: any }) {
   const gradeColor = score.score >= 80 ? "text-cosmic-green" : score.score >= 65 ? "text-cosmic-gold" : score.score >= 50 ? "text-cosmic-cyan" : "text-cosmic-red";
   const riskColor = score.riskLevel === "Low" ? "text-cosmic-green" : score.riskLevel === "Moderate" ? "text-cosmic-gold" : "text-cosmic-red";
 
@@ -75,37 +81,41 @@ function SlipScoreCard({ score }: { score: SlipScore }) {
     <div className="p-3 rounded-xl bg-secondary/20 border border-border space-y-2.5">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2.5">
-          <div className={cn("h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center")}>
-            <span className={cn("text-lg font-black", gradeColor)}>{score.grade}</span>
+          <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center">
+            <span className={cn("text-xl font-black", gradeColor)}>{score.grade}</span>
           </div>
           <div>
             <div className="flex items-baseline gap-1.5">
-              <span className={cn("text-xl font-black tabular-nums", gradeColor)}>{score.score}</span>
+              <span className={cn("text-2xl font-black tabular-nums", gradeColor)}>{score.score}</span>
               <span className="text-[10px] text-muted-foreground">/100</span>
             </div>
             <p className="text-[9px] text-muted-foreground">{score.confidenceLabel} · {score.legCount} legs</p>
           </div>
         </div>
-        <Badge variant="outline" className={cn("text-[9px]", riskColor)}>
-          {score.riskLevel} Risk
-        </Badge>
+        <div className="text-right space-y-0.5">
+          <Badge variant="outline" className={cn("text-[9px]", riskColor)}>
+            {score.riskLevel} Risk
+          </Badge>
+          {slip?.entry_type && (
+            <p className="text-[8px] text-muted-foreground capitalize">{slip.entry_type}</p>
+          )}
+        </div>
       </div>
 
       {/* Stats row */}
       <div className="grid grid-cols-3 gap-2">
-        <div className="text-center p-1.5 rounded-lg bg-secondary/40">
-          <p className="text-[9px] text-muted-foreground">Avg Edge</p>
-          <p className="text-xs font-bold text-foreground tabular-nums">{score.avgEdge.toFixed(1)}%</p>
-        </div>
-        <div className="text-center p-1.5 rounded-lg bg-secondary/40">
-          <p className="text-[9px] text-muted-foreground">Avg Conf</p>
-          <p className="text-xs font-bold text-foreground tabular-nums">{score.avgConfidence.toFixed(0)}%</p>
-        </div>
-        <div className="text-center p-1.5 rounded-lg bg-secondary/40">
-          <p className="text-[9px] text-muted-foreground">Avg Vol</p>
-          <p className="text-xs font-bold text-foreground tabular-nums">{score.avgVolatility.toFixed(0)}%</p>
-        </div>
+        <StatPill label="Avg Edge" value={`${score.avgEdge.toFixed(1)}%`} />
+        <StatPill label="Avg Conf" value={`${score.avgConfidence.toFixed(0)}%`} />
+        <StatPill label="Avg Vol" value={`${score.avgVolatility.toFixed(0)}%`} />
       </div>
+
+      {/* Stake/Payout */}
+      {(slip?.stake || slip?.payout) && (
+        <div className="grid grid-cols-2 gap-2">
+          {slip.stake > 0 && <StatPill label="Stake" value={`$${Number(slip.stake).toFixed(2)}`} />}
+          {slip.payout > 0 && <StatPill label="Payout" value={`$${Number(slip.payout).toFixed(2)}`} />}
+        </div>
+      )}
 
       {/* Risk flags */}
       {score.riskFlags.length > 0 && (
@@ -122,18 +132,26 @@ function SlipScoreCard({ score }: { score: SlipScore }) {
   );
 }
 
+function StatPill({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="text-center p-1.5 rounded-lg bg-secondary/40">
+      <p className="text-[9px] text-muted-foreground">{label}</p>
+      <p className="text-xs font-bold text-foreground tabular-nums">{value}</p>
+    </div>
+  );
+}
+
 /* ─── Leg Analysis Card ─── */
-function LegAnalysisCard({ leg, rank }: { leg: LegScore; rank: "strongest" | "weakest" | "neutral" }) {
-  const [expanded, setExpanded] = useState(false);
+function LegAnalysisCard({ leg, rank, onTap }: { leg: LegScore; rank: "strongest" | "weakest" | "neutral"; onTap: () => void }) {
   const scoreColor = leg.score >= 75 ? "text-cosmic-green" : leg.score >= 55 ? "text-cosmic-gold" : "text-cosmic-red";
 
   return (
-    <div className={cn("rounded-lg border transition-all",
+    <button onClick={onTap} className={cn("w-full rounded-lg border transition-all text-left",
       rank === "strongest" ? "border-cosmic-green/30 bg-cosmic-green/5" :
       rank === "weakest" ? "border-cosmic-red/30 bg-cosmic-red/5" :
       "border-border bg-secondary/20"
     )}>
-      <button onClick={() => setExpanded(!expanded)} className="w-full p-2 flex items-center justify-between text-left">
+      <div className="p-2 flex items-center justify-between">
         <div className="flex items-center gap-2 min-w-0">
           <div className={cn("h-7 w-7 rounded-lg flex items-center justify-center text-[10px] font-black shrink-0",
             rank === "strongest" ? "bg-cosmic-green/15 text-cosmic-green" :
@@ -157,33 +175,10 @@ function LegAnalysisCard({ leg, rank }: { leg: LegScore; rank: "strongest" | "we
               {rank === "strongest" ? "★ Best" : "⚠ Weakest"}
             </Badge>
           )}
-          {expanded ? <ChevronUp className="h-3 w-3 text-muted-foreground" /> : <ChevronDown className="h-3 w-3 text-muted-foreground" />}
+          <ChevronDown className="h-3 w-3 text-muted-foreground" />
         </div>
-      </button>
-
-      {expanded && (
-        <div className="px-2 pb-2 space-y-2 border-t border-border/30 pt-2">
-          <p className="text-[9px] text-muted-foreground italic">{leg.rationale}</p>
-          <div className="grid grid-cols-2 gap-1.5">
-            <Stat label="Edge" value={`${leg.edge.toFixed(1)}%`} good={leg.edge >= 5} />
-            <Stat label="Probability" value={`${leg.probability.toFixed(0)}%`} good={leg.probability >= 55} />
-            <Stat label="Confidence" value={`${leg.confidence.toFixed(0)}%`} good={leg.confidence >= 60} />
-            <Stat label="Volatility" value={`${leg.volatility.toFixed(0)}%`} good={leg.volatility <= 35} />
-            <Stat label="Matchup" value={`${leg.matchup_quality.toFixed(0)}`} good={leg.matchup_quality >= 60} />
-            <Stat label="Score" value={`${leg.score}/100`} good={leg.score >= 70} />
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function Stat({ label, value, good }: { label: string; value: string; good: boolean }) {
-  return (
-    <div className="flex items-center justify-between px-1.5 py-1 rounded bg-secondary/40">
-      <span className="text-[8px] text-muted-foreground">{label}</span>
-      <span className={cn("text-[9px] font-bold tabular-nums", good ? "text-cosmic-green" : "text-muted-foreground")}>{value}</span>
-    </div>
+      </div>
+    </button>
   );
 }
 
@@ -218,6 +213,7 @@ function AiAnalysisPanel({ analysis, loading, action }: { analysis: string | nul
       <div className="flex items-center gap-1.5">
         <Brain className="h-3.5 w-3.5 text-primary" />
         <p className="text-[10px] font-semibold text-primary">AI Slip Optimizer</p>
+        {action && <Badge variant="outline" className="text-[7px] ml-auto capitalize">{action.replace(/_/g, " ")}</Badge>}
         {loading && <Loader2 className="h-3 w-3 animate-spin text-primary ml-auto" />}
       </div>
       {loading && !analysis && (
@@ -240,29 +236,28 @@ function AiAnalysisPanel({ analysis, loading, action }: { analysis: string | nul
   );
 }
 
-/* ─── Hedge Watch Card ─── */
-function HedgeWatchCard({ score, picks }: { score: SlipScore; picks: any[] }) {
-  const livePicks = picks.filter(p => p.live_value != null && !p.result);
-  if (livePicks.length === 0) return null;
-
-  const atRiskLegs = score.legs.filter(l => l.score < 50 || l.flags.includes("high_volatility"));
-  if (atRiskLegs.length === 0) return null;
-
+/* ─── Admin Debug Panel ─── */
+function AdminDebugPanel({ score }: { score: SlipScore }) {
+  const [open, setOpen] = useState(false);
   return (
-    <div className="p-2.5 rounded-lg bg-cosmic-gold/5 border border-cosmic-gold/20 space-y-1.5">
-      <div className="flex items-center gap-1.5">
-        <Shield className="h-3.5 w-3.5 text-cosmic-gold" />
-        <p className="text-[10px] font-semibold text-cosmic-gold">Hedge Watch</p>
-        <Badge variant="outline" className="text-[7px] border-cosmic-gold/30 text-cosmic-gold ml-auto">Advisory</Badge>
-      </div>
-      {atRiskLegs.map(leg => (
-        <div key={leg.id} className="text-[9px] text-muted-foreground">
-          <span className="text-cosmic-gold font-semibold">{leg.player_name_raw}</span>
-          {" — "}score {leg.score}/100, {leg.volatility.toFixed(0)}% volatility.
-          {leg.flags.includes("thin_edge") && " Thin edge detected."}
+    <div className="rounded-lg border border-destructive/20 bg-destructive/5">
+      <button onClick={() => setOpen(!open)} className="w-full p-2 flex items-center justify-between text-left">
+        <span className="text-[9px] font-semibold text-destructive flex items-center gap-1"><Brain className="h-3 w-3" /> Admin Debug</span>
+        {open ? <ChevronUp className="h-3 w-3 text-destructive" /> : <ChevronDown className="h-3 w-3 text-destructive" />}
+      </button>
+      {open && (
+        <div className="px-2 pb-2 space-y-1 text-[8px] font-mono text-muted-foreground">
+          <p>slip_score: {score.score} | grade: {score.grade} | risk: {score.riskLevel}</p>
+          <p>avg_edge: {score.avgEdge} | avg_conf: {score.avgConfidence} | avg_vol: {score.avgVolatility}</p>
+          <p>strongest_idx: {score.strongestLegIdx} | weakest_idx: {score.weakestLegIdx}</p>
+          <p>risk_flags: {score.riskFlags.join("; ") || "none"}</p>
+          <div className="border-t border-destructive/10 pt-1 mt-1">
+            {score.legs.map((l, i) => (
+              <p key={i}>leg[{i}] {l.player_name_raw}: score={l.score} edge={l.edge} conf={l.confidence} vol={l.volatility} mq={l.matchup_quality} syn={String(l.isSynthetic)} flags=[{l.flags.join(",")}]</p>
+            ))}
+          </div>
         </div>
-      ))}
-      <p className="text-[8px] text-muted-foreground italic">Hedge Watch monitors live risk — advisory only, no action assumed.</p>
+      )}
     </div>
   );
 }
@@ -279,6 +274,16 @@ export function SlipOptimizerPanel({ slip, picks, intentState, onAction }: SlipO
   const { slipScore, aiAnalysis, aiLoading, lastAction, runAiAction } = useSlipOptimizer({
     slip, picks, intentState,
   });
+  const { isAdmin } = useIsAdmin();
+  const [selectedLeg, setSelectedLeg] = useState<{ leg: LegScore; pick: any } | null>(null);
+  const [showReplacements, setShowReplacements] = useState(false);
+  const [showVersions, setShowVersions] = useState(false);
+  const [replacementAnalysis, setReplacementAnalysis] = useState<string | null>(null);
+  const [replacementLoading, setReplacementLoading] = useState(false);
+  const [versionAnalysis, setVersionAnalysis] = useState<string | null>(null);
+  const [versionLoading, setVersionLoading] = useState(false);
+  const [rebuildAnalysis, setRebuildAnalysis] = useState<string | null>(null);
+  const [rebuildLoading, setRebuildLoading] = useState(false);
 
   if (!picks || picks.length === 0) return null;
 
@@ -292,12 +297,42 @@ export function SlipOptimizerPanel({ slip, picks, intentState, onAction }: SlipO
     runAiAction(action);
   };
 
+  const handleReplacementRequest = async () => {
+    setReplacementLoading(true);
+    setReplacementAnalysis(null);
+    try {
+      await runAiAction("replace_weakest");
+      // The AI analysis from the hook will be captured via the shared state
+    } catch {}
+    setReplacementLoading(false);
+  };
+
+  const handleVersionCompare = async () => {
+    setVersionLoading(true);
+    setVersionAnalysis(null);
+    try {
+      await runAiAction("compare_versions");
+    } catch {}
+    setVersionLoading(false);
+  };
+
+  const handleRebuild = async () => {
+    setRebuildLoading(true);
+    setRebuildAnalysis(null);
+    try {
+      await runAiAction("rebuild_suggestions");
+    } catch {}
+    setRebuildLoading(false);
+  };
+
+  const weakestLeg = slipScore.legs[slipScore.weakestLegIdx] ?? null;
+
   return (
     <div className="space-y-3 pt-2">
-      {/* Slip Score */}
-      <SlipScoreCard score={slipScore} />
+      {/* A. Slip Summary Card */}
+      <SlipSummaryCard score={slipScore} slip={slip} />
 
-      {/* Leg Analysis */}
+      {/* B. Leg Analysis */}
       <div className="space-y-1">
         <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
           <Target className="h-3 w-3" /> Leg Analysis
@@ -307,72 +342,114 @@ export function SlipOptimizerPanel({ slip, picks, intentState, onAction }: SlipO
             key={leg.id}
             leg={leg}
             rank={idx === slipScore.strongestLegIdx ? "strongest" : idx === slipScore.weakestLegIdx ? "weakest" : "neutral"}
+            onTap={() => setSelectedLeg({ leg, pick: picks[idx] })}
           />
         ))}
       </div>
 
-      {/* Confidence Distribution */}
+      {/* C. Confidence Distribution */}
       <ConfidenceDistribution legs={slipScore.legs} />
 
-      {/* Hedge Watch (placed/live slips) */}
-      {(isPlaced || isTracking) && <HedgeWatchCard score={slipScore} picks={picks} />}
+      {/* D. Live Tracking (all modes) */}
+      <SlipLiveTracker picks={picks} />
 
-      {/* Intent-specific action buttons */}
+      {/* ═══════════ ALREADY PLACED ═══════════ */}
       {isPlaced && (
-        <div className="space-y-2">
+        <>
+          {/* Hedge Watch */}
+          <SlipHedgeWatch score={slipScore} picks={picks} />
+
+          {/* Action Buttons */}
           <div className="grid grid-cols-2 gap-1.5">
             <ActionBtn icon={TrendingUp} label="Track Live" onClick={() => handleAction("track_live")} />
             <ActionBtn icon={BarChart3} label="Evaluate" onClick={() => handleAction("evaluate")} />
-            <ActionBtn icon={Save} label="Save Template" onClick={() => onAction?.("save_template")} />
             <ActionBtn icon={Shield} label="Hedge Ideas" onClick={() => handleAction("hedge_ideas")} />
+            <ActionBtn icon={Save} label="Save Template" onClick={() => onAction?.("save_template")} />
           </div>
-          {/* Rebuild suggestions */}
-          <button
-            onClick={() => handleAction("rebuild_suggestions")}
-            className="w-full p-2.5 rounded-lg bg-cosmic-cyan/5 border border-cosmic-cyan/20 text-left hover:bg-cosmic-cyan/10 transition-colors"
-          >
-            <p className="text-[10px] font-semibold text-cosmic-cyan flex items-center gap-1">
-              <RefreshCw className="h-3 w-3" /> What I'd Change Next Time
-            </p>
-            <p className="text-[8px] text-muted-foreground mt-0.5">
-              Tap to generate future rebuild suggestions. Advisory only.
-            </p>
-          </button>
-        </div>
+
+          {/* Rebuild Suggestions */}
+          <SlipRebuildSuggestions
+            analysis={lastAction === "rebuild_suggestions" ? aiAnalysis : rebuildAnalysis}
+            loading={lastAction === "rebuild_suggestions" ? aiLoading : rebuildLoading}
+            onRequest={() => handleAction("rebuild_suggestions")}
+          />
+        </>
       )}
 
+      {/* ═══════════ THINKING ABOUT PLACING ═══════════ */}
       {isThinking && (
-        <div className="space-y-2">
+        <>
+          {/* Primary Actions */}
           <div className="grid grid-cols-2 gap-1.5">
             <ActionBtn icon={Zap} label="Optimize Slip" primary onClick={() => handleAction("optimize")} />
-            <ActionBtn icon={ArrowUpDown} label="Replace Weakest" onClick={() => handleAction("replace_weakest")} />
+            <ActionBtn icon={ArrowUpDown} label="Replace Weakest" onClick={() => { setShowReplacements(true); handleAction("replace_weakest"); }} />
             <ActionBtn icon={Shield} label="Reduce Risk" onClick={() => handleAction("reduce_risk")} />
             <ActionBtn icon={Rocket} label="Increase Upside" onClick={() => handleAction("increase_upside")} />
           </div>
           <ActionBtn icon={RefreshCw} label="Compare Better Version" full onClick={() => handleAction("compare_better")} />
-        </div>
+
+          {/* Replacement Drawer */}
+          {showReplacements && (
+            <SlipReplacementDrawer
+              weakestLeg={weakestLeg}
+              aiSuggestions={lastAction === "replace_weakest" ? aiAnalysis : null}
+              loading={lastAction === "replace_weakest" && aiLoading}
+              onRequestSuggestions={() => handleAction("replace_weakest")}
+            />
+          )}
+
+          {/* Hedge Watch */}
+          <SlipHedgeWatch score={slipScore} picks={picks} />
+        </>
       )}
 
+      {/* ═══════════ BUILDING ═══════════ */}
       {isBuilding && (
-        <div className="space-y-2">
+        <>
           <div className="grid grid-cols-2 gap-1.5">
             <ActionBtn icon={Zap} label="Optimize" primary onClick={() => handleAction("optimize")} />
-            <ActionBtn icon={ArrowUpDown} label="Swap Leg" onClick={() => handleAction("replace_weakest")} />
-            <ActionBtn icon={RefreshCw} label="Compare Versions" onClick={() => handleAction("compare_versions")} />
+            <ActionBtn icon={ArrowUpDown} label="Swap Leg" onClick={() => { setShowReplacements(true); handleAction("replace_weakest"); }} />
+            <ActionBtn icon={RefreshCw} label="Compare Versions" onClick={() => { setShowVersions(true); handleAction("compare_versions"); }} />
             <ActionBtn icon={Save} label="Save Version" onClick={() => onAction?.("save_version")} />
           </div>
-        </div>
+
+          {/* Version Compare */}
+          {showVersions && (
+            <SlipVersionCompare
+              aiVersions={lastAction === "compare_versions" ? aiAnalysis : null}
+              loading={lastAction === "compare_versions" && aiLoading}
+              onCompare={() => handleAction("compare_versions")}
+            />
+          )}
+
+          {/* Replacement Drawer */}
+          {showReplacements && (
+            <SlipReplacementDrawer
+              weakestLeg={weakestLeg}
+              aiSuggestions={lastAction === "replace_weakest" ? aiAnalysis : null}
+              loading={lastAction === "replace_weakest" && aiLoading}
+              onRequestSuggestions={() => handleAction("replace_weakest")}
+            />
+          )}
+        </>
       )}
 
+      {/* ═══════════ TRACKING ONLY ═══════════ */}
       {isTracking && (
-        <div className="grid grid-cols-2 gap-1.5">
-          <ActionBtn icon={TrendingUp} label="Track Live" onClick={() => handleAction("track_live")} />
-          <ActionBtn icon={BarChart3} label="Grade Slip" onClick={() => handleAction("evaluate")} />
-        </div>
+        <>
+          <div className="grid grid-cols-2 gap-1.5">
+            <ActionBtn icon={TrendingUp} label="Track Live" onClick={() => handleAction("track_live")} />
+            <ActionBtn icon={BarChart3} label="Grade Slip" onClick={() => handleAction("evaluate")} />
+          </div>
+          <SlipHedgeWatch score={slipScore} picks={picks} />
+        </>
       )}
 
-      {/* AI Analysis output */}
+      {/* AI Analysis output (all modes) */}
       <AiAnalysisPanel analysis={aiAnalysis} loading={aiLoading} action={lastAction} />
+
+      {/* Admin Debug */}
+      {isAdmin && <AdminDebugPanel score={slipScore} />}
 
       {/* Summary */}
       <div className="p-2 rounded-lg bg-secondary/20 border border-border">
@@ -381,6 +458,16 @@ export function SlipOptimizerPanel({ slip, picks, intentState, onAction }: SlipO
           <p className="text-[9px] text-muted-foreground">{slipScore.summary}</p>
         </div>
       </div>
+
+      {/* Leg Detail Drawer */}
+      {selectedLeg && (
+        <SlipLegDetailDrawer
+          leg={selectedLeg.leg}
+          pick={selectedLeg.pick}
+          onClose={() => setSelectedLeg(null)}
+          isAdmin={isAdmin}
+        />
+      )}
     </div>
   );
 }
