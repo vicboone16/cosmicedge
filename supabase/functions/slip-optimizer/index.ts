@@ -15,10 +15,6 @@ serve(async (req) => {
 
     const authHeader = req.headers.get("authorization") || "";
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const sb = createClient(supabaseUrl, supabaseKey);
-
-    // Verify user
     const anonClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!);
     const { data: { user }, error: authError } = await anonClient.auth.getUser(authHeader.replace("Bearer ", ""));
     if (authError || !user) {
@@ -28,79 +24,185 @@ serve(async (req) => {
     const body = await req.json();
     const { action, slip, picks, intent_state, slip_score } = body;
 
-    // Build context for AI
+    // Build rich leg context
     const legsContext = (picks || []).map((p: any, i: number) => {
       const legScore = slip_score?.legs?.[i];
-      return `Leg ${i + 1}: ${p.player_name_raw} — ${p.stat_type} ${p.direction} ${p.line}` +
-        (legScore ? ` | Score: ${legScore.score}/100 (${legScore.grade}) | Edge: ${legScore.edge}% | Conf: ${legScore.confidence}% | Vol: ${legScore.volatility}% | ${legScore.rationale}` : "") +
-        (p.match_status === "synthetic_created" ? " [SYNTHETIC/IMPORTED]" : "");
+      const parts = [`Leg ${i + 1}: ${p.player_name_raw} — ${p.stat_type} ${p.direction} ${p.line}`];
+      if (legScore) {
+        parts.push(`Score: ${legScore.score}/100 (${legScore.grade})`);
+        parts.push(`Edge: ${legScore.edge}% | Prob: ${legScore.probability}% | Conf: ${legScore.confidence}% | Vol: ${legScore.volatility}%`);
+        parts.push(`Matchup: ${legScore.matchup_quality} | Synthetic: ${legScore.isSynthetic}`);
+        parts.push(`Rationale: ${legScore.rationale}`);
+        if (legScore.flags?.length) parts.push(`Flags: ${legScore.flags.join(", ")}`);
+      }
+      if (p.live_value != null) parts.push(`Live: ${p.live_value}/${p.line} (${((p.live_value / p.line) * 100).toFixed(0)}%)`);
+      if (p.result) parts.push(`Result: ${p.result}`);
+      if (p.match_status === "synthetic_created") parts.push("[SYNTHETIC/IMPORTED]");
+      return parts.join(" | ");
     }).join("\n");
 
     const slipContext = slip_score
-      ? `Slip Score: ${slip_score.score}/100 (${slip_score.grade}) | Risk: ${slip_score.riskLevel} | Avg Edge: ${slip_score.avgEdge}% | Avg Conf: ${slip_score.avgConfidence}%`
+      ? `Slip Score: ${slip_score.score}/100 (${slip_score.grade}) | ${slip_score.confidenceLabel} | Risk: ${slip_score.riskLevel}\nAvg Edge: ${slip_score.avgEdge}% | Avg Conf: ${slip_score.avgConfidence}% | Avg Vol: ${slip_score.avgVolatility}%\nStrongest: Leg ${slip_score.strongestLegIdx + 1} | Weakest: Leg ${slip_score.weakestLegIdx + 1}\nRisk Flags: ${slip_score.riskFlags?.join("; ") || "none"}`
       : "No scoring data available.";
 
-    const intentLabel = intent_state === "already_placed" ? "ALREADY PLACED (advisory only, no direct replacement actions)"
-      : intent_state === "thinking" ? "THINKING ABOUT PLACING (full optimization, suggest replacements)"
-      : intent_state === "building" ? "BUILDING/COMPARING (editable, suggest experiments)"
-      : "TRACKING ONLY (monitoring and grading)";
+    const stakeInfo = (slip?.stake || slip?.payout) 
+      ? `Stake: $${slip.stake || "?"} | Payout: $${slip.payout || "?"} | Entry: ${slip.entry_type || "parlay"}`
+      : "No stake/payout info.";
 
-    let systemPrompt = `You are the CosmicEdge AI Slip Optimizer. You analyze sports betting slips and provide data-driven evaluation.
+    const intentLabel = intent_state === "already_placed" ? "ALREADY PLACED — advisory mode only. Focus on evaluation, tracking, rebuild suggestions. Do NOT suggest direct edits as primary actions."
+      : intent_state === "thinking" ? "THINKING ABOUT PLACING — full optimization mode. Actively suggest replacements, removals, and improvements."
+      : intent_state === "building" ? "BUILDING/COMPARING — editable experiment mode. Compare versions, test constructions, suggest A/B/C variants."
+      : "TRACKING ONLY — monitor, grade, and analyze. Show progress and projections.";
+
+    const systemPrompt = `You are the CosmicEdge AI Slip Optimizer — an expert sports betting slip analyst.
 
 SLIP INTENT: ${intentLabel}
 
 CURRENT SLIP:
 ${slipContext}
+${stakeInfo}
 
 LEGS:
 ${legsContext}
 
 RULES:
-- Be specific about each leg. Reference player names and stats.
-- Give actionable, concise advice.
-- Use numbers (edge %, confidence %, score deltas).
-- If already_placed: focus on evaluation, tracking, and "what I'd change next time" — NOT direct replacements as primary actions.
-- If thinking/building: actively suggest replacements and improvements.
-- If tracking_only: focus on progress monitoring and grading.
+- Reference each leg by player name, stat type, line, and direction.
+- Use specific numbers: edge %, confidence %, score deltas, volatility %.
+- Structure responses with **bold** section headers.
+- Keep responses under 500 words.
 - For synthetic/imported props, acknowledge limited data but still evaluate.
-- Keep responses under 400 words.
-- Structure with clear sections using **bold** headers.`;
+- Grade everything on the 0-100 scale: 85+ elite, 75-84 strong, 65-74 playable, <65 weak.
+
+INTENT-SPECIFIC RULES:
+- already_placed: NEVER suggest direct replacements as primary actions. Focus on "What I'd Change Next Time" framing. Emphasize evaluation, strongest/weakest analysis, hedge awareness.
+- thinking: Actively suggest specific replacement players/props with estimated score improvements. Show EV deltas.
+- building: Compare Version A (safer), Version B (balanced), Version C (higher ceiling). Show score comparisons for each.
+- tracking_only: Focus on live pace, completion projections, and postgame grading.
+
+DELTA FORMAT (when showing improvements):
+- Slip Score Delta: +X points
+- Edge Delta: +X.X%
+- Confidence Delta: +X%
+- Volatility Delta: -X%
+- Risk Impact: description
+
+PLAIN ENGLISH SUMMARIES:
+Always include a human-readable summary like:
+- "This is your strongest leg because..."
+- "Replacing [player] would improve the slip score by X points."
+- "Since this slip is already placed, here's what I'd change next time..."`;
 
     let userPrompt = "";
 
     switch (action) {
       case "evaluate":
-        userPrompt = "Evaluate this slip comprehensively. Identify strongest and weakest legs. Provide an overall assessment and any risk flags.";
+        userPrompt = `Evaluate this slip comprehensively.
+
+Show:
+1. **Overall Assessment** — grade, quality label, risk level
+2. **Strongest Leg** — which leg and why (edge, confidence, matchup)
+3. **Weakest Leg** — which leg and why, what makes it risky
+4. **Risk Summary** — highest volatility legs, correlation risks, synthetic leg warnings
+5. **Key Insight** — one actionable takeaway`;
         break;
+
       case "optimize":
-        userPrompt = "Optimize this slip. Identify the weakest leg and suggest specific replacement candidates with estimated score improvements. Compare the current vs optimized version.";
+        userPrompt = `Optimize this slip. For each change:
+1. Identify the weakest leg
+2. Suggest a specific replacement with estimated score improvement
+3. Show Slip Score Delta, Edge Delta, Confidence Delta, Volatility Delta
+4. Compare current vs optimized version
+5. Provide a "safer version" and a "higher ceiling version" variant`;
         break;
+
       case "replace_weakest":
-        userPrompt = "Identify the weakest leg in this slip. Suggest 2-3 specific replacement options from the same game slate. For each, explain: why it's better, estimated edge delta, confidence delta, and volatility delta.";
+        userPrompt = `Identify the weakest leg. Suggest 2-3 replacement options from the same game slate or stat family.
+
+For each replacement show:
+- Current leg → Suggested replacement
+- Why it's better (edge, matchup, volatility, signal)
+- Estimated deltas: Score +/-, Edge +/-, Confidence +/-, Volatility +/-
+- Tag: safer / stronger edge / lower volatility / better matchup
+
+Label each as: "Safer Replacement", "Stronger Edge Swap", or "Lower Volatility Option"`;
         break;
+
       case "reduce_risk":
-        userPrompt = "Analyze the risk profile of this slip. Identify the highest-volatility legs and suggest safer alternatives that maintain similar edge but reduce overall slip volatility.";
+        userPrompt = `Analyze the risk profile. For each high-risk leg:
+1. Why it's risky (volatility, thin edge, matchup, synthetic status)
+2. Safer alternative that maintains similar edge
+3. Estimated slip score improvement and volatility reduction
+4. Overall risk reduction summary`;
         break;
+
       case "increase_upside":
-        userPrompt = "Suggest modifications to increase the upside/ceiling of this slip. Identify legs where a more aggressive line or stat type could boost the payout while maintaining reasonable probability.";
+        userPrompt = `Suggest modifications to increase upside/ceiling:
+1. Which legs could take a more aggressive line or alt market
+2. Estimated payout improvement
+3. Tradeoff: what you lose in stability vs what you gain in ceiling
+4. "Ceiling Version" slip with score comparison`;
         break;
+
       case "compare_better":
-        userPrompt = "Create a 'Better Version' of this slip. Keep the strongest 1-2 legs and rebuild the rest. Show the projected score improvement.";
+        userPrompt = `Create a "Better Version" of this slip:
+1. Keep the strongest 1-2 legs
+2. Replace the rest with better alternatives
+3. Show: Original Score vs Better Version Score
+4. Show leg-by-leg comparison with deltas`;
         break;
-      case "hedge_ideas":
-        userPrompt = "Analyze this placed slip for potential hedge scenarios. Which legs are most at risk? If the slip comes down to 1-2 final legs, what would be the most logical hedge positions?";
-        break;
-      case "rebuild_suggestions":
-        userPrompt = "This slip is already placed and locked. Provide 'What I'd Change Next Time' suggestions. For each change, explain the estimated improvement in slip score, confidence, and volatility. Frame as future learning, not current actions.";
-        break;
+
       case "compare_versions":
-        userPrompt = "Compare the current slip construction against alternative versions. Suggest Version A (safer), Version B (balanced), and Version C (higher ceiling). Show score comparisons.";
+        userPrompt = `Generate three versions of this slip:
+
+**Version A — Safer Build**
+- Priority: lower volatility, higher confidence
+- Show: legs, estimated score, risk level
+
+**Version B — Balanced Build**  
+- Priority: best overall score optimization
+- Show: legs, estimated score, risk level
+
+**Version C — High Ceiling Build**
+- Priority: maximum upside, accepts higher risk
+- Show: legs, estimated score, risk level
+
+For each version show score comparison against current slip.`;
         break;
+
+      case "hedge_ideas":
+        userPrompt = `Analyze hedge scenarios for this placed slip:
+1. Which legs are most at risk of failing?
+2. If the slip comes down to 1-2 final legs, what's the logical hedge?
+3. At what point should the user consider hedging?
+4. Educational note on hedge math (stake vs guaranteed return)
+Note: This is advisory only — no hedge execution assumed.`;
+        break;
+
+      case "rebuild_suggestions":
+        userPrompt = `This slip is ALREADY PLACED. Provide "What I'd Change Next Time" suggestions:
+
+For each suggested change:
+- Which leg I would remove or replace
+- What replacement would be stronger
+- Estimated improvement: Score +/-, Confidence +/-, Volatility -/-
+- Whether a fewer-leg version would have been better
+- Whether a different construction (flex vs power) would help
+
+Frame everything as future learning, NOT current actions.
+Start with: "Since this slip is already locked in, here's what I'd build differently next time..."`;
+        break;
+
       case "track_live":
-        userPrompt = "Provide a live tracking summary. For each leg, assess the current pace toward hitting. Identify legs on track, legs in danger, and the overall slip trajectory.";
+        userPrompt = `Live tracking summary:
+1. For each leg: current pace toward hitting, projected completion
+2. Legs on track vs legs in danger
+3. Overall slip trajectory (likely to hit, sweating, or in danger)
+4. Key moments to watch in remaining game time
+5. If any leg is already decided (hit or miss), note the impact on remaining slip odds`;
         break;
+
       default:
-        userPrompt = "Provide a brief evaluation of this slip with key insights.";
+        userPrompt = "Provide a brief evaluation of this slip with key insights and the strongest/weakest leg.";
     }
 
     const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
