@@ -3,6 +3,33 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { toast } from "@/hooks/use-toast";
 
+const extractEdgeErrorMessage = async (error: any): Promise<string> => {
+  let message = error?.message || "Import failed";
+
+  const context = error?.context;
+  if (context && typeof context === "object" && typeof context.clone === "function") {
+    try {
+      const text = await context.clone().text();
+      if (text) {
+        try {
+          const parsed = JSON.parse(text);
+          message = parsed?.error || parsed?.message || text;
+        } catch {
+          message = text;
+        }
+      }
+    } catch {
+      // Ignore and keep base message
+    }
+  }
+
+  if (message.toLowerCase().includes("unauthorized")) {
+    return "Your session expired. Please sign in again and retry.";
+  }
+
+  return message;
+};
+
 export function useBetSlips() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -65,8 +92,14 @@ export function useBetSlips() {
         body: params,
       });
 
-      if (res.error) throw new Error(res.error.message || "Import failed");
-      if (!res.data?.ok) throw new Error(res.data?.error || "Import failed");
+      if (res.error) {
+        throw new Error(await extractEdgeErrorMessage(res.error));
+      }
+
+      if (!res.data?.ok) {
+        throw new Error(res.data?.error || "Import failed");
+      }
+
       return res.data;
     },
     onSuccess: (data) => {
