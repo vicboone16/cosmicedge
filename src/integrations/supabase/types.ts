@@ -4126,6 +4126,7 @@ export type Database = {
           passing_touchdowns: number | null
           passing_yards: number | null
           period: string
+          personal_fouls: number | null
           player_id: string
           plus_minus: number | null
           points: number | null
@@ -4164,6 +4165,7 @@ export type Database = {
           passing_touchdowns?: number | null
           passing_yards?: number | null
           period?: string
+          personal_fouls?: number | null
           player_id: string
           plus_minus?: number | null
           points?: number | null
@@ -4202,6 +4204,7 @@ export type Database = {
           passing_touchdowns?: number | null
           passing_yards?: number | null
           period?: string
+          personal_fouls?: number | null
           player_id?: string
           plus_minus?: number | null
           points?: number | null
