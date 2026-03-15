@@ -239,25 +239,92 @@ export function TrackedPropsWidget({ gameId, showHeader = true }: { gameId?: str
     refetchInterval: 15_000,
   });
 
-  // Auto-settle: batch-settle pregame tracked props whose games are now final
+  // Sync live values from player_game_stats + settle when final
   useEffect(() => {
-    if (!tracked || !gamesMap || !user) return;
-    const stale = tracked.filter(tp => {
-      const game = gamesMap[tp.game_id];
-      const gameStatus = (game?.status || "").toLowerCase();
-      return (
-        (tp.status === "pregame" || tp.status === "live") &&
-        ["final", "ended", "completed"].includes(gameStatus)
-      );
-    });
-    if (stale.length === 0) return;
+    if (!tracked?.length || !gamesMap || !user) return;
+
+    const syncable = tracked.filter(tp => tp.player_id && tp.game_id);
+    if (!syncable.length) return;
 
     (async () => {
-      for (const tp of stale) {
-        await supabase.from("tracked_props").update({
-          status: "final",
-          settled_at: new Date().toISOString(),
-        }).eq("id", tp.id);
+      const uniqueGameIds = [...new Set(syncable.map(tp => tp.game_id))];
+      const uniquePlayerIds = [...new Set(syncable.map(tp => tp.player_id))];
+
+      const { data: statRows } = await supabase
+        .from("player_game_stats")
+        .select("player_id, game_id, period, points, rebounds, assists, steals, blocks, turnovers, three_made, fg_made, ft_made, fantasy_points, minutes, fouls, personal_fouls")
+        .in("game_id", uniqueGameIds)
+        .in("player_id", uniquePlayerIds)
+        .in("period", ["full", "q1", "q2", "q3", "q4", "first_half", "second_half"]);
+
+      if (!statRows?.length) return;
+
+      const byKey = new Map<string, any>();
+      for (const row of statRows) {
+        byKey.set(`${row.player_id}:${row.game_id}:${String(row.period || "full")}`, row);
+      }
+
+      const updates: Array<{ id: string; payload: Record<string, any> }> = [];
+
+      for (const tp of syncable) {
+        const gameStatus = String(gamesMap?.[tp.game_id]?.status || "").toLowerCase();
+        const { period, market } = parseTrackedPeriodAndMarket(tp.market_type || "");
+        const columns = TRACKED_STAT_MAP[market] || TRACKED_STAT_MAP[market.replace(/^player_/, "")];
+        if (!columns?.length) continue;
+
+        const sumCols = (row: any) => columns.reduce((acc, c) => acc + (Number(row?.[c]) || 0), 0);
+
+        let statValue: number | null = null;
+        if (["q1", "q2", "q3", "q4", "full"].includes(period)) {
+          const row = byKey.get(`${tp.player_id}:${tp.game_id}:${period}`);
+          statValue = row ? sumCols(row) : null;
+        } else if (period === "1h") {
+          const direct = byKey.get(`${tp.player_id}:${tp.game_id}:first_half`);
+          if (direct) statValue = sumCols(direct);
+          else {
+            const q1 = byKey.get(`${tp.player_id}:${tp.game_id}:q1`);
+            const q2 = byKey.get(`${tp.player_id}:${tp.game_id}:q2`);
+            if (q1 || q2) statValue = sumCols(q1) + sumCols(q2);
+          }
+        } else if (period === "2h") {
+          const direct = byKey.get(`${tp.player_id}:${tp.game_id}:second_half`);
+          if (direct) statValue = sumCols(direct);
+          else {
+            const q3 = byKey.get(`${tp.player_id}:${tp.game_id}:q3`);
+            const q4 = byKey.get(`${tp.player_id}:${tp.game_id}:q4`);
+            if (q3 || q4) statValue = sumCols(q3) + sumCols(q4);
+          }
+        }
+
+        if (statValue == null) continue;
+
+        const payload: Record<string, any> = {
+          live_stat_value: statValue,
+          progress: tp.line ? Math.max(0, Math.min((Number(statValue) / Number(tp.line)) * 100, 999)) : null,
+          status: ["live", "in_progress", "halftime"].includes(gameStatus) ? "live" : tp.status,
+        };
+
+        if (["final", "ended", "completed"].includes(gameStatus)) {
+          const line = Number(tp.line || 0);
+          const dir = String(tp.direction || "over").toLowerCase();
+          const actualDir = statValue > line ? "over" : statValue < line ? "under" : "push";
+          payload.result_direction = actualDir;
+          payload.status = actualDir === "push" ? "push" : dir === actualDir ? "hit" : "missed";
+          payload.settled_at = tp.settled_at || new Date().toISOString();
+        }
+
+        const shouldUpdate =
+          Number(tp.live_stat_value ?? -9999) !== Number(payload.live_stat_value) ||
+          Number(tp.progress ?? -9999) !== Number(payload.progress ?? -9999) ||
+          String(tp.status || "") !== String(payload.status || "") ||
+          String(tp.result_direction || "") !== String(payload.result_direction || "");
+
+        if (shouldUpdate) updates.push({ id: tp.id, payload });
+      }
+
+      if (!updates.length) return;
+      for (const u of updates) {
+        await supabase.from("tracked_props").update(u.payload as any).eq("id", u.id);
       }
       queryClient.invalidateQueries({ queryKey: ["tracked-props"] });
     })();
