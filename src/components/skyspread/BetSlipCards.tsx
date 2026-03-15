@@ -185,6 +185,36 @@ function SlipCard({ slip, picks }: { slip: any; picks: any[] }) {
     staleTime: 60_000,
   });
 
+  // Phase 4: Fetch live_prop_state for intelligence overlay on picks
+  const pickPlayerIds = [...new Set(picks?.map((p: any) => p.player_id).filter(Boolean) as string[])];
+  const { data: liveStatesMap } = useQuery({
+    queryKey: ["slip-pick-live-state", pickGameIds.join(","), pickPlayerIds.join(",")],
+    queryFn: async () => {
+      if (!pickGameIds.length || !pickPlayerIds.length) return {};
+      const { data } = await supabase
+        .from("live_prop_state")
+        .select("*")
+        .in("game_id", pickGameIds)
+        .in("player_id", pickPlayerIds);
+      const map: Record<string, any> = {};
+      for (const s of (data || [])) {
+        const key = `${s.game_id}:${s.player_id}:${s.prop_type}`;
+        map[key] = s;
+      }
+      return map;
+    },
+    enabled: pickGameIds.length > 0 && pickPlayerIds.length > 0,
+    staleTime: 10_000,
+    refetchInterval: 15_000,
+  });
+
+  const getLiveStateForPick = (pick: any) => {
+    if (!liveStatesMap || !pick.player_id || !pick.game_id) return null;
+    const colonIdx = (pick.stat_type || "").indexOf(":");
+    const cleanStat = colonIdx > 0 ? pick.stat_type.slice(colonIdx + 1) : pick.stat_type;
+    return liveStatesMap[`${pick.game_id}:${pick.player_id}:${cleanStat}`] || null;
+  };
+
   const statusIcon = slip.status === "settled"
     ? slip.result === "win" ? CheckCircle : slip.result === "loss" ? XCircle : Clock
     : Clock;
