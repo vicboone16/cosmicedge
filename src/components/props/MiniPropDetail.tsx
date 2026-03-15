@@ -125,6 +125,8 @@ export function MiniPropDetail({ prop, open, onOpenChange, gameId, onAddToSkySpr
   if (!prop) return null;
 
   const propLabel = getPropLabel(prop.prop_type);
+  const propPeriod = detectPropPeriod(prop.prop_type);
+  const periodBadge = propPeriod !== "full" ? propPeriod : null;
   const edgeScore = prop.edge_score_v11 ?? prop.edge_score ?? 0;
   const tier = edgeScore > 0 ? getEdgeTier(edgeScore) : null;
   const isOver = prop.side === "over" || prop.side == null;
