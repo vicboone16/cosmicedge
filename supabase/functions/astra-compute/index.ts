@@ -479,6 +479,7 @@ async function generateNarrative(
   scorecardData: any[],
   player: any | null,
   glossaryTerms: any[],
+  teamData: any[] = [],
 ): Promise<string> {
   const parts: string[] = [];
 
