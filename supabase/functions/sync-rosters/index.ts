@@ -140,16 +140,8 @@ Deno.serve(async (req) => {
           }
         }
       } else {
-        const { error } = await sb.from("players").insert({
-          name,
-          team: teamAbbr,
-          position: p.position || null,
-          league: "NBA",
-        });
-        if (error) { stats.skipped++; } else {
-          stats.created++;
-          changes.push(`🆕 ${name} (${teamAbbr})`);
-        }
+        // Skip creating players not already in our DB — they're likely retired/historical
+        stats.skipped++;
       }
     }
 
