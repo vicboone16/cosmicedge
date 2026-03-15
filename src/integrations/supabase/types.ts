@@ -2226,6 +2226,127 @@ export type Database = {
           },
         ]
       }
+      live_prop_state: {
+        Row: {
+          astro_note: string | null
+          astro_risk_modifier: number | null
+          away_score: number | null
+          blowout_probability: number | null
+          current_value: number | null
+          expected_return: number | null
+          foul_count: number | null
+          foul_risk_level: string | null
+          game_clock: string | null
+          game_id: string
+          game_quarter: number | null
+          hit_probability: number | null
+          home_score: number | null
+          id: string
+          implied_probability: number | null
+          line: number
+          live_confidence: number | null
+          live_edge: number | null
+          minutes_played: number | null
+          minutes_security_score: number | null
+          pace_pct: number | null
+          period_scope: string
+          player_id: string
+          projected_final: number | null
+          projected_minutes: number | null
+          prop_type: string
+          stat_rate: number | null
+          status_label: string | null
+          updated_at: string
+          volatility: number | null
+        }
+        Insert: {
+          astro_note?: string | null
+          astro_risk_modifier?: number | null
+          away_score?: number | null
+          blowout_probability?: number | null
+          current_value?: number | null
+          expected_return?: number | null
+          foul_count?: number | null
+          foul_risk_level?: string | null
+          game_clock?: string | null
+          game_id: string
+          game_quarter?: number | null
+          hit_probability?: number | null
+          home_score?: number | null
+          id?: string
+          implied_probability?: number | null
+          line: number
+          live_confidence?: number | null
+          live_edge?: number | null
+          minutes_played?: number | null
+          minutes_security_score?: number | null
+          pace_pct?: number | null
+          period_scope?: string
+          player_id: string
+          projected_final?: number | null
+          projected_minutes?: number | null
+          prop_type: string
+          stat_rate?: number | null
+          status_label?: string | null
+          updated_at?: string
+          volatility?: number | null
+        }
+        Update: {
+          astro_note?: string | null
+          astro_risk_modifier?: number | null
+          away_score?: number | null
+          blowout_probability?: number | null
+          current_value?: number | null
+          expected_return?: number | null
+          foul_count?: number | null
+          foul_risk_level?: string | null
+          game_clock?: string | null
+          game_id?: string
+          game_quarter?: number | null
+          hit_probability?: number | null
+          home_score?: number | null
+          id?: string
+          implied_probability?: number | null
+          line?: number
+          live_confidence?: number | null
+          live_edge?: number | null
+          minutes_played?: number | null
+          minutes_security_score?: number | null
+          pace_pct?: number | null
+          period_scope?: string
+          player_id?: string
+          projected_final?: number | null
+          projected_minutes?: number | null
+          prop_type?: string
+          stat_rate?: number | null
+          status_label?: string | null
+          updated_at?: string
+          volatility?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "live_prop_state_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "live_prop_state_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "v_game_live_state"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "live_prop_state_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       messages: {
         Row: {
           bet_id: string | null
