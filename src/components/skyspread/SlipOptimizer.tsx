@@ -72,6 +72,30 @@ export function SlipIntentSelector({
   );
 }
 
+/* ─── EV Grade Badge ─── */
+function EvGradeBadge({ grade }: { grade: string }) {
+  const cfg: Record<string, { label: string; className: string }> = {
+    plus_ev: { label: "+EV", className: "bg-cosmic-green/15 text-cosmic-green" },
+    playable: { label: "Playable", className: "bg-cosmic-gold/15 text-cosmic-gold" },
+    neutral: { label: "Neutral", className: "bg-muted/30 text-muted-foreground" },
+    minus_ev: { label: "−EV", className: "bg-cosmic-red/15 text-cosmic-red" },
+  };
+  const c = cfg[grade] || cfg.neutral;
+  return <span className={cn("text-[8px] font-bold px-1.5 py-0.5 rounded-full uppercase", c.className)}>{c.label}</span>;
+}
+
+/* ─── Correlation Badge ─── */
+function CorrelationBadge({ level }: { level: string }) {
+  const cfg: Record<string, { className: string }> = {
+    low: { className: "text-cosmic-green border-cosmic-green/30" },
+    moderate: { className: "text-cosmic-gold border-cosmic-gold/30" },
+    high: { className: "text-cosmic-red border-cosmic-red/30" },
+    extreme: { className: "text-cosmic-red border-cosmic-red/50" },
+  };
+  const c = cfg[level] || cfg.low;
+  return <Badge variant="outline" className={cn("text-[8px] capitalize", c.className)}>{level} Corr</Badge>;
+}
+
 /* ─── Slip Summary Card ─── */
 function SlipSummaryCard({ score, slip }: { score: SlipScore; slip: any }) {
   const gradeColor = score.score >= 80 ? "text-cosmic-green" : score.score >= 65 ? "text-cosmic-gold" : score.score >= 50 ? "text-cosmic-cyan" : "text-cosmic-red";
@@ -93,20 +117,30 @@ function SlipSummaryCard({ score, slip }: { score: SlipScore; slip: any }) {
           </div>
         </div>
         <div className="text-right space-y-0.5">
-          <Badge variant="outline" className={cn("text-[9px]", riskColor)}>
-            {score.riskLevel} Risk
-          </Badge>
+          <div className="flex items-center gap-1 justify-end">
+            <Badge variant="outline" className={cn("text-[9px]", riskColor)}>
+              {score.riskLevel} Risk
+            </Badge>
+            <EvGradeBadge grade={score.evGrade} />
+          </div>
           {slip?.entry_type && (
             <p className="text-[8px] text-muted-foreground capitalize">{slip.entry_type}</p>
           )}
         </div>
       </div>
 
-      {/* Stats row */}
+      {/* Stats row — now 2 rows with EV + correlation */}
+      <div className="grid grid-cols-3 gap-2">
+        <StatPill label="Hit Prob" value={`${(score.avgHitProbability * 100).toFixed(0)}%`} />
+        <StatPill label="Survival" value={`${(score.slipSurvivalProbability * 100).toFixed(1)}%`} />
+        <StatPill label="EV" value={`${score.expectedValue >= 0 ? "+" : ""}${score.expectedValue.toFixed(2)}u`} />
+      </div>
       <div className="grid grid-cols-3 gap-2">
         <StatPill label="Avg Edge" value={`${score.avgEdge.toFixed(1)}%`} />
-        <StatPill label="Avg Conf" value={`${score.avgConfidence.toFixed(0)}%`} />
         <StatPill label="Avg Vol" value={`${score.avgVolatility.toFixed(0)}%`} />
+        <div className="text-center p-1.5 rounded-lg bg-secondary/40 flex items-center justify-center gap-1">
+          <CorrelationBadge level={score.correlation.riskLevel} />
+        </div>
       </div>
 
       {/* Stake/Payout */}
@@ -114,6 +148,26 @@ function SlipSummaryCard({ score, slip }: { score: SlipScore; slip: any }) {
         <div className="grid grid-cols-2 gap-2">
           {slip.stake > 0 && <StatPill label="Stake" value={`$${Number(slip.stake).toFixed(2)}`} />}
           {slip.payout > 0 && <StatPill label="Payout" value={`$${Number(slip.payout).toFixed(2)}`} />}
+        </div>
+      )}
+
+      {/* Optimization note */}
+      {score.optimizationNote && (
+        <div className="flex items-start gap-1.5 px-2 py-1.5 rounded-lg bg-cosmic-gold/5 border border-cosmic-gold/20">
+          <Zap className="h-3 w-3 text-cosmic-gold shrink-0 mt-0.5" />
+          <p className="text-[9px] text-cosmic-gold">{score.optimizationNote}</p>
+        </div>
+      )}
+
+      {/* Correlation notes */}
+      {score.correlation.notes.length > 0 && score.correlation.riskLevel !== "low" && (
+        <div className="space-y-0.5">
+          {score.correlation.notes.map((note, i) => (
+            <div key={i} className="flex items-center gap-1.5 text-[9px] text-cosmic-gold">
+              <AlertTriangle className="h-2.5 w-2.5 shrink-0" />
+              <span>{note}</span>
+            </div>
+          ))}
         </div>
       )}
 
@@ -144,6 +198,7 @@ function StatPill({ label, value }: { label: string; value: string }) {
 /* ─── Leg Analysis Card ─── */
 function LegAnalysisCard({ leg, rank, onTap }: { leg: LegScore; rank: "strongest" | "weakest" | "neutral"; onTap: () => void }) {
   const scoreColor = leg.score >= 75 ? "text-cosmic-green" : leg.score >= 55 ? "text-cosmic-gold" : "text-cosmic-red";
+  const probColor = leg.hitProbability >= 0.70 ? "text-cosmic-green" : leg.hitProbability >= 0.45 ? "text-cosmic-gold" : "text-cosmic-red";
 
   return (
     <button onClick={onTap} className={cn("w-full rounded-lg border transition-all text-left",
@@ -151,32 +206,68 @@ function LegAnalysisCard({ leg, rank, onTap }: { leg: LegScore; rank: "strongest
       rank === "weakest" ? "border-cosmic-red/30 bg-cosmic-red/5" :
       "border-border bg-secondary/20"
     )}>
-      <div className="p-2 flex items-center justify-between">
-        <div className="flex items-center gap-2 min-w-0">
-          <div className={cn("h-7 w-7 rounded-lg flex items-center justify-center text-[10px] font-black shrink-0",
-            rank === "strongest" ? "bg-cosmic-green/15 text-cosmic-green" :
-            rank === "weakest" ? "bg-cosmic-red/15 text-cosmic-red" :
-            "bg-secondary text-muted-foreground"
-          )}>
-            {leg.grade}
-          </div>
-          <div className="min-w-0">
-            <p className="text-[11px] font-semibold text-foreground truncate">{leg.player_name_raw}</p>
-            <p className="text-[9px] text-muted-foreground capitalize">{leg.stat_type} · {leg.direction} {leg.line}</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-1.5 shrink-0">
-          <span className={cn("text-xs font-bold tabular-nums", scoreColor)}>{leg.score}</span>
-          {leg.isSynthetic && <Badge variant="outline" className="text-[7px] px-1 py-0 text-cosmic-cyan border-cosmic-cyan/30">Imported</Badge>}
-          {rank !== "neutral" && (
-            <Badge variant="outline" className={cn("text-[7px] px-1 py-0",
-              rank === "strongest" ? "text-cosmic-green border-cosmic-green/30" : "text-cosmic-red border-cosmic-red/30"
+      <div className="p-2 space-y-1.5">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className={cn("h-7 w-7 rounded-lg flex items-center justify-center text-[10px] font-black shrink-0",
+              rank === "strongest" ? "bg-cosmic-green/15 text-cosmic-green" :
+              rank === "weakest" ? "bg-cosmic-red/15 text-cosmic-red" :
+              "bg-secondary text-muted-foreground"
             )}>
-              {rank === "strongest" ? "★ Best" : "⚠ Weakest"}
-            </Badge>
-          )}
-          <ChevronDown className="h-3 w-3 text-muted-foreground" />
+              {leg.grade}
+            </div>
+            <div className="min-w-0">
+              <p className="text-[11px] font-semibold text-foreground truncate">{leg.player_name_raw}</p>
+              <p className="text-[9px] text-muted-foreground capitalize">{leg.stat_type} · {leg.direction} {leg.line}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-1.5 shrink-0">
+            <span className={cn("text-xs font-bold tabular-nums", scoreColor)}>{leg.score}</span>
+            {leg.isSynthetic && <Badge variant="outline" className="text-[7px] px-1 py-0 text-cosmic-cyan border-cosmic-cyan/30">Imported</Badge>}
+            {rank !== "neutral" && (
+              <Badge variant="outline" className={cn("text-[7px] px-1 py-0",
+                rank === "strongest" ? "text-cosmic-green border-cosmic-green/30" : "text-cosmic-red border-cosmic-red/30"
+              )}>
+                {rank === "strongest" ? "★ Best" : "⚠ Weakest"}
+              </Badge>
+            )}
+            <ChevronDown className="h-3 w-3 text-muted-foreground" />
+          </div>
         </div>
+
+        {/* Intelligence row */}
+        <div className="flex items-center gap-2 text-[8px]">
+          <span className={cn("font-bold", probColor)}>{(leg.hitProbability * 100).toFixed(0)}% hit</span>
+          {leg.liveEdge != null && (
+            <span className={cn("font-semibold", leg.liveEdge > 0 ? "text-cosmic-green" : "text-cosmic-red")}>
+              {leg.liveEdge > 0 ? "+" : ""}{leg.liveEdge.toFixed(1)}% edge
+            </span>
+          )}
+          {leg.pacePct != null && (
+            <span className={cn("font-semibold", leg.pacePct >= 100 ? "text-cosmic-green" : "text-cosmic-gold")}>
+              {leg.pacePct}% pace
+            </span>
+          )}
+          {leg.foulRiskLevel !== "low" && (
+            <span className="text-cosmic-red font-semibold">⚠ {leg.foulRiskLevel}</span>
+          )}
+          {leg.statusLabel && leg.statusLabel !== "pregame" && (
+            <span className={cn("font-bold uppercase",
+              leg.statusLabel === "likely_hit" ? "text-cosmic-green" :
+              leg.statusLabel === "danger" ? "text-cosmic-red" : "text-cosmic-gold"
+            )}>{leg.statusLabel.replace("_", " ")}</span>
+          )}
+        </div>
+
+        {/* Weakness reason for weakest leg */}
+        {rank === "weakest" && leg.weaknessReason && (
+          <p className="text-[8px] text-cosmic-red italic">↳ {leg.weaknessReason}</p>
+        )}
+
+        {/* Astro note */}
+        {leg.astroNote && (
+          <p className="text-[8px] text-cosmic-purple italic">✦ {leg.astroNote}</p>
+        )}
       </div>
     </button>
   );
@@ -248,14 +339,24 @@ function AdminDebugPanel({ score }: { score: SlipScore }) {
       {open && (
         <div className="px-2 pb-2 space-y-1 text-[8px] font-mono text-muted-foreground">
           <p>slip_score: {score.score} | grade: {score.grade} | risk: {score.riskLevel}</p>
-          <p>avg_edge: {score.avgEdge} | avg_conf: {score.avgConfidence} | avg_vol: {score.avgVolatility}</p>
-          <p>strongest_idx: {score.strongestLegIdx} | weakest_idx: {score.weakestLegIdx}</p>
-          <p>risk_flags: {score.riskFlags.join("; ") || "none"}</p>
+          <p>ev: {score.expectedValue} | ev_grade: {score.evGrade} | survival: {(score.slipSurvivalProbability * 100).toFixed(1)}%</p>
+          <p>avg_hit_prob: {(score.avgHitProbability * 100).toFixed(1)}% | avg_edge: {score.avgEdge} | avg_vol: {score.avgVolatility}</p>
+          <p>corr_score: {score.correlation.score} | corr_risk: {score.correlation.riskLevel} | variance_conc: {score.varianceConcentration}</p>
+          <p>weakest_idx: {score.weakestLegIdx} | weakest_reason: {score.weakestLegReason || "none"}</p>
+          <p>swap_priority: {score.swapPriorityLegId || "none"} | opt_note: {score.optimizationNote || "none"}</p>
           <div className="border-t border-destructive/10 pt-1 mt-1">
             {score.legs.map((l, i) => (
-              <p key={i}>leg[{i}] {l.player_name_raw}: score={l.score} edge={l.edge} conf={l.confidence} vol={l.volatility} mq={l.matchup_quality} syn={String(l.isSynthetic)} flags=[{l.flags.join(",")}]</p>
+              <p key={i}>leg[{i}] {l.player_name_raw}: score={l.score} hitP={l.hitProbability.toFixed(2)} edge={l.edge} minSec={l.minutesSecurity} foul={l.foulRiskLevel} blowout={l.blowoutProbability} status={l.statusLabel} flags=[{l.flags.join(",")}]</p>
             ))}
           </div>
+          {score.correlation.clusters.length > 0 && (
+            <div className="border-t border-destructive/10 pt-1 mt-1">
+              <p className="font-bold">Correlation Clusters:</p>
+              {score.correlation.clusters.map((c, i) => (
+                <p key={i}>cluster[{i}] type={c.type} risk={c.risk} legs={c.legs.length}</p>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>
