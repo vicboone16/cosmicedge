@@ -180,7 +180,8 @@ const aiExtractFromImage = async (
             content: `You are a bet slip OCR parser. Extract all picks from the betting slip image.
 Return valid JSON only:
 { "book": "${book}", "entry_type": "power|flex|goblin|parlay|straight", "stake": 10, "payout": 50,
-  "picks": [{ "player_name": "LeBron James", "stat_type": "points", "line": 25.5, "direction": "over" }] }`,
+  "picks": [{ "player_name": "LeBron James", "stat_type": "points", "line": 25.5, "direction": "over", "period": "full" }] }
+IMPORTANT: Detect period/market scope. If a prop is for 1st Quarter, set period="q1". First Half="1h". Second Half="2h". First 3 minutes="first3". Full game="full". Always include the period field.`,
           },
           {
             role: "user",
