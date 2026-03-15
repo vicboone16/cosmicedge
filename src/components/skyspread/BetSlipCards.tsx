@@ -76,7 +76,7 @@ function PickRow({ pick }: { pick: any }) {
 
 function SlipCard({ slip, picks }: { slip: any; picks: any[] }) {
   const [expanded, setExpanded] = useState(false);
-  const [showOptimizer, setShowOptimizer] = useState(false);
+  const [viewTab, setViewTab] = useState<"entry" | "live" | "optimizer">("entry");
   const { deleteSlip } = useBetSlips();
 
   const intentState: SlipIntent = (slip.intent_state as SlipIntent) || "tracking_only";
