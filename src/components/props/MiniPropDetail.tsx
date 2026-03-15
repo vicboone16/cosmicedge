@@ -250,13 +250,13 @@ export function MiniPropDetail({ prop, open, onOpenChange, gameId, onAddToSkySpr
               <div className="grid grid-cols-2 gap-2">
                 {avg5 != null && (
                   <div className="cosmic-card rounded-lg p-2 text-center">
-                    <p className="text-[8px] text-muted-foreground uppercase">L5 Avg</p>
+                    <p className="text-[8px] text-muted-foreground uppercase">L5 {periodBadge || ""} Avg</p>
                     <p className="text-xs font-bold tabular-nums">{avg5.toFixed(1)}</p>
                   </div>
                 )}
                 {avg10 != null && (
                   <div className="cosmic-card rounded-lg p-2 text-center">
-                    <p className="text-[8px] text-muted-foreground uppercase">L10 Avg</p>
+                    <p className="text-[8px] text-muted-foreground uppercase">L10 {periodBadge || ""} Avg</p>
                     <p className="text-xs font-bold tabular-nums">{avg10.toFixed(1)}</p>
                   </div>
                 )}
