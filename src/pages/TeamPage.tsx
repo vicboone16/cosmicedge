@@ -101,10 +101,15 @@ function StatCell({ label, value }: { label: string; value: string | null | unde
   );
 }
 
+const ABBR_NORMALIZE: Record<string, string> = {
+  PHO: "PHX", BRK: "BKN", CHO: "CHA", NOH: "NOP", NOK: "NOP", GS: "GSW", SA: "SAS",
+};
+
 const TeamPage = () => {
   const [showAdvanced, setShowAdvanced] = useState(false);
-  const { abbr, league: leagueParam } = useParams();
+  const { abbr: rawAbbr, league: leagueParam } = useParams();
   const navigate = useNavigate();
+  const abbr = ABBR_NORMALIZE[rawAbbr?.toUpperCase() || ""] || rawAbbr;
 
   const { data: standings } = useQuery({
     queryKey: ["team-standings", abbr],
