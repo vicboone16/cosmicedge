@@ -158,13 +158,18 @@ function SlipCard({ slip, picks }: { slip: any; picks: any[] }) {
     try {
       const picksSummary = picks.map((p: any) => `${p.player_name_raw} ${p.direction} ${p.line} ${p.stat_type}`).join(", ");
       const content = `🎯 ${slip.book} ${slip.entry_type} slip (${pickCount} picks)${slip.stake ? ` · $${Number(slip.stake).toFixed(2)}` : ""}${slip.payout ? ` → $${Number(slip.payout).toFixed(2)}` : ""}\n${picksSummary}`;
-      await supabase.from("feed_posts").insert({
+      const { error } = await supabase.from("feed_posts").insert({
         user_id: user.id,
         content,
       });
-      toast({ title: "Shared to feed! 🎉" });
-    } catch {
-      toast({ title: "Failed to share", variant: "destructive" });
+      if (error) {
+        console.error("[ShareToFeed] Insert error:", error);
+        toast({ title: "Failed to share", description: error.message, variant: "destructive" });
+        return;
+      }
+      toast({ title: "Shared to feed! 🎉", description: "Visible to you and your friends" });
+    } catch (e: any) {
+      toast({ title: "Failed to share", description: e.message, variant: "destructive" });
     }
   };
 
