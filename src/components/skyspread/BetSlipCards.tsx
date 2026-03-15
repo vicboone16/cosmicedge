@@ -6,6 +6,7 @@ import { useBetSlips } from "@/hooks/use-bet-slips";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { SlipIntentSelector, SlipOptimizerPanel, INTENT_CONFIG, type SlipIntent } from "@/components/skyspread/SlipOptimizer";
+import { SlipLiveTracker } from "@/components/skyspread/optimizer/SlipLiveTracker";
 import { toast } from "@/hooks/use-toast";
 
 const MATCH_BADGES: Record<string, { label: string; className: string }> = {
