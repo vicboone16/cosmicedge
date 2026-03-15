@@ -82,6 +82,7 @@ function generateSignals(
       }
 
       if (consecutiveMakes >= 3) {
+        const lastEvt = recent[recent.length - 1];
         signals.push({
           id: `hot-${gameId}-${player}`,
           type: "hot_hand",
