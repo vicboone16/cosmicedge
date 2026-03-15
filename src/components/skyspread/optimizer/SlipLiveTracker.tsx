@@ -32,7 +32,9 @@ function getLegState(leg: LiveLeg, gameStatus?: string) {
   if (leg.result === "loss") return { label: "Miss", color: "text-cosmic-red", barColor: "bg-cosmic-red", icon: XCircle };
   if (leg.result === "void") return { label: "Void", color: "text-muted-foreground", barColor: "bg-muted", icon: Pause };
   if (leg.result === "push") return { label: "Push", color: "text-cosmic-gold", barColor: "bg-cosmic-gold", icon: Pause };
-  if (gameStatus === "final") return { label: "Final", color: "text-muted-foreground", barColor: "bg-muted-foreground", icon: Clock };
+  if (["final", "ended", "completed"].includes((gameStatus || "").toLowerCase())) {
+    return { label: "Final", color: "text-muted-foreground", barColor: "bg-muted-foreground", icon: Clock };
+  }
 
   if (leg.live_value == null) return { label: "Pregame", color: "text-muted-foreground", barColor: "bg-muted-foreground/30", icon: Clock };
 
@@ -44,8 +46,9 @@ function getLegState(leg: LiveLeg, gameStatus?: string) {
 }
 
 function GameGroupHeader({ game, snapshot }: { game: any; snapshot: any }) {
-  const isLive = game?.status === "live" || game?.status === "in_progress";
-  const isFinal = game?.status === "final";
+  const normalizedStatus = (snapshot?.status || game?.status || "").toLowerCase();
+  const isLive = ["live", "in_progress", "halftime"].includes(normalizedStatus);
+  const isFinal = ["final", "ended", "completed"].includes(normalizedStatus);
 
   return (
     <div className="flex items-center justify-between px-3 py-2 bg-secondary/40 rounded-lg border border-border/50">
