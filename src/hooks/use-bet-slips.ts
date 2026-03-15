@@ -91,7 +91,7 @@ export function useBetSlips() {
       return map;
     },
     enabled: (slips?.length ?? 0) > 0,
-    refetchInterval: 30_000,
+    refetchInterval: 15_000,
   });
 
   const importSlip = useMutation({

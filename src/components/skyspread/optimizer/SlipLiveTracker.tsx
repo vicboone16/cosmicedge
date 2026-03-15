@@ -4,6 +4,7 @@ import { Activity, TrendingUp, AlertTriangle, CheckCircle, XCircle, Pause, Clock
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { useSlipLiveSync } from "@/hooks/use-slip-live-sync";
 
 interface LiveLeg {
   id: string;
@@ -140,6 +141,9 @@ export function SlipLiveTracker({ picks, slipMeta }: {
   picks: LiveLeg[];
   slipMeta?: { stake?: number; payout?: number; entry_type?: string; book?: string };
 }) {
+  // Activate live stat sync — polls player_game_stats and writes live_value back to picks
+  useSlipLiveSync(picks, true);
+
   // Fetch game data for all unique game IDs
   const gameIds = [...new Set(picks.map(p => p.game_id).filter(Boolean) as string[])];
 
