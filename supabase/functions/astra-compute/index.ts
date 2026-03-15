@@ -140,6 +140,62 @@ async function resolvePlayer(sb: any, name: string) {
   return null;
 }
 
+/* ─── Resolve team abbreviations ─── */
+
+function resolveTeamAbbrs(raw: string | undefined): string[] {
+  if (!raw) return [];
+  // Could be comma-separated or a single value
+  const parts = raw.split(/[,;\/]/).map(s => s.trim().toLowerCase()).filter(Boolean);
+  const resolved: string[] = [];
+  for (const part of parts) {
+    // Check if already a 3-letter abbreviation
+    if (part.length <= 3 && part === part.toUpperCase()) {
+      resolved.push(part.toUpperCase());
+    } else {
+      const mapped = TEAM_ALIASES[part];
+      if (mapped) {
+        resolved.push(mapped);
+      } else {
+        // Try partial match
+        const match = Object.entries(TEAM_ALIASES).find(([k]) => k.includes(part) || part.includes(k));
+        if (match) resolved.push(match[1]);
+        else resolved.push(part.toUpperCase().slice(0, 3)); // fallback
+      }
+    }
+  }
+  return [...new Set(resolved)];
+}
+
+/* ─── Team data retrieval ─── */
+
+async function fetchTeamData(sb: any, teamAbbrs: string[]) {
+  if (teamAbbrs.length === 0) return [];
+  
+  const season = new Date().getMonth() >= 9
+    ? new Date().getFullYear()
+    : new Date().getFullYear() - 1;
+  
+  const { data, error } = await sb
+    .from("team_season_pace")
+    .select("*")
+    .in("team_abbr", teamAbbrs)
+    .eq("season", season);
+  
+  if (error) {
+    console.warn("team_season_pace query error:", error.message);
+    // Try without season filter
+    const { data: fallback } = await sb
+      .from("team_season_pace")
+      .select("*")
+      .in("team_abbr", teamAbbrs)
+      .order("season", { ascending: false })
+      .limit(teamAbbrs.length);
+    return fallback || [];
+  }
+  
+  return data || [];
+}
+
 /* ─── Formula retrieval ─── */
 
 async function fetchFormula(sb: any, slug: string | null, statKey: string | null) {
