@@ -602,6 +602,17 @@ Deno.serve(async (req) => {
     let playerStats: any = null;
     let modelPredictions: any[] = [];
     let glossaryTerms: any[] = [];
+    let teamData: any[] = [];
+
+    // Team data retrieval (for pace, ratings, etc.)
+    const teamAbbrs = resolveTeamAbbrs(intent.entities?.team_abbr);
+    if (teamAbbrs.length > 0) {
+      debugLog.steps.push({ step: "team_data_retrieval", status: "running" });
+      teamData = await fetchTeamData(sb, teamAbbrs);
+      debugLog.steps[debugLog.steps.length - 1].status = "done";
+      debugLog.steps[debugLog.steps.length - 1].result = { teams: teamAbbrs, rows: teamData.length };
+      debugLog.teamData = teamData;
+    }
 
     if (player?.id) {
       if (["formula_compute", "stat_lookup", "model_output"].includes(intent.intent)) {
