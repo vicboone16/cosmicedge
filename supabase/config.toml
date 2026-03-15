@@ -122,3 +122,9 @@ verify_jwt = false
 
 [functions.admin-flip-status]
 verify_jwt = false
+
+[functions.parse-bet-slip]
+verify_jwt = false
+
+[functions.check-alerts]
+verify_jwt = false
