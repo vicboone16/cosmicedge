@@ -7,11 +7,15 @@ const ERROR_MESSAGES: Record<string, string> = {
   invalid_link: "That link doesn't look right. Please check and try again.",
   unsupported_book: "This book isn't supported yet. Try manual entry instead.",
   redirect_failed: "We couldn't reach that share link. It may have expired.",
-  parse_failed: "We couldn't read the picks from that input.",
+  parse_failed: "We couldn't read the picks from that input. Try a clearer image or manual entry.",
   no_entry_found: "No picks were found. Try a clearer image or manual entry.",
   matching_failed: "Some players couldn't be matched to our database.",
   insert_failed: "Something went wrong saving your slip. Please try again.",
   unauthorized: "Your session expired. Please sign in again.",
+  internal: "Something went wrong. Please try again.",
+  FunctionsFetchError: "Connection issue — please check your network and try again.",
+  FunctionsRelayError: "Server is busy. Please try again in a moment.",
+  FunctionsHttpError: "Server error — please try again.",
 };
 
 const extractEdgeErrorMessage = async (error: any): Promise<{ message: string; code: string | null; debug: any }> => {
