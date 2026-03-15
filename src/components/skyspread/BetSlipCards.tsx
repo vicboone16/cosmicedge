@@ -6,6 +6,7 @@ import { useBetSlips } from "@/hooks/use-bet-slips";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { SlipIntentSelector, SlipOptimizerPanel, INTENT_CONFIG, type SlipIntent } from "@/components/skyspread/SlipOptimizer";
+import { SlipLiveTracker } from "@/components/skyspread/optimizer/SlipLiveTracker";
 import { toast } from "@/hooks/use-toast";
 
 const MATCH_BADGES: Record<string, { label: string; className: string }> = {
@@ -75,7 +76,7 @@ function PickRow({ pick }: { pick: any }) {
 
 function SlipCard({ slip, picks }: { slip: any; picks: any[] }) {
   const [expanded, setExpanded] = useState(false);
-  const [showOptimizer, setShowOptimizer] = useState(false);
+  const [viewTab, setViewTab] = useState<"entry" | "live" | "optimizer">("entry");
   const { deleteSlip } = useBetSlips();
 
   const intentState: SlipIntent = (slip.intent_state as SlipIntent) || "tracking_only";
@@ -150,28 +151,37 @@ function SlipCard({ slip, picks }: { slip: any; picks: any[] }) {
             <SlipIntentSelector value={intentState} onChange={handleIntentChange} compact />
           </div>
 
-          {/* Picks */}
-          <div>
-            {picks?.map((pick: any) => (
-              <PickRow key={pick.id} pick={pick} />
+          {/* View tabs */}
+          <div className="flex gap-1 bg-secondary/40 p-0.5 rounded-lg mb-2">
+            {(["entry", "live", "optimizer"] as const).map(tab => (
+              <button key={tab} onClick={(e) => { e.stopPropagation(); setViewTab(tab); }}
+                className={cn("flex-1 py-1.5 rounded-md text-[10px] font-semibold transition-colors capitalize",
+                  viewTab === tab ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                )}>
+                {tab === "live" ? "Live Progress" : tab === "optimizer" ? "Intelligence" : "Entry"}
+              </button>
             ))}
           </div>
 
-          {/* Optimizer toggle */}
-          <button
-            onClick={(e) => { e.stopPropagation(); setShowOptimizer(!showOptimizer); }}
-            className={cn(
-              "w-full mt-2 py-2 rounded-lg text-[10px] font-semibold flex items-center justify-center gap-1.5 transition-colors border",
-              showOptimizer
-                ? "bg-primary/10 border-primary/30 text-primary"
-                : "border-border text-muted-foreground hover:text-foreground"
-            )}
-          >
-            <Zap className="h-3 w-3" />
-            {showOptimizer ? "Hide Optimizer" : "AI Slip Optimizer"}
-          </button>
+          {/* Entry tab */}
+          {viewTab === "entry" && (
+            <div>
+              {picks?.map((pick: any) => (
+                <PickRow key={pick.id} pick={pick} />
+              ))}
+            </div>
+          )}
 
-          {showOptimizer && (
+          {/* Live Progress tab */}
+          {viewTab === "live" && (
+            <SlipLiveTracker
+              picks={picks || []}
+              slipMeta={{ stake: slip.stake, payout: slip.payout, entry_type: slip.entry_type, book: slip.book }}
+            />
+          )}
+
+          {/* Optimizer tab */}
+          {viewTab === "optimizer" && (
             <SlipOptimizerPanel
               slip={slip}
               picks={picks}

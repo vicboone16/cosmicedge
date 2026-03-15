@@ -9,7 +9,10 @@ import { Badge } from "@/components/ui/badge";
 import { getPropLabel, getEdgeTier, type TopProp } from "@/hooks/use-top-props";
 import { usePropDrawer } from "@/hooks/use-prop-drawer";
 
+import { LiveSignalFeed } from "@/components/live/LiveSignalFeed";
+
 const SIGNAL_TABS = [
+  { key: "live_signals", label: "Live Signals", icon: Zap, color: "text-cosmic-red" },
   { key: "streaks", label: "Over Streaks", icon: Flame, color: "text-cosmic-green" },
   { key: "momentum", label: "Momentum", icon: TrendingUp, color: "text-primary" },
   { key: "usage", label: "Usage Shift", icon: Activity, color: "text-cosmic-gold" },
@@ -114,6 +117,7 @@ export default function SignalLabPage() {
 
   function getActiveCards(): any[] {
     switch (activeTab) {
+      case "live_signals": return [];
       case "streaks": return streakCards;
       case "momentum": return momentumCards;
       case "usage": return usageCards;
@@ -167,10 +171,11 @@ export default function SignalLabPage() {
       </header>
 
       <div className="px-4 py-4 space-y-3">
-        {/* Signal category description */}
         <SignalDescription tab={activeTab} />
 
-        {isLoading ? (
+        {activeTab === "live_signals" ? (
+          <LiveSignalFeed maxSignals={25} />
+        ) : isLoading ? (
           <div className="text-center py-12">
             <FlaskConical className="h-6 w-6 text-primary mx-auto mb-2 animate-pulse" />
             <p className="text-sm text-muted-foreground">Analyzing signals...</p>
@@ -193,6 +198,7 @@ export default function SignalLabPage() {
 /* ─── Signal category description banner ─── */
 function SignalDescription({ tab }: { tab: SignalTab }) {
   const descriptions: Record<SignalTab, { title: string; body: string; icon: typeof Flame }> = {
+    live_signals: { title: "Live Signals", body: "Real-time hot hand, cold streak, momentum shift, and game flow alerts from live games.", icon: Zap },
     streaks: { title: "Over Streaks", body: "Players clearing their line in 3+ consecutive games. Consistency signals sustained performance.", icon: Flame },
     momentum: { title: "Momentum", body: "L10 hit rate ≥ 60%. Recent form suggests a player trending above their line.", icon: TrendingUp },
     usage: { title: "Usage Shift", body: "Projection exceeds line by 0.5+. Role or opportunity changes creating value gaps.", icon: Activity },
