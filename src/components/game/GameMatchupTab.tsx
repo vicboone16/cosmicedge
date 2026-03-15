@@ -301,8 +301,146 @@ export function GameMatchupTab({
     ? `${homeStats.games}G vs ${awayStats.games}G season avg`
     : homeStats.games ? `${homeStats.games}G season avg` : awayStats.games ? `${awayStats.games}G season avg` : "";
 
+  const navigate = useNavigate();
+
+  // Fetch lineups from depth_charts
+  const { data: lineups, isLoading: lineupsLoading, refetch: refetchLineups } = useQuery({
+    queryKey: ["game-lineups", homeAbbr, awayAbbr],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("depth_charts")
+        .select("player_name, team_abbr, position, depth_order, player_id, external_player_id")
+        .in("team_abbr", [homeAbbr, awayAbbr])
+        .eq("league", league)
+        .order("depth_order", { ascending: true })
+        .order("position", { ascending: true });
+      return data || [];
+    },
+  });
+
+  const [fetchingLineups, setFetchingLineups] = useState(false);
+  const handleFetchLineups = async () => {
+    setFetchingLineups(true);
+    try {
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/fetch-bdl-lineups`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          },
+        }
+      );
+      if (res.ok) {
+        toast.success("Lineups refreshed");
+        refetchLineups();
+      } else {
+        toast.error("Failed to fetch lineups");
+      }
+    } catch {
+      toast.error("Failed to fetch lineups");
+    }
+    setFetchingLineups(false);
+  };
+
+  const homeLineup = lineups?.filter(p => p.team_abbr === homeAbbr) || [];
+  const awayLineup = lineups?.filter(p => p.team_abbr === awayAbbr) || [];
+  const homeStarters = homeLineup.filter(p => p.depth_order === 1);
+  const awayStarters = awayLineup.filter(p => p.depth_order === 1);
+  const homeBench = homeLineup.filter(p => p.depth_order > 1);
+  const awayBench = awayLineup.filter(p => p.depth_order > 1);
+  const hasLineups = homeLineup.length > 0 || awayLineup.length > 0;
+
+  const PlayerRow = ({ player }: { player: typeof homeLineup[number] }) => (
+    <button
+      onClick={() => {
+        if (player.player_id) navigate(`/player/${player.player_id}`);
+      }}
+      className="flex items-center gap-2 py-1.5 w-full text-left hover:bg-secondary/40 rounded-lg px-2 transition-colors"
+    >
+      <Avatar className="h-6 w-6 shrink-0">
+        <AvatarFallback className="text-[8px] bg-secondary">
+          {player.player_name?.slice(0, 2).toUpperCase()}
+        </AvatarFallback>
+      </Avatar>
+      <div className="min-w-0 flex-1">
+        <p className="text-xs font-medium text-foreground truncate">{player.player_name}</p>
+      </div>
+      <span className="text-[10px] text-muted-foreground font-mono shrink-0">{player.position}</span>
+    </button>
+  );
+
   return (
     <div className="space-y-4">
+      {/* Starting Lineups */}
+      <div className="cosmic-card rounded-xl overflow-hidden">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+          <h3 className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+            <Users className="h-3.5 w-3.5 text-primary" />
+            Starting Lineups
+          </h3>
+          <button
+            onClick={handleFetchLineups}
+            disabled={fetchingLineups}
+            className="text-[10px] text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
+          >
+            <RefreshCw className={cn("h-3 w-3", fetchingLineups && "animate-spin")} />
+            Refresh
+          </button>
+        </div>
+
+        {lineupsLoading ? (
+          <p className="text-xs text-muted-foreground text-center py-6">Loading lineups...</p>
+        ) : !hasLineups ? (
+          <div className="text-center py-6 space-y-2">
+            <p className="text-xs text-muted-foreground">No lineup data available yet.</p>
+            <button
+              onClick={handleFetchLineups}
+              disabled={fetchingLineups}
+              className="text-xs text-primary hover:underline"
+            >
+              {fetchingLineups ? "Fetching..." : "Fetch lineups"}
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 divide-x divide-border">
+            {/* Away Team */}
+            <div className="p-3 space-y-2">
+              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider text-center">{awayAbbr}</p>
+              {awayStarters.length > 0 && (
+                <div>
+                  <p className="text-[9px] text-primary font-semibold uppercase tracking-wider mb-1">Starters</p>
+                  {awayStarters.map(p => <PlayerRow key={p.player_name + p.position} player={p} />)}
+                </div>
+              )}
+              {awayBench.length > 0 && (
+                <div>
+                  <p className="text-[9px] text-muted-foreground font-semibold uppercase tracking-wider mb-1 mt-2">Bench</p>
+                  {awayBench.slice(0, 5).map(p => <PlayerRow key={p.player_name + p.position} player={p} />)}
+                </div>
+              )}
+            </div>
+            {/* Home Team */}
+            <div className="p-3 space-y-2">
+              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider text-center">{homeAbbr}</p>
+              {homeStarters.length > 0 && (
+                <div>
+                  <p className="text-[9px] text-primary font-semibold uppercase tracking-wider mb-1">Starters</p>
+                  {homeStarters.map(p => <PlayerRow key={p.player_name + p.position} player={p} />)}
+                </div>
+              )}
+              {homeBench.length > 0 && (
+                <div>
+                  <p className="text-[9px] text-muted-foreground font-semibold uppercase tracking-wider mb-1 mt-2">Bench</p>
+                  {homeBench.slice(0, 5).map(p => <PlayerRow key={p.player_name + p.position} player={p} />)}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* Team Records */}
       <div className="cosmic-card rounded-xl overflow-hidden">
         <div className="flex items-center justify-between px-4 py-3 border-b border-border">
