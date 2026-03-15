@@ -47,7 +47,7 @@ Deno.serve(async (req) => {
       if (cursor) url.searchParams.set("cursor", String(cursor));
 
       const res = await fetch(url.toString(), {
-        headers: { Authorization: BDL_KEY },
+        headers: { Authorization: `Bearer ${BDL_KEY}`, "X-Api-Key": BDL_KEY },
       });
 
       if (res.status === 429) {
