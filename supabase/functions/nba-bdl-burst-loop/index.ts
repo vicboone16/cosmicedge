@@ -649,6 +649,9 @@ Deno.serve(async (req) => {
                 awayScore: snap?.away_score ?? 0,
                 isStarter: starterSet.has(prop.playerId),
                 odds: prop.odds,
+                // Phase 6: Astro timing overlay (placeholder — populated by astro-batch)
+                astroModifier: null,
+                astroNote: null,
               };
 
               const result = computeProjection(ctx);

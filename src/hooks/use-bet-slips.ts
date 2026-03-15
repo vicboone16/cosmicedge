@@ -346,6 +346,66 @@ export function useBetSlips() {
         .order("created_at", { ascending: false })
         .limit(50);
       if (error) throw error;
+
+      // Phase 7: Auto-settle slips where all picks are resolved
+      const activeSlips = (data || []).filter(s => s.status === "active");
+      if (activeSlips.length > 0) {
+        const slipIds = activeSlips.map(s => s.id);
+        const { data: allPicks } = await supabase
+          .from("bet_slip_picks")
+          .select("slip_id, result")
+          .in("slip_id", slipIds);
+
+        if (allPicks?.length) {
+          const picksBySlip: Record<string, any[]> = {};
+          allPicks.forEach(p => {
+            if (!picksBySlip[p.slip_id]) picksBySlip[p.slip_id] = [];
+            picksBySlip[p.slip_id].push(p);
+          });
+
+          for (const slip of activeSlips) {
+            const picks = picksBySlip[slip.id] || [];
+            if (picks.length === 0) continue;
+            const allResolved = picks.every(p => p.result && ["win", "loss", "push", "void"].includes(p.result));
+            if (!allResolved) continue;
+
+            const losses = picks.filter(p => p.result === "loss").length;
+            const wins = picks.filter(p => p.result === "win").length;
+            const isPower = ["power", "parlay", "straight"].includes((slip.entry_type || "").toLowerCase());
+
+            let slipResult: string;
+            if (isPower) {
+              slipResult = losses > 0 ? "loss" : "win";
+            } else {
+              // Flex payout: use PrizePicks-style thresholds
+              const flexPayouts: Record<number, Record<number, number>> = {
+                2: { 2: 3 },
+                3: { 3: 5, 2: 1.25 },
+                4: { 4: 10, 3: 2, 2: 0.4 },
+                5: { 5: 20, 4: 3, 3: 0.4 },
+                6: { 6: 40, 5: 6, 4: 1.5, 3: 1.25 },
+              };
+              const payoutTable = flexPayouts[picks.length];
+              const multiplier = payoutTable?.[wins] ?? 0;
+              slipResult = multiplier > 1 ? "win" : multiplier > 0 ? "push" : "loss";
+
+              // Update payout if we have a stake
+              if (slip.stake && multiplier > 0) {
+                await supabase.from("bet_slips").update({
+                  payout: Number(slip.stake) * multiplier,
+                } as any).eq("id", slip.id);
+              }
+            }
+
+            await supabase.from("bet_slips").update({
+              status: "settled",
+              result: slipResult,
+              settled_at: new Date().toISOString(),
+            } as any).eq("id", slip.id);
+          }
+        }
+      }
+
       return data || [];
     },
     enabled: !!user,
