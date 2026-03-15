@@ -510,6 +510,8 @@ export function SlipOptimizerPanel({ slip, picks, intentState, onAction }: SlipO
               aiSuggestions={lastAction === "replace_weakest" ? aiAnalysis : null}
               loading={lastAction === "replace_weakest" && aiLoading}
               onRequestSuggestions={() => handleAction("replace_weakest")}
+              existingGameIds={picks.map((p: any) => p.game_id).filter(Boolean)}
+              existingPlayerNames={picks.map((p: any) => p.player_name_raw).filter(Boolean)}
             />
           )}
 
