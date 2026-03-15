@@ -92,7 +92,7 @@ function generateSignals(
           headline: `${player} — ${consecutiveMakes} straight makes`,
           description: `${recentPts} points in the last ${consecutiveMakes} possessions. Riding a hot streak.`,
           player_name: player,
-          team: ev?.team || undefined,
+          team: lastEvt?.team || undefined,
           timestamp: now,
           severity: consecutiveMakes >= 5 ? "critical" : "notable",
         });
