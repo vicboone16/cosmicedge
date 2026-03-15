@@ -1514,6 +1514,39 @@ export type Database = {
           },
         ]
       }
+      fantasy_scoring_rules: {
+        Row: {
+          assists_weight: number
+          blocks_weight: number
+          created_at: string
+          points_weight: number
+          rebounds_weight: number
+          sportsbook: string
+          steals_weight: number
+          turnovers_weight: number
+        }
+        Insert: {
+          assists_weight?: number
+          blocks_weight?: number
+          created_at?: string
+          points_weight?: number
+          rebounds_weight?: number
+          sportsbook: string
+          steals_weight?: number
+          turnovers_weight?: number
+        }
+        Update: {
+          assists_weight?: number
+          blocks_weight?: number
+          created_at?: string
+          points_weight?: number
+          rebounds_weight?: number
+          sportsbook?: string
+          steals_weight?: number
+          turnovers_weight?: number
+        }
+        Relationships: []
+      }
       feed_comments: {
         Row: {
           content: string
@@ -7599,37 +7632,21 @@ export type Database = {
           assists: number | null
           blocks: number | null
           fantasy_score: number | null
+          first_half_points: number | null
           game_id: string | null
           game_points: number | null
           player_id: string | null
+          player_name: string | null
+          q1_points: number | null
+          q2_points: number | null
+          q3_points: number | null
+          q4_points: number | null
           rebounds: number | null
+          second_half_points: number | null
+          sportsbook: string | null
           steals: number | null
           team_abbr: string | null
           turnovers: number | null
-        }
-        Insert: {
-          assists?: never
-          blocks?: never
-          fantasy_score?: never
-          game_id?: string | null
-          game_points?: never
-          player_id?: string | null
-          rebounds?: never
-          steals?: never
-          team_abbr?: string | null
-          turnovers?: never
-        }
-        Update: {
-          assists?: never
-          blocks?: never
-          fantasy_score?: never
-          game_id?: string | null
-          game_points?: never
-          player_id?: string | null
-          rebounds?: never
-          steals?: never
-          team_abbr?: string | null
-          turnovers?: never
         }
         Relationships: [
           {
@@ -8026,41 +8043,22 @@ export type Database = {
         Row: {
           assists: number | null
           blocks: number | null
+          first_half_points: number | null
           game_id: string | null
           game_points: number | null
           minutes: number | null
           player_id: string | null
+          player_name: string | null
+          q1_points: number | null
+          q2_points: number | null
+          q3_points: number | null
+          q4_points: number | null
           rebounds: number | null
+          second_half_points: number | null
           steals: number | null
           team_abbr: string | null
           three_made: number | null
           turnovers: number | null
-        }
-        Insert: {
-          assists?: never
-          blocks?: never
-          game_id?: string | null
-          game_points?: never
-          minutes?: never
-          player_id?: string | null
-          rebounds?: never
-          steals?: never
-          team_abbr?: string | null
-          three_made?: never
-          turnovers?: never
-        }
-        Update: {
-          assists?: never
-          blocks?: never
-          game_id?: string | null
-          game_points?: never
-          minutes?: never
-          player_id?: string | null
-          rebounds?: never
-          steals?: never
-          team_abbr?: string | null
-          three_made?: never
-          turnovers?: never
         }
         Relationships: [
           {
