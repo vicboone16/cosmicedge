@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Trash2, ChevronDown, ChevronUp, Zap, AlertTriangle, CheckCircle, Clock, XCircle } from "lucide-react";
+import { Trash2, ChevronDown, ChevronUp, Zap, AlertTriangle, CheckCircle, Clock, XCircle, Share2, Copy } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { useBetSlips } from "@/hooks/use-bet-slips";
@@ -8,6 +8,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { SlipIntentSelector, SlipOptimizerPanel, INTENT_CONFIG, type SlipIntent } from "@/components/skyspread/SlipOptimizer";
 import { SlipLiveTracker } from "@/components/skyspread/optimizer/SlipLiveTracker";
 import { toast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/use-auth";
+import { useQuery } from "@tanstack/react-query";
 
 const MATCH_BADGES: Record<string, { label: string; className: string }> = {
   exact_match: { label: "Matched", className: "bg-cosmic-green/15 text-cosmic-green" },
@@ -38,7 +40,7 @@ const parsePeriodStat = (statType: string): { period: string | null; cleanStat: 
   return { period: null, cleanStat: statType };
 };
 
-function PickRow({ pick }: { pick: any }) {
+function PickRow({ pick, gameInfo }: { pick: any; gameInfo?: { away_abbr: string; home_abbr: string } | null }) {
   const progress = pick.line > 0 && pick.live_value != null
     ? Math.min((Number(pick.live_value) / Number(pick.line)) * 100, 150)
     : 0;
@@ -47,12 +49,17 @@ function PickRow({ pick }: { pick: any }) {
   const { period, cleanStat } = parsePeriodStat(pick.stat_type || "");
   const periodLabel = period ? PERIOD_LABELS[period] : null;
 
+  const matchupLabel = gameInfo ? `${gameInfo.away_abbr} @ ${gameInfo.home_abbr}` : null;
+
   return (
     <div className="py-2 border-b border-border/30 last:border-b-0">
       <div className="flex items-center justify-between">
         <div className="flex-1 min-w-0">
           <p className="text-xs font-semibold text-foreground truncate">{pick.player_name_raw}</p>
           <p className="text-[10px] text-muted-foreground capitalize">
+            {matchupLabel && (
+              <span className="text-foreground/70 font-medium mr-1">{matchupLabel} ·</span>
+            )}
             {periodLabel && <span className="text-primary font-semibold mr-1">{periodLabel}</span>}
             {cleanStat} · {pick.direction} {Number(pick.line)}
           </p>
@@ -96,6 +103,7 @@ function SlipCard({ slip, picks }: { slip: any; picks: any[] }) {
   const [expanded, setExpanded] = useState(false);
   const [viewTab, setViewTab] = useState<"entry" | "live" | "optimizer">("entry");
   const { deleteSlip } = useBetSlips();
+  const { user } = useAuth();
 
   const intentState: SlipIntent = (slip.intent_state as SlipIntent) || "tracking_only";
   const intentCfg = INTENT_CONFIG[intentState];
@@ -105,20 +113,70 @@ function SlipCard({ slip, picks }: { slip: any; picks: any[] }) {
   const hitCount = picks?.filter((p: any) => p.result === "win").length || 0;
   const lossCount = picks?.filter((p: any) => p.result === "loss").length || 0;
 
+  // Fetch game info for all picks to show matchup
+  const pickGameIds = [...new Set(picks?.map((p: any) => p.game_id).filter(Boolean) as string[])];
+  const { data: gamesMap } = useQuery({
+    queryKey: ["slip-card-games", pickGameIds.join(",")],
+    queryFn: async () => {
+      if (!pickGameIds.length) return {};
+      const { data } = await supabase
+        .from("games")
+        .select("id, home_abbr, away_abbr, status")
+        .in("id", pickGameIds);
+      const map: Record<string, any> = {};
+      data?.forEach(g => { map[g.id] = g; });
+      return map;
+    },
+    enabled: pickGameIds.length > 0,
+    staleTime: 60_000,
+  });
+
   const statusIcon = slip.status === "settled"
     ? slip.result === "win" ? CheckCircle : slip.result === "loss" ? XCircle : Clock
     : Clock;
   const StatusIcon = statusIcon;
 
+  // Build unique matchup labels for header
+  const matchupLabels = pickGameIds
+    .map(gid => gamesMap?.[gid])
+    .filter(Boolean)
+    .map(g => `${g.away_abbr}@${g.home_abbr}`)
+    .filter((v, i, a) => a.indexOf(v) === i);
+
   const handleIntentChange = async (newIntent: SlipIntent) => {
     await supabase.from("bet_slips").update({ intent_state: newIntent } as any).eq("id", slip.id);
-    // Optimistic — the refetch will pick up the change
     slip.intent_state = newIntent;
     toast({ title: `Slip mode: ${INTENT_CONFIG[newIntent].label}` });
   };
 
   const handleOptimizerAction = (action: string) => {
     toast({ title: `Action: ${action}`, description: "Optimizer integration coming soon" });
+  };
+
+  const handleShareToFeed = async () => {
+    if (!user) return;
+    try {
+      const picksSummary = picks.map((p: any) => `${p.player_name_raw} ${p.direction} ${p.line} ${p.stat_type}`).join(", ");
+      const content = `🎯 ${slip.book} ${slip.entry_type} slip (${pickCount} picks)${slip.stake ? ` · $${Number(slip.stake).toFixed(2)}` : ""}${slip.payout ? ` → $${Number(slip.payout).toFixed(2)}` : ""}\n${picksSummary}`;
+      await supabase.from("feed_posts").insert({
+        user_id: user.id,
+        content,
+      });
+      toast({ title: "Shared to feed! 🎉" });
+    } catch {
+      toast({ title: "Failed to share", variant: "destructive" });
+    }
+  };
+
+  const handleCopySlip = () => {
+    const lines = picks.map((p: any) => {
+      const game = p.game_id && gamesMap?.[p.game_id];
+      const matchup = game ? `${game.away_abbr}@${game.home_abbr}` : "";
+      return `${p.player_name_raw}${matchup ? ` (${matchup})` : ""} — ${p.direction} ${p.line} ${p.stat_type}`;
+    });
+    const text = `${slip.book} ${slip.entry_type} | ${slip.stake ? `$${Number(slip.stake).toFixed(2)}` : ""}${slip.payout ? ` → $${Number(slip.payout).toFixed(2)}` : ""}\n${lines.join("\n")}`;
+    navigator.clipboard.writeText(text);
+    toast({ title: "Slip copied to clipboard!" });
   };
 
   return (
@@ -136,10 +194,15 @@ function SlipCard({ slip, picks }: { slip: any; picks: any[] }) {
             "text-muted-foreground"
           )} />
           <div className="min-w-0">
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 flex-wrap">
               <span className="text-xs font-semibold text-foreground capitalize">{slip.book}</span>
               <span className="text-[10px] text-muted-foreground capitalize">· {slip.entry_type}</span>
               <span className="text-[10px] text-muted-foreground">· {pickCount} picks</span>
+              {matchupLabels.length > 0 && (
+                <span className="text-[9px] font-medium text-primary/80">
+                  {matchupLabels.join(" · ")}
+                </span>
+              )}
             </div>
             <div className="flex items-center gap-1.5 mt-0.5">
               <p className="text-[10px] text-muted-foreground">
@@ -185,7 +248,7 @@ function SlipCard({ slip, picks }: { slip: any; picks: any[] }) {
           {viewTab === "entry" && (
             <div>
               {picks?.map((pick: any) => (
-                <PickRow key={pick.id} pick={pick} />
+                <PickRow key={pick.id} pick={pick} gameInfo={pick.game_id ? gamesMap?.[pick.game_id] : null} />
               ))}
             </div>
           )}
@@ -210,8 +273,22 @@ function SlipCard({ slip, picks }: { slip: any; picks: any[] }) {
 
           {/* Footer */}
           <div className="flex items-center justify-between mt-2 pt-2 border-t border-border/30">
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-2">
               <Badge variant="outline" className="text-[9px] capitalize">{slip.source}</Badge>
+              <button
+                onClick={(e) => { e.stopPropagation(); handleShareToFeed(); }}
+                className="flex items-center gap-1 text-[10px] text-primary hover:text-primary/80 transition-colors"
+              >
+                <Share2 className="h-3 w-3" />
+                Share
+              </button>
+              <button
+                onClick={(e) => { e.stopPropagation(); handleCopySlip(); }}
+                className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <Copy className="h-3 w-3" />
+                Copy
+              </button>
             </div>
             <button
               onClick={(e) => { e.stopPropagation(); deleteSlip.mutate(slip.id); }}

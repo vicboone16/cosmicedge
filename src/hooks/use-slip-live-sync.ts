@@ -4,44 +4,25 @@ import { supabase } from "@/integrations/supabase/client";
 
 /**
  * Maps bet-slip stat_type strings to player_game_stats columns.
- * Handles period prefixes like "q1:points" → period="q1", col="points"
- * and combo stats like "pra" → points + rebounds + assists
  */
 const STAT_MAP: Record<string, string[]> = {
-  points: ["points"],
-  pts: ["points"],
-  rebounds: ["rebounds"],
-  reb: ["rebounds"],
-  assists: ["assists"],
-  ast: ["assists"],
-  steals: ["steals"],
-  stl: ["steals"],
-  blocks: ["blocks"],
-  blk: ["blocks"],
-  turnovers: ["turnovers"],
-  tov: ["turnovers"],
-  three_made: ["three_made"],
-  "3pm": ["three_made"],
-  threes: ["three_made"],
+  points: ["points"], pts: ["points"],
+  rebounds: ["rebounds"], reb: ["rebounds"],
+  assists: ["assists"], ast: ["assists"],
+  steals: ["steals"], stl: ["steals"],
+  blocks: ["blocks"], blk: ["blocks"],
+  turnovers: ["turnovers"], tov: ["turnovers"],
+  three_made: ["three_made"], "3pm": ["three_made"], threes: ["three_made"],
   pra: ["points", "rebounds", "assists"],
   "pts+reb+ast": ["points", "rebounds", "assists"],
   "pts+reb+asts": ["points", "rebounds", "assists"],
-  pr: ["points", "rebounds"],
-  "pts+reb": ["points", "rebounds"],
-  pa: ["points", "assists"],
-  "pts+ast": ["points", "assists"],
-  "pts+asts": ["points", "assists"],
-  ra: ["rebounds", "assists"],
-  "reb+ast": ["rebounds", "assists"],
-  "reb+asts": ["rebounds", "assists"],
-  sb: ["steals", "blocks"],
-  "stl+blk": ["steals", "blocks"],
-  "blk+stl": ["steals", "blocks"],
-  fantasy_points: ["fantasy_points"],
-  fantasy: ["fantasy_points"],
-  fg_made: ["fg_made"],
-  ft_made: ["ft_made"],
-  minutes: ["minutes"],
+  pr: ["points", "rebounds"], "pts+reb": ["points", "rebounds"],
+  pa: ["points", "assists"], "pts+ast": ["points", "assists"], "pts+asts": ["points", "assists"],
+  ra: ["rebounds", "assists"], "reb+ast": ["rebounds", "assists"], "reb+asts": ["rebounds", "assists"],
+  sb: ["steals", "blocks"], "stl+blk": ["steals", "blocks"], "blk+stl": ["steals", "blocks"],
+  fantasy_points: ["fantasy_points"], fantasy: ["fantasy_points"],
+  "fantasy score": ["fantasy_points"],
+  fg_made: ["fg_made"], ft_made: ["ft_made"], minutes: ["minutes"],
 };
 
 function parsePeriod(statType: string): { period: string; cleanStat: string } {
@@ -57,9 +38,7 @@ function parsePeriod(statType: string): { period: string; cleanStat: string } {
 
 function resolveStatValue(row: any, statColumns: string[]): number {
   let total = 0;
-  for (const col of statColumns) {
-    total += Number(row[col]) || 0;
-  }
+  for (const col of statColumns) total += Number(row[col]) || 0;
   return total;
 }
 
@@ -75,15 +54,81 @@ interface Pick {
 /**
  * Polls player_game_stats for all picks on live/in_progress games
  * and writes live_value back to bet_slip_picks.
+ * Also auto-resolves game_id when missing by looking up the player's team.
  */
 export function useSlipLiveSync(picks: Pick[], enabled = true) {
   const queryClient = useQueryClient();
   const lastWrittenRef = useRef<Record<string, number>>({});
+  const resolvedRef = useRef<Set<string>>(new Set());
 
-  // Get unique game IDs from picks
+  // ── Step 0: Auto-resolve game_id for picks missing it ──
+  const picksNeedingGameId = picks.filter(p => !p.game_id && p.player_id && !resolvedRef.current.has(p.id));
+
+  useQuery({
+    queryKey: ["slip-resolve-game-ids", picksNeedingGameId.map(p => p.id).join(",")],
+    queryFn: async () => {
+      if (!picksNeedingGameId.length) return null;
+
+      const playerIds = [...new Set(picksNeedingGameId.map(p => p.player_id!))];
+      const { data: playerRows } = await supabase
+        .from("players")
+        .select("id, team")
+        .in("id", playerIds);
+
+      if (!playerRows?.length) return null;
+
+      const teamMap: Record<string, string> = {};
+      playerRows.forEach(p => { if (p.team) teamMap[p.id] = p.team; });
+
+      const uniqueTeams = [...new Set(Object.values(teamMap))];
+      if (!uniqueTeams.length) return null;
+
+      // Find today's games for these teams — prioritize live, then scheduled
+      const today = new Date().toISOString().slice(0, 10);
+      const { data: todayGames } = await supabase
+        .from("games")
+        .select("id, home_abbr, away_abbr, status")
+        .gte("start_time", `${today}T00:00:00Z`)
+        .lte("start_time", `${today}T23:59:59Z`)
+        .in("league", ["NBA"]);
+
+      if (!todayGames?.length) return null;
+
+      // Match each pick to a game
+      for (const pick of picksNeedingGameId) {
+        const team = teamMap[pick.player_id!];
+        if (!team) continue;
+
+        // Prioritize live games
+        const liveGame = todayGames.find(g =>
+          (g.home_abbr === team || g.away_abbr === team) &&
+          (g.status === "live" || g.status === "in_progress")
+        );
+        const anyGame = liveGame || todayGames.find(g =>
+          g.home_abbr === team || g.away_abbr === team
+        );
+
+        if (anyGame) {
+          // Write game_id to DB
+          await supabase.from("bet_slip_picks")
+            .update({ game_id: anyGame.id })
+            .eq("id", pick.id);
+          resolvedRef.current.add(pick.id);
+        }
+      }
+
+      // Invalidate to reload picks with new game_ids
+      queryClient.invalidateQueries({ queryKey: ["bet-slip-picks"] });
+      return true;
+    },
+    enabled: enabled && picksNeedingGameId.length > 0,
+    refetchInterval: 60_000, // retry every minute for picks without game_id
+    staleTime: 30_000,
+  });
+
+  // ── Step 1: Check which games are live ──
   const gameIds = [...new Set(picks.map(p => p.game_id).filter(Boolean) as string[])];
 
-  // Check which games are live
   const { data: liveGameIds } = useQuery({
     queryKey: ["slip-live-game-status", gameIds.join(",")],
     queryFn: async () => {
@@ -99,33 +144,27 @@ export function useSlipLiveSync(picks: Pick[], enabled = true) {
     refetchInterval: 15_000,
   });
 
-  // Get player IDs we need stats for (only for live games)
+  // ── Step 2: Fetch live stats ──
   const livePicks = picks.filter(p => p.game_id && liveGameIds?.includes(p.game_id) && p.player_id);
 
-  // Fetch live stats for those players
   const { data: liveStats } = useQuery({
     queryKey: ["slip-live-player-stats", livePicks.map(p => `${p.player_id}:${p.game_id}`).join(",")],
     queryFn: async () => {
       if (!livePicks.length) return [];
-      
-      // Build unique (player_id, game_id) pairs
-      const pairs = livePicks.map(p => ({ player_id: p.player_id!, game_id: p.game_id! }));
-      const uniqueGameIds = [...new Set(pairs.map(p => p.game_id))];
-      const uniquePlayerIds = [...new Set(pairs.map(p => p.player_id))];
-
+      const uniqueGameIds = [...new Set(livePicks.map(p => p.game_id!))];
+      const uniquePlayerIds = [...new Set(livePicks.map(p => p.player_id!))];
       const { data } = await supabase
         .from("player_game_stats")
         .select("player_id, game_id, period, points, rebounds, assists, steals, blocks, turnovers, three_made, fg_made, ft_made, fantasy_points, minutes, fouls")
         .in("game_id", uniqueGameIds)
         .in("player_id", uniquePlayerIds);
-
       return data || [];
     },
     enabled: livePicks.length > 0,
     refetchInterval: 15_000,
   });
 
-  // Write live_value updates back to bet_slip_picks
+  // ── Step 3: Write live_value updates ──
   useEffect(() => {
     if (!liveStats?.length || !livePicks.length) return;
 
@@ -136,15 +175,12 @@ export function useSlipLiveSync(picks: Pick[], enabled = true) {
       const columns = STAT_MAP[cleanStat];
       if (!columns) continue;
 
-      // Find matching stat row
       const statRow = liveStats.find(
         s => s.player_id === pick.player_id && s.game_id === pick.game_id && s.period === period
       );
       if (!statRow) continue;
 
       const val = resolveStatValue(statRow, columns);
-      
-      // Only write if value changed
       if (lastWrittenRef.current[pick.id] === val) continue;
       lastWrittenRef.current[pick.id] = val;
       updates.push({ id: pick.id, live_value: val });
@@ -152,15 +188,10 @@ export function useSlipLiveSync(picks: Pick[], enabled = true) {
 
     if (updates.length === 0) return;
 
-    // Batch update
     (async () => {
       for (const u of updates) {
-        await supabase
-          .from("bet_slip_picks")
-          .update({ live_value: u.live_value })
-          .eq("id", u.id);
+        await supabase.from("bet_slip_picks").update({ live_value: u.live_value }).eq("id", u.id);
       }
-      // Invalidate picks cache so UI refreshes
       queryClient.invalidateQueries({ queryKey: ["bet-slip-picks"] });
     })();
   }, [liveStats, livePicks, queryClient]);
