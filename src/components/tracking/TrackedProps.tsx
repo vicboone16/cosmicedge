@@ -32,24 +32,64 @@ function getSettledDisplay(tp: any) {
 }
 
 /* ─── Pacing logic ─── */
+const TRACKED_STAT_MAP: Record<string, string[]> = {
+  points: ["points"], player_points: ["points"], pts: ["points"],
+  rebounds: ["rebounds"], player_rebounds: ["rebounds"], reb: ["rebounds"],
+  assists: ["assists"], player_assists: ["assists"], ast: ["assists"],
+  steals: ["steals"], stl: ["steals"],
+  blocks: ["blocks"], blk: ["blocks"],
+  turnovers: ["turnovers"], tov: ["turnovers"],
+  threes: ["three_made"], three_made: ["three_made"], "3pm": ["three_made"],
+  pra: ["points", "rebounds", "assists"],
+  player_points_rebounds_assists: ["points", "rebounds", "assists"],
+  player_points_rebounds: ["points", "rebounds"],
+  player_points_assists: ["points", "assists"],
+  player_rebounds_assists: ["rebounds", "assists"],
+  player_steals_blocks: ["steals", "blocks"],
+  fouls: ["personal_fouls"], personal_fouls: ["personal_fouls"],
+};
+
+function parseTrackedPeriodAndMarket(rawMarket: string) {
+  const market = (rawMarket || "").toLowerCase().trim();
+  const idx = market.indexOf(":");
+  if (idx > 0) {
+    const prefix = market.slice(0, idx);
+    const suffix = market.slice(idx + 1);
+    if (["q1", "q2", "q3", "q4", "1h", "2h", "full"].includes(prefix)) {
+      return { period: prefix, market: suffix };
+    }
+  }
+  return { period: "full", market };
+}
+
+function estimateGameProgress(gameData: any) {
+  const quarterRaw = Number(gameData?.quarter || 1);
+  const quarter = Number.isFinite(quarterRaw) && quarterRaw > 0 ? quarterRaw : 1;
+  const clock = String(gameData?.clock || "");
+  const m = clock.match(/(\d{1,2}):(\d{2})/);
+  const remainSec = m ? Number(m[1]) * 60 + Number(m[2]) : null;
+  const regularQuarterSec = 12 * 60;
+  const elapsed = (quarter - 1) * regularQuarterSec + (remainSec != null ? (regularQuarterSec - remainSec) : regularQuarterSec);
+  return Math.max(0, Math.min((elapsed / (48 * 60)) * 100, 100));
+}
+
 function getPacing(tp: any, gameData: any) {
-  if (!tp.live_stat_value || !tp.line || !gameData) return null;
+  if (tp.live_stat_value == null || !tp.line || !gameData) return null;
   const stat = Number(tp.live_stat_value);
   const line = Number(tp.line);
-  const progress = (stat / line) * 100;
-
-  // Estimate game progress from quarter
-  const quarter = gameData.quarter || 1;
-  const gameProgress = Math.min((quarter / 4) * 100, 100);
-
-  const pace = gameProgress > 0 ? (stat / (gameProgress / 100)) : stat;
-  const projectedFinal = pace;
+  const progress = line > 0 ? (stat / line) * 100 : 0;
+  const gameProgress = estimateGameProgress(gameData);
+  const targetPace = (line * gameProgress) / 100;
+  const projectedFinal = gameProgress > 0 ? stat / (gameProgress / 100) : stat;
+  const pacePct = targetPace > 0 ? (stat / targetPace) * 100 : 0;
   const onPace = projectedFinal >= line;
 
   return {
     progress: Math.min(progress, 100),
     gameProgress,
     projectedFinal: Math.round(projectedFinal * 10) / 10,
+    targetPace: Math.round(targetPace * 10) / 10,
+    pacePct: Math.round(pacePct),
     onPace,
     remaining: Math.max(line - stat, 0),
     stat,
