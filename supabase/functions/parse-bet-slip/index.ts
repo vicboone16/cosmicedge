@@ -492,13 +492,170 @@ serve(async (req) => {
       return errorResponse("insert_failed", "Slip created, but picks failed to save.", 500, { ...debugInfo, picks_error: picksErr.message });
     }
 
-    console.log("[parse-bet-slip] Success! Slip:", slip.id, "Picks:", picks.length);
+    /* ─── Post-Insert: Game Matching, Settlement, Injury Check ─── */
+    const settledResults: { player: string; result: string; actual: number | null; injury: string | null }[] = [];
+    let settledCount = 0;
+    let injuryFlags: string[] = [];
+
+    for (const pick of picks) {
+      if (!pick.player_id) continue;
+
+      // Try to find the player's game today or nearest
+      let gameId = pick.game_id;
+      let gameStatus: string | null = null;
+      let gameLiveQuarter: number | null = null;
+
+      if (!gameId) {
+        // Find game by player's team
+        const { data: playerRow } = await supabase.from("players").select("team, league").eq("id", pick.player_id).single();
+        if (playerRow?.team) {
+          const teamAbbr = playerRow.team;
+          const { data: gameRow } = await supabase
+            .from("games")
+            .select("id, status, quarter")
+            .or(`home_abbr.eq.${teamAbbr},away_abbr.eq.${teamAbbr}`)
+            .order("start_time", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          if (gameRow) {
+            gameId = gameRow.id;
+            gameStatus = gameRow.status;
+            gameLiveQuarter = gameRow.quarter ? parseInt(String(gameRow.quarter)) : null;
+            // Update pick with game_id
+            await supabase.from("bet_slip_picks").update({ game_id: gameRow.id }).eq("slip_id", slip.id).eq("player_name_raw", pick.player_name);
+          }
+        }
+      } else {
+        const { data: gameRow } = await supabase.from("games").select("status, quarter").eq("id", gameId).maybeSingle();
+        gameStatus = gameRow?.status || null;
+        gameLiveQuarter = gameRow?.quarter ? parseInt(String(gameRow.quarter)) : null;
+      }
+
+      // Check injuries
+      const { data: injuryRow } = await supabase
+        .from("injuries")
+        .select("status")
+        .eq("player_id", pick.player_id)
+        .order("updated_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (injuryRow?.status && ["out", "doubtful"].includes(injuryRow.status.toLowerCase())) {
+        injuryFlags.push(`${pick.player_name}: ${injuryRow.status}`);
+      }
+
+      // Auto-settle if game is final
+      if (gameId && (gameStatus === "final" || gameStatus === "completed")) {
+        const period = pick.period || "full";
+        let statPeriod = "full";
+        if (period === "q1") statPeriod = "q1";
+        else if (period === "q2") statPeriod = "q2";
+        else if (period === "q3") statPeriod = "q3";
+        else if (period === "q4") statPeriod = "q4";
+        else if (period === "1h") statPeriod = "first_half";
+        else if (period === "2h") statPeriod = "second_half";
+
+        const { data: statRow } = await supabase
+          .from("player_game_stats")
+          .select("points, rebounds, assists, steals, blocks, three_made, turnovers, fg_attempted, minutes")
+          .eq("player_id", pick.player_id)
+          .eq("game_id", gameId)
+          .eq("period", statPeriod)
+          .maybeSingle();
+
+        if (statRow) {
+          const statMap: Record<string, number | null> = {
+            points: statRow.points, pts: statRow.points,
+            rebounds: statRow.rebounds, reb: statRow.rebounds,
+            assists: statRow.assists, ast: statRow.assists,
+            steals: statRow.steals, stl: statRow.steals,
+            blocks: statRow.blocks, blk: statRow.blocks,
+            threes: statRow.three_made, "3pm": statRow.three_made, three_made: statRow.three_made,
+            turnovers: statRow.turnovers, tov: statRow.turnovers,
+            pts_reb_ast: (statRow.points || 0) + (statRow.rebounds || 0) + (statRow.assists || 0),
+            pra: (statRow.points || 0) + (statRow.rebounds || 0) + (statRow.assists || 0),
+            pts_reb: (statRow.points || 0) + (statRow.rebounds || 0),
+            pts_ast: (statRow.points || 0) + (statRow.assists || 0),
+            reb_ast: (statRow.rebounds || 0) + (statRow.assists || 0),
+            blk_stl: (statRow.blocks || 0) + (statRow.steals || 0),
+            "b+s": (statRow.blocks || 0) + (statRow.steals || 0),
+          };
+
+          const actualValue = statMap[pick.stat_type.toLowerCase()] ?? null;
+          if (actualValue !== null) {
+            let result: string;
+            if (actualValue === pick.line) result = "push";
+            else if (pick.direction === "over" && actualValue > pick.line) result = "win";
+            else if (pick.direction === "under" && actualValue < pick.line) result = "win";
+            else result = "loss";
+
+            // DNP check
+            if (statRow.minutes === 0 || statRow.minutes === null) {
+              result = "void";
+            }
+
+            await supabase.from("bet_slip_picks")
+              .update({ result, live_value: actualValue })
+              .eq("slip_id", slip.id)
+              .eq("player_name_raw", pick.player_name);
+
+            settledResults.push({ player: pick.player_name, result, actual: actualValue, injury: null });
+            settledCount++;
+          }
+        }
+      }
+    }
+
+    // If all picks are settled, settle the slip + calculate flex payouts
+    if (settledCount > 0 && settledCount === picks.length) {
+      const wins = settledResults.filter(r => r.result === "win").length;
+      const voids = settledResults.filter(r => r.result === "void").length;
+      const activePicks = picks.length - voids;
+      const losses = settledResults.filter(r => r.result === "loss").length;
+
+      let slipResult: string;
+      let finalPayout = 0;
+
+      if (entry_type === "flex" || entry_type === "goblin") {
+        // Flex/Goblin payout tiers (PrizePicks-style)
+        const flexPayouts = getFlexPayoutMultiplier(activePicks, wins);
+        finalPayout = flexPayouts * stake;
+        slipResult = wins >= Math.ceil(activePicks * 0.5) ? "win" : "loss";
+        if (wins === activePicks) slipResult = "win";
+      } else {
+        // Power/Parlay: all must hit
+        slipResult = losses === 0 && voids < picks.length ? "win" : "loss";
+        finalPayout = slipResult === "win" ? payout : 0;
+      }
+
+      await supabase.from("bet_slips").update({
+        status: "settled",
+        result: slipResult,
+        payout: finalPayout > 0 ? finalPayout : null,
+        settled_at: new Date().toISOString(),
+      }).eq("id", slip.id);
+
+      debugInfo.settled = true;
+      debugInfo.slip_result = slipResult;
+      debugInfo.settled_payout = finalPayout;
+    } else if (settledCount > 0) {
+      // Partial settlement
+      debugInfo.partial_settled = settledCount;
+    }
+
+    if (injuryFlags.length > 0) {
+      debugInfo.injury_warnings = injuryFlags;
+    }
+
+    console.log("[parse-bet-slip] Success! Slip:", slip.id, "Picks:", picks.length, "Settled:", settledCount, "Injuries:", injuryFlags.length);
 
     return new Response(
       JSON.stringify({
         ok: true,
         slip_id: slip.id,
         picks_count: picks.length,
+        settled_count: settledCount,
+        settled_results: settledResults,
+        injury_warnings: injuryFlags,
         debug: debugInfo,
         picks: picks.map((p) => ({
           player_name: p.player_name,
@@ -518,3 +675,23 @@ serve(async (req) => {
     return errorResponse("internal", "An internal error occurred", 500, debugInfo);
   }
 });
+
+/* ─── Flex Payout Multiplier (PrizePicks-style tiers) ─── */
+function getFlexPayoutMultiplier(totalLegs: number, wins: number): number {
+  // Approximate PrizePicks flex payout multipliers
+  const FLEX_TABLES: Record<number, Record<number, number>> = {
+    2: { 2: 3, 1: 1.25 },
+    3: { 3: 5, 2: 1.5, 1: 0 },
+    4: { 4: 10, 3: 2, 2: 1.25, 1: 0 },
+    5: { 5: 20, 4: 3, 3: 1.5, 2: 0, 1: 0 },
+    6: { 6: 40, 5: 5, 4: 2, 3: 1.25, 2: 0, 1: 0 },
+  };
+  const table = FLEX_TABLES[totalLegs];
+  if (!table) {
+    // Fallback for other sizes
+    if (wins === totalLegs) return Math.pow(2, totalLegs);
+    if (wins >= totalLegs - 1) return totalLegs * 0.5;
+    return 0;
+  }
+  return table[wins] ?? 0;
+}

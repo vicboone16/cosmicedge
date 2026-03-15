@@ -142,23 +142,34 @@ export function useBetSlips() {
             .eq("slip_id", data.slip_id);
 
           if (pickRows?.length && slipRow) {
-            const betInserts = pickRows.map((pick: any) => ({
-              user_id: slipRow.user_id,
-              game_id: pick.game_id || slipRow.id, // fallback to slip id as pseudo game_id
-              market_type: pick.stat_type || "player_prop",
-              selection: `${pick.player_name_raw} ${pick.direction} ${pick.line}`,
-              side: pick.direction,
-              odds: -110, // default; will be overridden if odds data exists
-              line: pick.line,
-              stake_amount: slipRow.stake ? (slipRow.stake / pickRows.length) : null,
-              status: slipRow.intent_state === "already_placed" ? "open" : "tracked",
-              player_id: pick.player_id || null,
-              sport: "NBA",
-              book: slipRow.book,
-              notes: `Imported from slip ${data.slip_id}`,
-            }));
+            const betInserts = pickRows.map((pick: any) => {
+              // Determine status from settlement
+              const settledResult = data.settled_results?.find(
+                (sr: any) => sr.player === pick.player_name_raw
+              );
+              const isSettled = !!settledResult;
+              const betResult = settledResult?.result || null;
 
-            // Only insert bets for picks that have a valid game_id
+              return {
+                user_id: slipRow.user_id,
+                game_id: pick.game_id || slipRow.id,
+                market_type: pick.stat_type || "player_prop",
+                selection: `${pick.player_name_raw} ${pick.direction} ${pick.line}`,
+                side: pick.direction,
+                odds: -110,
+                line: pick.line,
+                stake_amount: slipRow.stake ? (slipRow.stake / pickRows.length) : null,
+                status: isSettled ? "settled" : (slipRow.intent_state === "already_placed" ? "open" : "tracked"),
+                result: betResult,
+                settled_at: isSettled ? new Date().toISOString() : null,
+                payout: betResult === "win" && slipRow.payout ? (slipRow.payout / pickRows.length) : (betResult === "push" && slipRow.stake ? (slipRow.stake / pickRows.length) : null),
+                player_id: pick.player_id || null,
+                sport: "NBA",
+                book: slipRow.book,
+                notes: `Imported from slip ${data.slip_id}`,
+              };
+            });
+
             const validBets = betInserts.filter((b: any) => b.game_id);
             if (validBets.length > 0) {
               await supabase.from("bets").insert(validBets);
@@ -172,10 +183,30 @@ export function useBetSlips() {
       queryClient.invalidateQueries({ queryKey: ["bet-slips"] });
       queryClient.invalidateQueries({ queryKey: ["bet-slip-picks"] });
       queryClient.invalidateQueries({ queryKey: ["bets"] });
+      queryClient.invalidateQueries({ queryKey: ["tracked-props"] });
+
+      // Build success message
+      const parts = [`${data.picks_count} pick(s) extracted`];
+      if (data.settled_count > 0) {
+        parts.push(`${data.settled_count} auto-settled`);
+      }
+      if (data.injury_warnings?.length > 0) {
+        parts.push(`⚠️ Injuries: ${data.injury_warnings.join(", ")}`);
+      }
+
       toast({
-        title: "Slip imported!",
-        description: `${data.picks_count} pick(s) extracted`,
+        title: data.settled_count > 0 ? "Slip imported & settled!" : "Slip imported!",
+        description: parts.join(" · "),
       });
+
+      // Show injury warning separately if present
+      if (data.injury_warnings?.length > 0) {
+        toast({
+          title: "⚠️ Injury Alert",
+          description: data.injury_warnings.join(", "),
+          variant: "destructive",
+        });
+      }
     },
     onError: (e: any) => {
       toast({
