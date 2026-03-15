@@ -1,114 +1,104 @@
 import { corsHeaders } from "../_shared/cors.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 
+// Known correct 2025-26 MIN roster (per user confirmation + current season)
+const MIN_ROSTER = [
+  "Anthony Edwards", "Rudy Gobert", "Julius Randle", "Naz Reid",
+  "Jaden McDaniels", "Donte DiVincenzo", "Ayo Dosunmu",
+  "Nickeil Alexander-Walker", "Terrence Shannon Jr.", "Jaylen Clark",
+  "Rob Dillingham", "Leonard Miller", "Luka Garza",
+  "Joe Ingles", "Josh Minott",
+];
+
+// Known correct 2025-26 DAL roster (BDL has these right)
+const DAL_ROSTER = [
+  "Luka Doncic", "Kyrie Irving", "Klay Thompson", "P.J. Washington",
+  "Daniel Gafford", "Dereck Lively II", "Dwight Powell", "Maxi Kleber",
+  "Jaden Hardy", "Spencer Dinwiddie", "Seth Curry",
+  "AJ Johnson", "Ryan Nembhard", "Cooper Flagg", "Moussa Cisse",
+];
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
-      auth: { autoRefreshToken: false, persistSession: false },
-    });
+    const sb = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+      { auth: { autoRefreshToken: false, persistSession: false } },
+    );
 
-    // 1. Read ALL bet_slip_picks
-    const { data: allPicks, error: pickErr } = await sb
-      .from("bet_slip_picks")
-      .select("id, player_id, player_name_raw, game_id, slip_id")
-      .order("slip_id");
+    const changes: string[] = [];
+    const fixes = [
+      ...MIN_ROSTER.map(name => ({ name, team: "MIN" })),
+      ...DAL_ROSTER.map(name => ({ name, team: "DAL" })),
+    ];
 
-    if (pickErr) {
-      return new Response(JSON.stringify({ error: pickErr.message }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const nullPicks = (allPicks || []).filter(p => !p.game_id);
-    const withGame = (allPicks || []).filter(p => p.game_id);
-
-    // 2. For null picks, resolve game_id
-    const fixes: any[] = [];
-
-    if (nullPicks.length > 0) {
-      const playerIds = [...new Set(nullPicks.map(p => p.player_id).filter(Boolean))];
-      const { data: players } = await sb
+    for (const fix of fixes) {
+      const { data: rows } = await sb
         .from("players")
         .select("id, name, team")
-        .in("id", playerIds as string[]);
+        .eq("league", "NBA")
+        .ilike("name", fix.name);
 
-      const teamMap: Record<string, string> = {};
-      const nameMap: Record<string, string> = {};
-      players?.forEach(p => {
-        if (p.team) teamMap[p.id] = p.team;
-        nameMap[p.id] = p.name;
-      });
-
-      // Get today's games
-      const today = new Date().toISOString().slice(0, 10);
-      const { data: todayGames } = await sb
-        .from("games")
-        .select("id, home_abbr, away_abbr, status, start_time")
-        .gte("start_time", `${today}T00:00:00Z`)
-        .lte("start_time", `${today}T23:59:59Z`);
-
-      for (const pick of nullPicks) {
-        if (!pick.player_id) {
-          fixes.push({ player: pick.player_name_raw, status: "no_player_id" });
-          continue;
-        }
-        const team = teamMap[pick.player_id];
-        if (!team) {
-          fixes.push({ player: pick.player_name_raw, player_id: pick.player_id, status: "no_team" });
-          continue;
-        }
-
-        const game = todayGames?.find(g =>
-          (g.home_abbr === team || g.away_abbr === team) &&
-          (g.status === "live" || g.status === "in_progress")
-        ) || todayGames?.find(g =>
-          g.home_abbr === team || g.away_abbr === team
-        );
-
-        if (game) {
-          const { error: updErr } = await sb
-            .from("bet_slip_picks")
-            .update({ game_id: game.id })
-            .eq("id", pick.id);
-          fixes.push({
-            player: pick.player_name_raw,
-            team,
-            game: `${game.away_abbr}@${game.home_abbr}`,
-            game_id: game.id.slice(0, 8),
-            error: updErr?.message || null,
-            status: updErr ? "error" : "fixed",
-          });
-        } else {
-          fixes.push({
-            player: pick.player_name_raw,
-            team,
-            status: "no_game_today",
-            available_games: todayGames?.map(g => `${g.away_abbr}@${g.home_abbr}(${g.status})`),
-          });
+      for (const row of rows || []) {
+        if (row.team === fix.team) continue;
+        const { error } = await sb.from("players").update({ team: fix.team }).eq("id", row.id);
+        if (!error) {
+          changes.push(`${row.name}: ${row.team} → ${fix.team}`);
         }
       }
     }
 
-    // 3. Read team status for key players
-    const { data: keyPlayers } = await sb
+    // Also backfill game_ids
+    const { data: nullPicks } = await sb
+      .from("bet_slip_picks")
+      .select("id, player_id, player_name_raw")
+      .is("game_id", null);
+
+    const gameIdFixes: string[] = [];
+    if (nullPicks?.length) {
+      const playerIds = [...new Set(nullPicks.map(p => p.player_id).filter(Boolean))];
+      const { data: plrs } = await sb.from("players").select("id, team").in("id", playerIds as string[]);
+      const teamLookup: Record<string, string> = {};
+      plrs?.forEach(p => { if (p.team) teamLookup[p.id] = p.team; });
+
+      const today = new Date().toISOString().slice(0, 10);
+      const { data: todayGames } = await sb.from("games").select("id, home_abbr, away_abbr, status")
+        .gte("start_time", `${today}T00:00:00Z`).lte("start_time", `${today}T23:59:59Z`);
+
+      if (todayGames?.length) {
+        for (const pick of nullPicks) {
+          if (!pick.player_id) continue;
+          const team = teamLookup[pick.player_id];
+          if (!team) continue;
+          const game = todayGames.find(g =>
+            (g.home_abbr === team || g.away_abbr === team) &&
+            (g.status === "live" || g.status === "in_progress")
+          ) || todayGames.find(g => g.home_abbr === team || g.away_abbr === team);
+          if (game) {
+            await sb.from("bet_slip_picks").update({ game_id: game.id }).eq("id", pick.id);
+            gameIdFixes.push(`${pick.player_name_raw} → ${game.id.slice(0, 8)}`);
+          }
+        }
+      }
+    }
+
+    // Read back key players to confirm
+    const { data: verify } = await sb
       .from("players")
       .select("name, team")
-      .in("name", ["Anthony Edwards", "Naz Reid", "Ayo Dosunmu", "Jaden McDaniels", "Rudy Gobert"])
-      .eq("league", "NBA");
+      .eq("league", "NBA")
+      .in("name", ["Anthony Edwards", "Naz Reid", "Ayo Dosunmu", "Rudy Gobert", "Julius Randle",
+        "Jaden McDaniels", "Cooper Flagg", "Kyrie Irving", "Luka Doncic", "Rob Dillingham"]);
 
     return new Response(JSON.stringify({
-      total_picks: allPicks?.length || 0,
-      with_game: withGame.length,
-      null_game: nullPicks.length,
-      fixes,
-      key_players: keyPlayers,
+      ok: true,
+      changes,
+      game_id_fixes: gameIdFixes,
+      verification: verify,
     }, null, 2), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
