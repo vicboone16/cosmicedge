@@ -385,6 +385,7 @@ export function useBetSlips() {
       queryClient.invalidateQueries({ queryKey: ["bets"] });
       queryClient.invalidateQueries({ queryKey: ["bankroll-bets"] });
       const parts: string[] = [];
+      if (data.resolvedCount > 0) parts.push(`${data.resolvedCount} game(s) resolved`);
       if (data.trackedCount > 0) parts.push(`${data.trackedCount} prop(s) → Trax`);
       if (data.ledgerCount > 0) parts.push(`${data.ledgerCount} pick(s) → Ledger`);
       if (parts.length === 0) parts.push("Already synced — no new entries");
