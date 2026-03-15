@@ -84,7 +84,12 @@ LEGS:
 ${legsContext}
 
 RULES:
-- Reference each leg by player name, stat type, line, and direction.
+- Reference each leg by player name, stat type, line, direction, AND period scope.
+- When a leg is Q1, 1H, or a timed market (first 3 min, first 5 min), treat it differently:
+  * Compare against period-specific averages, not full-game averages.
+  * Acknowledge that lower lines are expected for shorter periods.
+  * If suggesting alternatives, prefer replacements in the same period scope first.
+  * When a period prop looks weak, mention if the full-game version might be stronger (or vice versa).
 - Use specific numbers: edge %, confidence %, score deltas, volatility %.
 - Structure responses with **bold** section headers.
 - Keep responses under 500 words.
