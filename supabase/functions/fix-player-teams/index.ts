@@ -9,65 +9,92 @@ Deno.serve(async (req) => {
   try {
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
 
-    const fixes: { name: string; correct_team: string }[] = [
-      // MIN players incorrectly on DAL
-      { name: "Anthony Edwards", correct_team: "MIN" },
-      { name: "Ayo Dosunmu", correct_team: "MIN" },
-      { name: "Jaden McDaniels", correct_team: "MIN" },
-      { name: "Naz Reid", correct_team: "MIN" },
-      { name: "Rudy Gobert", correct_team: "MIN" },
-      { name: "Julius Randle", correct_team: "MIN" },
-      { name: "Donte DiVincenzo", correct_team: "MIN" },
-      { name: "Ryan Nembhard", correct_team: "MIN" },
-      { name: "AJ Johnson", correct_team: "MIN" },
-      { name: "Terrence Shannon Jr.", correct_team: "MIN" },
-      { name: "Jaylen Clark", correct_team: "MIN" },
-      { name: "Julian Phillips", correct_team: "MIN" },
-      { name: "Rocco Zikarsky", correct_team: "MIN" },
-      { name: "Moussa Cisse", correct_team: "MIN" },
-      { name: "Skylar Mays", correct_team: "MIN" },
-    ];
+    const results: any[] = [];
 
-    const results: string[] = [];
+    // Step 1: Read current state
+    const { data: before, error: readErr } = await sb
+      .from("players")
+      .select("id, name, team")
+      .eq("name", "Anthony Edwards")
+      .eq("league", "NBA");
 
-    for (const fix of fixes) {
-      const { data, error } = await sb
-        .from("players")
-        .update({ team: fix.correct_team })
-        .eq("name", fix.name)
-        .eq("league", "NBA")
-        .eq("team", "DAL");
+    results.push({ step: "read_before", data: before, error: readErr?.message });
 
-      if (error) {
-        results.push(`❌ ${fix.name}: ${error.message}`);
-      } else {
-        results.push(`✅ ${fix.name} → ${fix.correct_team}`);
+    if (before?.length) {
+      for (const row of before) {
+        // Direct update by ID
+        const { data: upd, error: updErr, count } = await sb
+          .from("players")
+          .update({ team: "MIN" })
+          .eq("id", row.id)
+          .select("id, name, team");
+
+        results.push({
+          step: "update_by_id",
+          id: row.id,
+          prev_team: row.team,
+          result: upd,
+          error: updErr?.message,
+          count,
+        });
       }
     }
 
-    // Also backfill game_ids for bet_slip_picks that are NULL
-    // Get all picks without game_id
+    // Step 2: Read after
+    const { data: after } = await sb
+      .from("players")
+      .select("id, name, team")
+      .eq("name", "Anthony Edwards")
+      .eq("league", "NBA");
+
+    results.push({ step: "read_after", data: after });
+
+    // Step 3: Fix all MIN players + backfill game_ids
+    const minPlayers = [
+      "Ayo Dosunmu", "Jaden McDaniels", "Naz Reid", "Rudy Gobert",
+      "Julius Randle", "Donte DiVincenzo", "Ryan Nembhard", "AJ Johnson",
+      "Terrence Shannon Jr.", "Jaylen Clark", "Julian Phillips",
+      "Rocco Zikarsky", "Moussa Cisse", "Skylar Mays",
+    ];
+
+    for (const name of minPlayers) {
+      const { data: rows } = await sb
+        .from("players")
+        .select("id, team")
+        .eq("name", name)
+        .eq("league", "NBA")
+        .eq("team", "DAL");
+
+      if (rows?.length) {
+        for (const row of rows) {
+          await sb.from("players").update({ team: "MIN" }).eq("id", row.id);
+        }
+        results.push({ fixed: name, count: rows.length });
+      }
+    }
+
+    // Step 4: Backfill game_ids for bet_slip_picks
     const { data: nullPicks } = await sb
       .from("bet_slip_picks")
-      .select("id, player_id, player_name_raw, slip_id")
+      .select("id, player_id, player_name_raw")
       .is("game_id", null);
 
-    const gameIdResults: string[] = [];
+    const gameIdFixes: string[] = [];
 
     if (nullPicks?.length) {
-      // Get player teams
       const playerIds = [...new Set(nullPicks.map(p => p.player_id).filter(Boolean))];
       const { data: players } = await sb
         .from("players")
         .select("id, team")
-        .in("id", playerIds);
+        .in("id", playerIds as string[]);
 
       const teamMap: Record<string, string> = {};
       players?.forEach(p => { if (p.team) teamMap[p.id] = p.team; });
 
-      // Get today's games
       const today = new Date().toISOString().slice(0, 10);
       const { data: todayGames } = await sb
         .from("games")
@@ -79,7 +106,7 @@ Deno.serve(async (req) => {
         for (const pick of nullPicks) {
           if (!pick.player_id) continue;
           const team = teamMap[pick.player_id];
-          if (!team) continue;
+          if (!team) { gameIdFixes.push(`⚠️ ${pick.player_name_raw}: no team found`); continue; }
 
           const liveGame = todayGames.find(g =>
             (g.home_abbr === team || g.away_abbr === team) &&
@@ -90,10 +117,16 @@ Deno.serve(async (req) => {
           );
 
           if (anyGame) {
-            await sb.from("bet_slip_picks")
+            const { error: gErr } = await sb
+              .from("bet_slip_picks")
               .update({ game_id: anyGame.id })
               .eq("id", pick.id);
-            gameIdResults.push(`${pick.player_name_raw} → ${anyGame.id.slice(0, 8)}`);
+            gameIdFixes.push(gErr
+              ? `❌ ${pick.player_name_raw}: ${gErr.message}`
+              : `✅ ${pick.player_name_raw} → ${anyGame.home_abbr}v${anyGame.away_abbr}`
+            );
+          } else {
+            gameIdFixes.push(`⚠️ ${pick.player_name_raw} (${team}): no game today`);
           }
         }
       }
@@ -101,10 +134,10 @@ Deno.serve(async (req) => {
 
     return new Response(JSON.stringify({
       ok: true,
-      team_fixes: results,
-      game_id_backfills: gameIdResults,
-      null_picks_found: nullPicks?.length || 0,
-    }), {
+      diagnostics: results,
+      game_id_fixes: gameIdFixes,
+      null_picks: nullPicks?.length || 0,
+    }, null, 2), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
