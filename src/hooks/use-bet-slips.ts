@@ -142,8 +142,36 @@ export function useBetSlips() {
             .eq("slip_id", data.slip_id);
 
           if (pickRows?.length && slipRow) {
-            const betInserts = pickRows.map((pick: any) => {
-              // Determine status from settlement
+            // Auto-resolve game_ids for picks missing them
+            const picksNeedingGame = pickRows.filter((p: any) => !p.game_id && p.player_id);
+            if (picksNeedingGame.length > 0) {
+              const playerIds = [...new Set(picksNeedingGame.map((p: any) => p.player_id))];
+              const { data: players } = await supabase.from("players").select("id, team").in("id", playerIds);
+              const teamsByPlayer: Record<string, string> = {};
+              players?.forEach(p => { if (p.team) teamsByPlayer[p.id] = p.team; });
+
+              const teams = [...new Set(Object.values(teamsByPlayer))];
+              if (teams.length > 0) {
+                const { data: todayGames } = await supabase
+                  .from("games")
+                  .select("id, home_abbr, away_abbr")
+                  .in("status", ["scheduled", "in_progress", "live", "halftime"])
+                  .or(teams.map(t => `home_abbr.eq.${t},away_abbr.eq.${t}`).join(","));
+
+                for (const pick of picksNeedingGame) {
+                  const team = teamsByPlayer[pick.player_id];
+                  const game = todayGames?.find(g => g.home_abbr === team || g.away_abbr === team);
+                  if (game) {
+                    pick.game_id = game.id;
+                    await supabase.from("bet_slip_picks").update({ game_id: game.id }).eq("id", pick.id);
+                  }
+                }
+              }
+            }
+
+            // Only insert bets for picks that have a valid game_id (FK constraint)
+            const validPicks = pickRows.filter((p: any) => p.game_id);
+            const betInserts = validPicks.map((pick: any) => {
               const settledResult = data.settled_results?.find(
                 (sr: any) => sr.player === pick.player_name_raw
               );
@@ -152,7 +180,7 @@ export function useBetSlips() {
 
               return {
                 user_id: slipRow.user_id,
-                game_id: pick.game_id || slipRow.id,
+                game_id: pick.game_id,
                 market_type: pick.stat_type || "player_prop",
                 selection: `${pick.player_name_raw} ${pick.direction} ${pick.line}`,
                 side: pick.direction,
@@ -170,9 +198,8 @@ export function useBetSlips() {
               };
             });
 
-            const validBets = betInserts.filter((b: any) => b.game_id);
-            if (validBets.length > 0) {
-              await supabase.from("bets").insert(validBets);
+            if (betInserts.length > 0) {
+              await supabase.from("bets").insert(betInserts);
             }
 
             // Also sync to tracked_props for Trax
