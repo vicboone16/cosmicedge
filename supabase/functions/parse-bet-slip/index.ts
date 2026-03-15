@@ -471,13 +471,15 @@ serve(async (req) => {
           console.error("[parse-bet-slip] Shell insert error:", e);
         }
       }
+      // Encode period into stat_type for picks that aren't full-game
+      const periodPrefix = pick.period && pick.period !== "full" ? `${pick.period}:` : "";
       pickInserts.push({
         slip_id: slip.id,
         player_id: pick.player_id || null,
         player_name_raw: pick.player_name,
         game_id: pick.game_id || null,
         prop_shell_id: shellId,
-        stat_type: pick.stat_type,
+        stat_type: `${periodPrefix}${pick.stat_type}`,
         line: pick.line,
         direction: pick.direction,
         match_status: pick.match_status || "unresolved",
