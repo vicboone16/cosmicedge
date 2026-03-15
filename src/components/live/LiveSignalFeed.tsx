@@ -257,13 +257,11 @@ export function LiveSignalFeed({ maxSignals = 20, compact = false }: { maxSignal
     queryKey: ["live-signal-pbp", liveGameIds.join(",")],
     queryFn: async () => {
       if (!liveGameIds.length) return [];
-      // Try nba_pbp_events first (NBA specific)
       const { data } = await supabase
         .from("nba_pbp_events")
         .select("game_id, player, event_type, description, points_scored, team, period, clock")
-        .in("game_id", liveGameIds.map(id => id))
         .order("created_at", { ascending: false })
-        .limit(500);
+        .limit(500) as { data: any[] | null };
       return data || [];
     },
     enabled: liveGameIds.length > 0,
