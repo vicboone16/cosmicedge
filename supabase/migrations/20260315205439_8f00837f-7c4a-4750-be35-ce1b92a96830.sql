@@ -1,0 +1,1 @@
+ALTER TABLE public.player_game_stats ADD COLUMN IF NOT EXISTS personal_fouls integer DEFAULT 0;
