@@ -176,6 +176,10 @@ const resolveMissingPickGameIds = async ({
   return resolvedCount;
 };
 
+const SLIP_NOTE_PREFIX = "[slip:";
+const isFinalGameStatus = (status?: string | null) => ["final", "ended", "completed"].includes((status || "").toLowerCase());
+const isLiveGameStatus = (status?: string | null) => ["live", "in_progress", "halftime"].includes((status || "").toLowerCase());
+
 const syncSlipIntoTraxLedger = async ({
   userId,
   slip,
@@ -193,16 +197,17 @@ const syncSlipIntoTraxLedger = async ({
   const gameIds = [...new Set(validPicks.map((p: any) => p.game_id))];
   const { data: games } = await supabase
     .from("games")
-    .select("id, status")
+    .select("id, status, league, start_time")
     .in("id", gameIds);
 
+  const gameById: Record<string, any> = {};
   const gameStatusById: Record<string, string> = {};
   games?.forEach((g: any) => {
+    gameById[g.id] = g;
     gameStatusById[g.id] = g.status;
   });
 
   let trackedCount = 0;
-  let ledgerCount = 0;
 
   for (const pick of validPicks) {
     const marketType = pick.stat_type || "player_prop";
@@ -228,38 +233,94 @@ const syncSlipIntoTraxLedger = async ({
         direction: pick.direction || "over",
         odds: -110,
         book: slip.book,
-        notes: `From ${slip.book} slip`,
+        notes: `${SLIP_NOTE_PREFIX}${slip.id}] From ${slip.book} slip`,
         status: trackedPropStatusFromGame(gameStatusById[pick.game_id]),
       });
       if (!error) trackedCount++;
     }
+  }
 
-    const selection = `${pick.player_name_raw} ${pick.direction} ${pick.line}`;
-    const { data: betExisting } = await supabase
+  const primaryGame = validPicks
+    .map((p: any) => gameById[p.game_id])
+    .filter(Boolean)
+    .map((g: any) => {
+      const startDelta = Math.abs(new Date(g.start_time || slip.created_at || Date.now()).getTime() - new Date(slip.created_at || Date.now()).getTime());
+      return { g, score: statusPriority(g.status) * 1_000_000_000_000 + startDelta };
+    })
+    .sort((a: any, b: any) => a.score - b.score)[0]?.g;
+
+  let ledgerCount = 0;
+
+  if (primaryGame?.id) {
+    const pickedCount = picks.length;
+    const settledLegs = picks.filter((p: any) => ["win", "loss", "push", "void"].includes((p.result || "").toLowerCase()));
+    const losses = settledLegs.filter((p: any) => (p.result || "").toLowerCase() === "loss").length;
+    const isPowerLike = ["power", "parlay", "straight"].includes((slip.entry_type || "").toLowerCase());
+    const shouldForceLoss = isPowerLike && losses > 0;
+
+    const hasAnyLive = validPicks.some((p: any) => isLiveGameStatus(gameStatusById[p.game_id]));
+    const allFinal = validPicks.every((p: any) => isFinalGameStatus(gameStatusById[p.game_id]));
+
+    const derivedStatus = shouldForceLoss || slip.status === "settled"
+      ? "settled"
+      : hasAnyLive
+        ? "live"
+        : allFinal
+          ? "settled"
+          : "open";
+
+    const derivedResult = shouldForceLoss
+      ? "loss"
+      : (slip.result || null);
+
+    const ledgerPayload = {
+      user_id: userId,
+      game_id: primaryGame.id,
+      market_type: "slip_entry",
+      selection: `${pickedCount}-Pick ${(slip.entry_type || "slip").replace(/_/g, " ")} (${slip.book})`,
+      side: null,
+      odds: -110,
+      line: null,
+      stake_amount: slip.stake ? Number(slip.stake) : null,
+      status: derivedStatus,
+      result: derivedResult,
+      payout: slip.payout ? Number(slip.payout) : null,
+      settled_at: derivedStatus === "settled" ? (slip.settled_at || new Date().toISOString()) : null,
+      player_id: null,
+      sport: primaryGame.league || "NBA",
+      book: slip.book,
+      notes: `${SLIP_NOTE_PREFIX}${slip.id}] ${slip.book} ${slip.entry_type || "slip"}`,
+    };
+
+    const { data: existingSlipLedger } = await supabase
       .from("bets")
       .select("id")
       .eq("user_id", userId)
-      .eq("game_id", pick.game_id)
-      .eq("selection", selection)
+      .ilike("notes", `${SLIP_NOTE_PREFIX}${slip.id}]%`)
       .maybeSingle();
 
-    if (!betExisting) {
-      const { error } = await supabase.from("bets").insert({
-        user_id: userId,
-        game_id: pick.game_id,
-        market_type: marketType,
-        selection,
-        side: pick.direction,
-        odds: -110,
-        line: pick.line,
-        stake_amount: slip.stake ? Number(slip.stake) / validPicks.length : null,
-        status: slip.intent_state === "already_placed" ? "open" : "tracked",
-        player_id: pick.player_id || null,
-        sport: "NBA",
-        book: slip.book,
-        notes: `From ${slip.book} slip${slip.entry_type ? ` · ${slip.entry_type}` : ""}`,
-      });
+    if (existingSlipLedger?.id) {
+      const { error } = await supabase.from("bets").update(ledgerPayload).eq("id", existingSlipLedger.id);
       if (!error) ledgerCount++;
+    } else {
+      const { error } = await supabase.from("bets").insert(ledgerPayload);
+      if (!error) ledgerCount++;
+    }
+
+    // Cleanup legacy per-leg ledger rows created by old sync behavior
+    const legacySelections = [...new Set(validPicks.map((pick: any) => `${pick.player_name_raw} ${pick.direction} ${pick.line}`))];
+    if (legacySelections.length > 0) {
+      const { data: legacyRows } = await supabase
+        .from("bets")
+        .select("id")
+        .eq("user_id", userId)
+        .in("game_id", gameIds)
+        .in("selection", legacySelections)
+        .ilike("notes", `From ${slip.book} slip%`);
+
+      if (legacyRows?.length) {
+        await supabase.from("bets").delete().in("id", legacyRows.map((r: any) => r.id));
+      }
     }
   }
 
