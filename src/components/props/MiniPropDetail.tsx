@@ -81,14 +81,14 @@ export function MiniPropDetail({ prop, open, onOpenChange, gameId, onAddToSkySpr
 
       const { data } = await supabase
         .from("player_game_stats")
-        .select(`${statKey}, period, game_id, games!player_game_stats_game_id_fkey(start_time, home_abbr, away_abbr)`)
+        .select("points, rebounds, assists, steals, blocks, three_made, turnovers, period, game_id, games!player_game_stats_game_id_fkey(start_time, home_abbr, away_abbr)")
         .eq("player_id", playerId)
         .in("period", periods)
         .not(statKey, "is", null)
         .order("created_at", { ascending: false })
         .limit(period === "full" ? 10 : 200);
 
-      const rows = data || [];
+      const rows = (data || []) as any[];
 
       // For half periods, aggregate quarters per game if no direct half row exists
       if (period === "1H" || period === "2H") {
