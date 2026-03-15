@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { cn } from "@/lib/utils";
-import { Plus, Target, Check, X, Zap, Trash2, TrendingUp, TrendingDown, Activity, Clock, BarChart3 } from "lucide-react";
+import { Plus, Target, Check, X, Zap, Trash2, TrendingUp, TrendingDown, Activity, Clock, BarChart3, Shield, AlertTriangle, Gauge } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 
@@ -31,7 +31,21 @@ function getSettledDisplay(tp: any) {
   return { actualDir, verdict };
 }
 
-/* ─── Pacing logic ─── */
+/* ─── Period/market parsing ─── */
+function parseTrackedPeriodAndMarket(rawMarket: string) {
+  const market = (rawMarket || "").toLowerCase().trim();
+  const idx = market.indexOf(":");
+  if (idx > 0) {
+    const prefix = market.slice(0, idx);
+    const suffix = market.slice(idx + 1);
+    if (["q1", "q2", "q3", "q4", "1h", "2h", "full"].includes(prefix)) {
+      return { period: prefix, market: suffix };
+    }
+  }
+  return { period: "full", market };
+}
+
+/* ─── Stat map for live sync ─── */
 const TRACKED_STAT_MAP: Record<string, string[]> = {
   points: ["points"], player_points: ["points"], pts: ["points"],
   rebounds: ["rebounds"], player_rebounds: ["rebounds"], reb: ["rebounds"],
@@ -49,52 +63,15 @@ const TRACKED_STAT_MAP: Record<string, string[]> = {
   fouls: ["personal_fouls"], personal_fouls: ["personal_fouls"],
 };
 
-function parseTrackedPeriodAndMarket(rawMarket: string) {
-  const market = (rawMarket || "").toLowerCase().trim();
-  const idx = market.indexOf(":");
-  if (idx > 0) {
-    const prefix = market.slice(0, idx);
-    const suffix = market.slice(idx + 1);
-    if (["q1", "q2", "q3", "q4", "1h", "2h", "full"].includes(prefix)) {
-      return { period: prefix, market: suffix };
-    }
+/* ─── Status label colors ─── */
+function getStatusLabelStyle(label: string) {
+  switch (label) {
+    case "likely_hit": return { bg: "bg-cosmic-green/15", text: "text-cosmic-green", label: "Likely Hit" };
+    case "coinflip": return { bg: "bg-cosmic-gold/15", text: "text-cosmic-gold", label: "Coin Flip" };
+    case "danger": return { bg: "bg-cosmic-red/15", text: "text-cosmic-red", label: "Danger" };
+    case "final": return { bg: "bg-muted/30", text: "text-muted-foreground", label: "Final" };
+    default: return { bg: "bg-cosmic-cyan/15", text: "text-cosmic-cyan", label: "Pregame" };
   }
-  return { period: "full", market };
-}
-
-function estimateGameProgress(gameData: any) {
-  const quarterRaw = Number(gameData?.quarter || 1);
-  const quarter = Number.isFinite(quarterRaw) && quarterRaw > 0 ? quarterRaw : 1;
-  const clock = String(gameData?.clock || "");
-  const m = clock.match(/(\d{1,2}):(\d{2})/);
-  const remainSec = m ? Number(m[1]) * 60 + Number(m[2]) : null;
-  const regularQuarterSec = 12 * 60;
-  const elapsed = (quarter - 1) * regularQuarterSec + (remainSec != null ? (regularQuarterSec - remainSec) : regularQuarterSec);
-  return Math.max(0, Math.min((elapsed / (48 * 60)) * 100, 100));
-}
-
-function getPacing(tp: any, gameData: any) {
-  if (tp.live_stat_value == null || !tp.line || !gameData) return null;
-  const stat = Number(tp.live_stat_value);
-  const line = Number(tp.line);
-  const progress = line > 0 ? (stat / line) * 100 : 0;
-  const gameProgress = estimateGameProgress(gameData);
-  const targetPace = (line * gameProgress) / 100;
-  const projectedFinal = gameProgress > 0 ? stat / (gameProgress / 100) : stat;
-  const pacePct = targetPace > 0 ? (stat / targetPace) * 100 : 0;
-  const onPace = projectedFinal >= line;
-
-  return {
-    progress: Math.min(progress, 100),
-    gameProgress,
-    projectedFinal: Math.round(projectedFinal * 10) / 10,
-    targetPace: Math.round(targetPace * 10) / 10,
-    pacePct: Math.round(pacePct),
-    onPace,
-    remaining: Math.max(line - stat, 0),
-    stat,
-    line,
-  };
 }
 
 /* ─── Track Prop Button (used on prop cards) ─── */
@@ -220,7 +197,7 @@ export function TrackedPropsWidget({ gameId, showHeader = true }: { gameId?: str
     refetchInterval: 15_000,
   });
 
-  // Fetch game data for all tracked props to determine game status
+  // Fetch game data for all tracked props
   const gameIds = [...new Set(tracked?.map(tp => tp.game_id).filter(Boolean) || [])];
   const { data: gamesMap } = useQuery({
     queryKey: ["tracked-prop-games", gameIds.sort().join(",")],
@@ -228,7 +205,7 @@ export function TrackedPropsWidget({ gameId, showHeader = true }: { gameId?: str
       if (!gameIds.length) return {};
       const { data } = await supabase
         .from("games")
-        .select("id, status, home_abbr, away_abbr, home_team, away_team")
+        .select("id, status, home_abbr, away_abbr, home_team, away_team, home_score, away_score")
         .in("id", gameIds);
       const map: Record<string, any> = {};
       data?.forEach(g => { map[g.id] = g; });
@@ -239,10 +216,32 @@ export function TrackedPropsWidget({ gameId, showHeader = true }: { gameId?: str
     refetchInterval: 15_000,
   });
 
+  // Fetch live_prop_state for intelligence overlay
+  const playerIds = [...new Set(tracked?.map(tp => tp.player_id).filter(Boolean) || [])];
+  const { data: liveStates } = useQuery({
+    queryKey: ["live-prop-state", gameIds.sort().join(","), playerIds.sort().join(",")],
+    queryFn: async () => {
+      if (!gameIds.length || !playerIds.length) return {};
+      const { data } = await supabase
+        .from("live_prop_state")
+        .select("*")
+        .in("game_id", gameIds)
+        .in("player_id", playerIds);
+      const map: Record<string, any> = {};
+      for (const s of (data || [])) {
+        const key = `${s.game_id}:${s.player_id}:${s.prop_type}:${s.line}:${s.period_scope}`;
+        map[key] = s;
+      }
+      return map;
+    },
+    enabled: gameIds.length > 0 && playerIds.length > 0,
+    staleTime: 10_000,
+    refetchInterval: 15_000,
+  });
+
   // Sync live values from player_game_stats + settle when final
   useEffect(() => {
     if (!tracked?.length || !gamesMap || !user) return;
-
     const syncable = tracked.filter(tp => tp.player_id && tp.game_id);
     if (!syncable.length) return;
 
@@ -258,14 +257,12 @@ export function TrackedPropsWidget({ gameId, showHeader = true }: { gameId?: str
         .in("period", ["full", "q1", "q2", "q3", "q4", "first_half", "second_half"]);
 
       if (!statRows?.length) return;
-
       const byKey = new Map<string, any>();
       for (const row of statRows) {
         byKey.set(`${row.player_id}:${row.game_id}:${String(row.period || "full")}`, row);
       }
 
       const updates: Array<{ id: string; payload: Record<string, any> }> = [];
-
       for (const tp of syncable) {
         const gameStatus = String(gamesMap?.[tp.game_id]?.status || "").toLowerCase();
         const { period, market } = parseTrackedPeriodAndMarket(tp.market_type || "");
@@ -273,8 +270,8 @@ export function TrackedPropsWidget({ gameId, showHeader = true }: { gameId?: str
         if (!columns?.length) continue;
 
         const sumCols = (row: any) => columns.reduce((acc, c) => acc + (Number(row?.[c]) || 0), 0);
-
         let statValue: number | null = null;
+
         if (["q1", "q2", "q3", "q4", "full"].includes(period)) {
           const row = byKey.get(`${tp.player_id}:${tp.game_id}:${period}`);
           statValue = row ? sumCols(row) : null;
@@ -315,9 +312,7 @@ export function TrackedPropsWidget({ gameId, showHeader = true }: { gameId?: str
 
         const shouldUpdate =
           Number(tp.live_stat_value ?? -9999) !== Number(payload.live_stat_value) ||
-          Number(tp.progress ?? -9999) !== Number(payload.progress ?? -9999) ||
-          String(tp.status || "") !== String(payload.status || "") ||
-          String(tp.result_direction || "") !== String(payload.result_direction || "");
+          String(tp.status || "") !== String(payload.status || "");
 
         if (shouldUpdate) updates.push({ id: tp.id, payload });
       }
@@ -344,6 +339,14 @@ export function TrackedPropsWidget({ gameId, showHeader = true }: { gameId?: str
     },
   });
 
+  // Helper to find live_prop_state for a tracked prop
+  const getLiveState = (tp: any) => {
+    if (!liveStates || !tp.player_id || !tp.game_id) return null;
+    const { period, market } = parseTrackedPeriodAndMarket(tp.market_type || "");
+    const key = `${tp.game_id}:${tp.player_id}:${market}:${tp.line}:${period}`;
+    return liveStates[key] || null;
+  };
+
   if (!tracked || tracked.length === 0) {
     return (
       <div className="text-center py-12">
@@ -368,19 +371,17 @@ export function TrackedPropsWidget({ gameId, showHeader = true }: { gameId?: str
         </h3>
       )}
 
-      {/* Live Props — most prominent */}
       {liveProps.length > 0 && (
         <div className="space-y-2">
           <p className="text-[10px] font-semibold uppercase tracking-wider text-cosmic-green flex items-center gap-1">
             <Activity className="h-3 w-3" /> Live ({liveProps.length})
           </p>
           {liveProps.map(tp => (
-            <LivePropCard key={tp.id} tp={tp} gameData={gamesMap?.[tp.game_id]} onDelete={() => deleteMutation.mutate(tp.id)} />
+            <LivePropCard key={tp.id} tp={tp} gameData={gamesMap?.[tp.game_id]} liveState={getLiveState(tp)} onDelete={() => deleteMutation.mutate(tp.id)} />
           ))}
         </div>
       )}
 
-      {/* Pregame Props */}
       {pregameProps.length > 0 && (
         <div className="space-y-2">
           <p className="text-[10px] font-semibold uppercase tracking-wider text-cosmic-cyan flex items-center gap-1">
@@ -392,7 +393,6 @@ export function TrackedPropsWidget({ gameId, showHeader = true }: { gameId?: str
         </div>
       )}
 
-      {/* Settled Props */}
       {settledProps.length > 0 && (
         <div className="space-y-2">
           <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
@@ -407,101 +407,184 @@ export function TrackedPropsWidget({ gameId, showHeader = true }: { gameId?: str
   );
 }
 
-/* ─── Live Prop Card with Progress ─── */
-function LivePropCard({ tp, gameData, onDelete }: { tp: any; gameData?: any; onDelete: () => void }) {
-  const pacing = getPacing(tp, gameData);
+/* ─── Live Prop Card with Intelligence ─── */
+function LivePropCard({ tp, gameData, liveState, onDelete }: { tp: any; gameData?: any; liveState?: any; onDelete: () => void }) {
+  const stat = Number(tp.live_stat_value ?? liveState?.current_value ?? 0);
+  const line = Number(tp.line || 0);
+  const progress = line > 0 ? Math.min((stat / line) * 100, 150) : 0;
+
+  // Use live_prop_state intelligence if available
+  const projection = liveState?.projected_final;
+  const hitProb = liveState?.hit_probability;
+  const pacePct = liveState?.pace_pct;
+  const edge = liveState?.live_edge;
+  const ev = liveState?.expected_return;
+  const projMin = liveState?.projected_minutes;
+  const minSecurity = liveState?.minutes_security_score;
+  const foulRisk = liveState?.foul_risk_level;
+  const blowoutProb = liveState?.blowout_probability;
+  const statusLabel = liveState?.status_label;
+  const volatility = liveState?.volatility;
+  const astroNote = liveState?.astro_note;
+
+  const statusStyle = statusLabel ? getStatusLabelStyle(statusLabel) : null;
+  const onPace = projection != null ? projection >= line : stat >= (progress / 100) * line;
 
   return (
-    <div className="cosmic-card rounded-xl p-3 space-y-2 border-l-2 border-l-cosmic-green">
+    <div className={cn(
+      "cosmic-card rounded-xl p-3 space-y-2 border-l-2",
+      statusLabel === "danger" ? "border-l-cosmic-red" :
+      statusLabel === "likely_hit" ? "border-l-cosmic-green" :
+      statusLabel === "coinflip" ? "border-l-cosmic-gold" :
+      "border-l-cosmic-green"
+    )}>
+      {/* Header row */}
       <div className="flex items-center justify-between">
         <div>
           <p className="text-xs font-semibold text-foreground">{tp.player_name}</p>
           <p className="text-[10px] text-muted-foreground capitalize">
-            {tp.market_type} · {tp.direction} {tp.line}
+            {tp.direction} {tp.line} {tp.market_type}
           </p>
         </div>
         <div className="flex items-center gap-1.5">
+          {statusStyle && (
+            <span className={cn("text-[8px] font-bold px-1.5 py-0.5 rounded-full uppercase", statusStyle.bg, statusStyle.text)}>
+              {statusStyle.label}
+            </span>
+          )}
           <span className="h-1.5 w-1.5 rounded-full bg-cosmic-green animate-pulse" />
-          <span className="text-[10px] text-cosmic-green font-semibold uppercase">Live</span>
           <button onClick={onDelete} className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors" title="Remove">
             <Trash2 className="h-3 w-3" />
           </button>
         </div>
       </div>
 
-      {/* Progress Bar with Pacing */}
-      {pacing ? (
-        <div className="space-y-1.5">
-          <div className="flex items-baseline justify-between">
-            <div className="flex items-baseline gap-1">
-              <span className="text-xl font-bold font-display tabular-nums text-foreground">
-                {pacing.stat}
+      {/* Game context */}
+      {(gameData || liveState) && (
+        <div className="flex items-center gap-2 text-[9px] text-muted-foreground">
+          {gameData && <span>{gameData.away_abbr} {gameData.away_score ?? 0} – {gameData.home_abbr} {gameData.home_score ?? 0}</span>}
+          {liveState?.game_quarter && <span>• Q{liveState.game_quarter}</span>}
+          {liveState?.game_clock && <span>{liveState.game_clock}</span>}
+        </div>
+      )}
+
+      {/* Current + Projection + Progress bar */}
+      <div className="space-y-1.5">
+        <div className="flex items-baseline justify-between">
+          <div className="flex items-baseline gap-1">
+            <span className="text-xl font-bold font-display tabular-nums text-foreground">{stat}</span>
+            <span className="text-sm text-muted-foreground">/ {line}</span>
+          </div>
+          {projection != null && (
+            <div className="text-right">
+              <span className={cn("text-sm font-bold tabular-nums", projection >= line ? "text-cosmic-green" : "text-cosmic-red")}>
+                → {projection}
               </span>
-              <span className="text-sm text-muted-foreground">/ {pacing.line}</span>
+              <span className="text-[8px] text-muted-foreground block">Projected</span>
             </div>
+          )}
+        </div>
+
+        {/* Progress bar */}
+        <div className="relative h-2.5 bg-border rounded-full overflow-hidden">
+          <div
+            className={cn("h-full rounded-full transition-all duration-700 ease-out", onPace ? "bg-cosmic-green" : "bg-cosmic-gold")}
+            style={{ width: `${Math.min(progress, 100)}%` }}
+          />
+          {projection != null && projection > 0 && (
+            <div
+              className={cn("absolute top-0 h-full w-0.5 border-l border-dashed", projection >= line ? "border-cosmic-green/70" : "border-cosmic-red/70")}
+              style={{ left: `${Math.min((projection / line) * 100, 120)}%` }}
+              title={`Projected: ${projection}`}
+            />
+          )}
+        </div>
+      </div>
+
+      {/* Intelligence grid */}
+      {(hitProb != null || pacePct != null || edge != null) && (
+        <div className="grid grid-cols-3 gap-1.5">
+          {hitProb != null && (
+            <IntelCell
+              label="Hit Prob"
+              value={`${Math.round(hitProb * 100)}%`}
+              color={hitProb >= 0.7 ? "text-cosmic-green" : hitProb >= 0.45 ? "text-cosmic-gold" : "text-cosmic-red"}
+            />
+          )}
+          {pacePct != null && (
+            <IntelCell
+              label="Pace"
+              value={`${pacePct}%`}
+              color={pacePct >= 100 ? "text-cosmic-green" : pacePct >= 80 ? "text-cosmic-gold" : "text-cosmic-red"}
+            />
+          )}
+          {edge != null && (
+            <IntelCell
+              label="Edge"
+              value={`${edge > 0 ? "+" : ""}${edge}%`}
+              color={edge > 5 ? "text-cosmic-green" : edge > 0 ? "text-cosmic-gold" : "text-cosmic-red"}
+            />
+          )}
+          {ev != null && (
+            <IntelCell
+              label="EV"
+              value={`${ev > 0 ? "+" : ""}${ev}u`}
+              color={ev > 0 ? "text-cosmic-green" : "text-cosmic-red"}
+            />
+          )}
+          {projMin != null && (
+            <IntelCell label="Proj Min" value={String(projMin)} color="text-foreground" />
+          )}
+          {minSecurity != null && (
+            <IntelCell
+              label="Min Security"
+              value={String(minSecurity)}
+              color={minSecurity >= 70 ? "text-cosmic-green" : minSecurity >= 40 ? "text-cosmic-gold" : "text-cosmic-red"}
+            />
+          )}
+        </div>
+      )}
+
+      {/* Risk flags */}
+      {(foulRisk && foulRisk !== "low") || (blowoutProb != null && blowoutProb > 0.3) ? (
+        <div className="flex flex-wrap gap-1">
+          {foulRisk && foulRisk !== "low" && (
             <span className={cn(
-              "text-[10px] font-semibold px-2 py-0.5 rounded-full",
-              pacing.onPace
-                ? "bg-cosmic-green/15 text-cosmic-green"
-                : "bg-cosmic-red/15 text-cosmic-red"
+              "text-[8px] px-1.5 py-0.5 rounded-full font-semibold",
+              foulRisk === "extreme" || foulRisk === "severe" ? "bg-cosmic-red/15 text-cosmic-red" : "bg-cosmic-gold/15 text-cosmic-gold"
             )}>
-              {pacing.onPace ? "On Pace" : "Behind"}
+              ⚠ Foul: {foulRisk}
             </span>
-          </div>
-
-          {/* Animated progress bar — stat vs line */}
-          <div className="relative h-2.5 bg-border rounded-full overflow-hidden">
-            {/* Current stat fill */}
-            <div
-              className={cn(
-                "h-full rounded-full transition-all duration-700 ease-out",
-                pacing.onPace ? "bg-cosmic-green" : "bg-cosmic-gold"
-              )}
-              style={{ width: `${pacing.progress}%` }}
-            />
-            {/* Projected final marker (prop-specific) */}
-            {pacing.projectedFinal > 0 && (
-              <div
-                className={cn(
-                  "absolute top-0 h-full w-0.5 border-l border-dashed",
-                  pacing.onPace ? "border-cosmic-green/70" : "border-cosmic-red/70"
-                )}
-                style={{ left: `${Math.min((pacing.projectedFinal / pacing.line) * 100, 120)}%` }}
-                title={`Projected: ${pacing.projectedFinal}`}
-              />
-            )}
-            {/* Line threshold marker at 100% */}
-            <div
-              className="absolute top-0 h-full w-0.5 bg-foreground/50"
-              style={{ left: '100%' }}
-              title={`Line: ${pacing.line}`}
-            />
-          </div>
-
-          <div className="flex items-center justify-between">
-            <p className="text-[10px] text-muted-foreground">
-              {pacing.remaining > 0 ? `Need ${pacing.remaining.toFixed(1)} more` : "✓ Line cleared"}
-            </p>
-            <p className="text-[10px] text-muted-foreground tabular-nums">
-              Proj: {pacing.projectedFinal}
-            </p>
-          </div>
+          )}
+          {blowoutProb != null && blowoutProb > 0.3 && (
+            <span className="text-[8px] px-1.5 py-0.5 rounded-full font-semibold bg-cosmic-red/15 text-cosmic-red">
+              ⚠ Blowout: {Math.round(blowoutProb * 100)}%
+            </span>
+          )}
+          {volatility != null && volatility > 50 && (
+            <span className="text-[8px] px-1.5 py-0.5 rounded-full font-semibold bg-cosmic-gold/15 text-cosmic-gold">
+              High Vol
+            </span>
+          )}
         </div>
-      ) : (
-        <div className="flex items-baseline gap-1">
-          <span className="text-xl font-bold font-display tabular-nums text-foreground">
-            {tp.live_stat_value ?? "–"}
-          </span>
-          <span className="text-sm text-muted-foreground">/ {tp.line}</span>
-        </div>
+      ) : null}
+
+      {/* Astro note */}
+      {astroNote && (
+        <p className="text-[8px] text-cosmic-purple italic">✦ {astroNote}</p>
       )}
 
-      {tp.odds && (
-        <p className="text-[10px] text-muted-foreground">
-          Odds: {Number(tp.odds) > 0 ? "+" : ""}{tp.odds}
-        </p>
-      )}
       {tp.notes && <p className="text-[10px] text-muted-foreground italic">{tp.notes}</p>}
+    </div>
+  );
+}
+
+/* ─── Intelligence Cell ─── */
+function IntelCell({ label, value, color }: { label: string; value: string; color: string }) {
+  return (
+    <div className="text-center">
+      <p className={cn("text-xs font-bold tabular-nums", color)}>{value}</p>
+      <p className="text-[7px] text-muted-foreground uppercase tracking-wider">{label}</p>
     </div>
   );
 }
@@ -568,9 +651,7 @@ function SettledPropCard({ tp, onDelete }: { tp: any; onDelete: () => void }) {
           {settled?.verdict && settled.verdict !== "push" && (
             <span className={cn(
               "px-1.5 py-0.5 rounded-full text-[9px] font-bold uppercase",
-              settled.verdict === "win"
-                ? "bg-cosmic-green/15 text-cosmic-green"
-                : "bg-cosmic-red/15 text-cosmic-red"
+              settled.verdict === "win" ? "bg-cosmic-green/15 text-cosmic-green" : "bg-cosmic-red/15 text-cosmic-red"
             )}>
               {settled.verdict}
             </span>

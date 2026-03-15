@@ -65,7 +65,7 @@ Deno.serve(async (req) => {
   const sb = createClient(SUPABASE_URL, SERVICE_KEY);
   const headers = { Authorization: `Bearer ${BDL_KEY}`, "X-Api-Key": BDL_KEY };
 
-  const totals = { ticks: 0, games: 0, odds: 0, plays: 0, errors: 0, preResolved: 0, quarterStatsTriggers: 0 };
+  const totals: Record<string, number> = { ticks: 0, games: 0, odds: 0, plays: 0, errors: 0, preResolved: 0, quarterStatsTriggers: 0, propStates: 0 };
   const finalizedGames = new Set<number>(); // BDL IDs of games that went final this invocation
   const startMs = Date.now();
 
