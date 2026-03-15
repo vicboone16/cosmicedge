@@ -8,6 +8,40 @@ const corsHeaders = {
 
 const AI_GATEWAY = "https://ai.gateway.lovable.dev/v1/chat/completions";
 
+/* ─── Team abbreviation normalization ─── */
+const TEAM_ALIASES: Record<string, string> = {
+  "portland": "POR", "trail blazers": "POR", "blazers": "POR",
+  "philadelphia": "PHI", "76ers": "PHI", "sixers": "PHI", "philly": "PHI",
+  "los angeles lakers": "LAL", "lakers": "LAL",
+  "los angeles clippers": "LAC", "clippers": "LAC",
+  "golden state": "GSW", "warriors": "GSW",
+  "boston": "BOS", "celtics": "BOS",
+  "milwaukee": "MIL", "bucks": "MIL",
+  "denver": "DEN", "nuggets": "DEN",
+  "phoenix": "PHX", "suns": "PHX",
+  "dallas": "DAL", "mavericks": "DAL", "mavs": "DAL",
+  "miami": "MIA", "heat": "MIA",
+  "new york": "NYK", "knicks": "NYK",
+  "cleveland": "CLE", "cavaliers": "CLE", "cavs": "CLE",
+  "memphis": "MEM", "grizzlies": "MEM",
+  "sacramento": "SAC", "kings": "SAC",
+  "minnesota": "MIN", "timberwolves": "MIN", "wolves": "MIN",
+  "oklahoma city": "OKC", "thunder": "OKC",
+  "new orleans": "NOP", "pelicans": "NOP",
+  "houston": "HOU", "rockets": "HOU",
+  "atlanta": "ATL", "hawks": "ATL",
+  "chicago": "CHI", "bulls": "CHI",
+  "brooklyn": "BKN", "nets": "BKN",
+  "charlotte": "CHA", "hornets": "CHA",
+  "detroit": "DET", "pistons": "DET",
+  "indiana": "IND", "pacers": "IND",
+  "orlando": "ORL", "magic": "ORL",
+  "toronto": "TOR", "raptors": "TOR",
+  "washington": "WAS", "wizards": "WAS",
+  "utah": "UTA", "jazz": "UTA",
+  "san antonio": "SAS", "spurs": "SAS",
+};
+
 /* ─── Intent detection via AI tool-calling ─── */
 
 const INTENT_TOOL = {
