@@ -508,6 +508,7 @@ serve(async (req) => {
           direction: p.direction,
           match_status: p.match_status,
           player_id: p.player_id,
+          period: p.period || "full",
         })),
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
