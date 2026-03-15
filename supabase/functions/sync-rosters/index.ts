@@ -20,7 +20,8 @@ Deno.serve(async (req) => {
   try {
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const BDL_KEY = Deno.env.get("BALLDONTLIE_KEY")!;
+    const BDL_KEY_RAW = Deno.env.get("BALLDONTLIE_KEY")!;
+    const BDL_KEY = BDL_KEY_RAW.trim().replace(/^Bearer\s+/i, "");
     const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
       auth: { autoRefreshToken: false, persistSession: false },
     });
