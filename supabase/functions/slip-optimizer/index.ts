@@ -25,9 +25,27 @@ serve(async (req) => {
     const { action, slip, picks, intent_state, slip_score } = body;
 
     // Build rich leg context
+    const PERIOD_LABELS: Record<string, string> = {
+      q1: "1st Quarter", q2: "2nd Quarter", q3: "3rd Quarter", q4: "4th Quarter",
+      "1h": "1st Half", "2h": "2nd Half",
+      first3: "First 3 Minutes", first5: "First 5 Minutes", first10: "First 10 Minutes",
+      full: "Full Game",
+    };
+
+    const parsePeriod = (statType: string): { period: string; cleanStat: string } => {
+      const colonIdx = statType.indexOf(":");
+      if (colonIdx > 0) {
+        const prefix = statType.slice(0, colonIdx);
+        if (PERIOD_LABELS[prefix]) return { period: prefix, cleanStat: statType.slice(colonIdx + 1) };
+      }
+      return { period: "full", cleanStat: statType };
+    };
+
     const legsContext = (picks || []).map((p: any, i: number) => {
       const legScore = slip_score?.legs?.[i];
-      const parts = [`Leg ${i + 1}: ${p.player_name_raw} — ${p.stat_type} ${p.direction} ${p.line}`];
+      const { period, cleanStat } = parsePeriod(p.stat_type || "");
+      const periodLabel = PERIOD_LABELS[period] || "Full Game";
+      const parts = [`Leg ${i + 1}: ${p.player_name_raw} — ${cleanStat} ${p.direction} ${p.line} [${periodLabel}]`];
       if (legScore) {
         parts.push(`Score: ${legScore.score}/100 (${legScore.grade})`);
         parts.push(`Edge: ${legScore.edge}% | Prob: ${legScore.probability}% | Conf: ${legScore.confidence}% | Vol: ${legScore.volatility}%`);
@@ -66,7 +84,12 @@ LEGS:
 ${legsContext}
 
 RULES:
-- Reference each leg by player name, stat type, line, and direction.
+- Reference each leg by player name, stat type, line, direction, AND period scope.
+- When a leg is Q1, 1H, or a timed market (first 3 min, first 5 min), treat it differently:
+  * Compare against period-specific averages, not full-game averages.
+  * Acknowledge that lower lines are expected for shorter periods.
+  * If suggesting alternatives, prefer replacements in the same period scope first.
+  * When a period prop looks weak, mention if the full-game version might be stronger (or vice versa).
 - Use specific numbers: edge %, confidence %, score deltas, volatility %.
 - Structure responses with **bold** section headers.
 - Keep responses under 500 words.

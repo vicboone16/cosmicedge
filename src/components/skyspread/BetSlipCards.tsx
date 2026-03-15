@@ -23,12 +23,29 @@ const RESULT_COLORS: Record<string, string> = {
   push: "text-cosmic-gold",
 };
 
+const PERIOD_LABELS: Record<string, string> = {
+  q1: "Q1", q2: "Q2", q3: "Q3", q4: "Q4",
+  "1h": "1H", "2h": "2H",
+  first3: "First 3 Min", first5: "First 5 Min", first10: "First 10 Min",
+};
+
+const parsePeriodStat = (statType: string): { period: string | null; cleanStat: string } => {
+  const colonIdx = statType.indexOf(":");
+  if (colonIdx > 0) {
+    const prefix = statType.slice(0, colonIdx);
+    if (PERIOD_LABELS[prefix]) return { period: prefix, cleanStat: statType.slice(colonIdx + 1) };
+  }
+  return { period: null, cleanStat: statType };
+};
+
 function PickRow({ pick }: { pick: any }) {
   const progress = pick.line > 0 && pick.live_value != null
     ? Math.min((Number(pick.live_value) / Number(pick.line)) * 100, 150)
     : 0;
   const hasLive = pick.live_value != null;
   const matchBadge = MATCH_BADGES[pick.match_status] || MATCH_BADGES.unresolved;
+  const { period, cleanStat } = parsePeriodStat(pick.stat_type || "");
+  const periodLabel = period ? PERIOD_LABELS[period] : null;
 
   return (
     <div className="py-2 border-b border-border/30 last:border-b-0">
@@ -36,7 +53,8 @@ function PickRow({ pick }: { pick: any }) {
         <div className="flex-1 min-w-0">
           <p className="text-xs font-semibold text-foreground truncate">{pick.player_name_raw}</p>
           <p className="text-[10px] text-muted-foreground capitalize">
-            {pick.stat_type} · {pick.direction} {Number(pick.line)}
+            {periodLabel && <span className="text-primary font-semibold mr-1">{periodLabel}</span>}
+            {cleanStat} · {pick.direction} {Number(pick.line)}
           </p>
         </div>
         <div className="flex items-center gap-1.5 shrink-0">

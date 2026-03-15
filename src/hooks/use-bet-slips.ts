@@ -7,11 +7,15 @@ const ERROR_MESSAGES: Record<string, string> = {
   invalid_link: "That link doesn't look right. Please check and try again.",
   unsupported_book: "This book isn't supported yet. Try manual entry instead.",
   redirect_failed: "We couldn't reach that share link. It may have expired.",
-  parse_failed: "We couldn't read the picks from that input.",
+  parse_failed: "We couldn't read the picks from that input. Try a clearer image or manual entry.",
   no_entry_found: "No picks were found. Try a clearer image or manual entry.",
   matching_failed: "Some players couldn't be matched to our database.",
   insert_failed: "Something went wrong saving your slip. Please try again.",
   unauthorized: "Your session expired. Please sign in again.",
+  internal: "Something went wrong. Please try again.",
+  FunctionsFetchError: "Connection issue — please check your network and try again.",
+  FunctionsRelayError: "Server is busy. Please try again in a moment.",
+  FunctionsHttpError: "Server error — please try again.",
 };
 
 const extractEdgeErrorMessage = async (error: any): Promise<{ message: string; code: string | null; debug: any }> => {
@@ -122,9 +126,52 @@ export function useBetSlips() {
 
       return res.data;
     },
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
+      // Sync imported picks to the bets ledger for bankroll tracking
+      try {
+        if (data.picks?.length && data.slip_id) {
+          const { data: slipRow } = await supabase
+            .from("bet_slips")
+            .select("*")
+            .eq("id", data.slip_id)
+            .single();
+
+          const { data: pickRows } = await supabase
+            .from("bet_slip_picks")
+            .select("*")
+            .eq("slip_id", data.slip_id);
+
+          if (pickRows?.length && slipRow) {
+            const betInserts = pickRows.map((pick: any) => ({
+              user_id: slipRow.user_id,
+              game_id: pick.game_id || slipRow.id, // fallback to slip id as pseudo game_id
+              market_type: pick.stat_type || "player_prop",
+              selection: `${pick.player_name_raw} ${pick.direction} ${pick.line}`,
+              side: pick.direction,
+              odds: -110, // default; will be overridden if odds data exists
+              line: pick.line,
+              stake_amount: slipRow.stake ? (slipRow.stake / pickRows.length) : null,
+              status: slipRow.intent_state === "already_placed" ? "open" : "tracked",
+              player_id: pick.player_id || null,
+              sport: "NBA",
+              book: slipRow.book,
+              notes: `Imported from slip ${data.slip_id}`,
+            }));
+
+            // Only insert bets for picks that have a valid game_id
+            const validBets = betInserts.filter((b: any) => b.game_id);
+            if (validBets.length > 0) {
+              await supabase.from("bets").insert(validBets);
+            }
+          }
+        }
+      } catch (e) {
+        console.warn("[BetSlip] Ledger sync failed (non-blocking):", e);
+      }
+
       queryClient.invalidateQueries({ queryKey: ["bet-slips"] });
       queryClient.invalidateQueries({ queryKey: ["bet-slip-picks"] });
+      queryClient.invalidateQueries({ queryKey: ["bets"] });
       toast({
         title: "Slip imported!",
         description: `${data.picks_count} pick(s) extracted`,

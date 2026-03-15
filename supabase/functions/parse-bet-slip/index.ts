@@ -8,6 +8,7 @@ type PickInput = {
   stat_type: string;
   line: number;
   direction: "over" | "under";
+  period?: string | null; // "q1","q2","q3","q4","1h","2h","first3","full"
   player_id?: string | null;
   match_status?: string;
   matched_name?: string;
@@ -62,12 +63,46 @@ const normalizeDirection = (raw: unknown): "over" | "under" => {
   return d === "under" || d === "less" ? "under" : "over";
 };
 
+/* ─── Period Detection ─── */
+const PERIOD_PATTERNS: [RegExp, string][] = [
+  [/\b(?:1st\s*quarter|first\s*quarter|q1|1q)\b/i, "q1"],
+  [/\b(?:2nd\s*quarter|second\s*quarter|q2|2q)\b/i, "q2"],
+  [/\b(?:3rd\s*quarter|third\s*quarter|q3|3q)\b/i, "q3"],
+  [/\b(?:4th\s*quarter|fourth\s*quarter|q4|4q)\b/i, "q4"],
+  [/\b(?:1st\s*half|first\s*half|1h)\b/i, "1h"],
+  [/\b(?:2nd\s*half|second\s*half|2h)\b/i, "2h"],
+  [/\b(?:first\s*3\s*min|1st\s*3\s*min|first\s*three\s*min)\b/i, "first3"],
+  [/\b(?:first\s*5\s*min|1st\s*5\s*min|first\s*five\s*min)\b/i, "first5"],
+  [/\b(?:first\s*10\s*min|1st\s*10\s*min)\b/i, "first10"],
+];
+
+const detectPeriod = (statType: string, rawText?: string): string => {
+  const combined = `${statType} ${rawText || ""}`;
+  for (const [pat, period] of PERIOD_PATTERNS) {
+    if (pat.test(combined)) return period;
+  }
+  return "full";
+};
+
+const cleanStatType = (statType: string): string => {
+  let cleaned = statType;
+  // Remove period prefixes from stat_type so we store them separately
+  for (const [pat] of PERIOD_PATTERNS) {
+    cleaned = cleaned.replace(pat, "").trim();
+  }
+  // Clean up residual separators
+  cleaned = cleaned.replace(/^[\s\-·:]+|[\s\-·:]+$/g, "").trim();
+  return cleaned || statType;
+};
+
 const sanitizePick = (pick: any): PickInput | null => {
   const player_name = String(pick?.player_name ?? "").trim();
-  const stat_type = String(pick?.stat_type ?? "").trim().toLowerCase();
+  const rawStatType = String(pick?.stat_type ?? "").trim().toLowerCase();
   const line = Number(pick?.line);
-  if (!player_name || !stat_type || Number.isNaN(line)) return null;
-  return { player_name, stat_type, line, direction: normalizeDirection(pick?.direction) };
+  if (!player_name || !rawStatType || Number.isNaN(line)) return null;
+  const period = pick?.period || detectPeriod(rawStatType);
+  const stat_type = cleanStatType(rawStatType);
+  return { player_name, stat_type, line, direction: normalizeDirection(pick?.direction), period };
 };
 
 const extractPicksFromText = (text: string): PickInput[] => {
@@ -108,7 +143,8 @@ const aiExtractFromText = async (text: string, book: string): Promise<PickInput[
           {
             role: "system",
             content: `Extract betting picks from shared page text and return only valid JSON.
-Format: { "book": "${book}", "picks": [{ "player_name": "LeBron James", "stat_type": "points", "line": 25.5, "direction": "over" }] }
+Format: { "book": "${book}", "picks": [{ "player_name": "LeBron James", "stat_type": "points", "line": 25.5, "direction": "over", "period": "full" }] }
+IMPORTANT: Detect period/market scope. If a prop is for 1st Quarter, set period="q1". First Half="1h". Second Half="2h". First 3 minutes="first3". First 5 minutes="first5". Full game="full". Always include the period field.
 Only include picks that clearly have player name, direction, line, and stat type.`,
           },
           { role: "user", content: text.slice(0, 15000) },
@@ -144,7 +180,8 @@ const aiExtractFromImage = async (
             content: `You are a bet slip OCR parser. Extract all picks from the betting slip image.
 Return valid JSON only:
 { "book": "${book}", "entry_type": "power|flex|goblin|parlay|straight", "stake": 10, "payout": 50,
-  "picks": [{ "player_name": "LeBron James", "stat_type": "points", "line": 25.5, "direction": "over" }] }`,
+  "picks": [{ "player_name": "LeBron James", "stat_type": "points", "line": 25.5, "direction": "over", "period": "full" }] }
+IMPORTANT: Detect period/market scope. If a prop is for 1st Quarter, set period="q1". First Half="1h". Second Half="2h". First 3 minutes="first3". Full game="full". Always include the period field.`,
           },
           {
             role: "user",
@@ -434,13 +471,15 @@ serve(async (req) => {
           console.error("[parse-bet-slip] Shell insert error:", e);
         }
       }
+      // Encode period into stat_type for picks that aren't full-game
+      const periodPrefix = pick.period && pick.period !== "full" ? `${pick.period}:` : "";
       pickInserts.push({
         slip_id: slip.id,
         player_id: pick.player_id || null,
         player_name_raw: pick.player_name,
         game_id: pick.game_id || null,
         prop_shell_id: shellId,
-        stat_type: pick.stat_type,
+        stat_type: `${periodPrefix}${pick.stat_type}`,
         line: pick.line,
         direction: pick.direction,
         match_status: pick.match_status || "unresolved",
@@ -469,6 +508,7 @@ serve(async (req) => {
           direction: p.direction,
           match_status: p.match_status,
           player_id: p.player_id,
+          period: p.period || "full",
         })),
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
