@@ -196,6 +196,7 @@ export default function SignalLabPage() {
 /* ─── Signal category description banner ─── */
 function SignalDescription({ tab }: { tab: SignalTab }) {
   const descriptions: Record<SignalTab, { title: string; body: string; icon: typeof Flame }> = {
+    live_signals: { title: "Live Signals", body: "Real-time hot hand, cold streak, momentum shift, and game flow alerts from live games.", icon: Zap },
     streaks: { title: "Over Streaks", body: "Players clearing their line in 3+ consecutive games. Consistency signals sustained performance.", icon: Flame },
     momentum: { title: "Momentum", body: "L10 hit rate ≥ 60%. Recent form suggests a player trending above their line.", icon: TrendingUp },
     usage: { title: "Usage Shift", body: "Projection exceeds line by 0.5+. Role or opportunity changes creating value gaps.", icon: Activity },
