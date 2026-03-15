@@ -506,17 +506,48 @@ serve(async (req) => {
       let gameLiveQuarter: number | null = null;
 
       if (!gameId) {
-        // Find game by player's team
+        // Find game by player's team — prioritize live/in_progress, then today's scheduled, then most recent
         const { data: playerRow } = await supabase.from("players").select("team, league").eq("id", pick.player_id).single();
         if (playerRow?.team) {
           const teamAbbr = playerRow.team;
-          const { data: gameRow } = await supabase
+          const today = new Date().toISOString().slice(0, 10);
+
+          // 1) Try live/in_progress game first
+          const { data: liveGame } = await supabase
             .from("games")
             .select("id, status, quarter")
             .or(`home_abbr.eq.${teamAbbr},away_abbr.eq.${teamAbbr}`)
-            .order("start_time", { ascending: false })
+            .in("status", ["live", "in_progress"])
             .limit(1)
             .maybeSingle();
+
+          // 2) Fallback: today's game (any status)
+          let gameRow = liveGame;
+          if (!gameRow) {
+            const { data: todayGame } = await supabase
+              .from("games")
+              .select("id, status, quarter")
+              .or(`home_abbr.eq.${teamAbbr},away_abbr.eq.${teamAbbr}`)
+              .gte("start_time", `${today}T00:00:00Z`)
+              .lte("start_time", `${today}T23:59:59Z`)
+              .order("start_time", { ascending: true })
+              .limit(1)
+              .maybeSingle();
+            gameRow = todayGame;
+          }
+
+          // 3) Last fallback: most recent game
+          if (!gameRow) {
+            const { data: recentGame } = await supabase
+              .from("games")
+              .select("id, status, quarter")
+              .or(`home_abbr.eq.${teamAbbr},away_abbr.eq.${teamAbbr}`)
+              .order("start_time", { ascending: false })
+              .limit(1)
+              .maybeSingle();
+            gameRow = recentGame;
+          }
+
           if (gameRow) {
             gameId = gameRow.id;
             gameStatus = gameRow.status;
