@@ -2,7 +2,7 @@ import { corsHeaders } from "../_shared/cors.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { CANONICAL } from "../_shared/team-mappings.ts";
 
-const BDL_BASE = "https://api.balldontlie.io/v1";
+const BDL_BASE = "https://api.balldontlie.io/v2";
 
 interface BdlPlayer {
   id: number;
