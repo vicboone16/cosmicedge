@@ -204,9 +204,10 @@ export function TrackedPropsWidget({ gameId, showHeader = true }: { gameId?: str
     if (!tracked || !gamesMap || !user) return;
     const stale = tracked.filter(tp => {
       const game = gamesMap[tp.game_id];
+      const gameStatus = (game?.status || "").toLowerCase();
       return (
         (tp.status === "pregame" || tp.status === "live") &&
-        game?.status === "final"
+        ["final", "ended", "completed"].includes(gameStatus)
       );
     });
     if (stale.length === 0) return;

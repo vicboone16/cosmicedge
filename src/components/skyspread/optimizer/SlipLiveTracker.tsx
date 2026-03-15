@@ -46,8 +46,9 @@ function getLegState(leg: LiveLeg, gameStatus?: string) {
 }
 
 function GameGroupHeader({ game, snapshot }: { game: any; snapshot: any }) {
-  const isLive = game?.status === "live" || game?.status === "in_progress";
-  const isFinal = game?.status === "final";
+  const normalizedStatus = (snapshot?.status || game?.status || "").toLowerCase();
+  const isLive = ["live", "in_progress", "halftime"].includes(normalizedStatus);
+  const isFinal = ["final", "ended", "completed"].includes(normalizedStatus);
 
   return (
     <div className="flex items-center justify-between px-3 py-2 bg-secondary/40 rounded-lg border border-border/50">
