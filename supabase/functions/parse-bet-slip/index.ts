@@ -143,7 +143,8 @@ const aiExtractFromText = async (text: string, book: string): Promise<PickInput[
           {
             role: "system",
             content: `Extract betting picks from shared page text and return only valid JSON.
-Format: { "book": "${book}", "picks": [{ "player_name": "LeBron James", "stat_type": "points", "line": 25.5, "direction": "over" }] }
+Format: { "book": "${book}", "picks": [{ "player_name": "LeBron James", "stat_type": "points", "line": 25.5, "direction": "over", "period": "full" }] }
+IMPORTANT: Detect period/market scope. If a prop is for 1st Quarter, set period="q1". First Half="1h". Second Half="2h". First 3 minutes="first3". First 5 minutes="first5". Full game="full". Always include the period field.
 Only include picks that clearly have player name, direction, line, and stat type.`,
           },
           { role: "user", content: text.slice(0, 15000) },
