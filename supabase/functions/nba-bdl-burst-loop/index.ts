@@ -350,7 +350,28 @@ Deno.serve(async (req) => {
           }
         }
 
-        if (status !== "final") liveGameIds.push(g.id);
+        if (status !== "final") {
+          liveGameIds.push(g.id);
+        } else if (!finalizedGames.has(g.id)) {
+          // Game just went final — trigger quarter stats backfill
+          finalizedGames.add(g.id);
+          try {
+            const today = new Date().toISOString().split("T")[0];
+            const qsUrl = `${SUPABASE_URL}/functions/v1/bdl-quarter-stats?date=${today}&game_ids=${g.id}&season=2025`;
+            const qsRes = await fetch(qsUrl, {
+              headers: { Authorization: `Bearer ${SERVICE_KEY}` },
+            });
+            if (qsRes.ok) {
+              const qsResult = await qsRes.json();
+              console.log(`[burst] Quarter stats triggered for BDL game ${g.id}: ${JSON.stringify(qsResult.stats || {})}`);
+              totals.quarterStatsTriggers++;
+            } else {
+              console.warn(`[burst] Quarter stats trigger failed for ${g.id}: ${qsRes.status}`);
+            }
+          } catch (e) {
+            console.warn(`[burst] Quarter stats trigger error for ${g.id}:`, e);
+          }
+        }
       }
 
       // 3. Fetch odds (batched) — supports both v2 flat and legacy nested format
