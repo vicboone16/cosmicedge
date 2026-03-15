@@ -512,6 +512,12 @@ async function generateNarrative(
   if (glossaryTerms.length > 0) {
     parts.push(`GLOSSARY MATCHES:\n${glossaryTerms.map(t => `  ${t.term}: ${t.short_definition || t.full_definition}`).join("\n")}`);
   }
+  if (teamData.length > 0) {
+    const teamLines = teamData.map(t =>
+      `  ${t.team_abbr}: Pace=${t.avg_pace}, ORtg=${t.off_rating}, DRtg=${t.def_rating}, NetRtg=${t.net_rating}, PPG=${t.avg_points}, Opp PPG=${t.avg_points_allowed}, Games=${t.games_played}`
+    ).join("\n");
+    parts.push(`TEAM DATA (from team_season_pace):\n${teamLines}`);
+  }
 
   const context = parts.join("\n");
 
