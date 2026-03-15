@@ -96,7 +96,7 @@ function LegProgressRow({ leg, gameStatus }: { leg: LiveLeg; gameStatus?: string
           </Avatar>
           <div className="min-w-0">
             <p className="text-[11px] font-semibold text-foreground truncate">{leg.player_name_raw}</p>
-            <p className="text-[9px] text-muted-foreground capitalize">{leg.stat_type}</p>
+            <p className="text-[9px] text-muted-foreground capitalize truncate">{leg.stat_type}</p>
           </div>
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
