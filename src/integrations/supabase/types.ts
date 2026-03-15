@@ -7594,6 +7594,67 @@ export type Database = {
         }
         Relationships: []
       }
+      fantasy_scores: {
+        Row: {
+          assists: number | null
+          blocks: number | null
+          fantasy_score: number | null
+          game_id: string | null
+          game_points: number | null
+          player_id: string | null
+          rebounds: number | null
+          steals: number | null
+          team_abbr: string | null
+          turnovers: number | null
+        }
+        Insert: {
+          assists?: never
+          blocks?: never
+          fantasy_score?: never
+          game_id?: string | null
+          game_points?: never
+          player_id?: string | null
+          rebounds?: never
+          steals?: never
+          team_abbr?: string | null
+          turnovers?: never
+        }
+        Update: {
+          assists?: never
+          blocks?: never
+          fantasy_score?: never
+          game_id?: string | null
+          game_points?: never
+          player_id?: string | null
+          rebounds?: never
+          steals?: never
+          team_abbr?: string | null
+          turnovers?: never
+        }
+        Relationships: [
+          {
+            foreignKeyName: "player_game_stats_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "player_game_stats_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "v_game_live_state"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "player_game_stats_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       np_player_prop_stat_long: {
         Row: {
           game_id: string | null
@@ -7958,6 +8019,70 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_game_live_state"
             referencedColumns: ["game_id"]
+          },
+        ]
+      }
+      player_stats_by_window: {
+        Row: {
+          assists: number | null
+          blocks: number | null
+          game_id: string | null
+          game_points: number | null
+          minutes: number | null
+          player_id: string | null
+          rebounds: number | null
+          steals: number | null
+          team_abbr: string | null
+          three_made: number | null
+          turnovers: number | null
+        }
+        Insert: {
+          assists?: never
+          blocks?: never
+          game_id?: string | null
+          game_points?: never
+          minutes?: never
+          player_id?: string | null
+          rebounds?: never
+          steals?: never
+          team_abbr?: string | null
+          three_made?: never
+          turnovers?: never
+        }
+        Update: {
+          assists?: never
+          blocks?: never
+          game_id?: string | null
+          game_points?: never
+          minutes?: never
+          player_id?: string | null
+          rebounds?: never
+          steals?: never
+          team_abbr?: string | null
+          three_made?: never
+          turnovers?: never
+        }
+        Relationships: [
+          {
+            foreignKeyName: "player_game_stats_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "player_game_stats_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "v_game_live_state"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "player_game_stats_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
           },
         ]
       }
