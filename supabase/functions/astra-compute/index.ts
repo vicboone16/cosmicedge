@@ -8,6 +8,40 @@ const corsHeaders = {
 
 const AI_GATEWAY = "https://ai.gateway.lovable.dev/v1/chat/completions";
 
+/* ─── Team abbreviation normalization ─── */
+const TEAM_ALIASES: Record<string, string> = {
+  "portland": "POR", "trail blazers": "POR", "blazers": "POR",
+  "philadelphia": "PHI", "76ers": "PHI", "sixers": "PHI", "philly": "PHI",
+  "los angeles lakers": "LAL", "lakers": "LAL",
+  "los angeles clippers": "LAC", "clippers": "LAC",
+  "golden state": "GSW", "warriors": "GSW",
+  "boston": "BOS", "celtics": "BOS",
+  "milwaukee": "MIL", "bucks": "MIL",
+  "denver": "DEN", "nuggets": "DEN",
+  "phoenix": "PHX", "suns": "PHX",
+  "dallas": "DAL", "mavericks": "DAL", "mavs": "DAL",
+  "miami": "MIA", "heat": "MIA",
+  "new york": "NYK", "knicks": "NYK",
+  "cleveland": "CLE", "cavaliers": "CLE", "cavs": "CLE",
+  "memphis": "MEM", "grizzlies": "MEM",
+  "sacramento": "SAC", "kings": "SAC",
+  "minnesota": "MIN", "timberwolves": "MIN", "wolves": "MIN",
+  "oklahoma city": "OKC", "thunder": "OKC",
+  "new orleans": "NOP", "pelicans": "NOP",
+  "houston": "HOU", "rockets": "HOU",
+  "atlanta": "ATL", "hawks": "ATL",
+  "chicago": "CHI", "bulls": "CHI",
+  "brooklyn": "BKN", "nets": "BKN",
+  "charlotte": "CHA", "hornets": "CHA",
+  "detroit": "DET", "pistons": "DET",
+  "indiana": "IND", "pacers": "IND",
+  "orlando": "ORL", "magic": "ORL",
+  "toronto": "TOR", "raptors": "TOR",
+  "washington": "WAS", "wizards": "WAS",
+  "utah": "UTA", "jazz": "UTA",
+  "san antonio": "SAS", "spurs": "SAS",
+};
+
 /* ─── Intent detection via AI tool-calling ─── */
 
 const INTENT_TOOL = {
@@ -36,9 +70,9 @@ const INTENT_TOOL = {
           additionalProperties: false,
           properties: {
             player_name: { type: "string" },
-            team_abbr: { type: "string" },
-            stat_key: { type: "string", description: "One of: PTS, REB, AST, PRA, FG3M, STL, BLK, TOV, PR, PA, RA, PIE, PER" },
-            formula_slug: { type: "string", description: "Slug of the formula if identifiable, e.g. edge_score, pie, momentum_multiplier" },
+            team_abbr: { type: "string", description: "Team abbreviation or city name. For multiple teams, comma-separate: 'POR,PHI'" },
+            stat_key: { type: "string", description: "One of: PTS, REB, AST, PRA, FG3M, STL, BLK, TOV, PR, PA, RA, PIE, PER, PACE, ORTG, DRTG, NET_RTG" },
+            formula_slug: { type: "string", description: "Slug of the formula if identifiable, e.g. edge_score, pie, momentum_multiplier, pace" },
             game_context: { type: "string", description: "Any game/matchup context mentioned" },
           },
         },
@@ -104,6 +138,62 @@ async function resolvePlayer(sb: any, name: string) {
     };
   }
   return null;
+}
+
+/* ─── Resolve team abbreviations ─── */
+
+function resolveTeamAbbrs(raw: string | undefined): string[] {
+  if (!raw) return [];
+  // Could be comma-separated or a single value
+  const parts = raw.split(/[,;\/]/).map(s => s.trim().toLowerCase()).filter(Boolean);
+  const resolved: string[] = [];
+  for (const part of parts) {
+    // Check if already a 3-letter abbreviation
+    if (part.length <= 3 && part === part.toUpperCase()) {
+      resolved.push(part.toUpperCase());
+    } else {
+      const mapped = TEAM_ALIASES[part];
+      if (mapped) {
+        resolved.push(mapped);
+      } else {
+        // Try partial match
+        const match = Object.entries(TEAM_ALIASES).find(([k]) => k.includes(part) || part.includes(k));
+        if (match) resolved.push(match[1]);
+        else resolved.push(part.toUpperCase().slice(0, 3)); // fallback
+      }
+    }
+  }
+  return [...new Set(resolved)];
+}
+
+/* ─── Team data retrieval ─── */
+
+async function fetchTeamData(sb: any, teamAbbrs: string[]) {
+  if (teamAbbrs.length === 0) return [];
+  
+  const season = new Date().getMonth() >= 9
+    ? new Date().getFullYear()
+    : new Date().getFullYear() - 1;
+  
+  const { data, error } = await sb
+    .from("team_season_pace")
+    .select("*")
+    .in("team_abbr", teamAbbrs)
+    .eq("season", season);
+  
+  if (error) {
+    console.warn("team_season_pace query error:", error.message);
+    // Try without season filter
+    const { data: fallback } = await sb
+      .from("team_season_pace")
+      .select("*")
+      .in("team_abbr", teamAbbrs)
+      .order("season", { ascending: false })
+      .limit(teamAbbrs.length);
+    return fallback || [];
+  }
+  
+  return data || [];
 }
 
 /* ─── Formula retrieval ─── */
@@ -389,6 +479,7 @@ async function generateNarrative(
   scorecardData: any[],
   player: any | null,
   glossaryTerms: any[],
+  teamData: any[] = [],
 ): Promise<string> {
   const parts: string[] = [];
 
@@ -420,6 +511,12 @@ async function generateNarrative(
   }
   if (glossaryTerms.length > 0) {
     parts.push(`GLOSSARY MATCHES:\n${glossaryTerms.map(t => `  ${t.term}: ${t.short_definition || t.full_definition}`).join("\n")}`);
+  }
+  if (teamData.length > 0) {
+    const teamLines = teamData.map(t =>
+      `  ${t.team_abbr}: Pace=${t.avg_pace}, ORtg=${t.off_rating}, DRtg=${t.def_rating}, NetRtg=${t.net_rating}, PPG=${t.avg_points}, Opp PPG=${t.avg_points_allowed}, Games=${t.games_played}`
+    ).join("\n");
+    parts.push(`TEAM DATA (from team_season_pace):\n${teamLines}`);
   }
 
   const context = parts.join("\n");
@@ -512,6 +609,17 @@ Deno.serve(async (req) => {
     let playerStats: any = null;
     let modelPredictions: any[] = [];
     let glossaryTerms: any[] = [];
+    let teamData: any[] = [];
+
+    // Team data retrieval (for pace, ratings, etc.)
+    const teamAbbrs = resolveTeamAbbrs(intent.entities?.team_abbr);
+    if (teamAbbrs.length > 0) {
+      debugLog.steps.push({ step: "team_data_retrieval", status: "running" });
+      teamData = await fetchTeamData(sb, teamAbbrs);
+      debugLog.steps[debugLog.steps.length - 1].status = "done";
+      debugLog.steps[debugLog.steps.length - 1].result = { teams: teamAbbrs, rows: teamData.length };
+      debugLog.teamData = teamData;
+    }
 
     if (player?.id) {
       if (["formula_compute", "stat_lookup", "model_output"].includes(intent.intent)) {
@@ -572,7 +680,7 @@ Deno.serve(async (req) => {
     debugLog.steps.push({ step: "narrative_generation", status: "running" });
     const narrative = await generateNarrative(
       lovableKey, question, intent, formula, computeResult,
-      variables, scorecardResult.data, player, glossaryTerms,
+      variables, scorecardResult.data, player, glossaryTerms, teamData,
     );
     debugLog.steps[debugLog.steps.length - 1].status = "done";
 
