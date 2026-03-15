@@ -346,104 +346,37 @@ export function useBetSlips() {
       return res.data;
     },
     onSuccess: async (data) => {
-      // Sync imported picks to the bets ledger for bankroll tracking
+      // Sync imported picks to Trax + Ledger (non-blocking)
       try {
         if (data.picks?.length && data.slip_id) {
-          const { data: slipRow } = await supabase
+          const { data: slipRow, error: slipError } = await supabase
             .from("bet_slips")
             .select("*")
             .eq("id", data.slip_id)
             .single();
+          if (slipError) throw slipError;
 
-          const { data: pickRows } = await supabase
+          const { data: pickRows, error: picksError } = await supabase
             .from("bet_slip_picks")
             .select("*")
             .eq("slip_id", data.slip_id);
+          if (picksError) throw picksError;
 
-          if (pickRows?.length && slipRow) {
-            // Auto-resolve game_ids for picks missing them
-            const picksNeedingGame = pickRows.filter((p: any) => !p.game_id && p.player_id);
-            if (picksNeedingGame.length > 0) {
-              const playerIds = [...new Set(picksNeedingGame.map((p: any) => p.player_id))];
-              const { data: players } = await supabase.from("players").select("id, team").in("id", playerIds);
-              const teamsByPlayer: Record<string, string> = {};
-              players?.forEach(p => { if (p.team) teamsByPlayer[p.id] = p.team; });
-
-              const teams = [...new Set(Object.values(teamsByPlayer))];
-              if (teams.length > 0) {
-                const { data: todayGames } = await supabase
-                  .from("games")
-                  .select("id, home_abbr, away_abbr")
-                  .in("status", ["scheduled", "in_progress", "live", "halftime"])
-                  .or(teams.map(t => `home_abbr.eq.${t},away_abbr.eq.${t}`).join(","));
-
-                for (const pick of picksNeedingGame) {
-                  const team = teamsByPlayer[pick.player_id];
-                  const game = todayGames?.find(g => g.home_abbr === team || g.away_abbr === team);
-                  if (game) {
-                    pick.game_id = game.id;
-                    await supabase.from("bet_slip_picks").update({ game_id: game.id }).eq("id", pick.id);
-                  }
-                }
-              }
-            }
-
-            // Only insert bets for picks that have a valid game_id (FK constraint)
-            const validPicks = pickRows.filter((p: any) => p.game_id);
-            const betInserts = validPicks.map((pick: any) => {
-              const settledResult = data.settled_results?.find(
-                (sr: any) => sr.player === pick.player_name_raw
-              );
-              const isSettled = !!settledResult;
-              const betResult = settledResult?.result || null;
-
-              return {
-                user_id: slipRow.user_id,
-                game_id: pick.game_id,
-                market_type: pick.stat_type || "player_prop",
-                selection: `${pick.player_name_raw} ${pick.direction} ${pick.line}`,
-                side: pick.direction,
-                odds: -110,
-                line: pick.line,
-                stake_amount: slipRow.stake ? (slipRow.stake / pickRows.length) : null,
-                status: isSettled ? "settled" : (slipRow.intent_state === "already_placed" ? "open" : "tracked"),
-                result: betResult,
-                settled_at: isSettled ? new Date().toISOString() : null,
-                payout: betResult === "win" && slipRow.payout ? (slipRow.payout / pickRows.length) : (betResult === "push" && slipRow.stake ? (slipRow.stake / pickRows.length) : null),
-                player_id: pick.player_id || null,
-                sport: "NBA",
-                book: slipRow.book,
-                notes: `Imported from slip ${data.slip_id}`,
-              };
+          if (slipRow && pickRows?.length) {
+            await resolveMissingPickGameIds({
+              slipCreatedAt: slipRow.created_at,
+              picks: pickRows,
             });
 
-            if (betInserts.length > 0) {
-              await supabase.from("bets").insert(betInserts);
-            }
-
-            // Also sync to tracked_props for Trax
-            const trackedInserts = pickRows
-              .filter((pick: any) => pick.game_id)
-              .map((pick: any) => ({
-                user_id: slipRow.user_id,
-                game_id: pick.game_id,
-                player_id: pick.player_id || null,
-                player_name: pick.player_name_raw,
-                market_type: pick.stat_type || "player_prop",
-                line: pick.line,
-                direction: pick.direction || "over",
-                odds: -110,
-                book: slipRow.book,
-                notes: `From ${slipRow.book} slip`,
-                status: "pregame",
-              }));
-            if (trackedInserts.length > 0) {
-              await supabase.from("tracked_props").insert(trackedInserts);
-            }
+            await syncSlipIntoTraxLedger({
+              userId: slipRow.user_id,
+              slip: slipRow,
+              picks: pickRows,
+            });
           }
         }
       } catch (e) {
-        console.warn("[BetSlip] Ledger sync failed (non-blocking):", e);
+        console.warn("[BetSlip] Trax/Ledger sync failed (non-blocking):", e);
       }
 
       queryClient.invalidateQueries({ queryKey: ["bet-slips"] });
