@@ -302,14 +302,24 @@ function AdminDebugPanel({ score }: { score: SlipScore }) {
       {open && (
         <div className="px-2 pb-2 space-y-1 text-[8px] font-mono text-muted-foreground">
           <p>slip_score: {score.score} | grade: {score.grade} | risk: {score.riskLevel}</p>
-          <p>avg_edge: {score.avgEdge} | avg_conf: {score.avgConfidence} | avg_vol: {score.avgVolatility}</p>
-          <p>strongest_idx: {score.strongestLegIdx} | weakest_idx: {score.weakestLegIdx}</p>
-          <p>risk_flags: {score.riskFlags.join("; ") || "none"}</p>
+          <p>ev: {score.expectedValue} | ev_grade: {score.evGrade} | survival: {(score.slipSurvivalProbability * 100).toFixed(1)}%</p>
+          <p>avg_hit_prob: {(score.avgHitProbability * 100).toFixed(1)}% | avg_edge: {score.avgEdge} | avg_vol: {score.avgVolatility}</p>
+          <p>corr_score: {score.correlation.score} | corr_risk: {score.correlation.riskLevel} | variance_conc: {score.varianceConcentration}</p>
+          <p>weakest_idx: {score.weakestLegIdx} | weakest_reason: {score.weakestLegReason || "none"}</p>
+          <p>swap_priority: {score.swapPriorityLegId || "none"} | opt_note: {score.optimizationNote || "none"}</p>
           <div className="border-t border-destructive/10 pt-1 mt-1">
             {score.legs.map((l, i) => (
-              <p key={i}>leg[{i}] {l.player_name_raw}: score={l.score} edge={l.edge} conf={l.confidence} vol={l.volatility} mq={l.matchup_quality} syn={String(l.isSynthetic)} flags=[{l.flags.join(",")}]</p>
+              <p key={i}>leg[{i}] {l.player_name_raw}: score={l.score} hitP={l.hitProbability.toFixed(2)} edge={l.edge} minSec={l.minutesSecurity} foul={l.foulRiskLevel} blowout={l.blowoutProbability} status={l.statusLabel} flags=[{l.flags.join(",")}]</p>
             ))}
           </div>
+          {score.correlation.clusters.length > 0 && (
+            <div className="border-t border-destructive/10 pt-1 mt-1">
+              <p className="font-bold">Correlation Clusters:</p>
+              {score.correlation.clusters.map((c, i) => (
+                <p key={i}>cluster[{i}] type={c.type} risk={c.risk} legs={c.legs.length}</p>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>
