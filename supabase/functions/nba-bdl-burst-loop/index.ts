@@ -501,6 +501,204 @@ Deno.serve(async (req) => {
         }));
       }
 
+      // 5. Compute live prop state for all active tracked props + slip picks
+      if (liveGameIds.length > 0) {
+        try {
+          const activeGameKeys = liveGameIds.map(id => gameKeyMap.get(id)).filter(Boolean) as string[];
+          
+          // Gather all props to compute: tracked_props + bet_slip_picks
+          const [{ data: trackedRows }, { data: slipRows }] = await Promise.all([
+            sb.from("tracked_props")
+              .select("game_id, player_id, player_name, market_type, line, direction, odds")
+              .in("game_id", activeGameKeys)
+              .not("status", "in", '("hit","missed","push")'),
+            sb.from("bet_slip_picks")
+              .select("game_id, player_id, player_name_raw, stat_type, line, direction")
+              .in("game_id", activeGameKeys)
+              .is("result", null),
+          ]);
+
+          // Merge into unique prop keys
+          const propMap = new Map<string, { gameId: string; playerId: string; propType: string; line: number; periodScope: string; odds: number | null }>();
+          
+          const parsePeriod = (raw: string) => {
+            const idx = raw.indexOf(":");
+            if (idx > 0) {
+              const prefix = raw.slice(0, idx).toLowerCase();
+              if (["q1","q2","q3","q4","1h","2h","full"].includes(prefix)) {
+                return { period: prefix, market: raw.slice(idx + 1) };
+              }
+            }
+            return { period: "full", market: raw };
+          };
+
+          for (const tp of (trackedRows || [])) {
+            if (!tp.player_id || !tp.game_id) continue;
+            const { period, market } = parsePeriod(tp.market_type || "");
+            const key = `${tp.game_id}:${tp.player_id}:${market}:${tp.line}:${period}`;
+            if (!propMap.has(key)) {
+              propMap.set(key, { gameId: tp.game_id, playerId: tp.player_id, propType: market, line: Number(tp.line), periodScope: period, odds: tp.odds ? Number(tp.odds) : null });
+            }
+          }
+          for (const sp of (slipRows || [])) {
+            if (!sp.player_id || !sp.game_id) continue;
+            const { period, market } = parsePeriod(sp.stat_type || "");
+            const key = `${sp.game_id}:${sp.player_id}:${market}:${sp.line}:${period}`;
+            if (!propMap.has(key)) {
+              propMap.set(key, { gameId: sp.game_id, playerId: sp.player_id, propType: market, line: Number(sp.line), periodScope: period, odds: null });
+            }
+          }
+
+          if (propMap.size > 0) {
+            // Get player stats and season averages
+            const playerIds = [...new Set([...propMap.values()].map(p => p.playerId))];
+            const [{ data: gameStats }, { data: seasonStats }, { data: depthRows }] = await Promise.all([
+              sb.from("player_game_stats")
+                .select("player_id, game_id, period, points, rebounds, assists, steals, blocks, turnovers, three_made, minutes, fouls, personal_fouls")
+                .in("game_id", activeGameKeys)
+                .in("player_id", playerIds),
+              sb.from("player_season_stats")
+                .select("player_id, stat_type, period, average, std_dev")
+                .in("player_id", playerIds)
+                .eq("period", "full"),
+              sb.from("depth_charts")
+                .select("player_id, depth_order")
+                .in("player_id", playerIds)
+                .eq("league", "NBA"),
+            ]);
+
+            // Build lookups
+            const statsByKey = new Map<string, any>();
+            for (const s of (gameStats || [])) {
+              statsByKey.set(`${s.player_id}:${s.game_id}:${s.period || "full"}`, s);
+            }
+            const seasonByPlayer = new Map<string, any>();
+            for (const s of (seasonStats || [])) {
+              if (!seasonByPlayer.has(s.player_id)) seasonByPlayer.set(s.player_id, {});
+              seasonByPlayer.get(s.player_id)![s.stat_type] = s;
+            }
+            const starterSet = new Set<string>();
+            for (const d of (depthRows || [])) {
+              if (d.depth_order === 1 && d.player_id) starterSet.add(d.player_id);
+            }
+
+            // Get current game snapshots for quarter/clock
+            const { data: snapshots } = await sb.from("game_state_snapshots")
+              .select("game_id, quarter, clock_seconds_remaining, home_score, away_score")
+              .in("game_id", activeGameKeys)
+              .order("captured_at", { ascending: false });
+            const latestSnap = new Map<string, any>();
+            for (const s of (snapshots || [])) {
+              if (!latestSnap.has(s.game_id)) latestSnap.set(s.game_id, s);
+            }
+
+            // Stat value resolver
+            const STAT_COLS: Record<string, string[]> = {
+              points: ["points"], rebounds: ["rebounds"], assists: ["assists"],
+              steals: ["steals"], blocks: ["blocks"], turnovers: ["turnovers"],
+              threes: ["three_made"], three_made: ["three_made"],
+              pra: ["points", "rebounds", "assists"],
+              player_points_rebounds_assists: ["points", "rebounds", "assists"],
+              player_points: ["points"], player_rebounds: ["rebounds"], player_assists: ["assists"],
+              player_steals: ["steals"], player_blocks: ["blocks"],
+              player_points_rebounds: ["points", "rebounds"],
+              player_points_assists: ["points", "assists"],
+              player_rebounds_assists: ["rebounds", "assists"],
+              player_steals_blocks: ["steals", "blocks"],
+            };
+
+            const sumStat = (row: any, propType: string) => {
+              const cols = STAT_COLS[propType] || STAT_COLS[propType.replace(/^player_/, "")] || ["points"];
+              return cols.reduce((acc, c) => acc + (Number(row?.[c]) || 0), 0);
+            };
+
+            // Compute and upsert
+            const upserts: any[] = [];
+            for (const [, prop] of propMap) {
+              const snap = latestSnap.get(prop.gameId);
+              const quarter = snap ? parseInt(snap.quarter || "1", 10) : 1;
+              const clockSec = snap?.clock_seconds_remaining ?? null;
+
+              // Get current stat value for the period
+              const statRow = statsByKey.get(`${prop.playerId}:${prop.gameId}:${prop.periodScope === "full" ? "full" : prop.periodScope}`);
+              const currentValue = statRow ? sumStat(statRow, prop.propType) : 0;
+              const minutesPlayed = statRow ? Number(statRow.minutes || 0) : 0;
+              const foulCount = statRow ? Number(statRow.personal_fouls || statRow.fouls || 0) : 0;
+
+              // Season averages
+              const seasonData = seasonByPlayer.get(prop.playerId);
+              const avgMinEntry = seasonData?.minutes;
+              const historicalAvgMinutes = avgMinEntry?.average ? Number(avgMinEntry.average) : 30;
+
+              // Get historical std dev for this stat type
+              const statKey = (STAT_COLS[prop.propType] || STAT_COLS[prop.propType.replace(/^player_/, "")] || ["points"])[0];
+              const seasonStatEntry = seasonData?.[statKey];
+              const historicalStdDev = seasonStatEntry?.std_dev ? Number(seasonStatEntry.std_dev) : null;
+
+              const ctx: PropContext = {
+                currentValue,
+                line: prop.line,
+                periodScope: prop.periodScope,
+                quarter,
+                clockSec,
+                minutesPlayed,
+                historicalAvgMinutes,
+                historicalStdDev,
+                foulCount,
+                homeScore: snap?.home_score ?? 0,
+                awayScore: snap?.away_score ?? 0,
+                isStarter: starterSet.has(prop.playerId),
+                odds: prop.odds,
+              };
+
+              const result = computeProjection(ctx);
+
+              upserts.push({
+                game_id: prop.gameId,
+                player_id: prop.playerId,
+                prop_type: prop.propType,
+                line: prop.line,
+                period_scope: prop.periodScope,
+                current_value: currentValue,
+                minutes_played: minutesPlayed,
+                foul_count: foulCount,
+                projected_final: result.projectedFinal,
+                projected_minutes: result.projectedMinutes,
+                stat_rate: result.statRate,
+                pace_pct: result.pacePct,
+                hit_probability: result.hitProbability,
+                implied_probability: result.impliedProbability,
+                live_edge: result.liveEdge,
+                expected_return: result.expectedReturn,
+                live_confidence: result.liveConfidence,
+                volatility: result.volatility,
+                minutes_security_score: result.minutesSecurityScore,
+                blowout_probability: result.blowoutProbability,
+                foul_risk_level: result.foulRiskLevel,
+                status_label: result.statusLabel,
+                game_quarter: quarter,
+                game_clock: snap?.clock_seconds_remaining != null ? `${Math.floor(snap.clock_seconds_remaining / 60)}:${String(Math.floor(snap.clock_seconds_remaining % 60)).padStart(2, "0")}` : null,
+                home_score: snap?.home_score ?? null,
+                away_score: snap?.away_score ?? null,
+                updated_at: new Date().toISOString(),
+              });
+            }
+
+            // Batch upsert in chunks of 50
+            for (let i = 0; i < upserts.length; i += 50) {
+              await sb.from("live_prop_state").upsert(
+                upserts.slice(i, i + 50),
+                { onConflict: "game_id,player_id,prop_type,line,period_scope" }
+              );
+            }
+            totals.propStates = (totals.propStates || 0) + upserts.length;
+          }
+        } catch (e) {
+          console.error("[burst] prop state sync error:", e);
+          totals.errors++;
+        }
+      }
+
       // Sleep for adaptive cadence before next tick
       await sleep(cadenceMs);
 
