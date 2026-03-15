@@ -63,12 +63,46 @@ const normalizeDirection = (raw: unknown): "over" | "under" => {
   return d === "under" || d === "less" ? "under" : "over";
 };
 
+/* ─── Period Detection ─── */
+const PERIOD_PATTERNS: [RegExp, string][] = [
+  [/\b(?:1st\s*quarter|first\s*quarter|q1|1q)\b/i, "q1"],
+  [/\b(?:2nd\s*quarter|second\s*quarter|q2|2q)\b/i, "q2"],
+  [/\b(?:3rd\s*quarter|third\s*quarter|q3|3q)\b/i, "q3"],
+  [/\b(?:4th\s*quarter|fourth\s*quarter|q4|4q)\b/i, "q4"],
+  [/\b(?:1st\s*half|first\s*half|1h)\b/i, "1h"],
+  [/\b(?:2nd\s*half|second\s*half|2h)\b/i, "2h"],
+  [/\b(?:first\s*3\s*min|1st\s*3\s*min|first\s*three\s*min)\b/i, "first3"],
+  [/\b(?:first\s*5\s*min|1st\s*5\s*min|first\s*five\s*min)\b/i, "first5"],
+  [/\b(?:first\s*10\s*min|1st\s*10\s*min)\b/i, "first10"],
+];
+
+const detectPeriod = (statType: string, rawText?: string): string => {
+  const combined = `${statType} ${rawText || ""}`;
+  for (const [pat, period] of PERIOD_PATTERNS) {
+    if (pat.test(combined)) return period;
+  }
+  return "full";
+};
+
+const cleanStatType = (statType: string): string => {
+  let cleaned = statType;
+  // Remove period prefixes from stat_type so we store them separately
+  for (const [pat] of PERIOD_PATTERNS) {
+    cleaned = cleaned.replace(pat, "").trim();
+  }
+  // Clean up residual separators
+  cleaned = cleaned.replace(/^[\s\-·:]+|[\s\-·:]+$/g, "").trim();
+  return cleaned || statType;
+};
+
 const sanitizePick = (pick: any): PickInput | null => {
   const player_name = String(pick?.player_name ?? "").trim();
-  const stat_type = String(pick?.stat_type ?? "").trim().toLowerCase();
+  const rawStatType = String(pick?.stat_type ?? "").trim().toLowerCase();
   const line = Number(pick?.line);
-  if (!player_name || !stat_type || Number.isNaN(line)) return null;
-  return { player_name, stat_type, line, direction: normalizeDirection(pick?.direction) };
+  if (!player_name || !rawStatType || Number.isNaN(line)) return null;
+  const period = pick?.period || detectPeriod(rawStatType);
+  const stat_type = cleanStatType(rawStatType);
+  return { player_name, stat_type, line, direction: normalizeDirection(pick?.direction), period };
 };
 
 const extractPicksFromText = (text: string): PickInput[] => {
