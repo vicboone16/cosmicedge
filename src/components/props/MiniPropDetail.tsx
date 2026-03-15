@@ -171,7 +171,14 @@ export function MiniPropDetail({ prop, open, onOpenChange, gameId, onAddToSkySpr
           {/* Header */}
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-bold text-foreground">{prop.player_name}</p>
+              <p className="text-sm font-bold text-foreground">
+                {prop.player_name}
+                {periodBadge && (
+                  <span className="ml-1.5 text-[9px] font-bold px-1.5 py-0.5 rounded bg-primary/10 text-primary">
+                    {periodBadge}
+                  </span>
+                )}
+              </p>
               <p className="text-[10px] text-muted-foreground uppercase tracking-wider">
                 {propLabel} · Line {prop.line ?? "—"} · {prop.vendor || "—"}
               </p>
