@@ -93,6 +93,9 @@ export interface PropContext {
   awayScore: number;
   isStarter: boolean;
   odds: number | null; // American odds for this prop
+  // Phase 6: Astro timing overlay
+  astroModifier?: number | null; // ±0.05 range
+  astroNote?: string | null;
 }
 
 export interface PropProjection {
@@ -155,9 +158,13 @@ export function computeProjection(ctx: PropContext): PropProjection {
     projMinRemaining *= (1 - blowoutProb * 0.4); // starters get pulled in blowouts
   }
 
+  // ── Astro timing overlay (Phase 6) — capped ±5% ──
+  const astroMod = Math.max(-0.05, Math.min(0.05, ctx.astroModifier ?? 0));
+
   // ── Final projection ──
   const projectedMinutes = ctx.minutesPlayed + projMinRemaining;
-  const projectedFinal = ctx.currentValue + statRate * projMinRemaining;
+  const rawProjected = ctx.currentValue + statRate * projMinRemaining;
+  const projectedFinal = rawProjected * (1 + astroMod);
 
   // ── Pace % ──
   const expectedAtThisPoint = (elapsed / periodTotal) * ctx.line;

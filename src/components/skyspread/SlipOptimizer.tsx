@@ -327,7 +327,7 @@ function AiAnalysisPanel({ analysis, loading, action }: { analysis: string | nul
   );
 }
 
-/* ─── Admin Debug Panel ─── */
+/* ─── Admin Debug Panel (Phase 8 Enhanced) ─── */
 function AdminDebugPanel({ score }: { score: SlipScore }) {
   const [open, setOpen] = useState(false);
   return (
@@ -338,22 +338,36 @@ function AdminDebugPanel({ score }: { score: SlipScore }) {
       </button>
       {open && (
         <div className="px-2 pb-2 space-y-1 text-[8px] font-mono text-muted-foreground">
+          <p className="font-bold text-destructive border-b border-destructive/10 pb-1">Slip Metrics</p>
           <p>slip_score: {score.score} | grade: {score.grade} | risk: {score.riskLevel}</p>
           <p>ev: {score.expectedValue} | ev_grade: {score.evGrade} | survival: {(score.slipSurvivalProbability * 100).toFixed(1)}%</p>
           <p>avg_hit_prob: {(score.avgHitProbability * 100).toFixed(1)}% | avg_edge: {score.avgEdge} | avg_vol: {score.avgVolatility}</p>
           <p>corr_score: {score.correlation.score} | corr_risk: {score.correlation.riskLevel} | variance_conc: {score.varianceConcentration}</p>
           <p>weakest_idx: {score.weakestLegIdx} | weakest_reason: {score.weakestLegReason || "none"}</p>
           <p>swap_priority: {score.swapPriorityLegId || "none"} | opt_note: {score.optimizationNote || "none"}</p>
-          <div className="border-t border-destructive/10 pt-1 mt-1">
-            {score.legs.map((l, i) => (
-              <p key={i}>leg[{i}] {l.player_name_raw}: score={l.score} hitP={l.hitProbability.toFixed(2)} edge={l.edge} minSec={l.minutesSecurity} foul={l.foulRiskLevel} blowout={l.blowoutProbability} status={l.statusLabel} flags=[{l.flags.join(",")}]</p>
-            ))}
-          </div>
+
+          <p className="font-bold text-destructive border-b border-destructive/10 pb-1 pt-1">Per-Leg Detail</p>
+          {score.legs.map((l, i) => (
+            <div key={i} className={cn("p-1 rounded", i === score.weakestLegIdx ? "bg-cosmic-red/10" : i === score.strongestLegIdx ? "bg-cosmic-green/10" : "")}>
+              <p className="font-semibold">[{i}] {l.player_name_raw} {i === score.weakestLegIdx ? "⚠ WEAKEST" : i === score.strongestLegIdx ? "★ STRONGEST" : ""}</p>
+              <p>score={l.score} grade={l.grade} hitP={l.hitProbability.toFixed(3)} implP={l.impliedProbability?.toFixed(3) ?? "—"}</p>
+              <p>edge={l.edge} liveEdge={l.liveEdge ?? "—"} EV={l.expectedReturn ?? "—"} | pacePct={l.pacePct ?? "—"}</p>
+              <p>minSec={l.minutesSecurity} projMin={l.projectedMinutes ?? "—"} | foul={l.foulRiskLevel} blowout={l.blowoutProbability}</p>
+              <p>vol={l.volatility} matchup={l.matchup_quality} | status={l.statusLabel} astro={l.astroNote || "—"}</p>
+              <p>weakness={l.weaknessReason || "none"} | flags=[{l.flags.join(",")}] | synthetic={String(l.isSynthetic)}</p>
+              <p>game_id={l.game_id?.slice(0, 8) ?? "—"}</p>
+            </div>
+          ))}
+
           {score.correlation.clusters.length > 0 && (
             <div className="border-t border-destructive/10 pt-1 mt-1">
-              <p className="font-bold">Correlation Clusters:</p>
+              <p className="font-bold text-destructive">Correlation Clusters ({score.correlation.clusters.length})</p>
               {score.correlation.clusters.map((c, i) => (
-                <p key={i}>cluster[{i}] type={c.type} risk={c.risk} legs={c.legs.length}</p>
+                <div key={i} className="p-1 rounded bg-cosmic-red/5">
+                  <p>cluster[{i}] type={c.type} risk={c.risk} legs={c.legs.length}</p>
+                  <p className="text-[7px]">leg_ids: {c.legs.map(id => id.slice(0, 6)).join(", ")}</p>
+                  <p className="text-[7px]">game: {c.game_id.slice(0, 8)}</p>
+                </div>
               ))}
             </div>
           )}
@@ -496,6 +510,8 @@ export function SlipOptimizerPanel({ slip, picks, intentState, onAction }: SlipO
               aiSuggestions={lastAction === "replace_weakest" ? aiAnalysis : null}
               loading={lastAction === "replace_weakest" && aiLoading}
               onRequestSuggestions={() => handleAction("replace_weakest")}
+              existingGameIds={picks.map((p: any) => p.game_id).filter(Boolean)}
+              existingPlayerNames={picks.map((p: any) => p.player_name_raw).filter(Boolean)}
             />
           )}
 
@@ -530,6 +546,8 @@ export function SlipOptimizerPanel({ slip, picks, intentState, onAction }: SlipO
               aiSuggestions={lastAction === "replace_weakest" ? aiAnalysis : null}
               loading={lastAction === "replace_weakest" && aiLoading}
               onRequestSuggestions={() => handleAction("replace_weakest")}
+              existingGameIds={picks.map((p: any) => p.game_id).filter(Boolean)}
+              existingPlayerNames={picks.map((p: any) => p.player_name_raw).filter(Boolean)}
             />
           )}
         </>

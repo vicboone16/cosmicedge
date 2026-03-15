@@ -40,7 +40,7 @@ const parsePeriodStat = (statType: string): { period: string | null; cleanStat: 
   return { period: null, cleanStat: statType };
 };
 
-function PickRow({ pick, gameInfo }: { pick: any; gameInfo?: { away_abbr: string; home_abbr: string } | null }) {
+function PickRow({ pick, gameInfo, liveState }: { pick: any; gameInfo?: { away_abbr: string; home_abbr: string; status?: string } | null; liveState?: any }) {
   const progress = pick.line > 0 && pick.live_value != null
     ? Math.min((Number(pick.live_value) / Number(pick.line)) * 100, 150)
     : 0;
@@ -50,6 +50,18 @@ function PickRow({ pick, gameInfo }: { pick: any; gameInfo?: { away_abbr: string
   const periodLabel = period ? PERIOD_LABELS[period] : null;
 
   const matchupLabel = gameInfo ? `${gameInfo.away_abbr} @ ${gameInfo.home_abbr}` : null;
+
+  // Phase 4: Intelligence overlay from live_prop_state
+  const hitProb = liveState?.hit_probability;
+  const edge = liveState?.live_edge;
+  const pacePct = liveState?.pace_pct;
+  const statusLabel = liveState?.status_label;
+  const foulRisk = liveState?.foul_risk_level;
+  const projection = liveState?.projected_final;
+
+  const statusColor = statusLabel === "likely_hit" ? "text-cosmic-green" :
+    statusLabel === "danger" ? "text-cosmic-red" :
+    statusLabel === "coinflip" ? "text-cosmic-gold" : null;
 
   return (
     <div className="py-2 border-b border-border/30 last:border-b-0">
@@ -65,6 +77,11 @@ function PickRow({ pick, gameInfo }: { pick: any; gameInfo?: { away_abbr: string
           </p>
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
+          {statusLabel && statusColor && (
+            <span className={cn("text-[8px] font-bold uppercase", statusColor)}>
+              {statusLabel.replace("_", " ")}
+            </span>
+          )}
           <span className={cn("px-1.5 py-0.5 rounded-full text-[9px] font-semibold", matchBadge.className)}>
             {matchBadge.label}
           </span>
@@ -75,6 +92,35 @@ function PickRow({ pick, gameInfo }: { pick: any; gameInfo?: { away_abbr: string
           )}
         </div>
       </div>
+
+      {/* Intelligence strip (Phase 4) */}
+      {(hitProb != null || edge != null || projection != null) && (
+        <div className="flex items-center gap-2 mt-1 text-[8px]">
+          {hitProb != null && (
+            <span className={cn("font-bold",
+              hitProb >= 0.7 ? "text-cosmic-green" : hitProb >= 0.45 ? "text-cosmic-gold" : "text-cosmic-red"
+            )}>{Math.round(hitProb * 100)}% hit</span>
+          )}
+          {edge != null && (
+            <span className={cn("font-semibold", edge > 0 ? "text-cosmic-green" : "text-cosmic-red")}>
+              {edge > 0 ? "+" : ""}{edge.toFixed(1)}% edge
+            </span>
+          )}
+          {pacePct != null && (
+            <span className={cn("font-semibold", pacePct >= 100 ? "text-cosmic-green" : "text-cosmic-gold")}>
+              {pacePct}% pace
+            </span>
+          )}
+          {projection != null && (
+            <span className={cn("font-semibold", projection >= pick.line ? "text-cosmic-green" : "text-cosmic-red")}>
+              →{projection}
+            </span>
+          )}
+          {foulRisk && foulRisk !== "low" && (
+            <span className="text-cosmic-red font-semibold">⚠ {foulRisk}</span>
+          )}
+        </div>
+      )}
 
       {/* Progress bar for live tracking */}
       {hasLive && (
@@ -91,7 +137,15 @@ function PickRow({ pick, gameInfo }: { pick: any; gameInfo?: { away_abbr: string
               )}
               style={{ width: `${Math.min(progress, 100)}%` }}
             />
-            <div className="absolute top-0 h-full w-0.5 bg-foreground/50" style={{ left: "100%" }} />
+            {projection != null && projection > 0 && (
+              <div
+                className={cn("absolute top-0 h-full w-0.5 border-l border-dashed",
+                  projection >= pick.line ? "border-cosmic-green/70" : "border-cosmic-red/70"
+                )}
+                style={{ left: `${Math.min((projection / Number(pick.line)) * 100, 120)}%` }}
+                title={`Projected: ${projection}`}
+              />
+            )}
           </div>
         </div>
       )}
@@ -130,6 +184,36 @@ function SlipCard({ slip, picks }: { slip: any; picks: any[] }) {
     enabled: pickGameIds.length > 0,
     staleTime: 60_000,
   });
+
+  // Phase 4: Fetch live_prop_state for intelligence overlay on picks
+  const pickPlayerIds = [...new Set(picks?.map((p: any) => p.player_id).filter(Boolean) as string[])];
+  const { data: liveStatesMap } = useQuery({
+    queryKey: ["slip-pick-live-state", pickGameIds.join(","), pickPlayerIds.join(",")],
+    queryFn: async () => {
+      if (!pickGameIds.length || !pickPlayerIds.length) return {};
+      const { data } = await supabase
+        .from("live_prop_state")
+        .select("*")
+        .in("game_id", pickGameIds)
+        .in("player_id", pickPlayerIds);
+      const map: Record<string, any> = {};
+      for (const s of (data || [])) {
+        const key = `${s.game_id}:${s.player_id}:${s.prop_type}`;
+        map[key] = s;
+      }
+      return map;
+    },
+    enabled: pickGameIds.length > 0 && pickPlayerIds.length > 0,
+    staleTime: 10_000,
+    refetchInterval: 15_000,
+  });
+
+  const getLiveStateForPick = (pick: any) => {
+    if (!liveStatesMap || !pick.player_id || !pick.game_id) return null;
+    const colonIdx = (pick.stat_type || "").indexOf(":");
+    const cleanStat = colonIdx > 0 ? pick.stat_type.slice(colonIdx + 1) : pick.stat_type;
+    return liveStatesMap[`${pick.game_id}:${pick.player_id}:${cleanStat}`] || null;
+  };
 
   const statusIcon = slip.status === "settled"
     ? slip.result === "win" ? CheckCircle : slip.result === "loss" ? XCircle : Clock
@@ -253,7 +337,7 @@ function SlipCard({ slip, picks }: { slip: any; picks: any[] }) {
           {viewTab === "entry" && (
             <div>
               {picks?.map((pick: any) => (
-                <PickRow key={pick.id} pick={pick} gameInfo={pick.game_id ? gamesMap?.[pick.game_id] : null} />
+                <PickRow key={pick.id} pick={pick} gameInfo={pick.game_id ? gamesMap?.[pick.game_id] : null} liveState={getLiveStateForPick(pick)} />
               ))}
             </div>
           )}

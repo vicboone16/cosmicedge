@@ -2228,6 +2228,7 @@ export type Database = {
       }
       live_prop_state: {
         Row: {
+          astro_modifier: number | null
           astro_note: string | null
           astro_risk_modifier: number | null
           away_score: number | null
@@ -2260,6 +2261,7 @@ export type Database = {
           volatility: number | null
         }
         Insert: {
+          astro_modifier?: number | null
           astro_note?: string | null
           astro_risk_modifier?: number | null
           away_score?: number | null
@@ -2292,6 +2294,7 @@ export type Database = {
           volatility?: number | null
         }
         Update: {
+          astro_modifier?: number | null
           astro_note?: string | null
           astro_risk_modifier?: number | null
           away_score?: number | null
