@@ -57,9 +57,10 @@ export function MiniPropDetail({ prop, open, onOpenChange, gameId, onAddToSkySpr
   const statKey = prop ? getStatKey(prop.prop_type) : null;
 
   const { data: gameLogs } = useQuery({
-    queryKey: ["mini-prop-logs", prop?.player_id, statKey],
+    queryKey: ["mini-prop-logs", prop?.player_id, statKey, prop?.prop_type],
     queryFn: async () => {
       if (!prop?.player_id || !statKey) return [];
+      const period = detectPropPeriod(prop.prop_type);
       // Try to find the player UUID from players table
       const { data: playerRows } = await supabase.rpc("search_players_unaccent", {
         search_query: prop.player_name,
@@ -68,19 +69,54 @@ export function MiniPropDetail({ prop, open, onOpenChange, gameId, onAddToSkySpr
       const playerId = playerRows?.[0]?.player_id;
       if (!playerId) return [];
 
+      // For halves, also include constituent quarters for aggregation
+      let periods: string[];
+      if (period === "1H") {
+        periods = ["1H", "Q1", "Q2"];
+      } else if (period === "2H") {
+        periods = ["2H", "Q3", "Q4"];
+      } else {
+        periods = [period];
+      }
+
       const { data } = await supabase
         .from("player_game_stats")
-        .select(`${statKey}, game_id, games!player_game_stats_game_id_fkey(start_time, home_abbr, away_abbr)`)
+        .select(`${statKey}, period, game_id, games!player_game_stats_game_id_fkey(start_time, home_abbr, away_abbr)`)
         .eq("player_id", playerId)
-        .eq("period", "full")
+        .in("period", periods)
         .not(statKey, "is", null)
         .order("created_at", { ascending: false })
-        .limit(10);
-      return (data || []).sort((a: any, b: any) => {
-        const at = a.games?.start_time || "";
-        const bt = b.games?.start_time || "";
-        return bt.localeCompare(at);
-      });
+        .limit(period === "full" ? 10 : 200);
+
+      const rows = data || [];
+
+      // For half periods, aggregate quarters per game if no direct half row exists
+      if (period === "1H" || period === "2H") {
+        const halfQuarters = period === "1H" ? ["Q1", "Q2"] : ["Q3", "Q4"];
+        const directHalf = rows.filter((r: any) => r.period === period);
+        if (directHalf.length > 0) {
+          return directHalf.sort((a: any, b: any) => (b.games?.start_time || "").localeCompare(a.games?.start_time || "")).slice(0, 10);
+        }
+        // Sum quarters per game
+        const byGame = new Map<string, any>();
+        for (const r of rows) {
+          if (!halfQuarters.includes(r.period)) continue;
+          const gid = r.game_id;
+          if (!byGame.has(gid)) {
+            byGame.set(gid, { ...r, [statKey]: r[statKey] || 0, _count: 1 });
+          } else {
+            const existing = byGame.get(gid)!;
+            existing[statKey] = (existing[statKey] || 0) + (r[statKey] || 0);
+            existing._count++;
+          }
+        }
+        return Array.from(byGame.values())
+          .filter(g => g._count >= 2)
+          .sort((a: any, b: any) => (b.games?.start_time || "").localeCompare(a.games?.start_time || ""))
+          .slice(0, 10);
+      }
+
+      return rows.sort((a: any, b: any) => (b.games?.start_time || "").localeCompare(a.games?.start_time || "")).slice(0, 10);
     },
     enabled: open && !!prop?.player_id && !!statKey,
     staleTime: 60_000,
