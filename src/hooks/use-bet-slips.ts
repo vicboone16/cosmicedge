@@ -51,6 +51,225 @@ const extractEdgeErrorMessage = async (error: any): Promise<{ message: string; c
   return { message, code, debug };
 };
 
+const GAME_LOOKUP_STATUSES = [
+  "scheduled",
+  "in_progress",
+  "live",
+  "halftime",
+  "final",
+  "ended",
+  "completed",
+] as const;
+
+const statusPriority = (status?: string | null) => {
+  switch ((status || "").toLowerCase()) {
+    case "live":
+    case "in_progress":
+      return 0;
+    case "halftime":
+      return 1;
+    case "final":
+    case "ended":
+    case "completed":
+      return 2;
+    case "scheduled":
+      return 3;
+    default:
+      return 4;
+  }
+};
+
+const trackedPropStatusFromGame = (status?: string | null): "pregame" | "live" | "final" => {
+  const normalized = (status || "").toLowerCase();
+  if (["live", "in_progress", "halftime"].includes(normalized)) return "live";
+  if (["final", "ended", "completed"].includes(normalized)) return "final";
+  return "pregame";
+};
+
+const resolveMissingPickGameIds = async ({
+  slipCreatedAt,
+  picks,
+}: {
+  slipCreatedAt?: string | null;
+  picks: any[];
+}) => {
+  const picksNeedingGame = picks.filter((p: any) => !p.game_id && p.player_id);
+  if (picksNeedingGame.length === 0) return 0;
+
+  const playerIds = [...new Set(picksNeedingGame.map((p: any) => p.player_id))];
+  const { data: players, error: playersError } = await supabase
+    .from("players")
+    .select("id, team, league")
+    .in("id", playerIds);
+  if (playersError) throw playersError;
+
+  const teamByPlayer: Record<string, string> = {};
+  const leagueByPlayer: Record<string, string> = {};
+  players?.forEach((p: any) => {
+    if (p.team) teamByPlayer[p.id] = p.team;
+    if (p.league) leagueByPlayer[p.id] = p.league;
+  });
+
+  const teams = [...new Set(Object.values(teamByPlayer).filter(Boolean))];
+  if (teams.length === 0) return 0;
+
+  const leagues = [...new Set(Object.values(leagueByPlayer).filter(Boolean))];
+
+  const slipTs = slipCreatedAt ? new Date(slipCreatedAt).getTime() : Date.now();
+  const windowStartIso = new Date(slipTs - 72 * 60 * 60 * 1000).toISOString();
+  const windowEndIso = new Date(slipTs + 72 * 60 * 60 * 1000).toISOString();
+
+  let gameQuery = supabase
+    .from("games")
+    .select("id, home_abbr, away_abbr, status, start_time, league")
+    .in("status", [...GAME_LOOKUP_STATUSES])
+    .gte("start_time", windowStartIso)
+    .lte("start_time", windowEndIso)
+    .or(teams.map((t) => `home_abbr.eq.${t},away_abbr.eq.${t}`).join(","));
+
+  if (leagues.length > 0) {
+    gameQuery = gameQuery.in("league", leagues);
+  }
+
+  const { data: candidateGames, error: gameError } = await gameQuery;
+  if (gameError) throw gameError;
+  if (!candidateGames?.length) return 0;
+
+  let resolvedCount = 0;
+
+  for (const pick of picksNeedingGame) {
+    const team = teamByPlayer[pick.player_id];
+    if (!team) continue;
+
+    const preferredLeague = leagueByPlayer[pick.player_id] || null;
+    const matches = candidateGames.filter((g: any) => {
+      const teamMatch = g.home_abbr === team || g.away_abbr === team;
+      const leagueMatch = preferredLeague ? g.league === preferredLeague : true;
+      return teamMatch && leagueMatch;
+    });
+
+    if (!matches.length) continue;
+
+    const best = matches
+      .map((g: any) => {
+        const delta = Math.abs(new Date(g.start_time).getTime() - slipTs);
+        return {
+          game: g,
+          score: statusPriority(g.status) * 1_000_000_000_000 + delta,
+        };
+      })
+      .sort((a, b) => a.score - b.score)[0]?.game;
+
+    if (!best) continue;
+
+    const { error: updateError } = await supabase
+      .from("bet_slip_picks")
+      .update({ game_id: best.id })
+      .eq("id", pick.id);
+
+    if (!updateError) {
+      pick.game_id = best.id;
+      resolvedCount++;
+    }
+  }
+
+  return resolvedCount;
+};
+
+const syncSlipIntoTraxLedger = async ({
+  userId,
+  slip,
+  picks,
+}: {
+  userId: string;
+  slip: any;
+  picks: any[];
+}) => {
+  const validPicks = picks.filter((p: any) => p.game_id);
+  if (!validPicks.length) {
+    return { trackedCount: 0, ledgerCount: 0, unresolvedCount: picks.length };
+  }
+
+  const gameIds = [...new Set(validPicks.map((p: any) => p.game_id))];
+  const { data: games } = await supabase
+    .from("games")
+    .select("id, status")
+    .in("id", gameIds);
+
+  const gameStatusById: Record<string, string> = {};
+  games?.forEach((g: any) => {
+    gameStatusById[g.id] = g.status;
+  });
+
+  let trackedCount = 0;
+  let ledgerCount = 0;
+
+  for (const pick of validPicks) {
+    const marketType = pick.stat_type || "player_prop";
+
+    const { data: trackedExisting } = await supabase
+      .from("tracked_props")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("game_id", pick.game_id)
+      .eq("player_name", pick.player_name_raw)
+      .eq("market_type", marketType)
+      .eq("line", pick.line)
+      .maybeSingle();
+
+    if (!trackedExisting) {
+      const { error } = await supabase.from("tracked_props").insert({
+        user_id: userId,
+        game_id: pick.game_id,
+        player_id: pick.player_id || null,
+        player_name: pick.player_name_raw,
+        market_type: marketType,
+        line: pick.line,
+        direction: pick.direction || "over",
+        odds: -110,
+        book: slip.book,
+        notes: `From ${slip.book} slip`,
+        status: trackedPropStatusFromGame(gameStatusById[pick.game_id]),
+      });
+      if (!error) trackedCount++;
+    }
+
+    const selection = `${pick.player_name_raw} ${pick.direction} ${pick.line}`;
+    const { data: betExisting } = await supabase
+      .from("bets")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("game_id", pick.game_id)
+      .eq("selection", selection)
+      .maybeSingle();
+
+    if (!betExisting) {
+      const { error } = await supabase.from("bets").insert({
+        user_id: userId,
+        game_id: pick.game_id,
+        market_type: marketType,
+        selection,
+        side: pick.direction,
+        odds: -110,
+        line: pick.line,
+        stake_amount: slip.stake ? Number(slip.stake) / validPicks.length : null,
+        status: slip.intent_state === "already_placed" ? "open" : "tracked",
+        player_id: pick.player_id || null,
+        sport: "NBA",
+        book: slip.book,
+        notes: `From ${slip.book} slip${slip.entry_type ? ` · ${slip.entry_type}` : ""}`,
+      });
+      if (!error) ledgerCount++;
+    }
+  }
+
+  return {
+    trackedCount,
+    ledgerCount,
+    unresolvedCount: picks.length - validPicks.length,
+  };
+};
+
 export function useBetSlips() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
