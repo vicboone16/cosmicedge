@@ -589,7 +589,7 @@ export default function PlayerPropsPage() {
                     )}
                   </div>
                 ) : (
-                  <div className="cosmic-card rounded-xl overflow-hidden">
+                  <div className="cosmic-card rounded-xl overflow-x-auto">
                     <Table>
                       <TableHeader>
                         <TableRow className="hover:bg-transparent">
