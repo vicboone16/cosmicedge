@@ -198,6 +198,7 @@ function StatPill({ label, value }: { label: string; value: string }) {
 /* ─── Leg Analysis Card ─── */
 function LegAnalysisCard({ leg, rank, onTap }: { leg: LegScore; rank: "strongest" | "weakest" | "neutral"; onTap: () => void }) {
   const scoreColor = leg.score >= 75 ? "text-cosmic-green" : leg.score >= 55 ? "text-cosmic-gold" : "text-cosmic-red";
+  const probColor = leg.hitProbability >= 0.70 ? "text-cosmic-green" : leg.hitProbability >= 0.45 ? "text-cosmic-gold" : "text-cosmic-red";
 
   return (
     <button onClick={onTap} className={cn("w-full rounded-lg border transition-all text-left",
@@ -205,32 +206,68 @@ function LegAnalysisCard({ leg, rank, onTap }: { leg: LegScore; rank: "strongest
       rank === "weakest" ? "border-cosmic-red/30 bg-cosmic-red/5" :
       "border-border bg-secondary/20"
     )}>
-      <div className="p-2 flex items-center justify-between">
-        <div className="flex items-center gap-2 min-w-0">
-          <div className={cn("h-7 w-7 rounded-lg flex items-center justify-center text-[10px] font-black shrink-0",
-            rank === "strongest" ? "bg-cosmic-green/15 text-cosmic-green" :
-            rank === "weakest" ? "bg-cosmic-red/15 text-cosmic-red" :
-            "bg-secondary text-muted-foreground"
-          )}>
-            {leg.grade}
-          </div>
-          <div className="min-w-0">
-            <p className="text-[11px] font-semibold text-foreground truncate">{leg.player_name_raw}</p>
-            <p className="text-[9px] text-muted-foreground capitalize">{leg.stat_type} · {leg.direction} {leg.line}</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-1.5 shrink-0">
-          <span className={cn("text-xs font-bold tabular-nums", scoreColor)}>{leg.score}</span>
-          {leg.isSynthetic && <Badge variant="outline" className="text-[7px] px-1 py-0 text-cosmic-cyan border-cosmic-cyan/30">Imported</Badge>}
-          {rank !== "neutral" && (
-            <Badge variant="outline" className={cn("text-[7px] px-1 py-0",
-              rank === "strongest" ? "text-cosmic-green border-cosmic-green/30" : "text-cosmic-red border-cosmic-red/30"
+      <div className="p-2 space-y-1.5">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className={cn("h-7 w-7 rounded-lg flex items-center justify-center text-[10px] font-black shrink-0",
+              rank === "strongest" ? "bg-cosmic-green/15 text-cosmic-green" :
+              rank === "weakest" ? "bg-cosmic-red/15 text-cosmic-red" :
+              "bg-secondary text-muted-foreground"
             )}>
-              {rank === "strongest" ? "★ Best" : "⚠ Weakest"}
-            </Badge>
-          )}
-          <ChevronDown className="h-3 w-3 text-muted-foreground" />
+              {leg.grade}
+            </div>
+            <div className="min-w-0">
+              <p className="text-[11px] font-semibold text-foreground truncate">{leg.player_name_raw}</p>
+              <p className="text-[9px] text-muted-foreground capitalize">{leg.stat_type} · {leg.direction} {leg.line}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-1.5 shrink-0">
+            <span className={cn("text-xs font-bold tabular-nums", scoreColor)}>{leg.score}</span>
+            {leg.isSynthetic && <Badge variant="outline" className="text-[7px] px-1 py-0 text-cosmic-cyan border-cosmic-cyan/30">Imported</Badge>}
+            {rank !== "neutral" && (
+              <Badge variant="outline" className={cn("text-[7px] px-1 py-0",
+                rank === "strongest" ? "text-cosmic-green border-cosmic-green/30" : "text-cosmic-red border-cosmic-red/30"
+              )}>
+                {rank === "strongest" ? "★ Best" : "⚠ Weakest"}
+              </Badge>
+            )}
+            <ChevronDown className="h-3 w-3 text-muted-foreground" />
+          </div>
         </div>
+
+        {/* Intelligence row */}
+        <div className="flex items-center gap-2 text-[8px]">
+          <span className={cn("font-bold", probColor)}>{(leg.hitProbability * 100).toFixed(0)}% hit</span>
+          {leg.liveEdge != null && (
+            <span className={cn("font-semibold", leg.liveEdge > 0 ? "text-cosmic-green" : "text-cosmic-red")}>
+              {leg.liveEdge > 0 ? "+" : ""}{leg.liveEdge.toFixed(1)}% edge
+            </span>
+          )}
+          {leg.pacePct != null && (
+            <span className={cn("font-semibold", leg.pacePct >= 100 ? "text-cosmic-green" : "text-cosmic-gold")}>
+              {leg.pacePct}% pace
+            </span>
+          )}
+          {leg.foulRiskLevel !== "low" && (
+            <span className="text-cosmic-red font-semibold">⚠ {leg.foulRiskLevel}</span>
+          )}
+          {leg.statusLabel && leg.statusLabel !== "pregame" && (
+            <span className={cn("font-bold uppercase",
+              leg.statusLabel === "likely_hit" ? "text-cosmic-green" :
+              leg.statusLabel === "danger" ? "text-cosmic-red" : "text-cosmic-gold"
+            )}>{leg.statusLabel.replace("_", " ")}</span>
+          )}
+        </div>
+
+        {/* Weakness reason for weakest leg */}
+        {rank === "weakest" && leg.weaknessReason && (
+          <p className="text-[8px] text-cosmic-red italic">↳ {leg.weaknessReason}</p>
+        )}
+
+        {/* Astro note */}
+        {leg.astroNote && (
+          <p className="text-[8px] text-cosmic-purple italic">✦ {leg.astroNote}</p>
+        )}
       </div>
     </button>
   );
