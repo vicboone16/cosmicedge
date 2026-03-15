@@ -53,7 +53,8 @@ function PickRow({ pick }: { pick: any }) {
         <div className="flex-1 min-w-0">
           <p className="text-xs font-semibold text-foreground truncate">{pick.player_name_raw}</p>
           <p className="text-[10px] text-muted-foreground capitalize">
-            {pick.stat_type} · {pick.direction} {Number(pick.line)}
+            {periodLabel && <span className="text-primary font-semibold mr-1">{periodLabel}</span>}
+            {cleanStat} · {pick.direction} {Number(pick.line)}
           </p>
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
