@@ -4,6 +4,7 @@ import { Activity, TrendingUp, AlertTriangle, CheckCircle, XCircle, Pause, Clock
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { useSlipLiveSync } from "@/hooks/use-slip-live-sync";
 
 interface LiveLeg {
   id: string;
