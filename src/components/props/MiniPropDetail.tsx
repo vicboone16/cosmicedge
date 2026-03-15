@@ -24,6 +24,8 @@ function formatOdds(odds: number | null): string {
 
 /** Map carousel prop_type to player_game_stats stat extraction */
 function getStatKey(propType: string): string | null {
+  // Strip period prefix if present (e.g., "q1:points" → "points")
+  const cleaned = propType.replace(/^(q[1-4]|[12]h|ot[12]?|first\d+):/, "");
   const map: Record<string, string> = {
     points: "points", player_points: "points",
     rebounds: "rebounds", player_rebounds: "rebounds",
@@ -33,7 +35,19 @@ function getStatKey(propType: string): string | null {
     threes: "three_made", player_threes: "three_made",
     turnovers: "turnovers", player_turnovers: "turnovers",
   };
-  return map[propType] || null;
+  return map[cleaned] || null;
+}
+
+/** Detect period scope from prop_type (e.g., "q1:points" → "Q1", "1h:rebounds" → "1H") */
+function detectPropPeriod(propType: string): string {
+  const m = propType.match(/^(q[1-4]|[12]h|ot[12]?):/i);
+  if (!m) return "full";
+  const prefix = m[1].toLowerCase();
+  const periodMap: Record<string, string> = {
+    q1: "Q1", q2: "Q2", q3: "Q3", q4: "Q4",
+    "1h": "1H", "2h": "2H", ot: "OT", ot1: "OT", ot2: "OT2",
+  };
+  return periodMap[prefix] || "full";
 }
 
 export function MiniPropDetail({ prop, open, onOpenChange, gameId, onAddToSkySpread }: Props) {
@@ -43,9 +57,10 @@ export function MiniPropDetail({ prop, open, onOpenChange, gameId, onAddToSkySpr
   const statKey = prop ? getStatKey(prop.prop_type) : null;
 
   const { data: gameLogs } = useQuery({
-    queryKey: ["mini-prop-logs", prop?.player_id, statKey],
+    queryKey: ["mini-prop-logs", prop?.player_id, statKey, prop?.prop_type],
     queryFn: async () => {
       if (!prop?.player_id || !statKey) return [];
+      const period = detectPropPeriod(prop.prop_type);
       // Try to find the player UUID from players table
       const { data: playerRows } = await supabase.rpc("search_players_unaccent", {
         search_query: prop.player_name,
@@ -54,19 +69,54 @@ export function MiniPropDetail({ prop, open, onOpenChange, gameId, onAddToSkySpr
       const playerId = playerRows?.[0]?.player_id;
       if (!playerId) return [];
 
+      // For halves, also include constituent quarters for aggregation
+      let periods: string[];
+      if (period === "1H") {
+        periods = ["1H", "Q1", "Q2"];
+      } else if (period === "2H") {
+        periods = ["2H", "Q3", "Q4"];
+      } else {
+        periods = [period];
+      }
+
       const { data } = await supabase
         .from("player_game_stats")
-        .select(`${statKey}, game_id, games!player_game_stats_game_id_fkey(start_time, home_abbr, away_abbr)`)
+        .select("points, rebounds, assists, steals, blocks, three_made, turnovers, period, game_id, games!player_game_stats_game_id_fkey(start_time, home_abbr, away_abbr)")
         .eq("player_id", playerId)
-        .eq("period", "full")
+        .in("period", periods)
         .not(statKey, "is", null)
         .order("created_at", { ascending: false })
-        .limit(10);
-      return (data || []).sort((a: any, b: any) => {
-        const at = a.games?.start_time || "";
-        const bt = b.games?.start_time || "";
-        return bt.localeCompare(at);
-      });
+        .limit(period === "full" ? 10 : 200);
+
+      const rows = (data || []) as any[];
+
+      // For half periods, aggregate quarters per game if no direct half row exists
+      if (period === "1H" || period === "2H") {
+        const halfQuarters = period === "1H" ? ["Q1", "Q2"] : ["Q3", "Q4"];
+        const directHalf = rows.filter((r: any) => r.period === period);
+        if (directHalf.length > 0) {
+          return directHalf.sort((a: any, b: any) => (b.games?.start_time || "").localeCompare(a.games?.start_time || "")).slice(0, 10);
+        }
+        // Sum quarters per game
+        const byGame = new Map<string, any>();
+        for (const r of rows) {
+          if (!halfQuarters.includes(r.period)) continue;
+          const gid = r.game_id;
+          if (!byGame.has(gid)) {
+            byGame.set(gid, { ...r, [statKey]: r[statKey] || 0, _count: 1 });
+          } else {
+            const existing = byGame.get(gid)!;
+            existing[statKey] = (existing[statKey] || 0) + (r[statKey] || 0);
+            existing._count++;
+          }
+        }
+        return Array.from(byGame.values())
+          .filter(g => g._count >= 2)
+          .sort((a: any, b: any) => (b.games?.start_time || "").localeCompare(a.games?.start_time || ""))
+          .slice(0, 10);
+      }
+
+      return rows.sort((a: any, b: any) => (b.games?.start_time || "").localeCompare(a.games?.start_time || "")).slice(0, 10);
     },
     enabled: open && !!prop?.player_id && !!statKey,
     staleTime: 60_000,
@@ -75,6 +125,8 @@ export function MiniPropDetail({ prop, open, onOpenChange, gameId, onAddToSkySpr
   if (!prop) return null;
 
   const propLabel = getPropLabel(prop.prop_type);
+  const propPeriod = detectPropPeriod(prop.prop_type);
+  const periodBadge = propPeriod !== "full" ? propPeriod : null;
   const edgeScore = prop.edge_score_v11 ?? prop.edge_score ?? 0;
   const tier = edgeScore > 0 ? getEdgeTier(edgeScore) : null;
   const isOver = prop.side === "over" || prop.side == null;
@@ -119,7 +171,14 @@ export function MiniPropDetail({ prop, open, onOpenChange, gameId, onAddToSkySpr
           {/* Header */}
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-bold text-foreground">{prop.player_name}</p>
+              <p className="text-sm font-bold text-foreground">
+                {prop.player_name}
+                {periodBadge && (
+                  <span className="ml-1.5 text-[9px] font-bold px-1.5 py-0.5 rounded bg-primary/10 text-primary">
+                    {periodBadge}
+                  </span>
+                )}
+              </p>
               <p className="text-[10px] text-muted-foreground uppercase tracking-wider">
                 {propLabel} · Line {prop.line ?? "—"} · {prop.vendor || "—"}
               </p>
@@ -191,13 +250,13 @@ export function MiniPropDetail({ prop, open, onOpenChange, gameId, onAddToSkySpr
               <div className="grid grid-cols-2 gap-2">
                 {avg5 != null && (
                   <div className="cosmic-card rounded-lg p-2 text-center">
-                    <p className="text-[8px] text-muted-foreground uppercase">L5 Avg</p>
+                    <p className="text-[8px] text-muted-foreground uppercase">L5 {periodBadge || ""} Avg</p>
                     <p className="text-xs font-bold tabular-nums">{avg5.toFixed(1)}</p>
                   </div>
                 )}
                 {avg10 != null && (
                   <div className="cosmic-card rounded-lg p-2 text-center">
-                    <p className="text-[8px] text-muted-foreground uppercase">L10 Avg</p>
+                    <p className="text-[8px] text-muted-foreground uppercase">L10 {periodBadge || ""} Avg</p>
                     <p className="text-xs font-bold tabular-nums">{avg10.toFixed(1)}</p>
                   </div>
                 )}
