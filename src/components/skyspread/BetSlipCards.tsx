@@ -102,7 +102,7 @@ function PickRow({ pick, gameInfo }: { pick: any; gameInfo?: { away_abbr: string
 function SlipCard({ slip, picks }: { slip: any; picks: any[] }) {
   const [expanded, setExpanded] = useState(false);
   const [viewTab, setViewTab] = useState<"entry" | "live" | "optimizer">("entry");
-  const { deleteSlip } = useBetSlips();
+  const { deleteSlip, syncToTraxLedger } = useBetSlips();
   const { user } = useAuth();
 
   const intentState: SlipIntent = (slip.intent_state as SlipIntent) || "tracking_only";
