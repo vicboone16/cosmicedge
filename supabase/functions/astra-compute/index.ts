@@ -680,7 +680,7 @@ Deno.serve(async (req) => {
     debugLog.steps.push({ step: "narrative_generation", status: "running" });
     const narrative = await generateNarrative(
       lovableKey, question, intent, formula, computeResult,
-      variables, scorecardResult.data, player, glossaryTerms,
+      variables, scorecardResult.data, player, glossaryTerms, teamData,
     );
     debugLog.steps[debugLog.steps.length - 1].status = "done";
 
