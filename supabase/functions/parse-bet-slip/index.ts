@@ -8,6 +8,7 @@ type PickInput = {
   stat_type: string;
   line: number;
   direction: "over" | "under";
+  period?: string | null; // "q1","q2","q3","q4","1h","2h","first3","full"
   player_id?: string | null;
   match_status?: string;
   matched_name?: string;
