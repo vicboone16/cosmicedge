@@ -117,6 +117,7 @@ export default function SignalLabPage() {
 
   function getActiveCards(): any[] {
     switch (activeTab) {
+      case "live_signals": return [];
       case "streaks": return streakCards;
       case "momentum": return momentumCards;
       case "usage": return usageCards;
