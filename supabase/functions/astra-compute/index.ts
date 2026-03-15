@@ -70,9 +70,9 @@ const INTENT_TOOL = {
           additionalProperties: false,
           properties: {
             player_name: { type: "string" },
-            team_abbr: { type: "string" },
-            stat_key: { type: "string", description: "One of: PTS, REB, AST, PRA, FG3M, STL, BLK, TOV, PR, PA, RA, PIE, PER" },
-            formula_slug: { type: "string", description: "Slug of the formula if identifiable, e.g. edge_score, pie, momentum_multiplier" },
+            team_abbr: { type: "string", description: "Team abbreviation or city name. For multiple teams, comma-separate: 'POR,PHI'" },
+            stat_key: { type: "string", description: "One of: PTS, REB, AST, PRA, FG3M, STL, BLK, TOV, PR, PA, RA, PIE, PER, PACE, ORTG, DRTG, NET_RTG" },
+            formula_slug: { type: "string", description: "Slug of the formula if identifiable, e.g. edge_score, pie, momentum_multiplier, pace" },
             game_context: { type: "string", description: "Any game/matchup context mentioned" },
           },
         },
