@@ -24,6 +24,8 @@ function formatOdds(odds: number | null): string {
 
 /** Map carousel prop_type to player_game_stats stat extraction */
 function getStatKey(propType: string): string | null {
+  // Strip period prefix if present (e.g., "q1:points" → "points")
+  const cleaned = propType.replace(/^(q[1-4]|[12]h|ot[12]?|first\d+):/, "");
   const map: Record<string, string> = {
     points: "points", player_points: "points",
     rebounds: "rebounds", player_rebounds: "rebounds",
@@ -33,7 +35,19 @@ function getStatKey(propType: string): string | null {
     threes: "three_made", player_threes: "three_made",
     turnovers: "turnovers", player_turnovers: "turnovers",
   };
-  return map[propType] || null;
+  return map[cleaned] || null;
+}
+
+/** Detect period scope from prop_type (e.g., "q1:points" → "Q1", "1h:rebounds" → "1H") */
+function detectPropPeriod(propType: string): string {
+  const m = propType.match(/^(q[1-4]|[12]h|ot[12]?):/i);
+  if (!m) return "full";
+  const prefix = m[1].toLowerCase();
+  const periodMap: Record<string, string> = {
+    q1: "Q1", q2: "Q2", q3: "Q3", q4: "Q4",
+    "1h": "1H", "2h": "2H", ot: "OT", ot1: "OT", ot2: "OT2",
+  };
+  return periodMap[prefix] || "full";
 }
 
 export function MiniPropDetail({ prop, open, onOpenChange, gameId, onAddToSkySpread }: Props) {
