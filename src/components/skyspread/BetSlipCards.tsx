@@ -337,7 +337,7 @@ function SlipCard({ slip, picks }: { slip: any; picks: any[] }) {
           {viewTab === "entry" && (
             <div>
               {picks?.map((pick: any) => (
-                <PickRow key={pick.id} pick={pick} gameInfo={pick.game_id ? gamesMap?.[pick.game_id] : null} />
+                <PickRow key={pick.id} pick={pick} gameInfo={pick.game_id ? gamesMap?.[pick.game_id] : null} liveState={getLiveStateForPick(pick)} />
               ))}
             </div>
           )}
