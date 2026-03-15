@@ -276,6 +276,14 @@ function SlipCard({ slip, picks }: { slip: any; picks: any[] }) {
             <div className="flex items-center gap-2">
               <Badge variant="outline" className="text-[9px] capitalize">{slip.source}</Badge>
               <button
+                onClick={(e) => { e.stopPropagation(); syncToTraxLedger.mutate(slip.id); }}
+                disabled={syncToTraxLedger.isPending}
+                className="flex items-center gap-1 text-[10px] text-cosmic-cyan hover:text-cosmic-cyan/80 transition-colors font-semibold"
+              >
+                <RefreshCw className={cn("h-3 w-3", syncToTraxLedger.isPending && "animate-spin")} />
+                {syncToTraxLedger.isPending ? "Syncing…" : "Sync to Trax & Ledger"}
+              </button>
+              <button
                 onClick={(e) => { e.stopPropagation(); handleShareToFeed(); }}
                 className="flex items-center gap-1 text-[10px] text-primary hover:text-primary/80 transition-colors"
               >
