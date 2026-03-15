@@ -174,6 +174,26 @@ export function useBetSlips() {
             if (validBets.length > 0) {
               await supabase.from("bets").insert(validBets);
             }
+
+            // Also sync to tracked_props for Trax
+            const trackedInserts = pickRows
+              .filter((pick: any) => pick.game_id)
+              .map((pick: any) => ({
+                user_id: slipRow.user_id,
+                game_id: pick.game_id,
+                player_id: pick.player_id || null,
+                player_name: pick.player_name_raw,
+                market_type: pick.stat_type || "player_prop",
+                line: pick.line,
+                direction: pick.direction || "over",
+                odds: -110,
+                book: slipRow.book,
+                notes: `From ${slipRow.book} slip`,
+                status: "pregame",
+              }));
+            if (trackedInserts.length > 0) {
+              await supabase.from("tracked_props").insert(trackedInserts);
+            }
           }
         }
       } catch (e) {
