@@ -171,10 +171,11 @@ export default function SignalLabPage() {
       </header>
 
       <div className="px-4 py-4 space-y-3">
-        {/* Signal category description */}
         <SignalDescription tab={activeTab} />
 
-        {isLoading ? (
+        {activeTab === "live_signals" ? (
+          <LiveSignalFeed maxSignals={25} />
+        ) : isLoading ? (
           <div className="text-center py-12">
             <FlaskConical className="h-6 w-6 text-primary mx-auto mb-2 animate-pulse" />
             <p className="text-sm text-muted-foreground">Analyzing signals...</p>
