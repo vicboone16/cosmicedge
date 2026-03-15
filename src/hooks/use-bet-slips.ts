@@ -288,18 +288,46 @@ export function useBetSlips() {
 
       let trackedCount = 0;
       let ledgerCount = 0;
+      let resolvedCount = 0;
+
+      // ── Auto-resolve missing game_ids ──
+      const picksNeedingGame = picks.filter((p: any) => !p.game_id && p.player_id);
+      if (picksNeedingGame.length > 0) {
+        const playerIds = [...new Set(picksNeedingGame.map((p: any) => p.player_id))];
+        const { data: players } = await supabase.from("players").select("id, team").in("id", playerIds);
+        const teamsByPlayer: Record<string, string> = {};
+        players?.forEach(p => { if (p.team) teamsByPlayer[p.id] = p.team; });
+
+        const teams = [...new Set(Object.values(teamsByPlayer))];
+        if (teams.length > 0) {
+          const { data: todayGames } = await supabase
+            .from("games")
+            .select("id, home_abbr, away_abbr")
+            .in("status", ["scheduled", "in_progress", "live", "halftime", "final"])
+            .or(teams.map(t => `home_abbr.eq.${t},away_abbr.eq.${t}`).join(","));
+
+          for (const pick of picksNeedingGame) {
+            const team = teamsByPlayer[pick.player_id];
+            const game = todayGames?.find((g: any) => g.home_abbr === team || g.away_abbr === team);
+            if (game) {
+              pick.game_id = game.id;
+              await supabase.from("bet_slip_picks").update({ game_id: game.id }).eq("id", pick.id);
+              resolvedCount++;
+            }
+          }
+        }
+      }
 
       // ── Sync to tracked_props ──
       for (const pick of picks) {
         if (!pick.game_id) continue; // tracked_props requires game_id
-        // Check for duplicates
         const { data: existing } = await supabase
           .from("tracked_props")
           .select("id")
           .eq("user_id", user.id)
           .eq("game_id", pick.game_id)
           .eq("player_name", pick.player_name_raw)
-          .eq("market_type", pick.stat_type)
+          .eq("market_type", pick.stat_type || "player_prop")
           .eq("line", pick.line)
           .maybeSingle();
         if (existing) continue;
@@ -320,28 +348,27 @@ export function useBetSlips() {
         if (!error) trackedCount++;
       }
 
-      // ── Sync to bets (Ledger) ──
+      // ── Sync to bets (Ledger) — only picks with valid game_id ──
       for (const pick of picks) {
-        const gameId = pick.game_id || slip.id; // fallback to slip id
-        // Check for duplicates
+        if (!pick.game_id) continue; // bets.game_id FK to games.id — skip nulls
         const { data: existing } = await supabase
           .from("bets")
           .select("id")
           .eq("user_id", user.id)
-          .eq("game_id", gameId)
+          .eq("game_id", pick.game_id)
           .eq("selection", `${pick.player_name_raw} ${pick.direction} ${pick.line}`)
           .maybeSingle();
         if (existing) continue;
 
         const { error } = await supabase.from("bets").insert({
           user_id: user.id,
-          game_id: gameId,
+          game_id: pick.game_id,
           market_type: pick.stat_type || "player_prop",
           selection: `${pick.player_name_raw} ${pick.direction} ${pick.line}`,
           side: pick.direction,
           odds: -110,
           line: pick.line,
-          stake_amount: slip.stake ? (slip.stake / picks.length) : null,
+          stake_amount: slip.stake ? (Number(slip.stake) / picks.length) : null,
           status: slip.intent_state === "already_placed" ? "open" : "tracked",
           player_id: pick.player_id || null,
           sport: "NBA",
@@ -351,7 +378,7 @@ export function useBetSlips() {
         if (!error) ledgerCount++;
       }
 
-      return { trackedCount, ledgerCount };
+      return { trackedCount, ledgerCount, resolvedCount };
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["tracked-props"] });
