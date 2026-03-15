@@ -32,7 +32,9 @@ function getLegState(leg: LiveLeg, gameStatus?: string) {
   if (leg.result === "loss") return { label: "Miss", color: "text-cosmic-red", barColor: "bg-cosmic-red", icon: XCircle };
   if (leg.result === "void") return { label: "Void", color: "text-muted-foreground", barColor: "bg-muted", icon: Pause };
   if (leg.result === "push") return { label: "Push", color: "text-cosmic-gold", barColor: "bg-cosmic-gold", icon: Pause };
-  if (gameStatus === "final") return { label: "Final", color: "text-muted-foreground", barColor: "bg-muted-foreground", icon: Clock };
+  if (["final", "ended", "completed"].includes((gameStatus || "").toLowerCase())) {
+    return { label: "Final", color: "text-muted-foreground", barColor: "bg-muted-foreground", icon: Clock };
+  }
 
   if (leg.live_value == null) return { label: "Pregame", color: "text-muted-foreground", barColor: "bg-muted-foreground/30", icon: Clock };
 
