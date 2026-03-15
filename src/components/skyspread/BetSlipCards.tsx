@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Trash2, ChevronDown, ChevronUp, Zap, AlertTriangle, CheckCircle, Clock, XCircle, Share2, Copy } from "lucide-react";
+import { Trash2, ChevronDown, ChevronUp, Zap, AlertTriangle, CheckCircle, Clock, XCircle, Share2, Copy, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { useBetSlips } from "@/hooks/use-bet-slips";
@@ -102,7 +102,7 @@ function PickRow({ pick, gameInfo }: { pick: any; gameInfo?: { away_abbr: string
 function SlipCard({ slip, picks }: { slip: any; picks: any[] }) {
   const [expanded, setExpanded] = useState(false);
   const [viewTab, setViewTab] = useState<"entry" | "live" | "optimizer">("entry");
-  const { deleteSlip } = useBetSlips();
+  const { deleteSlip, syncToTraxLedger } = useBetSlips();
   const { user } = useAuth();
 
   const intentState: SlipIntent = (slip.intent_state as SlipIntent) || "tracking_only";
@@ -275,6 +275,14 @@ function SlipCard({ slip, picks }: { slip: any; picks: any[] }) {
           <div className="flex items-center justify-between mt-2 pt-2 border-t border-border/30">
             <div className="flex items-center gap-2">
               <Badge variant="outline" className="text-[9px] capitalize">{slip.source}</Badge>
+              <button
+                onClick={(e) => { e.stopPropagation(); syncToTraxLedger.mutate(slip.id); }}
+                disabled={syncToTraxLedger.isPending}
+                className="flex items-center gap-1 text-[10px] text-cosmic-cyan hover:text-cosmic-cyan/80 transition-colors font-semibold"
+              >
+                <RefreshCw className={cn("h-3 w-3", syncToTraxLedger.isPending && "animate-spin")} />
+                {syncToTraxLedger.isPending ? "Syncing…" : "Sync to Trax & Ledger"}
+              </button>
               <button
                 onClick={(e) => { e.stopPropagation(); handleShareToFeed(); }}
                 className="flex items-center gap-1 text-[10px] text-primary hover:text-primary/80 transition-colors"
