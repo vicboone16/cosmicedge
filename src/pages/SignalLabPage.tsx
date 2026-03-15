@@ -9,7 +9,10 @@ import { Badge } from "@/components/ui/badge";
 import { getPropLabel, getEdgeTier, type TopProp } from "@/hooks/use-top-props";
 import { usePropDrawer } from "@/hooks/use-prop-drawer";
 
+import { LiveSignalFeed } from "@/components/live/LiveSignalFeed";
+
 const SIGNAL_TABS = [
+  { key: "live_signals", label: "Live Signals", icon: Zap, color: "text-cosmic-red" },
   { key: "streaks", label: "Over Streaks", icon: Flame, color: "text-cosmic-green" },
   { key: "momentum", label: "Momentum", icon: TrendingUp, color: "text-primary" },
   { key: "usage", label: "Usage Shift", icon: Activity, color: "text-cosmic-gold" },
