@@ -231,5 +231,95 @@ export function useBetSlips() {
     },
   });
 
-  return { slips, picksMap, isLoading, importSlip, deleteSlip };
+  /** Sync an already-imported slip's picks into tracked_props + bets (Ledger) */
+  const syncToTraxLedger = useMutation({
+    mutationFn: async (slipId: string) => {
+      if (!user) throw new Error("Not logged in");
+      const picks = picksMap?.[slipId] || [];
+      const slip = slips?.find(s => s.id === slipId);
+      if (!picks.length || !slip) throw new Error("No picks to sync");
+
+      let trackedCount = 0;
+      let ledgerCount = 0;
+
+      // ── Sync to tracked_props ──
+      for (const pick of picks) {
+        if (!pick.game_id) continue; // tracked_props requires game_id
+        // Check for duplicates
+        const { data: existing } = await supabase
+          .from("tracked_props")
+          .select("id")
+          .eq("user_id", user.id)
+          .eq("game_id", pick.game_id)
+          .eq("player_name", pick.player_name_raw)
+          .eq("market_type", pick.stat_type)
+          .eq("line", pick.line)
+          .maybeSingle();
+        if (existing) continue;
+
+        const { error } = await supabase.from("tracked_props").insert({
+          user_id: user.id,
+          game_id: pick.game_id,
+          player_id: pick.player_id || null,
+          player_name: pick.player_name_raw,
+          market_type: pick.stat_type || "player_prop",
+          line: pick.line,
+          direction: pick.direction || "over",
+          odds: -110,
+          book: slip.book,
+          notes: `From ${slip.book} slip`,
+          status: "pregame",
+        });
+        if (!error) trackedCount++;
+      }
+
+      // ── Sync to bets (Ledger) ──
+      for (const pick of picks) {
+        const gameId = pick.game_id || slip.id; // fallback to slip id
+        // Check for duplicates
+        const { data: existing } = await supabase
+          .from("bets")
+          .select("id")
+          .eq("user_id", user.id)
+          .eq("game_id", gameId)
+          .eq("selection", `${pick.player_name_raw} ${pick.direction} ${pick.line}`)
+          .maybeSingle();
+        if (existing) continue;
+
+        const { error } = await supabase.from("bets").insert({
+          user_id: user.id,
+          game_id: gameId,
+          market_type: pick.stat_type || "player_prop",
+          selection: `${pick.player_name_raw} ${pick.direction} ${pick.line}`,
+          side: pick.direction,
+          odds: -110,
+          line: pick.line,
+          stake_amount: slip.stake ? (slip.stake / picks.length) : null,
+          status: slip.intent_state === "already_placed" ? "open" : "tracked",
+          player_id: pick.player_id || null,
+          sport: "NBA",
+          book: slip.book,
+          notes: `From ${slip.book} slip · ${slip.entry_type}`,
+        });
+        if (!error) ledgerCount++;
+      }
+
+      return { trackedCount, ledgerCount };
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["tracked-props"] });
+      queryClient.invalidateQueries({ queryKey: ["bets"] });
+      queryClient.invalidateQueries({ queryKey: ["bankroll-bets"] });
+      const parts: string[] = [];
+      if (data.trackedCount > 0) parts.push(`${data.trackedCount} prop(s) → Trax`);
+      if (data.ledgerCount > 0) parts.push(`${data.ledgerCount} pick(s) → Ledger`);
+      if (parts.length === 0) parts.push("Already synced — no new entries");
+      toast({ title: "Synced!", description: parts.join(" · ") });
+    },
+    onError: (e: any) => {
+      toast({ title: "Sync failed", description: e.message, variant: "destructive" });
+    },
+  });
+
+  return { slips, picksMap, isLoading, importSlip, deleteSlip, syncToTraxLedger };
 }
