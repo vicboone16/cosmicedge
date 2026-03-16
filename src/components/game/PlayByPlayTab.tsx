@@ -609,6 +609,8 @@ export function PlayByPlayTab({ gameId, homeAbbr, awayAbbr, league, gameStatus }
           </div>
         ))}
       </div>
+        </>
+      )}
     </div>
   );
 }
