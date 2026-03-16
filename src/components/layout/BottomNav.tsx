@@ -1,11 +1,11 @@
-import { CalendarDays, Star, Crosshair, TrendingUp, Compass, Sparkles } from "lucide-react";
+import { CalendarDays, Star, Crosshair, TrendingUp, Compass, Sparkles, Command } from "lucide-react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
 
 const navItems = [
   { to: "/", icon: CalendarDays, label: "Slate", requiresAuth: false },
-  { to: "/transits", icon: Star, label: "Celestial", requiresAuth: true },
+  { to: "/command-center", icon: Command, label: "Command", requiresAuth: true },
   { to: "/nexus", icon: Compass, label: "Nexus", requiresAuth: true },
   { to: "/props", icon: TrendingUp, label: "Props", requiresAuth: true },
   { to: "/skyspread", icon: Crosshair, label: "SkySpread", requiresAuth: true },
