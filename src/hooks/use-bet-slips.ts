@@ -156,7 +156,7 @@ const resolveMissingPickGameIds = async ({
         const delta = Math.abs(new Date(g.start_time).getTime() - slipTs);
         return {
           game: g,
-          score: statusPriority(g.status) * 1_000_000_000_000 + delta,
+          score: delta + statusPenaltyMs(g.status),
         };
       })
       .sort((a, b) => a.score - b.score)[0]?.game;
