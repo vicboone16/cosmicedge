@@ -10119,18 +10119,41 @@ export type Database = {
       }
       v_game_watch_insights: {
         Row: {
+          animation_key: string | null
+          away_fouls_period: number | null
           away_score: number | null
           away_team_id: string | null
+          bonus_danger_team_id: string | null
           clock_display: string | null
           drought_away_mmss: string | null
           drought_home_mmss: string | null
+          empty_poss_away_last_n: number | null
+          empty_poss_home_last_n: number | null
+          empty_possessions_away: number | null
+          empty_possessions_home: number | null
+          event_zone: string | null
+          fg_drought_away_mmss: string | null
+          fg_drought_away_sec: number | null
+          fg_drought_home_mmss: string | null
+          fg_drought_home_sec: number | null
           game_id: string | null
+          home_fouls_period: number | null
           home_score: number | null
           home_team_id: string | null
+          in_bonus_away: boolean | null
+          in_bonus_home: boolean | null
+          last_event_subtype: string | null
+          last_event_text: string | null
+          last_event_type: string | null
+          momentum_band: string | null
           momentum_score: number | null
           momentum_team_id: string | null
+          oreb_away_period: number | null
+          oreb_home_period: number | null
+          oreb_pressure_team_id: string | null
           pace_band: string | null
           pace_estimate: number | null
+          period_label: string | null
           period_number: number | null
           possession_confidence: number | null
           possession_team_id: string | null
@@ -10141,18 +10164,41 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          animation_key?: string | null
+          away_fouls_period?: number | null
           away_score?: number | null
           away_team_id?: string | null
+          bonus_danger_team_id?: string | null
           clock_display?: string | null
           drought_away_mmss?: never
           drought_home_mmss?: never
+          empty_poss_away_last_n?: number | null
+          empty_poss_home_last_n?: number | null
+          empty_possessions_away?: number | null
+          empty_possessions_home?: number | null
+          event_zone?: string | null
+          fg_drought_away_mmss?: never
+          fg_drought_away_sec?: number | null
+          fg_drought_home_mmss?: never
+          fg_drought_home_sec?: number | null
           game_id?: string | null
+          home_fouls_period?: number | null
           home_score?: number | null
           home_team_id?: string | null
+          in_bonus_away?: boolean | null
+          in_bonus_home?: boolean | null
+          last_event_subtype?: string | null
+          last_event_text?: string | null
+          last_event_type?: string | null
+          momentum_band?: never
           momentum_score?: number | null
           momentum_team_id?: string | null
+          oreb_away_period?: number | null
+          oreb_home_period?: number | null
+          oreb_pressure_team_id?: string | null
           pace_band?: never
           pace_estimate?: number | null
+          period_label?: string | null
           period_number?: number | null
           possession_confidence?: number | null
           possession_team_id?: string | null
@@ -10163,18 +10209,41 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          animation_key?: string | null
+          away_fouls_period?: number | null
           away_score?: number | null
           away_team_id?: string | null
+          bonus_danger_team_id?: string | null
           clock_display?: string | null
           drought_away_mmss?: never
           drought_home_mmss?: never
+          empty_poss_away_last_n?: number | null
+          empty_poss_home_last_n?: number | null
+          empty_possessions_away?: number | null
+          empty_possessions_home?: number | null
+          event_zone?: string | null
+          fg_drought_away_mmss?: never
+          fg_drought_away_sec?: number | null
+          fg_drought_home_mmss?: never
+          fg_drought_home_sec?: number | null
           game_id?: string | null
+          home_fouls_period?: number | null
           home_score?: number | null
           home_team_id?: string | null
+          in_bonus_away?: boolean | null
+          in_bonus_home?: boolean | null
+          last_event_subtype?: string | null
+          last_event_text?: string | null
+          last_event_type?: string | null
+          momentum_band?: never
           momentum_score?: number | null
           momentum_team_id?: string | null
+          oreb_away_period?: number | null
+          oreb_home_period?: number | null
+          oreb_pressure_team_id?: string | null
           pace_band?: never
           pace_estimate?: number | null
+          period_label?: string | null
           period_number?: number | null
           possession_confidence?: number | null
           possession_team_id?: string | null
