@@ -61,21 +61,22 @@ const GAME_LOOKUP_STATUSES = [
   "completed",
 ] as const;
 
-const statusPriority = (status?: string | null) => {
+const statusPenaltyMs = (status?: string | null) => {
+  // Keep time proximity as primary signal; status only nudges tie-breaks.
   switch ((status || "").toLowerCase()) {
     case "live":
     case "in_progress":
       return 0;
     case "halftime":
-      return 1;
+      return 5 * 60 * 1000;
+    case "scheduled":
+      return 15 * 60 * 1000;
     case "final":
     case "ended":
     case "completed":
-      return 2;
-    case "scheduled":
-      return 3;
+      return 45 * 60 * 1000;
     default:
-      return 4;
+      return 60 * 60 * 1000;
   }
 };
 
@@ -155,7 +156,7 @@ const resolveMissingPickGameIds = async ({
         const delta = Math.abs(new Date(g.start_time).getTime() - slipTs);
         return {
           game: g,
-          score: statusPriority(g.status) * 1_000_000_000_000 + delta,
+          score: delta + statusPenaltyMs(g.status),
         };
       })
       .sort((a, b) => a.score - b.score)[0]?.game;
@@ -245,7 +246,7 @@ const syncSlipIntoTraxLedger = async ({
     .filter(Boolean)
     .map((g: any) => {
       const startDelta = Math.abs(new Date(g.start_time || slip.created_at || Date.now()).getTime() - new Date(slip.created_at || Date.now()).getTime());
-      return { g, score: statusPriority(g.status) * 1_000_000_000_000 + startDelta };
+      return { g, score: startDelta + statusPenaltyMs(g.status) };
     })
     .sort((a: any, b: any) => a.score - b.score)[0]?.g;
 
