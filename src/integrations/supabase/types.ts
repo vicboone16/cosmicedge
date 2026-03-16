@@ -175,6 +175,175 @@ export type Database = {
         }
         Relationships: []
       }
+      astra_command_center_state: {
+        Row: {
+          id: string
+          last_mode_key: string | null
+          last_query: string | null
+          pinned_game_ids: string[] | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          last_mode_key?: string | null
+          last_query?: string | null
+          pinned_game_ids?: string[] | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          id?: string
+          last_mode_key?: string | null
+          last_query?: string | null
+          pinned_game_ids?: string[] | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "astra_command_center_state_last_mode_key_fkey"
+            columns: ["last_mode_key"]
+            isOneToOne: false
+            referencedRelation: "astra_operating_modes"
+            referencedColumns: ["mode_key"]
+          },
+        ]
+      }
+      astra_operating_modes: {
+        Row: {
+          color_accent: string | null
+          created_at: string | null
+          description: string | null
+          icon_name: string | null
+          is_active: boolean | null
+          mode_key: string
+          mode_name: string
+          sort_order: number | null
+        }
+        Insert: {
+          color_accent?: string | null
+          created_at?: string | null
+          description?: string | null
+          icon_name?: string | null
+          is_active?: boolean | null
+          mode_key: string
+          mode_name: string
+          sort_order?: number | null
+        }
+        Update: {
+          color_accent?: string | null
+          created_at?: string | null
+          description?: string | null
+          icon_name?: string | null
+          is_active?: boolean | null
+          mode_key?: string
+          mode_name?: string
+          sort_order?: number | null
+        }
+        Relationships: []
+      }
+      astra_opportunity_feed: {
+        Row: {
+          confidence: number | null
+          cosmic_boost: number | null
+          created_at: string | null
+          detail: string | null
+          ev_edge: number | null
+          expires_at: string | null
+          game_id: string | null
+          headline: string | null
+          id: string
+          is_active: boolean | null
+          mode_relevance: string[] | null
+          opportunity_type: string
+          player_id: string | null
+          trap_score: number | null
+        }
+        Insert: {
+          confidence?: number | null
+          cosmic_boost?: number | null
+          created_at?: string | null
+          detail?: string | null
+          ev_edge?: number | null
+          expires_at?: string | null
+          game_id?: string | null
+          headline?: string | null
+          id?: string
+          is_active?: boolean | null
+          mode_relevance?: string[] | null
+          opportunity_type: string
+          player_id?: string | null
+          trap_score?: number | null
+        }
+        Update: {
+          confidence?: number | null
+          cosmic_boost?: number | null
+          created_at?: string | null
+          detail?: string | null
+          ev_edge?: number | null
+          expires_at?: string | null
+          game_id?: string | null
+          headline?: string | null
+          id?: string
+          is_active?: boolean | null
+          mode_relevance?: string[] | null
+          opportunity_type?: string
+          player_id?: string | null
+          trap_score?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "astra_opportunity_feed_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "astra_opportunity_feed_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "v_current_game_players"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "astra_opportunity_feed_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "v_game_live_state"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "astra_opportunity_feed_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "v_oracle_player_validity"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "astra_opportunity_feed_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "astra_opportunity_feed_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "v_current_game_players"
+            referencedColumns: ["player_id"]
+          },
+          {
+            foreignKeyName: "astra_opportunity_feed_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "v_oracle_player_validity"
+            referencedColumns: ["player_id"]
+          },
+        ]
+      }
       astro_calculations: {
         Row: {
           calc_date: string | null
@@ -7575,6 +7744,35 @@ export type Database = {
           win_prob_a?: number | null
         }
         Relationships: []
+      }
+      user_astra_mode_preferences: {
+        Row: {
+          id: string
+          mode_key: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          mode_key: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          id?: string
+          mode_key?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_astra_mode_preferences_mode_key_fkey"
+            columns: ["mode_key"]
+            isOneToOne: false
+            referencedRelation: "astra_operating_modes"
+            referencedColumns: ["mode_key"]
+          },
+        ]
       }
       user_roles: {
         Row: {
