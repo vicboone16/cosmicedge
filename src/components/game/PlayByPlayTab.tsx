@@ -2,12 +2,15 @@ import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
+import { useIsAdmin } from "@/hooks/use-admin";
+import { PbpWatchView } from "./PbpWatchView";
 
 interface PlayByPlayTabProps {
   gameId: string;
   homeAbbr: string;
   awayAbbr: string;
   league: string;
+  gameStatus?: string;
 }
 
 /* ─── Win‑probability helper (client‑side logistic, mirrors server model) ─── */
