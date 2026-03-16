@@ -46,9 +46,13 @@ function getLegState(leg: LiveLeg, gameStatus?: string) {
 }
 
 function GameGroupHeader({ game, snapshot }: { game: any; snapshot: any }) {
-  const normalizedStatus = (snapshot?.status || game?.status || "").toLowerCase();
-  const isLive = ["live", "in_progress", "halftime"].includes(normalizedStatus);
-  const isFinal = ["final", "ended", "completed"].includes(normalizedStatus);
+  // Use games table status as authoritative; snapshots may have stale "final" from old captures
+  const gameStatus = (game?.status || "").toLowerCase();
+  const snapshotStatus = (snapshot?.status || "").toLowerCase();
+  // Only trust snapshot status if the game itself is live/in_progress
+  const isGameLive = ["live", "in_progress", "halftime"].includes(gameStatus);
+  const isLive = isGameLive || ["live", "in_progress", "halftime"].includes(snapshotStatus);
+  const isFinal = !isLive && ["final", "ended", "completed"].includes(gameStatus);
 
   return (
     <div className="flex items-center justify-between px-3 py-2 bg-secondary/40 rounded-lg border border-border/50">
