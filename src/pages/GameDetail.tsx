@@ -995,6 +995,7 @@ const GameDetail = () => {
             homeAbbr={game.home_abbr}
             awayAbbr={game.away_abbr}
             league={game.league}
+            gameStatus={game.status || undefined}
           />
         )}
 
