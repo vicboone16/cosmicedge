@@ -2721,10 +2721,17 @@ export type Database = {
           away_fouls_period: number | null
           away_score: number | null
           away_team_id: string | null
+          bonus_danger_team_id: string | null
           clock_display: string | null
           clock_seconds_remaining: number | null
           created_at: string | null
+          empty_poss_away_last_n: number | null
+          empty_poss_home_last_n: number | null
+          empty_possessions_away: number | null
+          empty_possessions_home: number | null
           event_zone: string | null
+          fg_drought_away_sec: number | null
+          fg_drought_home_sec: number | null
           game_id: string
           home_fouls_period: number | null
           home_score: number | null
@@ -2741,6 +2748,9 @@ export type Database = {
           last_source_event_id: string | null
           momentum_score: number | null
           momentum_team_id: string | null
+          oreb_away_period: number | null
+          oreb_home_period: number | null
+          oreb_pressure_team_id: string | null
           pace_estimate: number | null
           parser_version: string | null
           period_label: string | null
@@ -2759,10 +2769,17 @@ export type Database = {
           away_fouls_period?: number | null
           away_score?: number | null
           away_team_id?: string | null
+          bonus_danger_team_id?: string | null
           clock_display?: string | null
           clock_seconds_remaining?: number | null
           created_at?: string | null
+          empty_poss_away_last_n?: number | null
+          empty_poss_home_last_n?: number | null
+          empty_possessions_away?: number | null
+          empty_possessions_home?: number | null
           event_zone?: string | null
+          fg_drought_away_sec?: number | null
+          fg_drought_home_sec?: number | null
           game_id: string
           home_fouls_period?: number | null
           home_score?: number | null
@@ -2779,6 +2796,9 @@ export type Database = {
           last_source_event_id?: string | null
           momentum_score?: number | null
           momentum_team_id?: string | null
+          oreb_away_period?: number | null
+          oreb_home_period?: number | null
+          oreb_pressure_team_id?: string | null
           pace_estimate?: number | null
           parser_version?: string | null
           period_label?: string | null
@@ -2797,10 +2817,17 @@ export type Database = {
           away_fouls_period?: number | null
           away_score?: number | null
           away_team_id?: string | null
+          bonus_danger_team_id?: string | null
           clock_display?: string | null
           clock_seconds_remaining?: number | null
           created_at?: string | null
+          empty_poss_away_last_n?: number | null
+          empty_poss_home_last_n?: number | null
+          empty_possessions_away?: number | null
+          empty_possessions_home?: number | null
           event_zone?: string | null
+          fg_drought_away_sec?: number | null
+          fg_drought_home_sec?: number | null
           game_id?: string
           home_fouls_period?: number | null
           home_score?: number | null
@@ -2817,6 +2844,9 @@ export type Database = {
           last_source_event_id?: string | null
           momentum_score?: number | null
           momentum_team_id?: string | null
+          oreb_away_period?: number | null
+          oreb_home_period?: number | null
+          oreb_pressure_team_id?: string | null
           pace_estimate?: number | null
           parser_version?: string | null
           period_label?: string | null
@@ -8169,6 +8199,13 @@ export type Database = {
             foreignKeyName: "visual_event_queue_normalized_event_id_fkey"
             columns: ["normalized_event_id"]
             isOneToOne: false
+            referencedRelation: "v_pbp_fg_scoring_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "visual_event_queue_normalized_event_id_fkey"
+            columns: ["normalized_event_id"]
+            isOneToOne: false
             referencedRelation: "v_pbp_possession_change_events"
             referencedColumns: ["id"]
           },
@@ -10727,6 +10764,51 @@ export type Database = {
         }
         Relationships: []
       }
+      v_pbp_fg_scoring_events: {
+        Row: {
+          clock_display: string | null
+          clock_seconds_remaining: number | null
+          created_at: string | null
+          event_index: number | null
+          event_subtype: string | null
+          event_type: string | null
+          game_id: string | null
+          id: string | null
+          period_number: number | null
+          points_scored: number | null
+          sequence_number: number | null
+          team_id: string | null
+        }
+        Insert: {
+          clock_display?: string | null
+          clock_seconds_remaining?: number | null
+          created_at?: string | null
+          event_index?: number | null
+          event_subtype?: string | null
+          event_type?: string | null
+          game_id?: string | null
+          id?: string | null
+          period_number?: number | null
+          points_scored?: number | null
+          sequence_number?: number | null
+          team_id?: string | null
+        }
+        Update: {
+          clock_display?: string | null
+          clock_seconds_remaining?: number | null
+          created_at?: string | null
+          event_index?: number | null
+          event_subtype?: string | null
+          event_type?: string | null
+          game_id?: string | null
+          id?: string | null
+          period_number?: number | null
+          points_scored?: number | null
+          sequence_number?: number | null
+          team_id?: string | null
+        }
+        Relationships: []
+      }
       v_pbp_possession_change_events: {
         Row: {
           clock_display: string | null
@@ -11003,6 +11085,7 @@ export type Database = {
         Args: { p_clock_remaining: number; p_period: number }
         Returns: number
       }
+      get_momentum_band: { Args: { p_momentum_score: number }; Returns: string }
       get_next_visual_event: {
         Args: { p_game_id: string }
         Returns: {
