@@ -8528,6 +8528,118 @@ export type Database = {
           },
         ]
       }
+      live_player_fantasy_scores: {
+        Row: {
+          first_half_fantasy_score: number | null
+          game_fantasy_score: number | null
+          game_id: string | null
+          player_id: string | null
+          second_half_fantasy_score: number | null
+          team_id: string | null
+        }
+        Relationships: []
+      }
+      live_player_stats_aggregated: {
+        Row: {
+          assists: number | null
+          blocks: number | null
+          dreb: number | null
+          fta: number | null
+          ftm: number | null
+          game_id: string | null
+          oreb: number | null
+          period: number | null
+          personal_fouls: number | null
+          player_id: string | null
+          points: number | null
+          rebounds: number | null
+          steals: number | null
+          team_id: string | null
+          three_pa: number | null
+          three_pm: number | null
+          turnovers: number | null
+          two_pa: number | null
+          two_pm: number | null
+        }
+        Relationships: []
+      }
+      live_player_stats_by_window: {
+        Row: {
+          first_half_assists: number | null
+          first_half_blocks: number | null
+          first_half_points: number | null
+          first_half_rebounds: number | null
+          first_half_steals: number | null
+          first_half_turnovers: number | null
+          game_assists: number | null
+          game_blocks: number | null
+          game_dreb: number | null
+          game_fta: number | null
+          game_ftm: number | null
+          game_id: string | null
+          game_oreb: number | null
+          game_points: number | null
+          game_rebounds: number | null
+          game_steals: number | null
+          game_three_pa: number | null
+          game_three_pm: number | null
+          game_turnovers: number | null
+          game_two_pa: number | null
+          game_two_pm: number | null
+          ot_assists: number | null
+          ot_blocks: number | null
+          ot_points: number | null
+          ot_rebounds: number | null
+          ot_steals: number | null
+          ot_turnovers: number | null
+          player_id: string | null
+          q1_assists: number | null
+          q1_points: number | null
+          q1_rebounds: number | null
+          q2_assists: number | null
+          q2_points: number | null
+          q2_rebounds: number | null
+          q3_assists: number | null
+          q3_points: number | null
+          q3_rebounds: number | null
+          q4_assists: number | null
+          q4_points: number | null
+          q4_rebounds: number | null
+          second_half_assists: number | null
+          second_half_blocks: number | null
+          second_half_points: number | null
+          second_half_rebounds: number | null
+          second_half_steals: number | null
+          second_half_turnovers: number | null
+          team_id: string | null
+        }
+        Relationships: []
+      }
+      live_player_tracking_pbp_patch: {
+        Row: {
+          assists: number | null
+          blocks: number | null
+          dreb: number | null
+          fta: number | null
+          ftm: number | null
+          game_fantasy_score: number | null
+          game_id: string | null
+          oreb: number | null
+          pbp_pie_numerator: number | null
+          player_id: string | null
+          player_name: string | null
+          points: number | null
+          rebounds: number | null
+          steals: number | null
+          team_id: string | null
+          three_pa: number | null
+          three_pm: number | null
+          turnovers: number | null
+          two_pa: number | null
+          two_pm: number | null
+        }
+        Relationships: []
+      }
       np_player_prop_stat_long: {
         Row: {
           game_id: string | null
@@ -8879,6 +8991,142 @@ export type Database = {
             referencedColumns: ["player_id"]
           },
         ]
+      }
+      pbp_parsed_events: {
+        Row: {
+          assist_player_id: string | null
+          away_score: number | null
+          clock: string | null
+          clock_seconds: number | null
+          description: string | null
+          event_id: string | null
+          game_id: string | null
+          home_score: number | null
+          parsed_event_type: string | null
+          period: number | null
+          player_id: string | null
+          seconds_elapsed_game: number | null
+          sequence: number | null
+          team_id: string | null
+        }
+        Insert: {
+          assist_player_id?: string | null
+          away_score?: number | null
+          clock?: string | null
+          clock_seconds?: number | null
+          description?: string | null
+          event_id?: string | null
+          game_id?: string | null
+          home_score?: number | null
+          parsed_event_type?: never
+          period?: number | null
+          player_id?: string | null
+          seconds_elapsed_game?: number | null
+          sequence?: number | null
+          team_id?: string | null
+        }
+        Update: {
+          assist_player_id?: string | null
+          away_score?: number | null
+          clock?: string | null
+          clock_seconds?: number | null
+          description?: string | null
+          event_id?: string | null
+          game_id?: string | null
+          home_score?: number | null
+          parsed_event_type?: never
+          period?: number | null
+          player_id?: string | null
+          seconds_elapsed_game?: number | null
+          sequence?: number | null
+          team_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "play_by_play_assist_player_id_fkey"
+            columns: ["assist_player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "play_by_play_assist_player_id_fkey"
+            columns: ["assist_player_id"]
+            isOneToOne: false
+            referencedRelation: "v_current_game_players"
+            referencedColumns: ["player_id"]
+          },
+          {
+            foreignKeyName: "play_by_play_assist_player_id_fkey"
+            columns: ["assist_player_id"]
+            isOneToOne: false
+            referencedRelation: "v_oracle_player_validity"
+            referencedColumns: ["player_id"]
+          },
+          {
+            foreignKeyName: "play_by_play_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "play_by_play_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "v_current_game_players"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "play_by_play_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "v_game_live_state"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "play_by_play_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "v_oracle_player_validity"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "play_by_play_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "play_by_play_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "v_current_game_players"
+            referencedColumns: ["player_id"]
+          },
+          {
+            foreignKeyName: "play_by_play_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "v_oracle_player_validity"
+            referencedColumns: ["player_id"]
+          },
+        ]
+      }
+      pbp_stat_deltas: {
+        Row: {
+          clock: string | null
+          clock_seconds: number | null
+          event_id: string | null
+          game_id: string | null
+          period: number | null
+          player_id: string | null
+          stat_delta: number | null
+          stat_key: string | null
+          team_id: string | null
+        }
+        Relationships: []
       }
       play_by_play_ordered: {
         Row: {
