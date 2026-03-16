@@ -14,6 +14,41 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_feature_access: {
+        Row: {
+          created_at: string
+          feature_key: string
+          id: string
+          is_enabled: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          feature_key: string
+          id?: string
+          is_enabled?: boolean
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          feature_key?: string
+          id?: string
+          is_enabled?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_feature_access_feature_key_fkey"
+            columns: ["feature_key"]
+            isOneToOne: false
+            referencedRelation: "app_feature_flags"
+            referencedColumns: ["key"]
+          },
+        ]
+      }
       alerts: {
         Row: {
           alert_type: string
@@ -151,6 +186,33 @@ export type Database = {
           input_json?: Json | null
           items_count?: number | null
           payload?: Json
+        }
+        Relationships: []
+      }
+      app_feature_flags: {
+        Row: {
+          config: Json
+          created_at: string
+          description: string | null
+          is_enabled: boolean
+          key: string
+          updated_at: string
+        }
+        Insert: {
+          config?: Json
+          created_at?: string
+          description?: string | null
+          is_enabled?: boolean
+          key: string
+          updated_at?: string
+        }
+        Update: {
+          config?: Json
+          created_at?: string
+          description?: string | null
+          is_enabled?: boolean
+          key?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -2865,8 +2927,9 @@ export type Database = {
       live_game_visual_state: {
         Row: {
           animation_key: string | null
-          away_fouls_period: number | null
-          away_score: number | null
+          animation_status: string | null
+          away_fouls_period: number
+          away_score: number
           away_team_id: string | null
           bonus_danger_away: boolean
           bonus_danger_home: boolean
@@ -2882,19 +2945,22 @@ export type Database = {
           fg_drought_away_sec: number | null
           fg_drought_home_sec: number | null
           game_id: string
-          home_fouls_period: number | null
-          home_score: number | null
+          home_fouls_period: number
+          home_score: number
           home_team_id: string | null
-          in_bonus_away: boolean | null
-          in_bonus_home: boolean | null
+          in_bonus_away: boolean
+          in_bonus_home: boolean
           last_event_id: string | null
+          last_event_player_id: string | null
           last_event_player_name: string | null
+          last_event_points: number
           last_event_subtype: string | null
           last_event_team_id: string | null
           last_event_text: string | null
           last_event_type: string | null
           last_ingested_at: string | null
           last_source_event_id: string | null
+          league: string | null
           momentum_score: number | null
           momentum_team_id: string | null
           off_reb_last_5min_away: number
@@ -2908,18 +2974,23 @@ export type Database = {
           period_number: number | null
           possession_confidence: number | null
           possession_team_id: string | null
-          recent_run_away: number | null
-          recent_run_home: number | null
+          recent_run_away: number
+          recent_run_home: number
           recent_scoring_drought_away_sec: number | null
           recent_scoring_drought_home_sec: number | null
           second_chance_pressure_team_id: string | null
+          source_provider: string | null
+          sport: string | null
+          status: string | null
           sync_latency_ms: number | null
-          updated_at: string | null
+          updated_at: string
+          visual_mode_enabled: boolean
         }
         Insert: {
           animation_key?: string | null
-          away_fouls_period?: number | null
-          away_score?: number | null
+          animation_status?: string | null
+          away_fouls_period?: number
+          away_score?: number
           away_team_id?: string | null
           bonus_danger_away?: boolean
           bonus_danger_home?: boolean
@@ -2935,19 +3006,22 @@ export type Database = {
           fg_drought_away_sec?: number | null
           fg_drought_home_sec?: number | null
           game_id: string
-          home_fouls_period?: number | null
-          home_score?: number | null
+          home_fouls_period?: number
+          home_score?: number
           home_team_id?: string | null
-          in_bonus_away?: boolean | null
-          in_bonus_home?: boolean | null
+          in_bonus_away?: boolean
+          in_bonus_home?: boolean
           last_event_id?: string | null
+          last_event_player_id?: string | null
           last_event_player_name?: string | null
+          last_event_points?: number
           last_event_subtype?: string | null
           last_event_team_id?: string | null
           last_event_text?: string | null
           last_event_type?: string | null
           last_ingested_at?: string | null
           last_source_event_id?: string | null
+          league?: string | null
           momentum_score?: number | null
           momentum_team_id?: string | null
           off_reb_last_5min_away?: number
@@ -2961,18 +3035,23 @@ export type Database = {
           period_number?: number | null
           possession_confidence?: number | null
           possession_team_id?: string | null
-          recent_run_away?: number | null
-          recent_run_home?: number | null
+          recent_run_away?: number
+          recent_run_home?: number
           recent_scoring_drought_away_sec?: number | null
           recent_scoring_drought_home_sec?: number | null
           second_chance_pressure_team_id?: string | null
+          source_provider?: string | null
+          sport?: string | null
+          status?: string | null
           sync_latency_ms?: number | null
-          updated_at?: string | null
+          updated_at?: string
+          visual_mode_enabled?: boolean
         }
         Update: {
           animation_key?: string | null
-          away_fouls_period?: number | null
-          away_score?: number | null
+          animation_status?: string | null
+          away_fouls_period?: number
+          away_score?: number
           away_team_id?: string | null
           bonus_danger_away?: boolean
           bonus_danger_home?: boolean
@@ -2988,19 +3067,22 @@ export type Database = {
           fg_drought_away_sec?: number | null
           fg_drought_home_sec?: number | null
           game_id?: string
-          home_fouls_period?: number | null
-          home_score?: number | null
+          home_fouls_period?: number
+          home_score?: number
           home_team_id?: string | null
-          in_bonus_away?: boolean | null
-          in_bonus_home?: boolean | null
+          in_bonus_away?: boolean
+          in_bonus_home?: boolean
           last_event_id?: string | null
+          last_event_player_id?: string | null
           last_event_player_name?: string | null
+          last_event_points?: number
           last_event_subtype?: string | null
           last_event_team_id?: string | null
           last_event_text?: string | null
           last_event_type?: string | null
           last_ingested_at?: string | null
           last_source_event_id?: string | null
+          league?: string | null
           momentum_score?: number | null
           momentum_team_id?: string | null
           off_reb_last_5min_away?: number
@@ -3014,15 +3096,104 @@ export type Database = {
           period_number?: number | null
           possession_confidence?: number | null
           possession_team_id?: string | null
-          recent_run_away?: number | null
-          recent_run_home?: number | null
+          recent_run_away?: number
+          recent_run_home?: number
           recent_scoring_drought_away_sec?: number | null
           recent_scoring_drought_home_sec?: number | null
           second_chance_pressure_team_id?: string | null
+          source_provider?: string | null
+          sport?: string | null
+          status?: string | null
           sync_latency_ms?: number | null
-          updated_at?: string | null
+          updated_at?: string
+          visual_mode_enabled?: boolean
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "live_game_visual_state_animation_fk"
+            columns: ["animation_key"]
+            isOneToOne: false
+            referencedRelation: "pbp_animation_catalog"
+            referencedColumns: ["animation_key"]
+          },
+          {
+            foreignKeyName: "live_game_visual_state_event_zone_fk"
+            columns: ["event_zone"]
+            isOneToOne: false
+            referencedRelation: "pbp_zone_catalog"
+            referencedColumns: ["zone_key"]
+          },
+          {
+            foreignKeyName: "live_game_visual_state_last_event_id_fkey"
+            columns: ["last_event_id"]
+            isOneToOne: false
+            referencedRelation: "normalized_pbp_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "live_game_visual_state_last_event_id_fkey"
+            columns: ["last_event_id"]
+            isOneToOne: false
+            referencedRelation: "v_latest_normalized_pbp_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "live_game_visual_state_last_event_id_fkey"
+            columns: ["last_event_id"]
+            isOneToOne: false
+            referencedRelation: "v_pbp_fg_makes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "live_game_visual_state_last_event_id_fkey"
+            columns: ["last_event_id"]
+            isOneToOne: false
+            referencedRelation: "v_pbp_fg_misses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "live_game_visual_state_last_event_id_fkey"
+            columns: ["last_event_id"]
+            isOneToOne: false
+            referencedRelation: "v_pbp_fg_scoring_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "live_game_visual_state_last_event_id_fkey"
+            columns: ["last_event_id"]
+            isOneToOne: false
+            referencedRelation: "v_pbp_offensive_rebounds"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "live_game_visual_state_last_event_id_fkey"
+            columns: ["last_event_id"]
+            isOneToOne: false
+            referencedRelation: "v_pbp_possession_change_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "live_game_visual_state_last_event_id_fkey"
+            columns: ["last_event_id"]
+            isOneToOne: false
+            referencedRelation: "v_pbp_possession_end_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "live_game_visual_state_last_event_id_fkey"
+            columns: ["last_event_id"]
+            isOneToOne: false
+            referencedRelation: "v_pbp_scoring_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "live_game_visual_state_last_event_id_fkey"
+            columns: ["last_event_id"]
+            isOneToOne: false
+            referencedRelation: "v_pbp_team_foul_events"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       live_prop_state: {
         Row: {
@@ -4686,6 +4857,101 @@ export type Database = {
           },
         ]
       }
+      normalized_pbp_event_tags: {
+        Row: {
+          created_at: string
+          id: string
+          normalized_event_id: string
+          tag_key: string
+          tag_value: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          normalized_event_id: string
+          tag_key: string
+          tag_value?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          normalized_event_id?: string
+          tag_key?: string
+          tag_value?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "normalized_pbp_event_tags_normalized_event_id_fkey"
+            columns: ["normalized_event_id"]
+            isOneToOne: false
+            referencedRelation: "normalized_pbp_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "normalized_pbp_event_tags_normalized_event_id_fkey"
+            columns: ["normalized_event_id"]
+            isOneToOne: false
+            referencedRelation: "v_latest_normalized_pbp_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "normalized_pbp_event_tags_normalized_event_id_fkey"
+            columns: ["normalized_event_id"]
+            isOneToOne: false
+            referencedRelation: "v_pbp_fg_makes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "normalized_pbp_event_tags_normalized_event_id_fkey"
+            columns: ["normalized_event_id"]
+            isOneToOne: false
+            referencedRelation: "v_pbp_fg_misses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "normalized_pbp_event_tags_normalized_event_id_fkey"
+            columns: ["normalized_event_id"]
+            isOneToOne: false
+            referencedRelation: "v_pbp_fg_scoring_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "normalized_pbp_event_tags_normalized_event_id_fkey"
+            columns: ["normalized_event_id"]
+            isOneToOne: false
+            referencedRelation: "v_pbp_offensive_rebounds"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "normalized_pbp_event_tags_normalized_event_id_fkey"
+            columns: ["normalized_event_id"]
+            isOneToOne: false
+            referencedRelation: "v_pbp_possession_change_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "normalized_pbp_event_tags_normalized_event_id_fkey"
+            columns: ["normalized_event_id"]
+            isOneToOne: false
+            referencedRelation: "v_pbp_possession_end_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "normalized_pbp_event_tags_normalized_event_id_fkey"
+            columns: ["normalized_event_id"]
+            isOneToOne: false
+            referencedRelation: "v_pbp_scoring_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "normalized_pbp_event_tags_normalized_event_id_fkey"
+            columns: ["normalized_event_id"]
+            isOneToOne: false
+            referencedRelation: "v_pbp_team_foul_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       normalized_pbp_events: {
         Row: {
           animation_key: string | null
@@ -4704,6 +4970,7 @@ export type Database = {
           is_timeout: boolean | null
           is_turnover: boolean | null
           league: string | null
+          normalized_description: string | null
           opponent_team_id: string | null
           parser_confidence: number | null
           parser_version: string | null
@@ -4743,6 +5010,7 @@ export type Database = {
           is_timeout?: boolean | null
           is_turnover?: boolean | null
           league?: string | null
+          normalized_description?: string | null
           opponent_team_id?: string | null
           parser_confidence?: number | null
           parser_version?: string | null
@@ -4782,6 +5050,7 @@ export type Database = {
           is_timeout?: boolean | null
           is_turnover?: boolean | null
           league?: string | null
+          normalized_description?: string | null
           opponent_team_id?: string | null
           parser_confidence?: number | null
           parser_version?: string | null
@@ -4804,7 +5073,29 @@ export type Database = {
           updated_at?: string | null
           zone_key?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "normalized_pbp_events_animation_fk"
+            columns: ["animation_key"]
+            isOneToOne: false
+            referencedRelation: "pbp_animation_catalog"
+            referencedColumns: ["animation_key"]
+          },
+          {
+            foreignKeyName: "normalized_pbp_events_event_type_fk"
+            columns: ["event_type"]
+            isOneToOne: false
+            referencedRelation: "pbp_event_type_catalog"
+            referencedColumns: ["event_type"]
+          },
+          {
+            foreignKeyName: "normalized_pbp_events_zone_fk"
+            columns: ["zone_key"]
+            isOneToOne: false
+            referencedRelation: "pbp_zone_catalog"
+            referencedColumns: ["zone_key"]
+          },
+        ]
       }
       np_player_prop_odds_history: {
         Row: {
@@ -4909,6 +5200,36 @@ export type Database = {
             referencedColumns: ["game_id"]
           },
         ]
+      }
+      pbp_animation_catalog: {
+        Row: {
+          animation_key: string
+          description: string | null
+        }
+        Insert: {
+          animation_key: string
+          description?: string | null
+        }
+        Update: {
+          animation_key?: string
+          description?: string | null
+        }
+        Relationships: []
+      }
+      pbp_event_type_catalog: {
+        Row: {
+          description: string | null
+          event_type: string
+        }
+        Insert: {
+          description?: string | null
+          event_type: string
+        }
+        Update: {
+          description?: string | null
+          event_type?: string
+        }
+        Relationships: []
       }
       pbp_events: {
         Row: {
@@ -5018,7 +5339,7 @@ export type Database = {
           created_at: string
           error_detail: string | null
           error_message: string | null
-          error_stage: string
+          error_stage: string | null
           game_id: string | null
           id: string
           parser_version: string | null
@@ -5030,7 +5351,7 @@ export type Database = {
           created_at?: string
           error_detail?: string | null
           error_message?: string | null
-          error_stage: string
+          error_stage?: string | null
           game_id?: string | null
           id?: string
           parser_version?: string | null
@@ -5042,7 +5363,7 @@ export type Database = {
           created_at?: string
           error_detail?: string | null
           error_message?: string | null
-          error_stage?: string
+          error_stage?: string | null
           game_id?: string | null
           id?: string
           parser_version?: string | null
@@ -5199,6 +5520,21 @@ export type Database = {
             referencedColumns: ["game_key"]
           },
         ]
+      }
+      pbp_zone_catalog: {
+        Row: {
+          description: string | null
+          zone_key: string
+        }
+        Insert: {
+          description?: string | null
+          zone_key: string
+        }
+        Update: {
+          description?: string | null
+          zone_key?: string
+        }
+        Relationships: []
       }
       picks_raw: {
         Row: {
@@ -8554,7 +8890,7 @@ export type Database = {
       visual_event_queue: {
         Row: {
           animation_key: string | null
-          available_at: string | null
+          available_at: string
           clock_display: string | null
           consumed_at: string | null
           created_at: string | null
@@ -8564,17 +8900,17 @@ export type Database = {
           game_id: string
           id: string
           is_consumed: boolean | null
-          is_skipped: boolean | null
+          is_skipped: boolean
           normalized_event_id: string | null
           primary_player_id: string | null
           primary_player_name: string | null
-          priority: number | null
+          priority: number
           team_id: string | null
           zone_key: string | null
         }
         Insert: {
           animation_key?: string | null
-          available_at?: string | null
+          available_at?: string
           clock_display?: string | null
           consumed_at?: string | null
           created_at?: string | null
@@ -8584,17 +8920,17 @@ export type Database = {
           game_id: string
           id?: string
           is_consumed?: boolean | null
-          is_skipped?: boolean | null
+          is_skipped?: boolean
           normalized_event_id?: string | null
           primary_player_id?: string | null
           primary_player_name?: string | null
-          priority?: number | null
+          priority?: number
           team_id?: string | null
           zone_key?: string | null
         }
         Update: {
           animation_key?: string | null
-          available_at?: string | null
+          available_at?: string
           clock_display?: string | null
           consumed_at?: string | null
           created_at?: string | null
@@ -8604,11 +8940,11 @@ export type Database = {
           game_id?: string
           id?: string
           is_consumed?: boolean | null
-          is_skipped?: boolean | null
+          is_skipped?: boolean
           normalized_event_id?: string | null
           primary_player_id?: string | null
           primary_player_name?: string | null
-          priority?: number | null
+          priority?: number
           team_id?: string | null
           zone_key?: string | null
         }
@@ -10821,6 +11157,172 @@ export type Database = {
         }
         Relationships: []
       }
+      v_game_watch_debug: {
+        Row: {
+          animation_key: string | null
+          away_score: number | null
+          away_team_id: string | null
+          clock_display: string | null
+          event_zone: string | null
+          game_id: string | null
+          home_score: number | null
+          home_team_id: string | null
+          last_event_id: string | null
+          last_event_player_name: string | null
+          last_event_subtype: string | null
+          last_event_text: string | null
+          last_event_type: string | null
+          last_ingested_at: string | null
+          last_source_event_id: string | null
+          parser_version: string | null
+          period_label: string | null
+          period_number: number | null
+          possession_confidence: number | null
+          possession_team_id: string | null
+          source_provider: string | null
+          status: string | null
+          sync_latency_ms: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          animation_key?: string | null
+          away_score?: number | null
+          away_team_id?: string | null
+          clock_display?: string | null
+          event_zone?: string | null
+          game_id?: string | null
+          home_score?: number | null
+          home_team_id?: string | null
+          last_event_id?: string | null
+          last_event_player_name?: string | null
+          last_event_subtype?: string | null
+          last_event_text?: string | null
+          last_event_type?: string | null
+          last_ingested_at?: string | null
+          last_source_event_id?: string | null
+          parser_version?: string | null
+          period_label?: string | null
+          period_number?: number | null
+          possession_confidence?: number | null
+          possession_team_id?: string | null
+          source_provider?: string | null
+          status?: string | null
+          sync_latency_ms?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          animation_key?: string | null
+          away_score?: number | null
+          away_team_id?: string | null
+          clock_display?: string | null
+          event_zone?: string | null
+          game_id?: string | null
+          home_score?: number | null
+          home_team_id?: string | null
+          last_event_id?: string | null
+          last_event_player_name?: string | null
+          last_event_subtype?: string | null
+          last_event_text?: string | null
+          last_event_type?: string | null
+          last_ingested_at?: string | null
+          last_source_event_id?: string | null
+          parser_version?: string | null
+          period_label?: string | null
+          period_number?: number | null
+          possession_confidence?: number | null
+          possession_team_id?: string | null
+          source_provider?: string | null
+          status?: string | null
+          sync_latency_ms?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "live_game_visual_state_animation_fk"
+            columns: ["animation_key"]
+            isOneToOne: false
+            referencedRelation: "pbp_animation_catalog"
+            referencedColumns: ["animation_key"]
+          },
+          {
+            foreignKeyName: "live_game_visual_state_event_zone_fk"
+            columns: ["event_zone"]
+            isOneToOne: false
+            referencedRelation: "pbp_zone_catalog"
+            referencedColumns: ["zone_key"]
+          },
+          {
+            foreignKeyName: "live_game_visual_state_last_event_id_fkey"
+            columns: ["last_event_id"]
+            isOneToOne: false
+            referencedRelation: "normalized_pbp_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "live_game_visual_state_last_event_id_fkey"
+            columns: ["last_event_id"]
+            isOneToOne: false
+            referencedRelation: "v_latest_normalized_pbp_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "live_game_visual_state_last_event_id_fkey"
+            columns: ["last_event_id"]
+            isOneToOne: false
+            referencedRelation: "v_pbp_fg_makes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "live_game_visual_state_last_event_id_fkey"
+            columns: ["last_event_id"]
+            isOneToOne: false
+            referencedRelation: "v_pbp_fg_misses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "live_game_visual_state_last_event_id_fkey"
+            columns: ["last_event_id"]
+            isOneToOne: false
+            referencedRelation: "v_pbp_fg_scoring_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "live_game_visual_state_last_event_id_fkey"
+            columns: ["last_event_id"]
+            isOneToOne: false
+            referencedRelation: "v_pbp_offensive_rebounds"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "live_game_visual_state_last_event_id_fkey"
+            columns: ["last_event_id"]
+            isOneToOne: false
+            referencedRelation: "v_pbp_possession_change_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "live_game_visual_state_last_event_id_fkey"
+            columns: ["last_event_id"]
+            isOneToOne: false
+            referencedRelation: "v_pbp_possession_end_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "live_game_visual_state_last_event_id_fkey"
+            columns: ["last_event_id"]
+            isOneToOne: false
+            referencedRelation: "v_pbp_scoring_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "live_game_visual_state_last_event_id_fkey"
+            columns: ["last_event_id"]
+            isOneToOne: false
+            referencedRelation: "v_pbp_team_foul_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       v_game_watch_insights: {
         Row: {
           animation_key: string | null
@@ -10960,7 +11462,22 @@ export type Database = {
           second_chance_pressure_team_id?: string | null
           updated_at?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "live_game_visual_state_animation_fk"
+            columns: ["animation_key"]
+            isOneToOne: false
+            referencedRelation: "pbp_animation_catalog"
+            referencedColumns: ["animation_key"]
+          },
+          {
+            foreignKeyName: "live_game_visual_state_event_zone_fk"
+            columns: ["event_zone"]
+            isOneToOne: false
+            referencedRelation: "pbp_zone_catalog"
+            referencedColumns: ["zone_key"]
+          },
+        ]
       }
       v_game_watch_validation: {
         Row: {
@@ -11059,7 +11576,29 @@ export type Database = {
           team_id?: string | null
           zone_key?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "normalized_pbp_events_animation_fk"
+            columns: ["animation_key"]
+            isOneToOne: false
+            referencedRelation: "pbp_animation_catalog"
+            referencedColumns: ["animation_key"]
+          },
+          {
+            foreignKeyName: "normalized_pbp_events_event_type_fk"
+            columns: ["event_type"]
+            isOneToOne: false
+            referencedRelation: "pbp_event_type_catalog"
+            referencedColumns: ["event_type"]
+          },
+          {
+            foreignKeyName: "normalized_pbp_events_zone_fk"
+            columns: ["zone_key"]
+            isOneToOne: false
+            referencedRelation: "pbp_zone_catalog"
+            referencedColumns: ["zone_key"]
+          },
+        ]
       }
       v_live_game_pace: {
         Row: {
@@ -11604,7 +12143,15 @@ export type Database = {
           sequence_number?: number | null
           team_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "normalized_pbp_events_event_type_fk"
+            columns: ["event_type"]
+            isOneToOne: false
+            referencedRelation: "pbp_event_type_catalog"
+            referencedColumns: ["event_type"]
+          },
+        ]
       }
       v_pbp_fg_misses: {
         Row: {
@@ -11646,7 +12193,15 @@ export type Database = {
           sequence_number?: number | null
           team_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "normalized_pbp_events_event_type_fk"
+            columns: ["event_type"]
+            isOneToOne: false
+            referencedRelation: "pbp_event_type_catalog"
+            referencedColumns: ["event_type"]
+          },
+        ]
       }
       v_pbp_fg_scoring_events: {
         Row: {
@@ -11691,7 +12246,15 @@ export type Database = {
           sequence_number?: number | null
           team_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "normalized_pbp_events_event_type_fk"
+            columns: ["event_type"]
+            isOneToOne: false
+            referencedRelation: "pbp_event_type_catalog"
+            referencedColumns: ["event_type"]
+          },
+        ]
       }
       v_pbp_offensive_rebounds: {
         Row: {
@@ -11775,7 +12338,15 @@ export type Database = {
           sequence_number?: number | null
           team_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "normalized_pbp_events_event_type_fk"
+            columns: ["event_type"]
+            isOneToOne: false
+            referencedRelation: "pbp_event_type_catalog"
+            referencedColumns: ["event_type"]
+          },
+        ]
       }
       v_pbp_possession_end_events: {
         Row: {
@@ -11817,7 +12388,15 @@ export type Database = {
           sequence_number?: number | null
           team_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "normalized_pbp_events_event_type_fk"
+            columns: ["event_type"]
+            isOneToOne: false
+            referencedRelation: "pbp_event_type_catalog"
+            referencedColumns: ["event_type"]
+          },
+        ]
       }
       v_pbp_scoring_events: {
         Row: {
@@ -11862,7 +12441,15 @@ export type Database = {
           sequence_number?: number | null
           team_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "normalized_pbp_events_event_type_fk"
+            columns: ["event_type"]
+            isOneToOne: false
+            referencedRelation: "pbp_event_type_catalog"
+            referencedColumns: ["event_type"]
+          },
+        ]
       }
       v_pbp_team_foul_events: {
         Row: {
@@ -11904,7 +12491,15 @@ export type Database = {
           sequence_number?: number | null
           team_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "normalized_pbp_events_event_type_fk"
+            columns: ["event_type"]
+            isOneToOne: false
+            referencedRelation: "pbp_event_type_catalog"
+            referencedColumns: ["event_type"]
+          },
+        ]
       }
       v_prop_overlay_enhanced: {
         Row: {
@@ -12055,6 +12650,7 @@ export type Database = {
       ce_randn: { Args: never; Returns: number }
       ce_uuid_to_bigint: { Args: { p_text: string }; Returns: number }
       cleanup_visual_event_queue: { Args: never; Returns: undefined }
+      consume_visual_event: { Args: { p_queue_id: string }; Returns: undefined }
       enqueue_visual_event: {
         Args: {
           p_animation_key?: string
@@ -12404,29 +13000,47 @@ export type Database = {
       upsert_live_game_visual_state: {
         Args: {
           p_animation_key?: string
+          p_animation_status?: string
+          p_away_fouls_period?: number
           p_away_score?: number
           p_away_team_id?: string
           p_clock_display?: string
           p_clock_seconds_remaining?: number
           p_event_zone?: string
           p_game_id: string
+          p_home_fouls_period?: number
           p_home_score?: number
           p_home_team_id?: string
+          p_in_bonus_away?: boolean
+          p_in_bonus_home?: boolean
           p_last_event_id?: string
+          p_last_event_player_id?: string
           p_last_event_player_name?: string
+          p_last_event_points?: number
           p_last_event_subtype?: string
           p_last_event_team_id?: string
           p_last_event_text?: string
           p_last_event_type?: string
+          p_last_ingested_at?: string
           p_last_source_event_id?: string
+          p_league?: string
           p_momentum_score?: number
           p_momentum_team_id?: string
+          p_pace_estimate?: number
           p_parser_version?: string
           p_period_label?: string
           p_period_number?: number
           p_possession_confidence?: number
           p_possession_team_id?: string
+          p_recent_run_away?: number
+          p_recent_run_home?: number
+          p_recent_scoring_drought_away_sec?: number
+          p_recent_scoring_drought_home_sec?: number
+          p_source_provider?: string
+          p_sport?: string
+          p_status?: string
           p_sync_latency_ms?: number
+          p_visual_mode_enabled?: boolean
         }
         Returns: undefined
       }
