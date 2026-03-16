@@ -455,19 +455,52 @@ export function PlayByPlayTab({ gameId, homeAbbr, awayAbbr, league, gameStatus }
 
   return (
     <div className="space-y-3">
-      {/* Live score banner from game_state_snapshots */}
-      {liveSnapshot && (liveSnapshot.home_score != null || liveSnapshot.away_score != null) && (
-        <div className="flex items-center justify-center gap-4 py-2 px-3 rounded-lg bg-primary/10 border border-primary/20">
-          <span className="text-xs font-bold text-muted-foreground">{awayAbbr}</span>
-          <span className="text-base font-bold tabular-nums text-foreground">{liveSnapshot.away_score ?? "—"}</span>
-          <span className="text-xs text-muted-foreground">—</span>
-          <span className="text-base font-bold tabular-nums text-foreground">{liveSnapshot.home_score ?? "—"}</span>
-          <span className="text-xs font-bold text-muted-foreground">{homeAbbr}</span>
-          {liveSnapshot.quarter && (
-            <span className="text-[10px] text-primary ml-2">{liveSnapshot.quarter} {liveSnapshot.clock || ""}</span>
-          )}
+      {/* Mode toggle: Read / Watch — admin only, live games only */}
+      {showWatchToggle && (
+        <div className="flex items-center gap-1 p-0.5 rounded-lg bg-muted/50 border border-border/30 w-fit">
+          <button
+            onClick={() => setMode("read")}
+            className={cn(
+              "text-[10px] font-bold uppercase tracking-wider px-4 py-1.5 rounded-md transition-all",
+              mode === "read"
+                ? "bg-primary text-primary-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            Read
+          </button>
+          <button
+            onClick={() => setMode("watch")}
+            className={cn(
+              "text-[10px] font-bold uppercase tracking-wider px-4 py-1.5 rounded-md transition-all",
+              mode === "watch"
+                ? "bg-primary text-primary-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            Watch
+          </button>
         </div>
       )}
+
+      {/* Watch mode: full visual experience */}
+      {mode === "watch" && showWatchToggle ? (
+        <PbpWatchView gameId={gameId} homeAbbr={homeAbbr} awayAbbr={awayAbbr} league={league} />
+      ) : (
+        <>
+          {/* Live score banner from game_state_snapshots */}
+          {liveSnapshot && (liveSnapshot.home_score != null || liveSnapshot.away_score != null) && (
+            <div className="flex items-center justify-center gap-4 py-2 px-3 rounded-lg bg-primary/10 border border-primary/20">
+              <span className="text-xs font-bold text-muted-foreground">{awayAbbr}</span>
+              <span className="text-base font-bold tabular-nums text-foreground">{liveSnapshot.away_score ?? "—"}</span>
+              <span className="text-xs text-muted-foreground">—</span>
+              <span className="text-base font-bold tabular-nums text-foreground">{liveSnapshot.home_score ?? "—"}</span>
+              <span className="text-xs font-bold text-muted-foreground">{homeAbbr}</span>
+              {liveSnapshot.quarter && (
+                <span className="text-[10px] text-primary ml-2">{liveSnapshot.quarter} {liveSnapshot.clock || ""}</span>
+              )}
+            </div>
+          )}
 
       {/* Period filter pills */}
       <div className="flex gap-2 overflow-x-auto no-scrollbar">
