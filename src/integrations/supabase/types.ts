@@ -10080,6 +10080,90 @@ export type Database = {
         }
         Relationships: []
       }
+      v_game_watch_insights: {
+        Row: {
+          away_score: number | null
+          away_team_id: string | null
+          clock_display: string | null
+          drought_away_mmss: string | null
+          drought_home_mmss: string | null
+          game_id: string | null
+          home_score: number | null
+          home_team_id: string | null
+          momentum_score: number | null
+          momentum_team_id: string | null
+          pace_band: string | null
+          pace_estimate: number | null
+          period_number: number | null
+          possession_confidence: number | null
+          possession_team_id: string | null
+          recent_run_away: number | null
+          recent_run_home: number | null
+          recent_scoring_drought_away_sec: number | null
+          recent_scoring_drought_home_sec: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          away_score?: number | null
+          away_team_id?: string | null
+          clock_display?: string | null
+          drought_away_mmss?: never
+          drought_home_mmss?: never
+          game_id?: string | null
+          home_score?: number | null
+          home_team_id?: string | null
+          momentum_score?: number | null
+          momentum_team_id?: string | null
+          pace_band?: never
+          pace_estimate?: number | null
+          period_number?: number | null
+          possession_confidence?: number | null
+          possession_team_id?: string | null
+          recent_run_away?: number | null
+          recent_run_home?: number | null
+          recent_scoring_drought_away_sec?: number | null
+          recent_scoring_drought_home_sec?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          away_score?: number | null
+          away_team_id?: string | null
+          clock_display?: string | null
+          drought_away_mmss?: never
+          drought_home_mmss?: never
+          game_id?: string | null
+          home_score?: number | null
+          home_team_id?: string | null
+          momentum_score?: number | null
+          momentum_team_id?: string | null
+          pace_band?: never
+          pace_estimate?: number | null
+          period_number?: number | null
+          possession_confidence?: number | null
+          possession_team_id?: string | null
+          recent_run_away?: number | null
+          recent_run_home?: number | null
+          recent_scoring_drought_away_sec?: number | null
+          recent_scoring_drought_home_sec?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      v_game_watch_validation: {
+        Row: {
+          away_team_id: string | null
+          defensive_rebounds: number | null
+          game_id: string | null
+          home_team_id: string | null
+          last_event_time: string | null
+          last_period: number | null
+          offensive_rebounds: number | null
+          scoring_events: number | null
+          total_events: number | null
+          turnovers: number | null
+        }
+        Relationships: []
+      }
       v_latest_normalized_pbp_events: {
         Row: {
           animation_key: string | null
@@ -10908,6 +10992,13 @@ export type Database = {
       cleanup_visual_event_queue: { Args: never; Returns: undefined }
       f_unaccent: { Args: { "": string }; Returns: string }
       format_seconds_mmss: { Args: { p_seconds: number }; Returns: string }
+      get_current_run_for_game: {
+        Args: { p_game_id: string }
+        Returns: {
+          away_run_points: number
+          home_run_points: number
+        }[]
+      }
       get_elapsed_game_seconds: {
         Args: { p_clock_remaining: number; p_period: number }
         Returns: number
@@ -11059,6 +11150,10 @@ export type Database = {
       }
       rebuild_nba_standings: { Args: { p_season?: number }; Returns: number }
       refresh_game_live_wp: { Args: { p_game_id: string }; Returns: undefined }
+      refresh_live_game_derived_metrics: {
+        Args: { p_game_id: string }
+        Returns: undefined
+      }
       safe_delete_game: { Args: { p_game_id: string }; Returns: Json }
       safe_delete_player: { Args: { p_player_id: string }; Returns: Json }
       search_players_unaccent: {
