@@ -63,7 +63,13 @@ export function useTopPropsForGame(gameId: string | undefined, limit = 5) {
         .order("edge_score", { ascending: false })
         .limit(limit);
       const rows = (data || []) as unknown as TopProp[];
-      return resolveOverlayPlayerNames(rows);
+      const resolved = await resolveOverlayPlayerNames(rows);
+      // Filter: only show players whose team matches the game's teams
+      return resolved.filter(p => {
+        if (!p.player_team || !p.home_abbr || !p.away_abbr) return true;
+        const team = p.player_team.toUpperCase();
+        return team === p.home_abbr.toUpperCase() || team === p.away_abbr.toUpperCase();
+      });
     },
     enabled: !!gameId,
     staleTime: 60_000,
