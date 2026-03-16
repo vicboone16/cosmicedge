@@ -96,30 +96,36 @@ export function useSlipLiveSync(picks: Pick[], enabled = true) {
       const uniqueTeams = [...new Set(Object.values(teamMap))];
       if (!uniqueTeams.length) return null;
 
-      // Find today's games for these teams — prioritize live, then scheduled
-      const today = new Date().toISOString().slice(0, 10);
-      const { data: todayGames } = await supabase
+      // Rolling window catches US evening games that cross into next UTC day.
+      const nowTs = Date.now();
+      const windowStart = new Date(nowTs - 8 * 60 * 60 * 1000).toISOString();
+      const windowEnd = new Date(nowTs + 36 * 60 * 60 * 1000).toISOString();
+      const { data: candidateGames } = await supabase
         .from("games")
-        .select("id, home_abbr, away_abbr, status")
-        .gte("start_time", `${today}T00:00:00Z`)
-        .lte("start_time", `${today}T23:59:59Z`)
-        .in("league", ["NBA"]);
+        .select("id, home_abbr, away_abbr, status, start_time")
+        .gte("start_time", windowStart)
+        .lte("start_time", windowEnd)
+        .in("league", ["NBA"])
+        .in("status", ["scheduled", ...LIVE_STATUSES]);
 
-      if (!todayGames?.length) return null;
+      if (!candidateGames?.length) return null;
 
       // Match each pick to a game
       for (const pick of picksNeedingGameId) {
         const team = teamMap[pick.player_id!];
         if (!team) continue;
 
-        // Prioritize live games
-        const liveGame = todayGames.find(g =>
-          (g.home_abbr === team || g.away_abbr === team) &&
-          (g.status === "live" || g.status === "in_progress")
-        );
-        const anyGame = liveGame || todayGames.find(g =>
-          g.home_abbr === team || g.away_abbr === team
-        );
+        const teamGames = candidateGames
+          .filter(g => g.home_abbr === team || g.away_abbr === team)
+          .sort((a, b) => {
+            const rankDiff = statusRank(a.status) - statusRank(b.status);
+            if (rankDiff !== 0) return rankDiff;
+            const aDelta = Math.abs(new Date(a.start_time).getTime() - nowTs);
+            const bDelta = Math.abs(new Date(b.start_time).getTime() - nowTs);
+            return aDelta - bDelta;
+          });
+
+        const anyGame = teamGames[0];
 
         if (anyGame) {
           // Write game_id to DB
