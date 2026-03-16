@@ -9870,7 +9870,6 @@ export type Database = {
           player_name: string | null
           resolved_player_id: string | null
           team_id: string | null
-          team_name: string | null
           wallclock: string | null
         }
         Relationships: []
