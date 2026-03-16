@@ -72,6 +72,7 @@ export function useSlipLiveSync(picks: Pick[], enabled = true) {
   const queryClient = useQueryClient();
   const lastWrittenRef = useRef<Record<string, number>>({});
   const resolvedRef = useRef<Set<string>>(new Set());
+  const repairedRef = useRef<Set<string>>(new Set());
 
   // ── Step 0: Auto-resolve game_id for picks missing it ──
   const picksNeedingGameId = picks.filter(p => !p.game_id && p.player_id && !resolvedRef.current.has(p.id));
