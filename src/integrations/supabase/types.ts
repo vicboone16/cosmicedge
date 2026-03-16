@@ -60,7 +60,21 @@ export type Database = {
             foreignKeyName: "alerts_game_id_fkey"
             columns: ["game_id"]
             isOneToOne: false
+            referencedRelation: "v_current_game_players"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "alerts_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
             referencedRelation: "v_game_live_state"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "alerts_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "v_oracle_player_validity"
             referencedColumns: ["game_id"]
           },
         ]
@@ -414,7 +428,21 @@ export type Database = {
             foreignKeyName: "bet_slip_picks_game_id_fkey"
             columns: ["game_id"]
             isOneToOne: false
+            referencedRelation: "v_current_game_players"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "bet_slip_picks_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
             referencedRelation: "v_game_live_state"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "bet_slip_picks_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "v_oracle_player_validity"
             referencedColumns: ["game_id"]
           },
           {
@@ -423,6 +451,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "players"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bet_slip_picks_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "v_current_game_players"
+            referencedColumns: ["player_id"]
+          },
+          {
+            foreignKeyName: "bet_slip_picks_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "v_oracle_player_validity"
+            referencedColumns: ["player_id"]
           },
           {
             foreignKeyName: "bet_slip_picks_prop_shell_id_fkey"
@@ -630,7 +672,21 @@ export type Database = {
             foreignKeyName: "bets_game_id_fkey"
             columns: ["game_id"]
             isOneToOne: false
+            referencedRelation: "v_current_game_players"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "bets_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
             referencedRelation: "v_game_live_state"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "bets_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "v_oracle_player_validity"
             referencedColumns: ["game_id"]
           },
           {
@@ -639,6 +695,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "players"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bets_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "v_current_game_players"
+            referencedColumns: ["player_id"]
+          },
+          {
+            foreignKeyName: "bets_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "v_oracle_player_validity"
+            referencedColumns: ["player_id"]
           },
         ]
       }
@@ -895,7 +965,21 @@ export type Database = {
             foreignKeyName: "ce_game_predictions_game_id_fkey"
             columns: ["game_id"]
             isOneToOne: false
+            referencedRelation: "v_current_game_players"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "ce_game_predictions_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
             referencedRelation: "v_game_live_state"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "ce_game_predictions_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "v_oracle_player_validity"
             referencedColumns: ["game_id"]
           },
         ]
@@ -1397,7 +1481,21 @@ export type Database = {
             foreignKeyName: "custom_model_runs_game_id_fkey"
             columns: ["game_id"]
             isOneToOne: false
+            referencedRelation: "v_current_game_players"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "custom_model_runs_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
             referencedRelation: "v_game_live_state"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "custom_model_runs_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "v_oracle_player_validity"
             referencedColumns: ["game_id"]
           },
           {
@@ -1413,6 +1511,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "players"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "custom_model_runs_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "v_current_game_players"
+            referencedColumns: ["player_id"]
+          },
+          {
+            foreignKeyName: "custom_model_runs_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "v_oracle_player_validity"
+            referencedColumns: ["player_id"]
           },
         ]
       }
@@ -1511,6 +1623,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "players"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "depth_charts_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "v_current_game_players"
+            referencedColumns: ["player_id"]
+          },
+          {
+            foreignKeyName: "depth_charts_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "v_oracle_player_validity"
+            referencedColumns: ["player_id"]
           },
         ]
       }
@@ -1816,7 +1942,21 @@ export type Database = {
             foreignKeyName: "game_predictions_game_id_fkey"
             columns: ["game_id"]
             isOneToOne: false
+            referencedRelation: "v_current_game_players"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "game_predictions_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
             referencedRelation: "v_game_live_state"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "game_predictions_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "v_oracle_player_validity"
             referencedColumns: ["game_id"]
           },
         ]
@@ -1858,7 +1998,21 @@ export type Database = {
             foreignKeyName: "game_quarters_game_id_fkey"
             columns: ["game_id"]
             isOneToOne: false
+            referencedRelation: "v_current_game_players"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "game_quarters_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
             referencedRelation: "v_game_live_state"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "game_quarters_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "v_oracle_player_validity"
             referencedColumns: ["game_id"]
           },
         ]
@@ -1897,7 +2051,21 @@ export type Database = {
             foreignKeyName: "game_referees_game_id_fkey"
             columns: ["game_id"]
             isOneToOne: false
+            referencedRelation: "v_current_game_players"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "game_referees_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
             referencedRelation: "v_game_live_state"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "game_referees_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "v_oracle_player_validity"
             referencedColumns: ["game_id"]
           },
           {
@@ -1958,7 +2126,21 @@ export type Database = {
             foreignKeyName: "game_state_snapshots_game_id_fkey"
             columns: ["game_id"]
             isOneToOne: false
+            referencedRelation: "v_current_game_players"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "game_state_snapshots_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
             referencedRelation: "v_game_live_state"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "game_state_snapshots_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "v_oracle_player_validity"
             referencedColumns: ["game_id"]
           },
         ]
@@ -2111,7 +2293,21 @@ export type Database = {
             foreignKeyName: "historical_odds_game_id_fkey"
             columns: ["game_id"]
             isOneToOne: false
+            referencedRelation: "v_current_game_players"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "historical_odds_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
             referencedRelation: "v_game_live_state"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "historical_odds_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "v_oracle_player_validity"
             referencedColumns: ["game_id"]
           },
         ]
@@ -2167,6 +2363,20 @@ export type Database = {
             referencedRelation: "players"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "injuries_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "v_current_game_players"
+            referencedColumns: ["player_id"]
+          },
+          {
+            foreignKeyName: "injuries_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "v_oracle_player_validity"
+            referencedColumns: ["player_id"]
+          },
         ]
       }
       intel_notes: {
@@ -2212,7 +2422,21 @@ export type Database = {
             foreignKeyName: "intel_notes_game_id_fkey"
             columns: ["game_id"]
             isOneToOne: false
+            referencedRelation: "v_current_game_players"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "intel_notes_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
             referencedRelation: "v_game_live_state"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "intel_notes_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "v_oracle_player_validity"
             referencedColumns: ["game_id"]
           },
           {
@@ -2221,6 +2445,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "players"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "intel_notes_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "v_current_game_players"
+            referencedColumns: ["player_id"]
+          },
+          {
+            foreignKeyName: "intel_notes_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "v_oracle_player_validity"
+            referencedColumns: ["player_id"]
           },
         ]
       }
@@ -2371,7 +2609,21 @@ export type Database = {
             foreignKeyName: "live_prop_state_game_id_fkey"
             columns: ["game_id"]
             isOneToOne: false
+            referencedRelation: "v_current_game_players"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "live_prop_state_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
             referencedRelation: "v_game_live_state"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "live_prop_state_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "v_oracle_player_validity"
             referencedColumns: ["game_id"]
           },
           {
@@ -2380,6 +2632,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "players"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "live_prop_state_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "v_current_game_players"
+            referencedColumns: ["player_id"]
+          },
+          {
+            foreignKeyName: "live_prop_state_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "v_oracle_player_validity"
+            referencedColumns: ["player_id"]
           },
         ]
       }
@@ -2623,7 +2889,21 @@ export type Database = {
             foreignKeyName: "model_game_predictions_game_id_fkey"
             columns: ["game_id"]
             isOneToOne: false
+            referencedRelation: "v_current_game_players"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "model_game_predictions_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
             referencedRelation: "v_game_live_state"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "model_game_predictions_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "v_oracle_player_validity"
             referencedColumns: ["game_id"]
           },
         ]
@@ -3459,7 +3739,21 @@ export type Database = {
             foreignKeyName: "nebula_prop_predictions_game_id_fkey"
             columns: ["game_id"]
             isOneToOne: false
+            referencedRelation: "v_current_game_players"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "nebula_prop_predictions_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
             referencedRelation: "v_game_live_state"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "nebula_prop_predictions_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "v_oracle_player_validity"
             referencedColumns: ["game_id"]
           },
           {
@@ -3468,6 +3762,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "players"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "nebula_prop_predictions_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "v_current_game_players"
+            referencedColumns: ["player_id"]
+          },
+          {
+            foreignKeyName: "nebula_prop_predictions_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "v_oracle_player_validity"
+            referencedColumns: ["player_id"]
           },
         ]
       }
@@ -3880,7 +4188,21 @@ export type Database = {
             foreignKeyName: "odds_snapshots_game_id_fkey"
             columns: ["game_id"]
             isOneToOne: false
+            referencedRelation: "v_current_game_players"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "odds_snapshots_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
             referencedRelation: "v_game_live_state"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "odds_snapshots_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "v_oracle_player_validity"
             referencedColumns: ["game_id"]
           },
         ]
@@ -4221,6 +4543,20 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "play_by_play_assist_player_id_fkey"
+            columns: ["assist_player_id"]
+            isOneToOne: false
+            referencedRelation: "v_current_game_players"
+            referencedColumns: ["player_id"]
+          },
+          {
+            foreignKeyName: "play_by_play_assist_player_id_fkey"
+            columns: ["assist_player_id"]
+            isOneToOne: false
+            referencedRelation: "v_oracle_player_validity"
+            referencedColumns: ["player_id"]
+          },
+          {
             foreignKeyName: "play_by_play_game_id_fkey"
             columns: ["game_id"]
             isOneToOne: false
@@ -4231,7 +4567,21 @@ export type Database = {
             foreignKeyName: "play_by_play_game_id_fkey"
             columns: ["game_id"]
             isOneToOne: false
+            referencedRelation: "v_current_game_players"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "play_by_play_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
             referencedRelation: "v_game_live_state"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "play_by_play_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "v_oracle_player_validity"
             referencedColumns: ["game_id"]
           },
           {
@@ -4240,6 +4590,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "players"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "play_by_play_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "v_current_game_players"
+            referencedColumns: ["player_id"]
+          },
+          {
+            foreignKeyName: "play_by_play_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "v_oracle_player_validity"
+            referencedColumns: ["player_id"]
           },
         ]
       }
@@ -4391,7 +4755,21 @@ export type Database = {
             foreignKeyName: "player_game_stats_game_id_fkey"
             columns: ["game_id"]
             isOneToOne: false
+            referencedRelation: "v_current_game_players"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "player_game_stats_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
             referencedRelation: "v_game_live_state"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "player_game_stats_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "v_oracle_player_validity"
             referencedColumns: ["game_id"]
           },
           {
@@ -4400,6 +4778,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "players"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "player_game_stats_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "v_current_game_players"
+            referencedColumns: ["player_id"]
+          },
+          {
+            foreignKeyName: "player_game_stats_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "v_oracle_player_validity"
+            referencedColumns: ["player_id"]
           },
         ]
       }
@@ -4462,6 +4854,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "players"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "player_news_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "v_current_game_players"
+            referencedColumns: ["player_id"]
+          },
+          {
+            foreignKeyName: "player_news_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "v_oracle_player_validity"
+            referencedColumns: ["player_id"]
           },
         ]
       }
@@ -4559,7 +4965,21 @@ export type Database = {
             foreignKeyName: "player_projections_game_id_fkey"
             columns: ["game_id"]
             isOneToOne: false
+            referencedRelation: "v_current_game_players"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "player_projections_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
             referencedRelation: "v_game_live_state"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "player_projections_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "v_oracle_player_validity"
             referencedColumns: ["game_id"]
           },
           {
@@ -4568,6 +4988,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "players"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "player_projections_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "v_current_game_players"
+            referencedColumns: ["player_id"]
+          },
+          {
+            foreignKeyName: "player_projections_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "v_oracle_player_validity"
+            referencedColumns: ["player_id"]
           },
         ]
       }
@@ -4626,7 +5060,21 @@ export type Database = {
             foreignKeyName: "player_props_game_id_fkey"
             columns: ["game_id"]
             isOneToOne: false
+            referencedRelation: "v_current_game_players"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "player_props_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
             referencedRelation: "v_game_live_state"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "player_props_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "v_oracle_player_validity"
             referencedColumns: ["game_id"]
           },
         ]
@@ -4763,6 +5211,20 @@ export type Database = {
             referencedRelation: "players"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "player_season_stats_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "v_current_game_players"
+            referencedColumns: ["player_id"]
+          },
+          {
+            foreignKeyName: "player_season_stats_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "v_oracle_player_validity"
+            referencedColumns: ["player_id"]
+          },
         ]
       }
       players: {
@@ -4865,7 +5327,21 @@ export type Database = {
             foreignKeyName: "pregame_odds_game_id_fkey"
             columns: ["game_id"]
             isOneToOne: false
+            referencedRelation: "v_current_game_players"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "pregame_odds_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
             referencedRelation: "v_game_live_state"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "pregame_odds_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "v_oracle_player_validity"
             referencedColumns: ["game_id"]
           },
         ]
@@ -5051,7 +5527,21 @@ export type Database = {
             foreignKeyName: "quant_cache_game_id_fkey"
             columns: ["game_id"]
             isOneToOne: false
+            referencedRelation: "v_current_game_players"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "quant_cache_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
             referencedRelation: "v_game_live_state"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "quant_cache_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "v_oracle_player_validity"
             referencedColumns: ["game_id"]
           },
         ]
@@ -5148,7 +5638,21 @@ export type Database = {
             foreignKeyName: "results_game_id_fkey"
             columns: ["game_id"]
             isOneToOne: false
+            referencedRelation: "v_current_game_players"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "results_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
             referencedRelation: "v_game_live_state"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "results_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "v_oracle_player_validity"
             referencedColumns: ["game_id"]
           },
         ]
@@ -5217,7 +5721,21 @@ export type Database = {
             foreignKeyName: "sdio_game_lines_game_id_fkey"
             columns: ["game_id"]
             isOneToOne: false
+            referencedRelation: "v_current_game_players"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "sdio_game_lines_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
             referencedRelation: "v_game_live_state"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "sdio_game_lines_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "v_oracle_player_validity"
             referencedColumns: ["game_id"]
           },
         ]
@@ -5301,7 +5819,21 @@ export type Database = {
             foreignKeyName: "sgo_market_odds_game_id_fkey"
             columns: ["game_id"]
             isOneToOne: false
+            referencedRelation: "v_current_game_players"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "sgo_market_odds_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
             referencedRelation: "v_game_live_state"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "sgo_market_odds_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "v_oracle_player_validity"
             referencedColumns: ["game_id"]
           },
         ]
@@ -5691,7 +6223,21 @@ export type Database = {
             foreignKeyName: "team_game_stats_game_id_fkey"
             columns: ["game_id"]
             isOneToOne: false
+            referencedRelation: "v_current_game_players"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "team_game_stats_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
             referencedRelation: "v_game_live_state"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "team_game_stats_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "v_oracle_player_validity"
             referencedColumns: ["game_id"]
           },
         ]
@@ -6123,7 +6669,21 @@ export type Database = {
             foreignKeyName: "tracked_prop_shells_game_id_fkey"
             columns: ["game_id"]
             isOneToOne: false
+            referencedRelation: "v_current_game_players"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "tracked_prop_shells_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
             referencedRelation: "v_game_live_state"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "tracked_prop_shells_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "v_oracle_player_validity"
             referencedColumns: ["game_id"]
           },
           {
@@ -6132,6 +6692,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "players"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tracked_prop_shells_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "v_current_game_players"
+            referencedColumns: ["player_id"]
+          },
+          {
+            foreignKeyName: "tracked_prop_shells_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "v_oracle_player_validity"
+            referencedColumns: ["player_id"]
           },
         ]
       }
@@ -6214,7 +6788,21 @@ export type Database = {
             foreignKeyName: "tracked_props_game_id_fkey"
             columns: ["game_id"]
             isOneToOne: false
+            referencedRelation: "v_current_game_players"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "tracked_props_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
             referencedRelation: "v_game_live_state"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "tracked_props_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "v_oracle_player_validity"
             referencedColumns: ["game_id"]
           },
           {
@@ -6223,6 +6811,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "players"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tracked_props_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "v_current_game_players"
+            referencedColumns: ["player_id"]
+          },
+          {
+            foreignKeyName: "tracked_props_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "v_oracle_player_validity"
+            referencedColumns: ["player_id"]
           },
         ]
       }
@@ -6273,6 +6875,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "players"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "trending_players_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "v_current_game_players"
+            referencedColumns: ["player_id"]
+          },
+          {
+            foreignKeyName: "trending_players_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "v_oracle_player_validity"
+            referencedColumns: ["player_id"]
           },
         ]
       }
@@ -7062,7 +7678,21 @@ export type Database = {
             foreignKeyName: "player_game_stats_game_id_fkey"
             columns: ["game_id"]
             isOneToOne: false
+            referencedRelation: "v_current_game_players"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "player_game_stats_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
             referencedRelation: "v_game_live_state"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "player_game_stats_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "v_oracle_player_validity"
             referencedColumns: ["game_id"]
           },
         ]
@@ -7660,7 +8290,21 @@ export type Database = {
             foreignKeyName: "player_game_stats_game_id_fkey"
             columns: ["game_id"]
             isOneToOne: false
+            referencedRelation: "v_current_game_players"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "player_game_stats_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
             referencedRelation: "v_game_live_state"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "player_game_stats_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "v_oracle_player_validity"
             referencedColumns: ["game_id"]
           },
           {
@@ -7669,6 +8313,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "players"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "player_game_stats_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "v_current_game_players"
+            referencedColumns: ["player_id"]
+          },
+          {
+            foreignKeyName: "player_game_stats_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "v_oracle_player_validity"
+            referencedColumns: ["player_id"]
           },
         ]
       }
@@ -7710,7 +8368,21 @@ export type Database = {
             foreignKeyName: "nebula_prop_predictions_game_id_fkey"
             columns: ["game_id"]
             isOneToOne: false
+            referencedRelation: "v_current_game_players"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "nebula_prop_predictions_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
             referencedRelation: "v_game_live_state"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "nebula_prop_predictions_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "v_oracle_player_validity"
             referencedColumns: ["game_id"]
           },
           {
@@ -7719,6 +8391,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "players"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "nebula_prop_predictions_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "v_current_game_players"
+            referencedColumns: ["player_id"]
+          },
+          {
+            foreignKeyName: "nebula_prop_predictions_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "v_oracle_player_validity"
+            referencedColumns: ["player_id"]
           },
         ]
       }
@@ -7753,7 +8439,21 @@ export type Database = {
             foreignKeyName: "nebula_prop_predictions_game_id_fkey"
             columns: ["game_id"]
             isOneToOne: false
+            referencedRelation: "v_current_game_players"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "nebula_prop_predictions_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
             referencedRelation: "v_game_live_state"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "nebula_prop_predictions_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "v_oracle_player_validity"
             referencedColumns: ["game_id"]
           },
           {
@@ -7762,6 +8462,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "players"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "nebula_prop_predictions_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "v_current_game_players"
+            referencedColumns: ["player_id"]
+          },
+          {
+            foreignKeyName: "nebula_prop_predictions_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "v_oracle_player_validity"
+            referencedColumns: ["player_id"]
           },
         ]
       }
@@ -7833,7 +8547,21 @@ export type Database = {
             foreignKeyName: "nebula_prop_predictions_game_id_fkey"
             columns: ["game_id"]
             isOneToOne: false
+            referencedRelation: "v_current_game_players"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "nebula_prop_predictions_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
             referencedRelation: "v_game_live_state"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "nebula_prop_predictions_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "v_oracle_player_validity"
             referencedColumns: ["game_id"]
           },
           {
@@ -7842,6 +8570,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "players"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "nebula_prop_predictions_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "v_current_game_players"
+            referencedColumns: ["player_id"]
+          },
+          {
+            foreignKeyName: "nebula_prop_predictions_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "v_oracle_player_validity"
+            referencedColumns: ["player_id"]
           },
         ]
       }
@@ -7900,7 +8642,21 @@ export type Database = {
             foreignKeyName: "nebula_prop_predictions_game_id_fkey"
             columns: ["game_id"]
             isOneToOne: false
+            referencedRelation: "v_current_game_players"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "nebula_prop_predictions_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
             referencedRelation: "v_game_live_state"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "nebula_prop_predictions_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "v_oracle_player_validity"
             referencedColumns: ["game_id"]
           },
           {
@@ -7909,6 +8665,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "players"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "nebula_prop_predictions_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "v_current_game_players"
+            referencedColumns: ["player_id"]
+          },
+          {
+            foreignKeyName: "nebula_prop_predictions_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "v_oracle_player_validity"
+            referencedColumns: ["player_id"]
           },
         ]
       }
@@ -7941,6 +8711,20 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "play_by_play_assist_player_id_fkey"
+            columns: ["assist_player_id"]
+            isOneToOne: false
+            referencedRelation: "v_current_game_players"
+            referencedColumns: ["player_id"]
+          },
+          {
+            foreignKeyName: "play_by_play_assist_player_id_fkey"
+            columns: ["assist_player_id"]
+            isOneToOne: false
+            referencedRelation: "v_oracle_player_validity"
+            referencedColumns: ["player_id"]
+          },
+          {
             foreignKeyName: "play_by_play_game_id_fkey"
             columns: ["game_id"]
             isOneToOne: false
@@ -7951,7 +8735,21 @@ export type Database = {
             foreignKeyName: "play_by_play_game_id_fkey"
             columns: ["game_id"]
             isOneToOne: false
+            referencedRelation: "v_current_game_players"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "play_by_play_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
             referencedRelation: "v_game_live_state"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "play_by_play_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "v_oracle_player_validity"
             referencedColumns: ["game_id"]
           },
           {
@@ -7960,6 +8758,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "players"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "play_by_play_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "v_current_game_players"
+            referencedColumns: ["player_id"]
+          },
+          {
+            foreignKeyName: "play_by_play_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "v_oracle_player_validity"
+            referencedColumns: ["player_id"]
           },
         ]
       }
@@ -7993,6 +8805,20 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "play_by_play_assist_player_id_fkey"
+            columns: ["assist_player_id"]
+            isOneToOne: false
+            referencedRelation: "v_current_game_players"
+            referencedColumns: ["player_id"]
+          },
+          {
+            foreignKeyName: "play_by_play_assist_player_id_fkey"
+            columns: ["assist_player_id"]
+            isOneToOne: false
+            referencedRelation: "v_oracle_player_validity"
+            referencedColumns: ["player_id"]
+          },
+          {
             foreignKeyName: "play_by_play_game_id_fkey"
             columns: ["game_id"]
             isOneToOne: false
@@ -8003,7 +8829,21 @@ export type Database = {
             foreignKeyName: "play_by_play_game_id_fkey"
             columns: ["game_id"]
             isOneToOne: false
+            referencedRelation: "v_current_game_players"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "play_by_play_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
             referencedRelation: "v_game_live_state"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "play_by_play_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "v_oracle_player_validity"
             referencedColumns: ["game_id"]
           },
           {
@@ -8012,6 +8852,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "players"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "play_by_play_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "v_current_game_players"
+            referencedColumns: ["player_id"]
+          },
+          {
+            foreignKeyName: "play_by_play_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "v_oracle_player_validity"
+            referencedColumns: ["player_id"]
           },
         ]
       }
@@ -8034,7 +8888,21 @@ export type Database = {
             foreignKeyName: "play_by_play_game_id_fkey"
             columns: ["game_id"]
             isOneToOne: false
+            referencedRelation: "v_current_game_players"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "play_by_play_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
             referencedRelation: "v_game_live_state"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "play_by_play_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "v_oracle_player_validity"
             referencedColumns: ["game_id"]
           },
         ]
@@ -8072,7 +8940,21 @@ export type Database = {
             foreignKeyName: "player_game_stats_game_id_fkey"
             columns: ["game_id"]
             isOneToOne: false
+            referencedRelation: "v_current_game_players"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "player_game_stats_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
             referencedRelation: "v_game_live_state"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "player_game_stats_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "v_oracle_player_validity"
             referencedColumns: ["game_id"]
           },
           {
@@ -8081,6 +8963,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "players"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "player_game_stats_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "v_current_game_players"
+            referencedColumns: ["player_id"]
+          },
+          {
+            foreignKeyName: "player_game_stats_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "v_oracle_player_validity"
+            referencedColumns: ["player_id"]
           },
         ]
       }
@@ -8235,6 +9131,16 @@ export type Database = {
         }
         Relationships: []
       }
+      v_current_game_players: {
+        Row: {
+          game_id: string | null
+          league: string | null
+          player_id: string | null
+          player_name: string | null
+          team_abbr: string | null
+        }
+        Relationships: []
+      }
       v_game_latest_snapshot: {
         Row: {
           away_score: number | null
@@ -8258,7 +9164,21 @@ export type Database = {
             foreignKeyName: "game_state_snapshots_game_id_fkey"
             columns: ["game_id"]
             isOneToOne: false
+            referencedRelation: "v_current_game_players"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "game_state_snapshots_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
             referencedRelation: "v_game_live_state"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "game_state_snapshots_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "v_oracle_player_validity"
             referencedColumns: ["game_id"]
           },
         ]
@@ -8280,6 +9200,124 @@ export type Database = {
           status: string | null
         }
         Relationships: []
+      }
+      v_live_game_pace: {
+        Row: {
+          current_pace: number | null
+          est_possessions: number | null
+          game_id: string | null
+          team_abbr: string | null
+          team_fga: number | null
+          team_fta: number | null
+          team_oreb: number | null
+          team_tov: number | null
+          total_player_minutes: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "player_game_stats_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "player_game_stats_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "v_current_game_players"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "player_game_stats_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "v_game_live_state"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "player_game_stats_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "v_oracle_player_validity"
+            referencedColumns: ["game_id"]
+          },
+        ]
+      }
+      v_live_player_pie: {
+        Row: {
+          ast: number | null
+          blk: number | null
+          dreb: number | null
+          fga: number | null
+          fgm: number | null
+          fta: number | null
+          ftm: number | null
+          game_id: string | null
+          live_pie: number | null
+          minutes: number | null
+          oreb: number | null
+          pf: number | null
+          pie_numerator: number | null
+          player_id: string | null
+          plus_minus: number | null
+          pts: number | null
+          stl: number | null
+          team_abbr: string | null
+          total_game_pie: number | null
+          tov: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "player_game_stats_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "player_game_stats_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "v_current_game_players"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "player_game_stats_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "v_game_live_state"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "player_game_stats_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "v_oracle_player_validity"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "player_game_stats_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "player_game_stats_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "v_current_game_players"
+            referencedColumns: ["player_id"]
+          },
+          {
+            foreignKeyName: "player_game_stats_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "v_oracle_player_validity"
+            referencedColumns: ["player_id"]
+          },
+        ]
       }
       v_nfl_player_game_metrics: {
         Row: {
@@ -8398,7 +9436,21 @@ export type Database = {
             foreignKeyName: "model_game_predictions_game_id_fkey"
             columns: ["game_id"]
             isOneToOne: false
+            referencedRelation: "v_current_game_players"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "model_game_predictions_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
             referencedRelation: "v_game_live_state"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "model_game_predictions_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "v_oracle_player_validity"
             referencedColumns: ["game_id"]
           },
         ]
@@ -8452,7 +9504,21 @@ export type Database = {
             foreignKeyName: "model_game_predictions_game_id_fkey"
             columns: ["game_id"]
             isOneToOne: false
+            referencedRelation: "v_current_game_players"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "model_game_predictions_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
             referencedRelation: "v_game_live_state"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "model_game_predictions_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "v_oracle_player_validity"
             referencedColumns: ["game_id"]
           },
         ]
@@ -8506,7 +9572,21 @@ export type Database = {
             foreignKeyName: "model_game_predictions_game_id_fkey"
             columns: ["game_id"]
             isOneToOne: false
+            referencedRelation: "v_current_game_players"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "model_game_predictions_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
             referencedRelation: "v_game_live_state"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "model_game_predictions_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "v_oracle_player_validity"
             referencedColumns: ["game_id"]
           },
         ]
@@ -8560,8 +9640,138 @@ export type Database = {
             foreignKeyName: "model_game_predictions_game_id_fkey"
             columns: ["game_id"]
             isOneToOne: false
+            referencedRelation: "v_current_game_players"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "model_game_predictions_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
             referencedRelation: "v_game_live_state"
             referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "model_game_predictions_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "v_oracle_player_validity"
+            referencedColumns: ["game_id"]
+          },
+        ]
+      }
+      v_oracle_player_validity: {
+        Row: {
+          game_id: string | null
+          is_valid_live_player: boolean | null
+          league: string | null
+          live_minutes: number | null
+          live_points: number | null
+          player_id: string | null
+          player_name: string | null
+          plus_minus: number | null
+          team_abbr: string | null
+        }
+        Relationships: []
+      }
+      v_prop_overlay_enhanced: {
+        Row: {
+          astro: Json | null
+          away_abbr: string | null
+          book: string | null
+          confidence: number | null
+          confidence_adjustment: number | null
+          confidence_tier: string | null
+          created_at: string | null
+          current_pace: number | null
+          edge_raw: number | null
+          edge_score: number | null
+          edge_score_v11: number | null
+          edge_score_v20: number | null
+          est_possessions: number | null
+          game_id: string | null
+          game_start_time: string | null
+          headshot_url: string | null
+          hit_l10: number | null
+          hit_l20: number | null
+          home_abbr: string | null
+          id: string | null
+          is_valid_live_player: boolean | null
+          league: string | null
+          line: number | null
+          live_pie: number | null
+          microbars: Json | null
+          mu: number | null
+          odds: number | null
+          one_liner: string | null
+          p_implied: number | null
+          p_model: number | null
+          pace_mu_adjust: number | null
+          pace_sigma_adjust: number | null
+          pie_numerator: number | null
+          player_id: string | null
+          player_name: string | null
+          player_team: string | null
+          plus_minus: number | null
+          pred_ts: string | null
+          prop_type: string | null
+          risk: number | null
+          side: string | null
+          sigma: number | null
+          streak: number | null
+          transit_boost_factor: number | null
+          updated_at: string | null
+          validity_minutes: number | null
+          volatility_shift: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "nebula_prop_predictions_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "nebula_prop_predictions_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "v_current_game_players"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "nebula_prop_predictions_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "v_game_live_state"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "nebula_prop_predictions_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "v_oracle_player_validity"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "nebula_prop_predictions_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "nebula_prop_predictions_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "v_current_game_players"
+            referencedColumns: ["player_id"]
+          },
+          {
+            foreignKeyName: "nebula_prop_predictions_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "v_oracle_player_validity"
+            referencedColumns: ["player_id"]
           },
         ]
       }

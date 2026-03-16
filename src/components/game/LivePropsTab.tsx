@@ -216,7 +216,13 @@ export function LivePropsTab({ gameId, homeAbbr, awayAbbr, isLive }: Props) {
         .order("edge_score", { ascending: false })
         .limit(50);
       const rows = (data || []) as unknown as TopProp[];
-      return resolveOverlayPlayerNames(rows);
+      const resolved = await resolveOverlayPlayerNames(rows);
+      // Filter: only players on one of the two teams in this game
+      return resolved.filter(p => {
+        if (!p.player_team) return true;
+        const team = p.player_team.toUpperCase();
+        return team === homeAbbr.toUpperCase() || team === awayAbbr.toUpperCase();
+      });
     },
     staleTime: 30_000,
     refetchInterval: isLive ? 30_000 : false,
