@@ -8165,6 +8165,27 @@ export type Database = {
             referencedRelation: "v_latest_normalized_pbp_events"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "visual_event_queue_normalized_event_id_fkey"
+            columns: ["normalized_event_id"]
+            isOneToOne: false
+            referencedRelation: "v_pbp_possession_change_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "visual_event_queue_normalized_event_id_fkey"
+            columns: ["normalized_event_id"]
+            isOneToOne: false
+            referencedRelation: "v_pbp_possession_end_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "visual_event_queue_normalized_event_id_fkey"
+            columns: ["normalized_event_id"]
+            isOneToOne: false
+            referencedRelation: "v_pbp_scoring_events"
+            referencedColumns: ["id"]
+          },
         ]
       }
     }
@@ -10622,6 +10643,141 @@ export type Database = {
         }
         Relationships: []
       }
+      v_pbp_possession_change_events: {
+        Row: {
+          clock_display: string | null
+          clock_seconds_remaining: number | null
+          created_at: string | null
+          event_index: number | null
+          event_subtype: string | null
+          event_type: string | null
+          game_id: string | null
+          id: string | null
+          opponent_team_id: string | null
+          period_number: number | null
+          possession_result: string | null
+          sequence_number: number | null
+          team_id: string | null
+        }
+        Insert: {
+          clock_display?: string | null
+          clock_seconds_remaining?: number | null
+          created_at?: string | null
+          event_index?: number | null
+          event_subtype?: string | null
+          event_type?: string | null
+          game_id?: string | null
+          id?: string | null
+          opponent_team_id?: string | null
+          period_number?: number | null
+          possession_result?: string | null
+          sequence_number?: number | null
+          team_id?: string | null
+        }
+        Update: {
+          clock_display?: string | null
+          clock_seconds_remaining?: number | null
+          created_at?: string | null
+          event_index?: number | null
+          event_subtype?: string | null
+          event_type?: string | null
+          game_id?: string | null
+          id?: string | null
+          opponent_team_id?: string | null
+          period_number?: number | null
+          possession_result?: string | null
+          sequence_number?: number | null
+          team_id?: string | null
+        }
+        Relationships: []
+      }
+      v_pbp_possession_end_events: {
+        Row: {
+          clock_seconds_remaining: number | null
+          event_index: number | null
+          event_subtype: string | null
+          event_type: string | null
+          game_id: string | null
+          id: string | null
+          opponent_team_id: string | null
+          period_number: number | null
+          possession_end_flag: number | null
+          sequence_number: number | null
+          team_id: string | null
+        }
+        Insert: {
+          clock_seconds_remaining?: number | null
+          event_index?: number | null
+          event_subtype?: string | null
+          event_type?: string | null
+          game_id?: string | null
+          id?: string | null
+          opponent_team_id?: string | null
+          period_number?: number | null
+          possession_end_flag?: never
+          sequence_number?: number | null
+          team_id?: string | null
+        }
+        Update: {
+          clock_seconds_remaining?: number | null
+          event_index?: number | null
+          event_subtype?: string | null
+          event_type?: string | null
+          game_id?: string | null
+          id?: string | null
+          opponent_team_id?: string | null
+          period_number?: number | null
+          possession_end_flag?: never
+          sequence_number?: number | null
+          team_id?: string | null
+        }
+        Relationships: []
+      }
+      v_pbp_scoring_events: {
+        Row: {
+          clock_display: string | null
+          clock_seconds_remaining: number | null
+          created_at: string | null
+          event_index: number | null
+          event_subtype: string | null
+          event_type: string | null
+          game_id: string | null
+          id: string | null
+          period_number: number | null
+          points_scored: number | null
+          sequence_number: number | null
+          team_id: string | null
+        }
+        Insert: {
+          clock_display?: string | null
+          clock_seconds_remaining?: number | null
+          created_at?: string | null
+          event_index?: number | null
+          event_subtype?: string | null
+          event_type?: string | null
+          game_id?: string | null
+          id?: string | null
+          period_number?: number | null
+          points_scored?: number | null
+          sequence_number?: number | null
+          team_id?: string | null
+        }
+        Update: {
+          clock_display?: string | null
+          clock_seconds_remaining?: number | null
+          created_at?: string | null
+          event_index?: number | null
+          event_subtype?: string | null
+          event_type?: string | null
+          game_id?: string | null
+          id?: string | null
+          period_number?: number | null
+          points_scored?: number | null
+          sequence_number?: number | null
+          team_id?: string | null
+        }
+        Relationships: []
+      }
       v_prop_overlay_enhanced: {
         Row: {
           astro: Json | null
@@ -10738,9 +10894,24 @@ export type Database = {
         Returns: undefined
       }
       american_to_break_even_prob: { Args: { odds: number }; Returns: number }
+      calc_drought_seconds: {
+        Args: {
+          p_current_clock: number
+          p_current_period: number
+          p_last_clock: number
+          p_last_period: number
+        }
+        Returns: number
+      }
       ce_randn: { Args: never; Returns: number }
       ce_uuid_to_bigint: { Args: { p_text: string }; Returns: number }
+      cleanup_visual_event_queue: { Args: never; Returns: undefined }
       f_unaccent: { Args: { "": string }; Returns: string }
+      format_seconds_mmss: { Args: { p_seconds: number }; Returns: string }
+      get_elapsed_game_seconds: {
+        Args: { p_clock_remaining: number; p_period: number }
+        Returns: number
+      }
       get_next_visual_event: {
         Args: { p_game_id: string }
         Returns: {
@@ -10761,6 +10932,7 @@ export type Database = {
           zone_key: string
         }[]
       }
+      get_pace_band: { Args: { p_pace: number }; Returns: string }
       get_public_profiles: {
         Args: { user_ids: string[] }
         Returns: {
@@ -10800,6 +10972,14 @@ export type Database = {
       }
       is_conversation_member: {
         Args: { _conversation_id: string; _user_id: string }
+        Returns: boolean
+      }
+      is_empty_possession_event: {
+        Args: { p_event_type: string; p_points: number }
+        Returns: boolean
+      }
+      is_possession_end_event: {
+        Args: { p_event_subtype: string; p_event_type: string }
         Returns: boolean
       }
       merge_players: {
@@ -10909,6 +11089,10 @@ export type Database = {
       }
       settle_bets_on_game: { Args: { p_game_id: string }; Returns: undefined }
       sync_live_scores_via_api: { Args: never; Returns: Json }
+      trim_visual_event_queue: {
+        Args: { p_game_id: string }
+        Returns: undefined
+      }
       tt_advance_serve_state: {
         Args: {
           a_after: number
@@ -11034,6 +11218,7 @@ export type Database = {
         Returns: number
       }
       unaccent: { Args: { "": string }; Returns: string }
+      validate_event_type: { Args: { p_event_type: string }; Returns: string }
     }
     Enums: {
       app_role: "admin" | "moderator" | "user"
