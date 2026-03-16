@@ -257,7 +257,7 @@ export function useSlipLiveSync(picks: Pick[], enabled = true) {
         .from("games")
         .select("id, status")
         .in("id", gameIds)
-        .in("status", ["live", "in_progress"]);
+        .in("status", [...LIVE_STATUSES]);
       return data?.map(g => g.id) || [];
     },
     enabled: enabled && gameIds.length > 0,
