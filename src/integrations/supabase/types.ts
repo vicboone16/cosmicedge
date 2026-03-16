@@ -325,29 +325,8 @@ export type Database = {
             foreignKeyName: "astra_opportunity_feed_player_id_fkey"
             columns: ["player_id"]
             isOneToOne: false
-            referencedRelation: "pbp_event_participants"
-            referencedColumns: ["participant_player_id"]
-          },
-          {
-            foreignKeyName: "astra_opportunity_feed_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
-            referencedRelation: "pbp_event_participants"
-            referencedColumns: ["primary_player_id"]
-          },
-          {
-            foreignKeyName: "astra_opportunity_feed_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
             referencedRelation: "pbp_parsed_events"
             referencedColumns: ["resolved_player_id"]
-          },
-          {
-            foreignKeyName: "astra_opportunity_feed_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
-            referencedRelation: "pbp_substitution_events"
-            referencedColumns: ["participant_player_id"]
           },
           {
             foreignKeyName: "astra_opportunity_feed_player_id_fkey"
@@ -646,29 +625,8 @@ export type Database = {
             foreignKeyName: "bet_slip_picks_player_id_fkey"
             columns: ["player_id"]
             isOneToOne: false
-            referencedRelation: "pbp_event_participants"
-            referencedColumns: ["participant_player_id"]
-          },
-          {
-            foreignKeyName: "bet_slip_picks_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
-            referencedRelation: "pbp_event_participants"
-            referencedColumns: ["primary_player_id"]
-          },
-          {
-            foreignKeyName: "bet_slip_picks_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
             referencedRelation: "pbp_parsed_events"
             referencedColumns: ["resolved_player_id"]
-          },
-          {
-            foreignKeyName: "bet_slip_picks_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
-            referencedRelation: "pbp_substitution_events"
-            referencedColumns: ["participant_player_id"]
           },
           {
             foreignKeyName: "bet_slip_picks_player_id_fkey"
@@ -918,29 +876,8 @@ export type Database = {
             foreignKeyName: "bets_player_id_fkey"
             columns: ["player_id"]
             isOneToOne: false
-            referencedRelation: "pbp_event_participants"
-            referencedColumns: ["participant_player_id"]
-          },
-          {
-            foreignKeyName: "bets_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
-            referencedRelation: "pbp_event_participants"
-            referencedColumns: ["primary_player_id"]
-          },
-          {
-            foreignKeyName: "bets_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
             referencedRelation: "pbp_parsed_events"
             referencedColumns: ["resolved_player_id"]
-          },
-          {
-            foreignKeyName: "bets_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
-            referencedRelation: "pbp_substitution_events"
-            referencedColumns: ["participant_player_id"]
           },
           {
             foreignKeyName: "bets_player_id_fkey"
@@ -1762,29 +1699,8 @@ export type Database = {
             foreignKeyName: "custom_model_runs_player_id_fkey"
             columns: ["player_id"]
             isOneToOne: false
-            referencedRelation: "pbp_event_participants"
-            referencedColumns: ["participant_player_id"]
-          },
-          {
-            foreignKeyName: "custom_model_runs_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
-            referencedRelation: "pbp_event_participants"
-            referencedColumns: ["primary_player_id"]
-          },
-          {
-            foreignKeyName: "custom_model_runs_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
             referencedRelation: "pbp_parsed_events"
             referencedColumns: ["resolved_player_id"]
-          },
-          {
-            foreignKeyName: "custom_model_runs_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
-            referencedRelation: "pbp_substitution_events"
-            referencedColumns: ["participant_player_id"]
           },
           {
             foreignKeyName: "custom_model_runs_player_id_fkey"
@@ -1902,29 +1818,8 @@ export type Database = {
             foreignKeyName: "depth_charts_player_id_fkey"
             columns: ["player_id"]
             isOneToOne: false
-            referencedRelation: "pbp_event_participants"
-            referencedColumns: ["participant_player_id"]
-          },
-          {
-            foreignKeyName: "depth_charts_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
-            referencedRelation: "pbp_event_participants"
-            referencedColumns: ["primary_player_id"]
-          },
-          {
-            foreignKeyName: "depth_charts_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
             referencedRelation: "pbp_parsed_events"
             referencedColumns: ["resolved_player_id"]
-          },
-          {
-            foreignKeyName: "depth_charts_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
-            referencedRelation: "pbp_substitution_events"
-            referencedColumns: ["participant_player_id"]
           },
           {
             foreignKeyName: "depth_charts_player_id_fkey"
@@ -2669,29 +2564,8 @@ export type Database = {
             foreignKeyName: "injuries_player_id_fkey"
             columns: ["player_id"]
             isOneToOne: false
-            referencedRelation: "pbp_event_participants"
-            referencedColumns: ["participant_player_id"]
-          },
-          {
-            foreignKeyName: "injuries_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
-            referencedRelation: "pbp_event_participants"
-            referencedColumns: ["primary_player_id"]
-          },
-          {
-            foreignKeyName: "injuries_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
             referencedRelation: "pbp_parsed_events"
             referencedColumns: ["resolved_player_id"]
-          },
-          {
-            foreignKeyName: "injuries_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
-            referencedRelation: "pbp_substitution_events"
-            referencedColumns: ["participant_player_id"]
           },
           {
             foreignKeyName: "injuries_player_id_fkey"
@@ -2780,29 +2654,8 @@ export type Database = {
             foreignKeyName: "intel_notes_player_id_fkey"
             columns: ["player_id"]
             isOneToOne: false
-            referencedRelation: "pbp_event_participants"
-            referencedColumns: ["participant_player_id"]
-          },
-          {
-            foreignKeyName: "intel_notes_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
-            referencedRelation: "pbp_event_participants"
-            referencedColumns: ["primary_player_id"]
-          },
-          {
-            foreignKeyName: "intel_notes_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
             referencedRelation: "pbp_parsed_events"
             referencedColumns: ["resolved_player_id"]
-          },
-          {
-            foreignKeyName: "intel_notes_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
-            referencedRelation: "pbp_substitution_events"
-            referencedColumns: ["participant_player_id"]
           },
           {
             foreignKeyName: "intel_notes_player_id_fkey"
@@ -2995,29 +2848,8 @@ export type Database = {
             foreignKeyName: "live_prop_state_player_id_fkey"
             columns: ["player_id"]
             isOneToOne: false
-            referencedRelation: "pbp_event_participants"
-            referencedColumns: ["participant_player_id"]
-          },
-          {
-            foreignKeyName: "live_prop_state_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
-            referencedRelation: "pbp_event_participants"
-            referencedColumns: ["primary_player_id"]
-          },
-          {
-            foreignKeyName: "live_prop_state_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
             referencedRelation: "pbp_parsed_events"
             referencedColumns: ["resolved_player_id"]
-          },
-          {
-            foreignKeyName: "live_prop_state_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
-            referencedRelation: "pbp_substitution_events"
-            referencedColumns: ["participant_player_id"]
           },
           {
             foreignKeyName: "live_prop_state_player_id_fkey"
@@ -4153,29 +3985,8 @@ export type Database = {
             foreignKeyName: "nebula_prop_predictions_player_id_fkey"
             columns: ["player_id"]
             isOneToOne: false
-            referencedRelation: "pbp_event_participants"
-            referencedColumns: ["participant_player_id"]
-          },
-          {
-            foreignKeyName: "nebula_prop_predictions_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
-            referencedRelation: "pbp_event_participants"
-            referencedColumns: ["primary_player_id"]
-          },
-          {
-            foreignKeyName: "nebula_prop_predictions_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
             referencedRelation: "pbp_parsed_events"
             referencedColumns: ["resolved_player_id"]
-          },
-          {
-            foreignKeyName: "nebula_prop_predictions_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
-            referencedRelation: "pbp_substitution_events"
-            referencedColumns: ["participant_player_id"]
           },
           {
             foreignKeyName: "nebula_prop_predictions_player_id_fkey"
@@ -5080,29 +4891,8 @@ export type Database = {
             foreignKeyName: "play_by_play_assist_player_id_fkey"
             columns: ["assist_player_id"]
             isOneToOne: false
-            referencedRelation: "pbp_event_participants"
-            referencedColumns: ["participant_player_id"]
-          },
-          {
-            foreignKeyName: "play_by_play_assist_player_id_fkey"
-            columns: ["assist_player_id"]
-            isOneToOne: false
-            referencedRelation: "pbp_event_participants"
-            referencedColumns: ["primary_player_id"]
-          },
-          {
-            foreignKeyName: "play_by_play_assist_player_id_fkey"
-            columns: ["assist_player_id"]
-            isOneToOne: false
             referencedRelation: "pbp_parsed_events"
             referencedColumns: ["resolved_player_id"]
-          },
-          {
-            foreignKeyName: "play_by_play_assist_player_id_fkey"
-            columns: ["assist_player_id"]
-            isOneToOne: false
-            referencedRelation: "pbp_substitution_events"
-            referencedColumns: ["participant_player_id"]
           },
           {
             foreignKeyName: "play_by_play_assist_player_id_fkey"
@@ -5157,29 +4947,8 @@ export type Database = {
             foreignKeyName: "play_by_play_player_id_fkey"
             columns: ["player_id"]
             isOneToOne: false
-            referencedRelation: "pbp_event_participants"
-            referencedColumns: ["participant_player_id"]
-          },
-          {
-            foreignKeyName: "play_by_play_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
-            referencedRelation: "pbp_event_participants"
-            referencedColumns: ["primary_player_id"]
-          },
-          {
-            foreignKeyName: "play_by_play_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
             referencedRelation: "pbp_parsed_events"
             referencedColumns: ["resolved_player_id"]
-          },
-          {
-            foreignKeyName: "play_by_play_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
-            referencedRelation: "pbp_substitution_events"
-            referencedColumns: ["participant_player_id"]
           },
           {
             foreignKeyName: "play_by_play_player_id_fkey"
@@ -5373,29 +5142,8 @@ export type Database = {
             foreignKeyName: "player_game_stats_player_id_fkey"
             columns: ["player_id"]
             isOneToOne: false
-            referencedRelation: "pbp_event_participants"
-            referencedColumns: ["participant_player_id"]
-          },
-          {
-            foreignKeyName: "player_game_stats_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
-            referencedRelation: "pbp_event_participants"
-            referencedColumns: ["primary_player_id"]
-          },
-          {
-            foreignKeyName: "player_game_stats_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
             referencedRelation: "pbp_parsed_events"
             referencedColumns: ["resolved_player_id"]
-          },
-          {
-            foreignKeyName: "player_game_stats_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
-            referencedRelation: "pbp_substitution_events"
-            referencedColumns: ["participant_player_id"]
           },
           {
             foreignKeyName: "player_game_stats_player_id_fkey"
@@ -5477,29 +5225,8 @@ export type Database = {
             foreignKeyName: "player_news_player_id_fkey"
             columns: ["player_id"]
             isOneToOne: false
-            referencedRelation: "pbp_event_participants"
-            referencedColumns: ["participant_player_id"]
-          },
-          {
-            foreignKeyName: "player_news_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
-            referencedRelation: "pbp_event_participants"
-            referencedColumns: ["primary_player_id"]
-          },
-          {
-            foreignKeyName: "player_news_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
             referencedRelation: "pbp_parsed_events"
             referencedColumns: ["resolved_player_id"]
-          },
-          {
-            foreignKeyName: "player_news_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
-            referencedRelation: "pbp_substitution_events"
-            referencedColumns: ["participant_player_id"]
           },
           {
             foreignKeyName: "player_news_player_id_fkey"
@@ -5639,29 +5366,8 @@ export type Database = {
             foreignKeyName: "player_projections_player_id_fkey"
             columns: ["player_id"]
             isOneToOne: false
-            referencedRelation: "pbp_event_participants"
-            referencedColumns: ["participant_player_id"]
-          },
-          {
-            foreignKeyName: "player_projections_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
-            referencedRelation: "pbp_event_participants"
-            referencedColumns: ["primary_player_id"]
-          },
-          {
-            foreignKeyName: "player_projections_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
             referencedRelation: "pbp_parsed_events"
             referencedColumns: ["resolved_player_id"]
-          },
-          {
-            foreignKeyName: "player_projections_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
-            referencedRelation: "pbp_substitution_events"
-            referencedColumns: ["participant_player_id"]
           },
           {
             foreignKeyName: "player_projections_player_id_fkey"
@@ -5889,29 +5595,8 @@ export type Database = {
             foreignKeyName: "player_season_stats_player_id_fkey"
             columns: ["player_id"]
             isOneToOne: false
-            referencedRelation: "pbp_event_participants"
-            referencedColumns: ["participant_player_id"]
-          },
-          {
-            foreignKeyName: "player_season_stats_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
-            referencedRelation: "pbp_event_participants"
-            referencedColumns: ["primary_player_id"]
-          },
-          {
-            foreignKeyName: "player_season_stats_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
             referencedRelation: "pbp_parsed_events"
             referencedColumns: ["resolved_player_id"]
-          },
-          {
-            foreignKeyName: "player_season_stats_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
-            referencedRelation: "pbp_substitution_events"
-            referencedColumns: ["participant_player_id"]
           },
           {
             foreignKeyName: "player_season_stats_player_id_fkey"
@@ -7399,29 +7084,8 @@ export type Database = {
             foreignKeyName: "tracked_prop_shells_player_id_fkey"
             columns: ["player_id"]
             isOneToOne: false
-            referencedRelation: "pbp_event_participants"
-            referencedColumns: ["participant_player_id"]
-          },
-          {
-            foreignKeyName: "tracked_prop_shells_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
-            referencedRelation: "pbp_event_participants"
-            referencedColumns: ["primary_player_id"]
-          },
-          {
-            foreignKeyName: "tracked_prop_shells_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
             referencedRelation: "pbp_parsed_events"
             referencedColumns: ["resolved_player_id"]
-          },
-          {
-            foreignKeyName: "tracked_prop_shells_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
-            referencedRelation: "pbp_substitution_events"
-            referencedColumns: ["participant_player_id"]
           },
           {
             foreignKeyName: "tracked_prop_shells_player_id_fkey"
@@ -7546,29 +7210,8 @@ export type Database = {
             foreignKeyName: "tracked_props_player_id_fkey"
             columns: ["player_id"]
             isOneToOne: false
-            referencedRelation: "pbp_event_participants"
-            referencedColumns: ["participant_player_id"]
-          },
-          {
-            foreignKeyName: "tracked_props_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
-            referencedRelation: "pbp_event_participants"
-            referencedColumns: ["primary_player_id"]
-          },
-          {
-            foreignKeyName: "tracked_props_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
             referencedRelation: "pbp_parsed_events"
             referencedColumns: ["resolved_player_id"]
-          },
-          {
-            foreignKeyName: "tracked_props_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
-            referencedRelation: "pbp_substitution_events"
-            referencedColumns: ["participant_player_id"]
           },
           {
             foreignKeyName: "tracked_props_player_id_fkey"
@@ -7638,29 +7281,8 @@ export type Database = {
             foreignKeyName: "trending_players_player_id_fkey"
             columns: ["player_id"]
             isOneToOne: false
-            referencedRelation: "pbp_event_participants"
-            referencedColumns: ["participant_player_id"]
-          },
-          {
-            foreignKeyName: "trending_players_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
-            referencedRelation: "pbp_event_participants"
-            referencedColumns: ["primary_player_id"]
-          },
-          {
-            foreignKeyName: "trending_players_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
             referencedRelation: "pbp_parsed_events"
             referencedColumns: ["resolved_player_id"]
-          },
-          {
-            foreignKeyName: "trending_players_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
-            referencedRelation: "pbp_substitution_events"
-            referencedColumns: ["participant_player_id"]
           },
           {
             foreignKeyName: "trending_players_player_id_fkey"
@@ -9211,29 +8833,8 @@ export type Database = {
             foreignKeyName: "player_game_stats_player_id_fkey"
             columns: ["player_id"]
             isOneToOne: false
-            referencedRelation: "pbp_event_participants"
-            referencedColumns: ["participant_player_id"]
-          },
-          {
-            foreignKeyName: "player_game_stats_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
-            referencedRelation: "pbp_event_participants"
-            referencedColumns: ["primary_player_id"]
-          },
-          {
-            foreignKeyName: "player_game_stats_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
             referencedRelation: "pbp_parsed_events"
             referencedColumns: ["resolved_player_id"]
-          },
-          {
-            foreignKeyName: "player_game_stats_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
-            referencedRelation: "pbp_substitution_events"
-            referencedColumns: ["participant_player_id"]
           },
           {
             foreignKeyName: "player_game_stats_player_id_fkey"
@@ -9432,29 +9033,8 @@ export type Database = {
             foreignKeyName: "nebula_prop_predictions_player_id_fkey"
             columns: ["player_id"]
             isOneToOne: false
-            referencedRelation: "pbp_event_participants"
-            referencedColumns: ["participant_player_id"]
-          },
-          {
-            foreignKeyName: "nebula_prop_predictions_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
-            referencedRelation: "pbp_event_participants"
-            referencedColumns: ["primary_player_id"]
-          },
-          {
-            foreignKeyName: "nebula_prop_predictions_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
             referencedRelation: "pbp_parsed_events"
             referencedColumns: ["resolved_player_id"]
-          },
-          {
-            foreignKeyName: "nebula_prop_predictions_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
-            referencedRelation: "pbp_substitution_events"
-            referencedColumns: ["participant_player_id"]
           },
           {
             foreignKeyName: "nebula_prop_predictions_player_id_fkey"
@@ -9531,29 +9111,8 @@ export type Database = {
             foreignKeyName: "nebula_prop_predictions_player_id_fkey"
             columns: ["player_id"]
             isOneToOne: false
-            referencedRelation: "pbp_event_participants"
-            referencedColumns: ["participant_player_id"]
-          },
-          {
-            foreignKeyName: "nebula_prop_predictions_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
-            referencedRelation: "pbp_event_participants"
-            referencedColumns: ["primary_player_id"]
-          },
-          {
-            foreignKeyName: "nebula_prop_predictions_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
             referencedRelation: "pbp_parsed_events"
             referencedColumns: ["resolved_player_id"]
-          },
-          {
-            foreignKeyName: "nebula_prop_predictions_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
-            referencedRelation: "pbp_substitution_events"
-            referencedColumns: ["participant_player_id"]
           },
           {
             foreignKeyName: "nebula_prop_predictions_player_id_fkey"
@@ -9667,29 +9226,8 @@ export type Database = {
             foreignKeyName: "nebula_prop_predictions_player_id_fkey"
             columns: ["player_id"]
             isOneToOne: false
-            referencedRelation: "pbp_event_participants"
-            referencedColumns: ["participant_player_id"]
-          },
-          {
-            foreignKeyName: "nebula_prop_predictions_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
-            referencedRelation: "pbp_event_participants"
-            referencedColumns: ["primary_player_id"]
-          },
-          {
-            foreignKeyName: "nebula_prop_predictions_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
             referencedRelation: "pbp_parsed_events"
             referencedColumns: ["resolved_player_id"]
-          },
-          {
-            foreignKeyName: "nebula_prop_predictions_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
-            referencedRelation: "pbp_substitution_events"
-            referencedColumns: ["participant_player_id"]
           },
           {
             foreignKeyName: "nebula_prop_predictions_player_id_fkey"
@@ -9790,29 +9328,8 @@ export type Database = {
             foreignKeyName: "nebula_prop_predictions_player_id_fkey"
             columns: ["player_id"]
             isOneToOne: false
-            referencedRelation: "pbp_event_participants"
-            referencedColumns: ["participant_player_id"]
-          },
-          {
-            foreignKeyName: "nebula_prop_predictions_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
-            referencedRelation: "pbp_event_participants"
-            referencedColumns: ["primary_player_id"]
-          },
-          {
-            foreignKeyName: "nebula_prop_predictions_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
             referencedRelation: "pbp_parsed_events"
             referencedColumns: ["resolved_player_id"]
-          },
-          {
-            foreignKeyName: "nebula_prop_predictions_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
-            referencedRelation: "pbp_substitution_events"
-            referencedColumns: ["participant_player_id"]
           },
           {
             foreignKeyName: "nebula_prop_predictions_player_id_fkey"
@@ -9836,24 +9353,6 @@ export type Database = {
             referencedColumns: ["player_id"]
           },
         ]
-      }
-      pbp_event_participants: {
-        Row: {
-          clock: string | null
-          description: string | null
-          event_id: number | null
-          event_type: string | null
-          game_id: string | null
-          participant_bdl_id: string | null
-          participant_order: number | null
-          participant_player_id: string | null
-          period: number | null
-          primary_bdl_player_id: string | null
-          primary_player_id: string | null
-          team_id: string | null
-          wallclock: string | null
-        }
-        Relationships: []
       }
       pbp_parsed_events: {
         Row: {
@@ -9889,22 +9388,6 @@ export type Database = {
         }
         Relationships: []
       }
-      pbp_substitution_events: {
-        Row: {
-          clock: string | null
-          description: string | null
-          event_id: number | null
-          game_id: string | null
-          participant_bdl_id: string | null
-          participant_order: number | null
-          participant_player_id: string | null
-          period: number | null
-          substitution_role_guess: string | null
-          team_id: string | null
-          wallclock: string | null
-        }
-        Relationships: []
-      }
       play_by_play_ordered: {
         Row: {
           assist_player_id: string | null
@@ -9930,29 +9413,8 @@ export type Database = {
             foreignKeyName: "play_by_play_assist_player_id_fkey"
             columns: ["assist_player_id"]
             isOneToOne: false
-            referencedRelation: "pbp_event_participants"
-            referencedColumns: ["participant_player_id"]
-          },
-          {
-            foreignKeyName: "play_by_play_assist_player_id_fkey"
-            columns: ["assist_player_id"]
-            isOneToOne: false
-            referencedRelation: "pbp_event_participants"
-            referencedColumns: ["primary_player_id"]
-          },
-          {
-            foreignKeyName: "play_by_play_assist_player_id_fkey"
-            columns: ["assist_player_id"]
-            isOneToOne: false
             referencedRelation: "pbp_parsed_events"
             referencedColumns: ["resolved_player_id"]
-          },
-          {
-            foreignKeyName: "play_by_play_assist_player_id_fkey"
-            columns: ["assist_player_id"]
-            isOneToOne: false
-            referencedRelation: "pbp_substitution_events"
-            referencedColumns: ["participant_player_id"]
           },
           {
             foreignKeyName: "play_by_play_assist_player_id_fkey"
@@ -10007,29 +9469,8 @@ export type Database = {
             foreignKeyName: "play_by_play_player_id_fkey"
             columns: ["player_id"]
             isOneToOne: false
-            referencedRelation: "pbp_event_participants"
-            referencedColumns: ["participant_player_id"]
-          },
-          {
-            foreignKeyName: "play_by_play_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
-            referencedRelation: "pbp_event_participants"
-            referencedColumns: ["primary_player_id"]
-          },
-          {
-            foreignKeyName: "play_by_play_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
             referencedRelation: "pbp_parsed_events"
             referencedColumns: ["resolved_player_id"]
-          },
-          {
-            foreignKeyName: "play_by_play_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
-            referencedRelation: "pbp_substitution_events"
-            referencedColumns: ["participant_player_id"]
           },
           {
             foreignKeyName: "play_by_play_player_id_fkey"
@@ -10080,29 +9521,8 @@ export type Database = {
             foreignKeyName: "play_by_play_assist_player_id_fkey"
             columns: ["assist_player_id"]
             isOneToOne: false
-            referencedRelation: "pbp_event_participants"
-            referencedColumns: ["participant_player_id"]
-          },
-          {
-            foreignKeyName: "play_by_play_assist_player_id_fkey"
-            columns: ["assist_player_id"]
-            isOneToOne: false
-            referencedRelation: "pbp_event_participants"
-            referencedColumns: ["primary_player_id"]
-          },
-          {
-            foreignKeyName: "play_by_play_assist_player_id_fkey"
-            columns: ["assist_player_id"]
-            isOneToOne: false
             referencedRelation: "pbp_parsed_events"
             referencedColumns: ["resolved_player_id"]
-          },
-          {
-            foreignKeyName: "play_by_play_assist_player_id_fkey"
-            columns: ["assist_player_id"]
-            isOneToOne: false
-            referencedRelation: "pbp_substitution_events"
-            referencedColumns: ["participant_player_id"]
           },
           {
             foreignKeyName: "play_by_play_assist_player_id_fkey"
@@ -10157,29 +9577,8 @@ export type Database = {
             foreignKeyName: "play_by_play_player_id_fkey"
             columns: ["player_id"]
             isOneToOne: false
-            referencedRelation: "pbp_event_participants"
-            referencedColumns: ["participant_player_id"]
-          },
-          {
-            foreignKeyName: "play_by_play_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
-            referencedRelation: "pbp_event_participants"
-            referencedColumns: ["primary_player_id"]
-          },
-          {
-            foreignKeyName: "play_by_play_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
             referencedRelation: "pbp_parsed_events"
             referencedColumns: ["resolved_player_id"]
-          },
-          {
-            foreignKeyName: "play_by_play_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
-            referencedRelation: "pbp_substitution_events"
-            referencedColumns: ["participant_player_id"]
           },
           {
             foreignKeyName: "play_by_play_player_id_fkey"
@@ -10296,29 +9695,8 @@ export type Database = {
             foreignKeyName: "player_game_stats_player_id_fkey"
             columns: ["player_id"]
             isOneToOne: false
-            referencedRelation: "pbp_event_participants"
-            referencedColumns: ["participant_player_id"]
-          },
-          {
-            foreignKeyName: "player_game_stats_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
-            referencedRelation: "pbp_event_participants"
-            referencedColumns: ["primary_player_id"]
-          },
-          {
-            foreignKeyName: "player_game_stats_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
             referencedRelation: "pbp_parsed_events"
             referencedColumns: ["resolved_player_id"]
-          },
-          {
-            foreignKeyName: "player_game_stats_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
-            referencedRelation: "pbp_substitution_events"
-            referencedColumns: ["participant_player_id"]
           },
           {
             foreignKeyName: "player_game_stats_player_id_fkey"
@@ -10747,29 +10125,8 @@ export type Database = {
             foreignKeyName: "player_game_stats_player_id_fkey"
             columns: ["player_id"]
             isOneToOne: false
-            referencedRelation: "pbp_event_participants"
-            referencedColumns: ["participant_player_id"]
-          },
-          {
-            foreignKeyName: "player_game_stats_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
-            referencedRelation: "pbp_event_participants"
-            referencedColumns: ["primary_player_id"]
-          },
-          {
-            foreignKeyName: "player_game_stats_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
             referencedRelation: "pbp_parsed_events"
             referencedColumns: ["resolved_player_id"]
-          },
-          {
-            foreignKeyName: "player_game_stats_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
-            referencedRelation: "pbp_substitution_events"
-            referencedColumns: ["participant_player_id"]
           },
           {
             foreignKeyName: "player_game_stats_player_id_fkey"
@@ -11231,29 +10588,8 @@ export type Database = {
             foreignKeyName: "nebula_prop_predictions_player_id_fkey"
             columns: ["player_id"]
             isOneToOne: false
-            referencedRelation: "pbp_event_participants"
-            referencedColumns: ["participant_player_id"]
-          },
-          {
-            foreignKeyName: "nebula_prop_predictions_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
-            referencedRelation: "pbp_event_participants"
-            referencedColumns: ["primary_player_id"]
-          },
-          {
-            foreignKeyName: "nebula_prop_predictions_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
             referencedRelation: "pbp_parsed_events"
             referencedColumns: ["resolved_player_id"]
-          },
-          {
-            foreignKeyName: "nebula_prop_predictions_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
-            referencedRelation: "pbp_substitution_events"
-            referencedColumns: ["participant_player_id"]
           },
           {
             foreignKeyName: "nebula_prop_predictions_player_id_fkey"
