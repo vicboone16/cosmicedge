@@ -1,0 +1,56 @@
+-- Fix schema diff: recreate NFL views with explicit column lists to avoid s.player_id resolution issues
+DROP VIEW IF EXISTS v_nfl_player_quarter_metrics CASCADE;
+DROP VIEW IF EXISTS v_nfl_player_game_metrics CASCADE;
+
+CREATE OR REPLACE VIEW public.v_nfl_player_game_metrics AS
+SELECT
+  s.game_id,
+  s.player_id,
+  s.player_name,
+  s.team_abbr,
+  s.targets,
+  s.receptions,
+  s.receiving_yards,
+  s.receiving_tds,
+  s.receiving_first_downs,
+  s.longest_reception,
+  s.rush_attempts,
+  s.rushing_yards,
+  s.rushing_tds,
+  s.rushing_first_downs,
+  s.longest_rush,
+  s.passing_yards,
+  s.interceptions,
+  s.passing_attempts,
+  s.completions,
+  s.passing_tds,
+  s.raw_json,
+  s.created_at,
+  s.updated_at,
+  CASE WHEN s.receptions > 0 THEN ROUND(s.receiving_yards::numeric / s.receptions, 1) ELSE 0 END AS receiving_yards_per_reception,
+  CASE WHEN s.targets > 0 THEN ROUND(s.receptions::numeric / s.targets * 100, 1) ELSE 0 END AS catch_percentage,
+  CASE WHEN s.targets > 0 THEN ROUND(s.receiving_yards::numeric / s.targets, 1) ELSE 0 END AS receiving_yards_per_target,
+  CASE WHEN s.rush_attempts > 0 THEN ROUND(s.rushing_yards::numeric / s.rush_attempts, 1) ELSE 0 END AS rushing_yards_per_attempt,
+  (s.rushing_tds + s.receiving_tds) AS rush_rec_tds,
+  (s.rushing_yards + s.receiving_yards) AS rush_rec_yards,
+  g.season_year,
+  g.week,
+  g.home_team_name,
+  g.away_team_name,
+  g.game_time
+FROM public.nfl_player_game_stats s
+JOIN public.nfl_games g ON g.game_id = s.game_id;
+
+CREATE OR REPLACE VIEW public.v_nfl_player_quarter_metrics AS
+SELECT
+  pp.game_id,
+  pp.quarter,
+  ppl.player_id,
+  ppl.player_name,
+  pp.possession_abbr AS team_abbr,
+  COUNT(*) AS total_plays,
+  COUNT(*) FILTER (WHERE pp.is_scoring_play) AS scoring_plays,
+  COUNT(*) FILTER (WHERE pp.is_touchdown) AS touchdowns
+FROM public.nfl_play_by_play pp
+JOIN public.nfl_play_by_play_players ppl ON pp.game_id = ppl.game_id AND pp.sequence = ppl.sequence
+GROUP BY pp.game_id, pp.quarter, ppl.player_id, ppl.player_name, pp.possession_abbr;
