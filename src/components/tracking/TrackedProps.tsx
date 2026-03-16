@@ -55,12 +55,22 @@ const TRACKED_STAT_MAP: Record<string, string[]> = {
   turnovers: ["turnovers"], tov: ["turnovers"],
   threes: ["three_made"], three_made: ["three_made"], "3pm": ["three_made"],
   pra: ["points", "rebounds", "assists"],
+  "pts+reb+ast": ["points", "rebounds", "assists"],
+  "pts+rebs+asts": ["points", "rebounds", "assists"],
   player_points_rebounds_assists: ["points", "rebounds", "assists"],
   player_points_rebounds: ["points", "rebounds"],
+  "pts+reb": ["points", "rebounds"],
   player_points_assists: ["points", "assists"],
+  "pts+ast": ["points", "assists"],
   player_rebounds_assists: ["rebounds", "assists"],
+  "reb+ast": ["rebounds", "assists"],
+  "rebs+asts": ["rebounds", "assists"],
   player_steals_blocks: ["steals", "blocks"],
+  "stl+blk": ["steals", "blocks"],
+  "blks+stls": ["steals", "blocks"],
   fouls: ["personal_fouls"], personal_fouls: ["personal_fouls"],
+  fantasy_score: ["fantasy_points"], "fantasy score": ["fantasy_points"],
+  fantasy_points: ["fantasy_points"],
 };
 
 /* ─── Status label colors ─── */
