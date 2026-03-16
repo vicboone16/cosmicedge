@@ -2721,6 +2721,8 @@ export type Database = {
           away_fouls_period: number | null
           away_score: number | null
           away_team_id: string | null
+          bonus_danger_away: boolean
+          bonus_danger_home: boolean
           bonus_danger_team_id: string | null
           clock_display: string | null
           clock_seconds_remaining: number | null
@@ -2748,6 +2750,8 @@ export type Database = {
           last_source_event_id: string | null
           momentum_score: number | null
           momentum_team_id: string | null
+          off_reb_last_5min_away: number
+          off_reb_last_5min_home: number
           oreb_away_period: number | null
           oreb_home_period: number | null
           oreb_pressure_team_id: string | null
@@ -2761,6 +2765,7 @@ export type Database = {
           recent_run_home: number | null
           recent_scoring_drought_away_sec: number | null
           recent_scoring_drought_home_sec: number | null
+          second_chance_pressure_team_id: string | null
           sync_latency_ms: number | null
           updated_at: string | null
         }
@@ -2769,6 +2774,8 @@ export type Database = {
           away_fouls_period?: number | null
           away_score?: number | null
           away_team_id?: string | null
+          bonus_danger_away?: boolean
+          bonus_danger_home?: boolean
           bonus_danger_team_id?: string | null
           clock_display?: string | null
           clock_seconds_remaining?: number | null
@@ -2796,6 +2803,8 @@ export type Database = {
           last_source_event_id?: string | null
           momentum_score?: number | null
           momentum_team_id?: string | null
+          off_reb_last_5min_away?: number
+          off_reb_last_5min_home?: number
           oreb_away_period?: number | null
           oreb_home_period?: number | null
           oreb_pressure_team_id?: string | null
@@ -2809,6 +2818,7 @@ export type Database = {
           recent_run_home?: number | null
           recent_scoring_drought_away_sec?: number | null
           recent_scoring_drought_home_sec?: number | null
+          second_chance_pressure_team_id?: string | null
           sync_latency_ms?: number | null
           updated_at?: string | null
         }
@@ -2817,6 +2827,8 @@ export type Database = {
           away_fouls_period?: number | null
           away_score?: number | null
           away_team_id?: string | null
+          bonus_danger_away?: boolean
+          bonus_danger_home?: boolean
           bonus_danger_team_id?: string | null
           clock_display?: string | null
           clock_seconds_remaining?: number | null
@@ -2844,6 +2856,8 @@ export type Database = {
           last_source_event_id?: string | null
           momentum_score?: number | null
           momentum_team_id?: string | null
+          off_reb_last_5min_away?: number
+          off_reb_last_5min_home?: number
           oreb_away_period?: number | null
           oreb_home_period?: number | null
           oreb_pressure_team_id?: string | null
@@ -2857,6 +2871,7 @@ export type Database = {
           recent_run_home?: number | null
           recent_scoring_drought_away_sec?: number | null
           recent_scoring_drought_home_sec?: number | null
+          second_chance_pressure_team_id?: string | null
           sync_latency_ms?: number | null
           updated_at?: string | null
         }
@@ -8199,7 +8214,28 @@ export type Database = {
             foreignKeyName: "visual_event_queue_normalized_event_id_fkey"
             columns: ["normalized_event_id"]
             isOneToOne: false
+            referencedRelation: "v_pbp_fg_makes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "visual_event_queue_normalized_event_id_fkey"
+            columns: ["normalized_event_id"]
+            isOneToOne: false
+            referencedRelation: "v_pbp_fg_misses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "visual_event_queue_normalized_event_id_fkey"
+            columns: ["normalized_event_id"]
+            isOneToOne: false
             referencedRelation: "v_pbp_fg_scoring_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "visual_event_queue_normalized_event_id_fkey"
+            columns: ["normalized_event_id"]
+            isOneToOne: false
+            referencedRelation: "v_pbp_offensive_rebounds"
             referencedColumns: ["id"]
           },
           {
@@ -8221,6 +8257,13 @@ export type Database = {
             columns: ["normalized_event_id"]
             isOneToOne: false
             referencedRelation: "v_pbp_scoring_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "visual_event_queue_normalized_event_id_fkey"
+            columns: ["normalized_event_id"]
+            isOneToOne: false
+            referencedRelation: "v_pbp_team_foul_events"
             referencedColumns: ["id"]
           },
         ]
@@ -10123,12 +10166,12 @@ export type Database = {
           away_fouls_period: number | null
           away_score: number | null
           away_team_id: string | null
+          bonus_danger_away: boolean | null
+          bonus_danger_home: boolean | null
           bonus_danger_team_id: string | null
           clock_display: string | null
           drought_away_mmss: string | null
           drought_home_mmss: string | null
-          empty_poss_away_last_n: number | null
-          empty_poss_home_last_n: number | null
           empty_possessions_away: number | null
           empty_possessions_home: number | null
           event_zone: string | null
@@ -10148,19 +10191,20 @@ export type Database = {
           momentum_band: string | null
           momentum_score: number | null
           momentum_team_id: string | null
-          oreb_away_period: number | null
-          oreb_home_period: number | null
-          oreb_pressure_team_id: string | null
+          off_reb_last_5min_away: number | null
+          off_reb_last_5min_home: number | null
           pace_band: string | null
           pace_estimate: number | null
           period_label: string | null
           period_number: number | null
           possession_confidence: number | null
+          possession_confidence_band: string | null
           possession_team_id: string | null
           recent_run_away: number | null
           recent_run_home: number | null
           recent_scoring_drought_away_sec: number | null
           recent_scoring_drought_home_sec: number | null
+          second_chance_pressure_team_id: string | null
           updated_at: string | null
         }
         Insert: {
@@ -10168,12 +10212,12 @@ export type Database = {
           away_fouls_period?: number | null
           away_score?: number | null
           away_team_id?: string | null
+          bonus_danger_away?: boolean | null
+          bonus_danger_home?: boolean | null
           bonus_danger_team_id?: string | null
           clock_display?: string | null
           drought_away_mmss?: never
           drought_home_mmss?: never
-          empty_poss_away_last_n?: number | null
-          empty_poss_home_last_n?: number | null
           empty_possessions_away?: number | null
           empty_possessions_home?: number | null
           event_zone?: string | null
@@ -10193,19 +10237,20 @@ export type Database = {
           momentum_band?: never
           momentum_score?: number | null
           momentum_team_id?: string | null
-          oreb_away_period?: number | null
-          oreb_home_period?: number | null
-          oreb_pressure_team_id?: string | null
+          off_reb_last_5min_away?: number | null
+          off_reb_last_5min_home?: number | null
           pace_band?: never
           pace_estimate?: number | null
           period_label?: string | null
           period_number?: number | null
           possession_confidence?: number | null
+          possession_confidence_band?: never
           possession_team_id?: string | null
           recent_run_away?: number | null
           recent_run_home?: number | null
           recent_scoring_drought_away_sec?: number | null
           recent_scoring_drought_home_sec?: number | null
+          second_chance_pressure_team_id?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -10213,12 +10258,12 @@ export type Database = {
           away_fouls_period?: number | null
           away_score?: number | null
           away_team_id?: string | null
+          bonus_danger_away?: boolean | null
+          bonus_danger_home?: boolean | null
           bonus_danger_team_id?: string | null
           clock_display?: string | null
           drought_away_mmss?: never
           drought_home_mmss?: never
-          empty_poss_away_last_n?: number | null
-          empty_poss_home_last_n?: number | null
           empty_possessions_away?: number | null
           empty_possessions_home?: number | null
           event_zone?: string | null
@@ -10238,19 +10283,20 @@ export type Database = {
           momentum_band?: never
           momentum_score?: number | null
           momentum_team_id?: string | null
-          oreb_away_period?: number | null
-          oreb_home_period?: number | null
-          oreb_pressure_team_id?: string | null
+          off_reb_last_5min_away?: number | null
+          off_reb_last_5min_home?: number | null
           pace_band?: never
           pace_estimate?: number | null
           period_label?: string | null
           period_number?: number | null
           possession_confidence?: number | null
+          possession_confidence_band?: never
           possession_team_id?: string | null
           recent_run_away?: number | null
           recent_run_home?: number | null
           recent_scoring_drought_away_sec?: number | null
           recent_scoring_drought_home_sec?: number | null
+          second_chance_pressure_team_id?: string | null
           updated_at?: string | null
         }
         Relationships: []
@@ -10833,6 +10879,93 @@ export type Database = {
         }
         Relationships: []
       }
+      v_pbp_fg_makes: {
+        Row: {
+          clock_display: string | null
+          clock_seconds_remaining: number | null
+          created_at: string | null
+          event_index: number | null
+          event_subtype: string | null
+          event_type: string | null
+          game_id: string | null
+          id: string | null
+          period_number: number | null
+          points_scored: number | null
+          sequence_number: number | null
+          team_id: string | null
+        }
+        Insert: {
+          clock_display?: string | null
+          clock_seconds_remaining?: number | null
+          created_at?: string | null
+          event_index?: number | null
+          event_subtype?: string | null
+          event_type?: string | null
+          game_id?: string | null
+          id?: string | null
+          period_number?: number | null
+          points_scored?: number | null
+          sequence_number?: number | null
+          team_id?: string | null
+        }
+        Update: {
+          clock_display?: string | null
+          clock_seconds_remaining?: number | null
+          created_at?: string | null
+          event_index?: number | null
+          event_subtype?: string | null
+          event_type?: string | null
+          game_id?: string | null
+          id?: string | null
+          period_number?: number | null
+          points_scored?: number | null
+          sequence_number?: number | null
+          team_id?: string | null
+        }
+        Relationships: []
+      }
+      v_pbp_fg_misses: {
+        Row: {
+          clock_display: string | null
+          clock_seconds_remaining: number | null
+          created_at: string | null
+          event_index: number | null
+          event_subtype: string | null
+          event_type: string | null
+          game_id: string | null
+          id: string | null
+          period_number: number | null
+          sequence_number: number | null
+          team_id: string | null
+        }
+        Insert: {
+          clock_display?: string | null
+          clock_seconds_remaining?: number | null
+          created_at?: string | null
+          event_index?: number | null
+          event_subtype?: string | null
+          event_type?: string | null
+          game_id?: string | null
+          id?: string | null
+          period_number?: number | null
+          sequence_number?: number | null
+          team_id?: string | null
+        }
+        Update: {
+          clock_display?: string | null
+          clock_seconds_remaining?: number | null
+          created_at?: string | null
+          event_index?: number | null
+          event_subtype?: string | null
+          event_type?: string | null
+          game_id?: string | null
+          id?: string | null
+          period_number?: number | null
+          sequence_number?: number | null
+          team_id?: string | null
+        }
+        Relationships: []
+      }
       v_pbp_fg_scoring_events: {
         Row: {
           clock_display: string | null
@@ -10873,6 +11006,42 @@ export type Database = {
           id?: string | null
           period_number?: number | null
           points_scored?: number | null
+          sequence_number?: number | null
+          team_id?: string | null
+        }
+        Relationships: []
+      }
+      v_pbp_offensive_rebounds: {
+        Row: {
+          clock_display: string | null
+          clock_seconds_remaining: number | null
+          created_at: string | null
+          event_index: number | null
+          game_id: string | null
+          id: string | null
+          period_number: number | null
+          sequence_number: number | null
+          team_id: string | null
+        }
+        Insert: {
+          clock_display?: string | null
+          clock_seconds_remaining?: number | null
+          created_at?: string | null
+          event_index?: number | null
+          game_id?: string | null
+          id?: string | null
+          period_number?: number | null
+          sequence_number?: number | null
+          team_id?: string | null
+        }
+        Update: {
+          clock_display?: string | null
+          clock_seconds_remaining?: number | null
+          created_at?: string | null
+          event_index?: number | null
+          game_id?: string | null
+          id?: string | null
+          period_number?: number | null
           sequence_number?: number | null
           team_id?: string | null
         }
@@ -11013,6 +11182,48 @@ export type Database = {
         }
         Relationships: []
       }
+      v_pbp_team_foul_events: {
+        Row: {
+          clock_display: string | null
+          clock_seconds_remaining: number | null
+          created_at: string | null
+          event_index: number | null
+          event_subtype: string | null
+          event_type: string | null
+          game_id: string | null
+          id: string | null
+          period_number: number | null
+          sequence_number: number | null
+          team_id: string | null
+        }
+        Insert: {
+          clock_display?: string | null
+          clock_seconds_remaining?: number | null
+          created_at?: string | null
+          event_index?: number | null
+          event_subtype?: string | null
+          event_type?: string | null
+          game_id?: string | null
+          id?: string | null
+          period_number?: number | null
+          sequence_number?: number | null
+          team_id?: string | null
+        }
+        Update: {
+          clock_display?: string | null
+          clock_seconds_remaining?: number | null
+          created_at?: string | null
+          event_index?: number | null
+          event_subtype?: string | null
+          event_type?: string | null
+          game_id?: string | null
+          id?: string | null
+          period_number?: number | null
+          sequence_number?: number | null
+          team_id?: string | null
+        }
+        Relationships: []
+      }
       v_prop_overlay_enhanced: {
         Row: {
           astro: Json | null
@@ -11143,6 +11354,7 @@ export type Database = {
       cleanup_visual_event_queue: { Args: never; Returns: undefined }
       f_unaccent: { Args: { "": string }; Returns: string }
       format_seconds_mmss: { Args: { p_seconds: number }; Returns: string }
+      get_confidence_band: { Args: { p_conf: number }; Returns: string }
       get_current_run_for_game: {
         Args: { p_game_id: string }
         Returns: {
@@ -11303,6 +11515,10 @@ export type Database = {
       rebuild_nba_standings: { Args: { p_season?: number }; Returns: number }
       refresh_game_live_wp: { Args: { p_game_id: string }; Returns: undefined }
       refresh_live_game_derived_metrics: {
+        Args: { p_game_id: string }
+        Returns: undefined
+      }
+      refresh_live_game_phase2_metrics: {
         Args: { p_game_id: string }
         Returns: undefined
       }
