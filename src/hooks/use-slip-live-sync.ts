@@ -60,6 +60,7 @@ interface Pick {
   game_id?: string | null;
   stat_type: string;
   live_value?: number | null;
+  result?: string | null;
 }
 
 /**
