@@ -53,6 +53,7 @@ const SubscriptionPage = lazy(() => import("./pages/SubscriptionPage"));
 const AppStorePrivacyScript = lazy(() => import("./pages/AppStorePrivacyScript"));
 const ModelWorkspacePage = lazy(() => import("./pages/ModelWorkspacePage"));
 const MachinaPage = lazy(() => import("./pages/MachinaPage"));
+const CommandCenterPage = lazy(() => import("./pages/CommandCenterPage"));
 
 // Bootstrap global error capture immediately
 initErrorCapture();
@@ -139,6 +140,7 @@ const App = () => {
                   <Route path="/admin/tt-edge" element={<RequireAuth><TTEdgePage /></RequireAuth>} />
                   <Route path="/models" element={<Navigate to="/machina" replace />} />
                   <Route path="/machina" element={<RequireAuth><MachinaPage /></RequireAuth>} />
+                  <Route path="/command-center" element={<RequireAuth><CommandCenterPage /></RequireAuth>} />
                   <Route path="/paywall" element={<RequireAuth><PaywallPage /></RequireAuth>} />
                   <Route path="/subscription" element={<RequireAuth><SubscriptionPage /></RequireAuth>} />
                 </Route>
