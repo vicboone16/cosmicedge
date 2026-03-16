@@ -25,6 +25,17 @@ const STAT_MAP: Record<string, string[]> = {
   fg_made: ["fg_made"], ft_made: ["ft_made"], minutes: ["minutes"],
 };
 
+const LIVE_STATUSES = ["live", "in_progress", "halftime"] as const;
+const FINAL_STATUSES = ["final", "ended", "completed"] as const;
+
+const statusRank = (status?: string | null) => {
+  const normalized = (status || "").toLowerCase();
+  if (normalized === "live" || normalized === "in_progress") return 0;
+  if (normalized === "halftime") return 1;
+  if (normalized === "scheduled") return 2;
+  return 3;
+};
+
 function parsePeriod(statType: string): { period: string; cleanStat: string } {
   const idx = statType.indexOf(":");
   if (idx > 0) {
