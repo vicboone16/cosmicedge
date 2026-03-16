@@ -703,6 +703,9 @@ export function OracleTab({
         </section>
       )}
 
+      {/* ── Live Pace & PIE (during active games) ── */}
+      {isLive && source === "live" && <LivePacePieSection gameId={gameId} homeAbbr={homeAbbr} awayAbbr={awayAbbr} />}
+
       {/* ── Server Features (when stored is selected) ── */}
       {source === "stored" && display.features && (
         <section>
@@ -722,5 +725,117 @@ export function OracleTab({
         </section>
       )}
     </div>
+  );
+}
+
+/* ── Live Pace & PIE sub-section ── */
+function LivePacePieSection({ gameId, homeAbbr, awayAbbr }: { gameId: string; homeAbbr: string; awayAbbr: string }) {
+  const { data: paceData } = useQuery({
+    queryKey: ["oracle-live-pace", gameId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("v_live_game_pace" as any)
+        .select("*")
+        .eq("game_id", gameId);
+      return (data || []) as any[];
+    },
+    staleTime: 15_000,
+    refetchInterval: 15_000,
+  });
+
+  const { data: pieData } = useQuery({
+    queryKey: ["oracle-live-pie", gameId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("v_live_player_pie" as any)
+        .select("player_id, team_abbr, live_pie, pie_numerator, pts, ast, stl, blk, tov, minutes, plus_minus")
+        .eq("game_id", gameId)
+        .order("live_pie", { ascending: false })
+        .limit(10);
+      return (data || []) as any[];
+    },
+    staleTime: 15_000,
+    refetchInterval: 15_000,
+  });
+
+  // Resolve player names
+  const { data: playerNames } = useQuery({
+    queryKey: ["oracle-pie-names", pieData?.map((p: any) => p.player_id).join(",")],
+    queryFn: async () => {
+      if (!pieData || pieData.length === 0) return {};
+      const ids = pieData.map((p: any) => p.player_id);
+      const { data } = await supabase
+        .from("players")
+        .select("id, name")
+        .in("id", ids);
+      const map: Record<string, string> = {};
+      (data || []).forEach((p: any) => { map[p.id] = p.name; });
+      return map;
+    },
+    enabled: !!pieData && pieData.length > 0,
+  });
+
+  if ((!paceData || paceData.length === 0) && (!pieData || pieData.length === 0)) return null;
+
+  return (
+    <>
+      {/* Pace */}
+      {paceData && paceData.length > 0 && (
+        <section>
+          <h3 className="text-xs font-semibold text-cosmic-cyan uppercase tracking-widest mb-3 flex items-center gap-1.5">
+            <Activity className="h-3.5 w-3.5" />
+            Live Pace
+          </h3>
+          <div className="grid grid-cols-2 gap-2">
+            {paceData.map((row: any) => (
+              <div key={row.team_abbr} className="cosmic-card rounded-lg p-3 text-center">
+                <p className="text-[10px] font-bold text-muted-foreground uppercase">{row.team_abbr}</p>
+                <p className="text-lg font-bold font-display tabular-nums text-foreground">
+                  {row.current_pace ? Number(row.current_pace).toFixed(1) : "—"}
+                </p>
+                <p className="text-[9px] text-muted-foreground">
+                  {row.est_possessions ? `~${Number(row.est_possessions).toFixed(0)} poss` : ""}
+                </p>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* PIE leaders */}
+      {pieData && pieData.length > 0 && (
+        <section>
+          <h3 className="text-xs font-semibold text-cosmic-gold uppercase tracking-widest mb-3 flex items-center gap-1.5">
+            <Zap className="h-3.5 w-3.5" />
+            Live PIE Leaders
+          </h3>
+          <div className="cosmic-card rounded-xl p-3">
+            <div className="space-y-1.5">
+              {pieData.slice(0, 6).map((row: any, i: number) => {
+                const name = playerNames?.[row.player_id] || "Player";
+                const isHome = row.team_abbr === homeAbbr;
+                return (
+                  <div key={row.player_id} className="flex items-center justify-between text-[10px]">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="text-muted-foreground w-4 text-right">{i + 1}</span>
+                      <span className={cn("font-semibold truncate", isHome ? "text-primary" : "text-destructive/80")}>{name.split(" ").pop()}</span>
+                      <span className="text-[9px] text-muted-foreground">{row.team_abbr}</span>
+                    </div>
+                    <div className="flex items-center gap-3 tabular-nums shrink-0">
+                      <span className="text-foreground font-bold">{row.live_pie != null ? (Number(row.live_pie) * 100).toFixed(1) : "—"}</span>
+                      {row.plus_minus != null && (
+                        <span className={cn("text-[9px]", row.plus_minus > 0 ? "text-cosmic-green" : row.plus_minus < 0 ? "text-destructive" : "text-muted-foreground")}>
+                          {row.plus_minus > 0 ? "+" : ""}{row.plus_minus}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </section>
+      )}
+    </>
   );
 }

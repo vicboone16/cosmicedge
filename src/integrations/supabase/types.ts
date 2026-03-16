@@ -4103,6 +4103,126 @@ export type Database = {
           },
         ]
       }
+      normalized_pbp_events: {
+        Row: {
+          animation_key: string | null
+          clock_display: string | null
+          clock_seconds_remaining: number | null
+          created_at: string | null
+          event_index: number | null
+          event_subtype: string | null
+          event_type: string
+          game_id: string
+          id: string
+          is_foul: boolean | null
+          is_rebound: boolean | null
+          is_scoring_play: boolean | null
+          is_substitution: boolean | null
+          is_timeout: boolean | null
+          is_turnover: boolean | null
+          league: string | null
+          opponent_team_id: string | null
+          parser_confidence: number | null
+          parser_version: string | null
+          period_number: number | null
+          points_scored: number | null
+          possession_result: string | null
+          primary_player_id: string | null
+          primary_player_name: string | null
+          raw_description: string | null
+          score_away_after: number | null
+          score_home_after: number | null
+          secondary_player_id: string | null
+          secondary_player_name: string | null
+          sequence_number: number | null
+          source_event_id: string | null
+          source_provider: string | null
+          sport: string | null
+          team_id: string | null
+          tertiary_player_id: string | null
+          updated_at: string | null
+          zone_key: string | null
+        }
+        Insert: {
+          animation_key?: string | null
+          clock_display?: string | null
+          clock_seconds_remaining?: number | null
+          created_at?: string | null
+          event_index?: number | null
+          event_subtype?: string | null
+          event_type: string
+          game_id: string
+          id?: string
+          is_foul?: boolean | null
+          is_rebound?: boolean | null
+          is_scoring_play?: boolean | null
+          is_substitution?: boolean | null
+          is_timeout?: boolean | null
+          is_turnover?: boolean | null
+          league?: string | null
+          opponent_team_id?: string | null
+          parser_confidence?: number | null
+          parser_version?: string | null
+          period_number?: number | null
+          points_scored?: number | null
+          possession_result?: string | null
+          primary_player_id?: string | null
+          primary_player_name?: string | null
+          raw_description?: string | null
+          score_away_after?: number | null
+          score_home_after?: number | null
+          secondary_player_id?: string | null
+          secondary_player_name?: string | null
+          sequence_number?: number | null
+          source_event_id?: string | null
+          source_provider?: string | null
+          sport?: string | null
+          team_id?: string | null
+          tertiary_player_id?: string | null
+          updated_at?: string | null
+          zone_key?: string | null
+        }
+        Update: {
+          animation_key?: string | null
+          clock_display?: string | null
+          clock_seconds_remaining?: number | null
+          created_at?: string | null
+          event_index?: number | null
+          event_subtype?: string | null
+          event_type?: string
+          game_id?: string
+          id?: string
+          is_foul?: boolean | null
+          is_rebound?: boolean | null
+          is_scoring_play?: boolean | null
+          is_substitution?: boolean | null
+          is_timeout?: boolean | null
+          is_turnover?: boolean | null
+          league?: string | null
+          opponent_team_id?: string | null
+          parser_confidence?: number | null
+          parser_version?: string | null
+          period_number?: number | null
+          points_scored?: number | null
+          possession_result?: string | null
+          primary_player_id?: string | null
+          primary_player_name?: string | null
+          raw_description?: string | null
+          score_away_after?: number | null
+          score_home_after?: number | null
+          secondary_player_id?: string | null
+          secondary_player_name?: string | null
+          sequence_number?: number | null
+          source_event_id?: string | null
+          source_provider?: string | null
+          sport?: string | null
+          team_id?: string | null
+          tertiary_player_id?: string | null
+          updated_at?: string | null
+          zone_key?: string | null
+        }
+        Relationships: []
+      }
       np_player_prop_odds_history: {
         Row: {
           book: string
@@ -7528,6 +7648,84 @@ export type Database = {
         }
         Relationships: []
       }
+      visual_event_queue: {
+        Row: {
+          animation_key: string | null
+          available_at: string | null
+          clock_display: string | null
+          consumed_at: string | null
+          created_at: string | null
+          display_text: string | null
+          event_subtype: string | null
+          event_type: string
+          game_id: string
+          id: string
+          is_consumed: boolean | null
+          is_skipped: boolean | null
+          normalized_event_id: string | null
+          primary_player_id: string | null
+          primary_player_name: string | null
+          priority: number | null
+          team_id: string | null
+          zone_key: string | null
+        }
+        Insert: {
+          animation_key?: string | null
+          available_at?: string | null
+          clock_display?: string | null
+          consumed_at?: string | null
+          created_at?: string | null
+          display_text?: string | null
+          event_subtype?: string | null
+          event_type: string
+          game_id: string
+          id?: string
+          is_consumed?: boolean | null
+          is_skipped?: boolean | null
+          normalized_event_id?: string | null
+          primary_player_id?: string | null
+          primary_player_name?: string | null
+          priority?: number | null
+          team_id?: string | null
+          zone_key?: string | null
+        }
+        Update: {
+          animation_key?: string | null
+          available_at?: string | null
+          clock_display?: string | null
+          consumed_at?: string | null
+          created_at?: string | null
+          display_text?: string | null
+          event_subtype?: string | null
+          event_type?: string
+          game_id?: string
+          id?: string
+          is_consumed?: boolean | null
+          is_skipped?: boolean | null
+          normalized_event_id?: string | null
+          primary_player_id?: string | null
+          primary_player_name?: string | null
+          priority?: number | null
+          team_id?: string | null
+          zone_key?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "visual_event_queue_normalized_event_id_fkey"
+            columns: ["normalized_event_id"]
+            isOneToOne: false
+            referencedRelation: "normalized_pbp_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "visual_event_queue_normalized_event_id_fkey"
+            columns: ["normalized_event_id"]
+            isOneToOne: false
+            referencedRelation: "v_latest_normalized_pbp_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       ce_active_prop_date: {
@@ -9201,6 +9399,90 @@ export type Database = {
         }
         Relationships: []
       }
+      v_latest_normalized_pbp_events: {
+        Row: {
+          animation_key: string | null
+          clock_display: string | null
+          created_at: string | null
+          event_index: number | null
+          event_subtype: string | null
+          event_type: string | null
+          game_id: string | null
+          id: string | null
+          league: string | null
+          parser_confidence: number | null
+          parser_version: string | null
+          period_number: number | null
+          points_scored: number | null
+          possession_result: string | null
+          primary_player_name: string | null
+          raw_description: string | null
+          score_away_after: number | null
+          score_home_after: number | null
+          secondary_player_name: string | null
+          sequence_number: number | null
+          source_event_id: string | null
+          source_provider: string | null
+          sport: string | null
+          team_id: string | null
+          zone_key: string | null
+        }
+        Insert: {
+          animation_key?: string | null
+          clock_display?: string | null
+          created_at?: string | null
+          event_index?: number | null
+          event_subtype?: string | null
+          event_type?: string | null
+          game_id?: string | null
+          id?: string | null
+          league?: string | null
+          parser_confidence?: number | null
+          parser_version?: string | null
+          period_number?: number | null
+          points_scored?: number | null
+          possession_result?: string | null
+          primary_player_name?: string | null
+          raw_description?: string | null
+          score_away_after?: number | null
+          score_home_after?: number | null
+          secondary_player_name?: string | null
+          sequence_number?: number | null
+          source_event_id?: string | null
+          source_provider?: string | null
+          sport?: string | null
+          team_id?: string | null
+          zone_key?: string | null
+        }
+        Update: {
+          animation_key?: string | null
+          clock_display?: string | null
+          created_at?: string | null
+          event_index?: number | null
+          event_subtype?: string | null
+          event_type?: string | null
+          game_id?: string | null
+          id?: string | null
+          league?: string | null
+          parser_confidence?: number | null
+          parser_version?: string | null
+          period_number?: number | null
+          points_scored?: number | null
+          possession_result?: string | null
+          primary_player_name?: string | null
+          raw_description?: string | null
+          score_away_after?: number | null
+          score_home_after?: number | null
+          secondary_player_name?: string | null
+          sequence_number?: number | null
+          source_event_id?: string | null
+          source_provider?: string | null
+          sport?: string | null
+          team_id?: string | null
+          zone_key?: string | null
+        }
+        Relationships: []
+      }
       v_live_game_pace: {
         Row: {
           current_pace: number | null
@@ -9785,6 +10067,26 @@ export type Database = {
       ce_randn: { Args: never; Returns: number }
       ce_uuid_to_bigint: { Args: { p_text: string }; Returns: number }
       f_unaccent: { Args: { "": string }; Returns: string }
+      get_next_visual_event: {
+        Args: { p_game_id: string }
+        Returns: {
+          animation_key: string
+          available_at: string
+          clock_display: string
+          created_at: string
+          display_text: string
+          event_subtype: string
+          event_type: string
+          game_id: string
+          id: string
+          normalized_event_id: string
+          primary_player_id: string
+          primary_player_name: string
+          priority: number
+          team_id: string
+          zone_key: string
+        }[]
+      }
       get_public_profiles: {
         Args: { user_ids: string[] }
         Returns: {
