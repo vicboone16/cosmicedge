@@ -40,10 +40,6 @@ export default function CommandCenterPage() {
       return data || [];
     },
   });
-        .limit(20);
-      return data || [];
-    },
-  });
 
   const filteredOpps = useMemo(() => {
     if (!opportunities) return [];
@@ -52,18 +48,11 @@ export default function CommandCenterPage() {
     );
   }, [opportunities, activeMode]);
 
-  const modeAccentVar = activeModeConfig?.color_accent || "hsl(var(--primary))";
-
   return (
     <div className="min-h-screen pb-24 space-y-6 px-4 pt-4 max-w-4xl mx-auto">
-      {/* Title */}
       <div className="space-y-1">
-        <h1 className="text-2xl font-bold tracking-tight text-foreground">
-          Command Center
-        </h1>
-        <p className="text-xs text-muted-foreground tracking-wide uppercase">
-          Astra Ritual Intelligence
-        </p>
+        <h1 className="text-2xl font-bold tracking-tight text-foreground">Command Center</h1>
+        <p className="text-xs text-muted-foreground tracking-wide uppercase">Astra Ritual Intelligence</p>
       </div>
 
       {/* Mode Selector */}
@@ -89,11 +78,8 @@ export default function CommandCenterPage() {
         })}
       </div>
 
-      {/* Mode description */}
       {activeModeConfig && (
-        <p className="text-[11px] text-muted-foreground/70 italic">
-          {activeModeConfig.description}
-        </p>
+        <p className="text-[11px] text-muted-foreground/70 italic">{activeModeConfig.description}</p>
       )}
 
       {/* Ask Astra */}
@@ -110,7 +96,6 @@ export default function CommandCenterPage() {
         </button>
       </div>
 
-      {/* Quick Action Chips */}
       <div className="flex flex-wrap gap-1.5">
         {QUICK_CHIPS.map((chip) => (
           <button
@@ -124,10 +109,9 @@ export default function CommandCenterPage() {
         ))}
       </div>
 
-      {/* Dashboard Sections */}
+      {/* Dashboard Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        {/* Astra Pulse */}
-        <DashCard title="Astra Pulse" icon={Activity} accent="primary">
+        <DashCard title="Astra Pulse" icon={Activity}>
           <p className="text-[11px] text-muted-foreground">
             {activeMode === "sharp" && "Quant signals active. Market edges scanning."}
             {activeMode === "cosmic" && "Balanced cosmic + quant intelligence online."}
@@ -138,8 +122,7 @@ export default function CommandCenterPage() {
           </p>
         </DashCard>
 
-        {/* Best Opportunities */}
-        <DashCard title="Best Opportunities" icon={Target} accent="cosmic-green">
+        <DashCard title="Best Opportunities" icon={Target}>
           {filteredOpps.length === 0 ? (
             <p className="text-[11px] text-muted-foreground">No active opportunities right now.</p>
           ) : (
@@ -158,8 +141,7 @@ export default function CommandCenterPage() {
           )}
         </DashCard>
 
-        {/* Trap Watch */}
-        <DashCard title="Trap Watch" icon={AlertTriangle} accent="cosmic-red">
+        <DashCard title="Trap Watch" icon={AlertTriangle}>
           <p className="text-[11px] text-muted-foreground">
             {activeMode === "shadow"
               ? "Shadow mode: elevated trap sensitivity active."
@@ -167,24 +149,17 @@ export default function CommandCenterPage() {
           </p>
         </DashCard>
 
-        {/* Cosmic Windows */}
-        <DashCard
-          title="Cosmic Windows"
-          icon={Moon}
-          accent="cosmic-purple"
-          dimmed={activeMode === "sharp"}
-        >
+        <DashCard title="Cosmic Windows" icon={Moon} dimmed={activeMode === "sharp"}>
           <p className="text-[11px] text-muted-foreground">
             {activeMode === "sharp"
               ? "Cosmic layer de-emphasized in Sharp mode."
               : activeMode === "ritual"
-              ? "Full cosmic window analysis active. Archetype commentary enabled."
+              ? "Full cosmic window analysis active."
               : "Planetary hour and transit windows loading…"}
           </p>
         </DashCard>
 
-        {/* Slip Health */}
-        <DashCard title="Slip Health" icon={Heart} accent="cosmic-cyan">
+        <DashCard title="Slip Health" icon={Heart}>
           <p className="text-[11px] text-muted-foreground">
             {activeMode === "hedge"
               ? "Hedge mode: prioritizing slip risk analysis."
@@ -192,16 +167,13 @@ export default function CommandCenterPage() {
           </p>
         </DashCard>
 
-        {/* Opportunity Feed */}
-        <DashCard title="Opportunity Feed" icon={Zap} accent="cosmic-gold">
+        <DashCard title="Opportunity Feed" icon={Zap}>
           {filteredOpps.length === 0 ? (
             <p className="text-[11px] text-muted-foreground">Feed empty. Games loading…</p>
           ) : (
             <div className="space-y-1">
               {filteredOpps.slice(0, 5).map((o: any) => (
-                <div key={o.id} className="text-[10px] text-muted-foreground truncate">
-                  {o.headline}
-                </div>
+                <div key={o.id} className="text-[10px] text-muted-foreground truncate">{o.headline}</div>
               ))}
             </div>
           )}
@@ -211,12 +183,9 @@ export default function CommandCenterPage() {
   );
 }
 
-function DashCard({
-  title, icon: Icon, accent, dimmed, children,
-}: {
+function DashCard({ title, icon: Icon, dimmed, children }: {
   title: string;
   icon: any;
-  accent: string;
   dimmed?: boolean;
   children: React.ReactNode;
 }) {
@@ -226,7 +195,7 @@ function DashCard({
       dimmed && "opacity-50"
     )}>
       <div className="flex items-center gap-2">
-        <Icon className={cn("w-4 h-4", `text-${accent}`)} />
+        <Icon className="w-4 h-4 text-primary" />
         <span className="text-xs font-bold uppercase tracking-wider text-foreground">{title}</span>
       </div>
       {children}
