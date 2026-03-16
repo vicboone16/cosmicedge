@@ -128,3 +128,6 @@ verify_jwt = false
 
 [functions.check-alerts]
 verify_jwt = false
+
+[functions.pbp-watch-sync]
+verify_jwt = false
