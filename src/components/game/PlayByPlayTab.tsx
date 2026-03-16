@@ -145,9 +145,16 @@ interface NormalizedEvent {
   wp: number | null; // home win probability 0-1
 }
 
-export function PlayByPlayTab({ gameId, homeAbbr, awayAbbr, league }: PlayByPlayTabProps) {
+export function PlayByPlayTab({ gameId, homeAbbr, awayAbbr, league, gameStatus }: PlayByPlayTabProps) {
   const [periodFilter, setPeriodFilter] = useState<number | null>(null);
+  const [mode, setMode] = useState<"read" | "watch">("read");
+  const { isAdmin } = useIsAdmin();
   const isNBA = league === "NBA";
+
+  // Feature flag + gating: show Watch toggle only for admin + live NBA games
+  const ENABLE_PBP_WATCH_MODE = true; // Feature flag
+  const isLiveGame = gameStatus === "live" || gameStatus === "in_progress";
+  const showWatchToggle = isAdmin && isLiveGame && isNBA && ENABLE_PBP_WATCH_MODE;
 
   // ── Live score from game_state_snapshots (authoritative) ──
   const { data: liveSnapshot } = useQuery({
