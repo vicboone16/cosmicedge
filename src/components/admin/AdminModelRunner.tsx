@@ -96,7 +96,9 @@ export default function AdminModelRunner() {
     try {
       const { data, error } = await supabase.rpc("np_persist_edgescore_v11", { minutes_back: 1440 });
       if (error) throw error;
-      const rowCount = typeof data === 'object' && data !== null ? JSON.stringify(data) : data;
+      const rowCount = typeof data === 'object' && data !== null
+        ? (data as any)?.updated ?? (data as any)?.count ?? JSON.stringify(data)
+        : data;
       updateResult(label, { status: "done", detail: `${rowCount} rows updated` });
     } catch (e) {
       updateResult(label, { status: "error", detail: String(e) });
