@@ -2715,6 +2715,123 @@ export type Database = {
           },
         ]
       }
+      live_game_visual_state: {
+        Row: {
+          animation_key: string | null
+          away_fouls_period: number | null
+          away_score: number | null
+          away_team_id: string | null
+          clock_display: string | null
+          clock_seconds_remaining: number | null
+          created_at: string | null
+          event_zone: string | null
+          game_id: string
+          home_fouls_period: number | null
+          home_score: number | null
+          home_team_id: string | null
+          in_bonus_away: boolean | null
+          in_bonus_home: boolean | null
+          last_event_id: string | null
+          last_event_player_name: string | null
+          last_event_subtype: string | null
+          last_event_team_id: string | null
+          last_event_text: string | null
+          last_event_type: string | null
+          last_ingested_at: string | null
+          last_source_event_id: string | null
+          momentum_score: number | null
+          momentum_team_id: string | null
+          pace_estimate: number | null
+          parser_version: string | null
+          period_label: string | null
+          period_number: number | null
+          possession_confidence: number | null
+          possession_team_id: string | null
+          recent_run_away: number | null
+          recent_run_home: number | null
+          recent_scoring_drought_away_sec: number | null
+          recent_scoring_drought_home_sec: number | null
+          sync_latency_ms: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          animation_key?: string | null
+          away_fouls_period?: number | null
+          away_score?: number | null
+          away_team_id?: string | null
+          clock_display?: string | null
+          clock_seconds_remaining?: number | null
+          created_at?: string | null
+          event_zone?: string | null
+          game_id: string
+          home_fouls_period?: number | null
+          home_score?: number | null
+          home_team_id?: string | null
+          in_bonus_away?: boolean | null
+          in_bonus_home?: boolean | null
+          last_event_id?: string | null
+          last_event_player_name?: string | null
+          last_event_subtype?: string | null
+          last_event_team_id?: string | null
+          last_event_text?: string | null
+          last_event_type?: string | null
+          last_ingested_at?: string | null
+          last_source_event_id?: string | null
+          momentum_score?: number | null
+          momentum_team_id?: string | null
+          pace_estimate?: number | null
+          parser_version?: string | null
+          period_label?: string | null
+          period_number?: number | null
+          possession_confidence?: number | null
+          possession_team_id?: string | null
+          recent_run_away?: number | null
+          recent_run_home?: number | null
+          recent_scoring_drought_away_sec?: number | null
+          recent_scoring_drought_home_sec?: number | null
+          sync_latency_ms?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          animation_key?: string | null
+          away_fouls_period?: number | null
+          away_score?: number | null
+          away_team_id?: string | null
+          clock_display?: string | null
+          clock_seconds_remaining?: number | null
+          created_at?: string | null
+          event_zone?: string | null
+          game_id?: string
+          home_fouls_period?: number | null
+          home_score?: number | null
+          home_team_id?: string | null
+          in_bonus_away?: boolean | null
+          in_bonus_home?: boolean | null
+          last_event_id?: string | null
+          last_event_player_name?: string | null
+          last_event_subtype?: string | null
+          last_event_team_id?: string | null
+          last_event_text?: string | null
+          last_event_type?: string | null
+          last_ingested_at?: string | null
+          last_source_event_id?: string | null
+          momentum_score?: number | null
+          momentum_team_id?: string | null
+          pace_estimate?: number | null
+          parser_version?: string | null
+          period_label?: string | null
+          period_number?: number | null
+          possession_confidence?: number | null
+          possession_team_id?: string | null
+          recent_run_away?: number | null
+          recent_run_home?: number | null
+          recent_scoring_drought_away_sec?: number | null
+          recent_scoring_drought_home_sec?: number | null
+          sync_latency_ms?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       live_prop_state: {
         Row: {
           astro_modifier: number | null
