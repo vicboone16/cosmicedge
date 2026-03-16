@@ -246,7 +246,7 @@ const syncSlipIntoTraxLedger = async ({
     .filter(Boolean)
     .map((g: any) => {
       const startDelta = Math.abs(new Date(g.start_time || slip.created_at || Date.now()).getTime() - new Date(slip.created_at || Date.now()).getTime());
-      return { g, score: statusPriority(g.status) * 1_000_000_000_000 + startDelta };
+      return { g, score: startDelta + statusPenaltyMs(g.status) };
     })
     .sort((a: any, b: any) => a.score - b.score)[0]?.g;
 
