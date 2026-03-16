@@ -272,9 +272,13 @@ export function TrackedPropsWidget({ gameId, showHeader = true }: { gameId?: str
         const sumCols = (row: any) => columns.reduce((acc, c) => acc + (Number(row?.[c]) || 0), 0);
         let statValue: number | null = null;
 
+        // Check if the player actually has a full-game stats row (proves they played)
+        const fullRow = byKey.get(`${tp.player_id}:${tp.game_id}:full`);
+        const playerActuallyPlayed = fullRow && (Number(fullRow.minutes) > 0 || Number(fullRow.points) > 0);
+
         if (["q1", "q2", "q3", "q4", "full"].includes(period)) {
           const row = byKey.get(`${tp.player_id}:${tp.game_id}:${period}`);
-          statValue = row ? sumCols(row) : null;
+          if (row) statValue = sumCols(row);
         } else if (period === "1h") {
           const direct = byKey.get(`${tp.player_id}:${tp.game_id}:first_half`);
           if (direct) statValue = sumCols(direct);
@@ -293,6 +297,7 @@ export function TrackedPropsWidget({ gameId, showHeader = true }: { gameId?: str
           }
         }
 
+        // Skip if no stat data found at all
         if (statValue == null) continue;
 
         const payload: Record<string, any> = {
@@ -301,13 +306,19 @@ export function TrackedPropsWidget({ gameId, showHeader = true }: { gameId?: str
           status: ["live", "in_progress", "halftime"].includes(gameStatus) ? "live" : tp.status,
         };
 
-        if (["final", "ended", "completed"].includes(gameStatus)) {
+        // Only settle as final if: game is final AND player actually played (has minutes/points)
+        // This prevents grading with 0 stats when data is missing
+        if (["final", "ended", "completed"].includes(gameStatus) && playerActuallyPlayed) {
           const line = Number(tp.line || 0);
           const dir = String(tp.direction || "over").toLowerCase();
           const actualDir = statValue > line ? "over" : statValue < line ? "under" : "push";
           payload.result_direction = actualDir;
           payload.status = actualDir === "push" ? "push" : dir === actualDir ? "hit" : "missed";
           payload.settled_at = tp.settled_at || new Date().toISOString();
+        } else if (["final", "ended", "completed"].includes(gameStatus) && !playerActuallyPlayed) {
+          // Game is final but no stats — mark as "final" (neutral) not hit/missed
+          payload.status = "final";
+          payload.result_direction = null;
         }
 
         const shouldUpdate =
