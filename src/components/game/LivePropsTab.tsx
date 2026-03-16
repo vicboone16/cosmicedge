@@ -204,12 +204,12 @@ export function LivePropsTab({ gameId, homeAbbr, awayAbbr, isLive }: Props) {
   const [skySpreadOpen, setSkySpreadOpen] = useState(false);
   const [selectedProp, setSelectedProp] = useState<RawLiveProp | null>(null);
 
-  // Primary: overlay with model predictions
+  // Primary: enhanced overlay with model predictions + pace/PIE/validity
   const { data: overlays, isLoading: overlayLoading } = useQuery({
     queryKey: ["live-props-tab", gameId],
     queryFn: async () => {
       const { data } = await supabase
-        .from("np_v_prop_overlay" as any)
+        .from("v_prop_overlay_enhanced" as any)
         .select("*")
         .eq("game_id", gameId)
         .order("edge_score_v11", { ascending: false, nullsFirst: false } as any)
@@ -217,8 +217,10 @@ export function LivePropsTab({ gameId, homeAbbr, awayAbbr, isLive }: Props) {
         .limit(50);
       const rows = (data || []) as unknown as TopProp[];
       const resolved = await resolveOverlayPlayerNames(rows);
-      // Filter: only players on one of the two teams in this game
+      // Filter: only valid live players on one of the two teams
       return resolved.filter(p => {
+        // Use server-side validity when available
+        if ((p as any).is_valid_live_player === false) return false;
         if (!p.player_team) return true;
         const team = p.player_team.toUpperCase();
         return team === homeAbbr.toUpperCase() || team === awayAbbr.toUpperCase();
