@@ -31,11 +31,15 @@ export default function CommandCenterPage() {
   const { data: opportunities } = useQuery({
     queryKey: ["astra-opportunities", activeMode],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data } = await (supabase as any)
         .from("astra_opportunity_feed")
         .select("*")
         .eq("is_active", true)
         .order("confidence", { ascending: false })
+        .limit(20);
+      return data || [];
+    },
+  });
         .limit(20);
       return data || [];
     },

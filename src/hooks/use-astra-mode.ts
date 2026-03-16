@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useCallback } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 
@@ -21,7 +21,7 @@ export function useAstraMode() {
   const { data: modes } = useQuery({
     queryKey: ["astra-modes"],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data } = await (supabase as any)
         .from("astra_operating_modes")
         .select("*")
         .eq("is_active", true)
@@ -35,7 +35,7 @@ export function useAstraMode() {
     queryKey: ["astra-mode-pref", user?.id],
     queryFn: async () => {
       if (!user?.id) return null;
-      const { data } = await supabase
+      const { data } = await (supabase as any)
         .from("user_astra_mode_preferences")
         .select("mode_key")
         .eq("user_id", user.id)
@@ -49,7 +49,7 @@ export function useAstraMode() {
 
   const setMode = useCallback(async (mode: AstraMode) => {
     if (!user?.id) return;
-    await supabase
+    await (supabase as any)
       .from("user_astra_mode_preferences")
       .upsert({ user_id: user.id, mode_key: mode, updated_at: new Date().toISOString() }, { onConflict: "user_id" });
     qc.invalidateQueries({ queryKey: ["astra-mode-pref"] });
