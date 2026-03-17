@@ -110,13 +110,21 @@ export default function CommandCenterPage() {
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Ask Astra anything…"
+          onKeyDown={(e) => e.key === "Enter" && askAstra()}
+          placeholder="Ask Astra a betting question…"
           className="w-full rounded-xl border border-border/40 bg-card/60 backdrop-blur-sm px-4 py-3 pr-10 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-primary/40"
         />
-        <button className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-primary hover:bg-primary/10 transition-colors">
-          <Send className="w-4 h-4" />
+        <button
+          onClick={askAstra}
+          disabled={isAsking || !query.trim()}
+          className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-primary hover:bg-primary/10 transition-colors disabled:opacity-50"
+        >
+          {isAsking ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
         </button>
       </div>
+
+      {/* Live Verdict */}
+      {verdict && <AstraVerdictCard verdict={verdict} />}
 
       <div className="flex flex-wrap gap-1.5">
         {QUICK_CHIPS.map((chip) => (
