@@ -14,6 +14,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
+import { useNotificationPreferences } from "@/hooks/use-notification-preferences";
+import { toast as sonnerToast } from "sonner";
 
 const SettingsPage = () => {
   const { theme, setTheme } = useTheme();
