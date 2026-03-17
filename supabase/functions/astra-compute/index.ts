@@ -754,9 +754,14 @@ Deno.serve(async (req) => {
     if (player && scorecardResult.data.length === 0 && ["formula_compute", "model_output"].includes(intent.intent)) {
       fallbackInfo.push(`No scorecard data found for ${player.name}${intent.entities?.stat_key ? ` (${intent.entities.stat_key})` : ""} — model may not have run yet for today's games`);
     }
+    if (sanityViolations.length > 0) {
+      fallbackInfo.push(`Sanity violations detected: ${sanityViolations.join("; ")}`);
+    }
 
     const response: any = {
-      success: true,
+      success: !narrativeBlocked,
+      compute_blocked: narrativeBlocked,
+      block_reason: blockReason || null,
       answer: narrative,
       computed_value: computeResult?.result ?? null,
       formula_used: formula ? {
@@ -766,10 +771,11 @@ Deno.serve(async (req) => {
         plain_english: formula.plain_english,
       } : null,
       variables_used: variables,
+      sanity_violations: sanityViolations,
       data_source: scorecardResult.source || null,
       data_rows: scorecardResult.data.length,
       intent: intent.intent,
-      player: player ? { name: player.name, team: player.team } : null,
+      player: player ? { name: player.name, team: player.team, id: player.id } : null,
       fallback_info: fallbackInfo.length > 0 ? fallbackInfo : null,
     };
 
