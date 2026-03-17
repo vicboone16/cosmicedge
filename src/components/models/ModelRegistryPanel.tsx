@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { cn } from "@/lib/utils";
-import { useCustomModels, useDeleteModel, useToggleModelActive, useDuplicateModel, type CustomModel } from "@/hooks/use-custom-models";
+import { useCustomModels, useDeleteModel, useDuplicateModel, type CustomModel } from "@/hooks/use-custom-models";
+import { useModelActivation, useActivateModel } from "@/hooks/use-model-activation";
 import { FACTOR_LIBRARY, MARKET_TYPES, TARGET_OUTPUTS } from "@/lib/model-factors";
 import { Badge } from "@/components/ui/badge";
 import { Power, Copy, Trash2, Pencil, ChevronDown, ChevronUp, Loader2, FlaskConical } from "lucide-react";
+import AdminDiagnosticsDrawer from "@/components/admin/AdminDiagnosticsDrawer";
 
 interface Props {
   onEdit: (model: CustomModel) => void;
