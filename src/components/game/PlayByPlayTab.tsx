@@ -418,8 +418,28 @@ export function PlayByPlayTab({ gameId, homeAbbr, awayAbbr, league, gameStatus }
 
   if (normalizedEvents.length === 0) {
     return (
-      <div className="text-center py-8">
+      <div className="text-center py-8 space-y-3">
         <p className="text-sm text-muted-foreground">No play-by-play data available for this game.</p>
+        {isAdmin && (
+          <div className="mx-auto max-w-sm cosmic-card rounded-lg p-3 text-left space-y-1.5">
+            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Admin PBP Diagnostics</p>
+            <div className="text-[9px] text-muted-foreground space-y-0.5 font-mono">
+              <p>Game ID: {gameId}</p>
+              <p>League: {league} | Status: {gameStatus ?? "unknown"}</p>
+              <p>BDL events: {bdlPbpEvents?.length ?? "loading…"} {bdlPbpLoading ? "⏳" : "✓"}</p>
+              <p>Cosmic key: {gameKeyQuery.data ?? (gameKeyQuery.isLoading ? "resolving…" : "not found")}</p>
+              <p>Cosmic events: {livePbpEvents ? (livePbpEvents as any[]).length : "N/A"} {livePbpLoading ? "⏳" : "✓"}</p>
+              <p>Historical events: {(nbaEvents as any[])?.length ?? "N/A"} {nbaLoading ? "⏳" : "✓"}</p>
+              <p>Source selected: {rawSource}</p>
+              <p>Raw events: {rawEvents.length}</p>
+            </div>
+            {isLiveGame && (
+              <p className="text-[9px] text-cosmic-gold">
+                ⚠ Game is live — BDL ingest may not have started or events may be delayed.
+              </p>
+            )}
+          </div>
+        )}
       </div>
     );
   }

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useIsAdmin } from "@/hooks/use-admin";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Star, MapPin, Orbit, Moon, Zap, Users, ChevronDown, ChevronUp, TrendingUp, TrendingDown, Lightbulb, Swords, Flame, AlertTriangle, Shield, ListOrdered, TableProperties } from "lucide-react";
 import { GameMomentumBanner } from "@/components/game/GameMomentumBanner";
@@ -349,6 +350,7 @@ const GameDetail = () => {
   const navigate = useNavigate();
   const { formatInUserTZ, getTZAbbrev } = useTimezone();
   const [activeTab, setActiveTab] = useState<"odds" | "insights" | "matchup" | "pbp" | "stats" | "oracle" | "liveprops">("insights");
+  const { isAdmin } = useIsAdmin();
   const [gameSubTab, setGameSubTab] = useState<"gamelines" | "player_props" | "team_props" | "game_props">("gamelines");
   const [transitSelectedPlayer, setTransitSelectedPlayer] = useState<{ id: string; name: string; position: string | null; team: string | null; birth_date: string | null } | null>(null);
 
@@ -634,6 +636,26 @@ const GameDetail = () => {
             awayAbbr={game.away_abbr}
             isLive={game.status === "live" || game.status === "in_progress"}
           />
+        )}
+
+        {/* Admin Live Diagnostics */}
+        {isAdmin && (game.status === "live" || game.status === "in_progress") && (
+          <details className="cosmic-card rounded-lg p-3">
+            <summary className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider cursor-pointer">
+              Admin: Live Game Diagnostics
+            </summary>
+            <div className="mt-2 text-[9px] text-muted-foreground font-mono space-y-0.5">
+              <p>Game ID: {game.id}</p>
+              <p>External ID: {game.external_id ?? "none"}</p>
+              <p>Status: {game.status}</p>
+              <p>League: {game.league}</p>
+              <p>Teams: {game.away_abbr} @ {game.home_abbr}</p>
+              <p>Score: {game.away_score ?? "?"} – {game.home_score ?? "?"}</p>
+              <p className="text-cosmic-gold">PBP source: nba_pbp_events (game_key = gameId, provider = balldontlie)</p>
+              <p>LiveStoryLayer: active (subtle mode)</p>
+              <p>Watch mode: available in Plays tab when PBP events exist</p>
+            </div>
+          </details>
         )}
 
         {activeTab === "odds" && (
