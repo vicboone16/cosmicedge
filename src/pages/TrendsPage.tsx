@@ -10,6 +10,8 @@ import { TrendsFilterModal, type TrendFilters } from "@/components/trends/Trends
 import { getMarketShort } from "@/lib/market-catalog";
 import { Input } from "@/components/ui/input";
 import { useNavigate } from "react-router-dom";
+import { GuidanceCard } from "@/components/ui/GuidanceCard";
+import { DataSourceBadge } from "@/components/ui/DataSourceBadge";
 
 const DEFAULT_FILTERS: TrendFilters = {
   scope: "all",
