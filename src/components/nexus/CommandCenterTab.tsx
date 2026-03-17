@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAstraMode, type AstraMode } from "@/hooks/use-astra-mode";
 import { useAuth } from "@/hooks/use-auth";
@@ -7,15 +8,25 @@ import { cn } from "@/lib/utils";
 import {
   TrendingUp, Sparkles, Crosshair, Shield, Eye, Moon,
   Activity, Target, AlertTriangle, Heart, Zap,
-  Send, ArrowRight, Loader2, BarChart3,
+  Send, ArrowRight, Loader2, BarChart3, ChevronDown, ChevronUp,
 } from "lucide-react";
 import AstraVerdictCard, { type AstraVerdict } from "@/components/astra/AstraVerdictCard";
 import AstraAssessmentHistory from "@/components/astra/AstraAssessmentHistory";
 import { useBettingProfile, ARCHETYPE_META, computeFitScore } from "@/hooks/use-betting-profile";
 import { BettingProfileCard, FitScoreBadge } from "@/components/profile/BettingProfileCard";
 import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 const MODE_ICONS: Record<string, any> = { TrendingUp, Sparkles, Crosshair, Shield, Eye, Moon };
+
+const MODE_IMPORTANCE: Record<string, string> = {
+  sharp: "Pure data-driven analysis. Strips cosmic layers to focus on EV, hit probability, and statistical edges. Best for bettors who want clean quant signals only.",
+  cosmic: "Balanced blend of statistical + astrological factors. Uses planetary transits and cosmic windows alongside projections. The default all-rounder mode.",
+  sniper: "Targets hidden value and live entry windows. Prioritizes opportunity score, timing quality, and undervalued lines that the market hasn't corrected yet.",
+  hedge: "Risk-first mindset. Emphasizes correlation risk, trap detection, and safety margins. Ideal when protecting bankroll or building conservative parlays.",
+  shadow: "Contrarian mode. Looks for market overreactions, public bias fades, and shadow value where the crowd is wrong. High conviction, lower volume.",
+  ritual: "Full cosmic immersion. Maximizes astrological weight — planetary hours, election windows, and natal chart alignment. For users who believe in the stars.",
+};
 
 const QUICK_CHIPS = [
   { label: "Good bet or pass", icon: Target },
@@ -28,11 +39,13 @@ const QUICK_CHIPS = [
 
 export default function CommandCenterTab() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const { modes, activeMode, activeModeConfig, setMode } = useAstraMode();
   const { profile } = useBettingProfile();
   const [query, setQuery] = useState("");
   const [verdict, setVerdict] = useState<AstraVerdict | null>(null);
   const [isAsking, setIsAsking] = useState(false);
+  const [expandedMode, setExpandedMode] = useState(false);
 
   const askAstra = async () => {
     const text = query.trim();
@@ -121,22 +134,45 @@ export default function CommandCenterTab() {
       </div>
 
       {/* Mode Selector */}
-      <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1 no-scrollbar">
-        {modes.map((m) => {
-          const Icon = MODE_ICONS[m.icon_name] || Sparkles;
-          const isActive = m.mode_key === activeMode;
-          return (
-            <button key={m.mode_key} onClick={() => setMode(m.mode_key as AstraMode)}
-              className={cn("flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold whitespace-nowrap transition-all border",
-                isActive ? "bg-primary/15 text-primary border-primary/30 shadow-sm" : "bg-card/50 text-muted-foreground border-border/30 hover:bg-card hover:text-foreground")}>
-              <Icon className="w-3.5 h-3.5" />
-              {m.mode_name}
-            </button>
-          );
-        })}
-      </div>
+      <TooltipProvider delayDuration={300}>
+        <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1 no-scrollbar">
+          {modes.map((m) => {
+            const Icon = MODE_ICONS[m.icon_name] || Sparkles;
+            const isActive = m.mode_key === activeMode;
+            return (
+              <Tooltip key={m.mode_key}>
+                <TooltipTrigger asChild>
+                  <button onClick={() => setMode(m.mode_key as AstraMode)}
+                    className={cn("flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold whitespace-nowrap transition-all border",
+                      isActive ? "bg-primary/15 text-primary border-primary/30 shadow-sm" : "bg-card/50 text-muted-foreground border-border/30 hover:bg-card hover:text-foreground")}>
+                    <Icon className="w-3.5 h-3.5" />
+                    {m.mode_name}
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-[260px] text-xs">
+                  <p className="font-semibold mb-0.5">{m.mode_name} Mode</p>
+                  <p className="text-muted-foreground">{m.description}</p>
+                </TooltipContent>
+              </Tooltip>
+            );
+          })}
+        </div>
+      </TooltipProvider>
 
-      {activeModeConfig && <p className="text-[11px] text-muted-foreground/70 italic">{activeModeConfig.description}</p>}
+      {activeModeConfig && (
+        <button onClick={() => setExpandedMode(!expandedMode)} className="w-full text-left group">
+          <div className="flex items-center gap-1.5">
+            <p className="text-[11px] text-muted-foreground/70 italic flex-1">{activeModeConfig.description}</p>
+            {expandedMode ? <ChevronUp className="w-3 h-3 text-muted-foreground/50 shrink-0" /> : <ChevronDown className="w-3 h-3 text-muted-foreground/50 shrink-0" />}
+          </div>
+          {expandedMode && (
+            <div className="mt-2 p-3 rounded-lg bg-primary/5 border border-primary/10 text-[11px] text-foreground/80 leading-relaxed">
+              <p className="font-semibold text-primary mb-1">Why {activeModeConfig.mode_name}?</p>
+              <p>{MODE_IMPORTANCE[activeMode] || activeModeConfig.description}</p>
+            </div>
+          )}
+        </button>
+      )}
 
       {/* Ask Astra */}
       <div className="relative">
@@ -161,7 +197,7 @@ export default function CommandCenterTab() {
 
       {/* Dashboard Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <DashCard title="Astra Pulse" icon={Activity}>
+        <DashCard title="Astra Pulse" icon={Activity} onClick={() => navigate("/")}>
           <div className="space-y-1">
             <div className="flex items-center gap-2">
               <span className={cn("h-2 w-2 rounded-full", (liveGamesCount ?? 0) > 0 ? "bg-cosmic-green animate-pulse" : "bg-muted-foreground")} />
@@ -178,7 +214,7 @@ export default function CommandCenterTab() {
           </div>
         </DashCard>
 
-        <DashCard title="Best Opportunities" icon={Target}>
+        <DashCard title="Best Opportunities" icon={Target} onClick={() => navigate("/props")}>
           {filteredOpps.length === 0 ? <p className="text-[11px] text-muted-foreground">No active opportunities right now.</p> : (
             <div className="space-y-1.5">
               {filteredOpps.slice(0, 3).map((o: any) => (
@@ -191,7 +227,7 @@ export default function CommandCenterTab() {
           )}
         </DashCard>
 
-        <DashCard title="Trap Watch" icon={AlertTriangle}>
+        <DashCard title="Trap Watch" icon={AlertTriangle} onClick={() => navigate("/astra")}>
           {(recentTraps?.length ?? 0) === 0 ? <p className="text-[11px] text-muted-foreground">No active trap alerts.</p> : (
             <div className="space-y-1">
               {recentTraps!.slice(0, 3).map((t: any) => (
@@ -205,13 +241,13 @@ export default function CommandCenterTab() {
           )}
         </DashCard>
 
-        <DashCard title="Cosmic Windows" icon={Moon} dimmed={activeMode === "sharp"}>
+        <DashCard title="Cosmic Windows" icon={Moon} dimmed={activeMode === "sharp"} onClick={() => navigate("/celestial")}>
           <p className="text-[11px] text-muted-foreground">
             {activeMode === "sharp" ? "Cosmic layer de-emphasized in Sharp mode." : activeMode === "ritual" ? "Full cosmic window analysis active." : "Planetary hour and transit windows available."}
           </p>
         </DashCard>
 
-        <DashCard title="Slip Health" icon={Heart}>
+        <DashCard title="Slip Health" icon={Heart} onClick={() => navigate("/skyspread")}>
           {!slipHealth || slipHealth.activeCount === 0 ? <p className="text-[11px] text-muted-foreground">No active slips to monitor.</p> : (
             <div className="space-y-1">
               <div className="flex items-center gap-3 text-[11px]">
@@ -224,7 +260,7 @@ export default function CommandCenterTab() {
           )}
         </DashCard>
 
-        <DashCard title="Opportunity Feed" icon={Zap}>
+        <DashCard title="Opportunity Feed" icon={Zap} onClick={() => navigate("/props")}>
           {filteredOpps.length === 0 ? <p className="text-[11px] text-muted-foreground">Feed empty. Waiting for model outputs…</p> : (
             <div className="space-y-1">{filteredOpps.slice(0, 5).map((o: any) => (<div key={o.id} className="text-[10px] text-muted-foreground truncate">{o.headline}</div>))}</div>
           )}
@@ -291,12 +327,13 @@ export default function CommandCenterTab() {
   );
 }
 
-function DashCard({ title, icon: Icon, dimmed, children }: { title: string; icon: any; dimmed?: boolean; children: React.ReactNode }) {
+function DashCard({ title, icon: Icon, dimmed, onClick, children }: { title: string; icon: any; dimmed?: boolean; onClick?: () => void; children: React.ReactNode }) {
   return (
-    <div className={cn("rounded-xl border border-border/30 bg-card/50 backdrop-blur-sm p-4 space-y-2 transition-opacity", dimmed && "opacity-50")}>
+    <div onClick={onClick} className={cn("rounded-xl border border-border/30 bg-card/50 backdrop-blur-sm p-4 space-y-2 transition-all", dimmed && "opacity-50", onClick && "cursor-pointer hover:border-primary/30 hover:bg-card/70 active:scale-[0.99]")}>
       <div className="flex items-center gap-2">
         <Icon className="w-4 h-4 text-primary" />
         <span className="text-xs font-bold uppercase tracking-wider text-foreground">{title}</span>
+        {onClick && <ArrowRight className="w-3 h-3 text-muted-foreground/40 ml-auto" />}
       </div>
       {children}
     </div>
