@@ -523,7 +523,12 @@ Deno.serve(async (req) => {
       warning_note: aiAnswer.warning_note,
       alternative_suggestion: aiAnswer.alternative_suggestion,
       answer_summary: aiAnswer.answer_summary,
-      engine_inputs: { parsed, features: features ? { hit_l5: features.hit_l5, hit_l10: features.hit_l10, mu_l10: features.mu_l10, cv: features.coeff_of_var } : null },
+      engine_inputs: {
+        parsed,
+        features: features ? { hit_l5: features.hit_l5, hit_l10: features.hit_l10, mu_l10: features.mu_l10, cv: features.coeff_of_var } : null,
+        model_activation: modelInfo,
+        variable_manifest_count: variableManifest.length,
+      },
       engine_outputs: assessment,
     };
 
