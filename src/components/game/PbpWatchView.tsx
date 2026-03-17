@@ -51,7 +51,7 @@ export function PbpWatchView({ gameId, homeAbbr, awayAbbr, league }: PbpWatchVie
         .maybeSingle();
       return data;
     },
-    refetchInterval: 8_000,
+    refetchInterval: 4_000,
   });
 
   // ── Game key for cosmic pipeline ──
@@ -90,7 +90,7 @@ export function PbpWatchView({ gameId, homeAbbr, awayAbbr, league }: PbpWatchVie
         .limit(1000);
       return (data || []) as any[];
     },
-    refetchInterval: 10_000,
+    refetchInterval: 5_000,
   });
 
   // ── Cosmic pipeline PBP events ──
@@ -107,7 +107,7 @@ export function PbpWatchView({ gameId, homeAbbr, awayAbbr, league }: PbpWatchVie
       return data || [];
     },
     enabled: !!gameKey,
-    refetchInterval: 10_000,
+    refetchInterval: 5_000,
   });
 
   // ── Historical NBA PBP ──

@@ -28,26 +28,37 @@ export function CosmicBackground() {
         isActive ? "opacity-100" : "opacity-40"
       )}
     >
-      {/* Deep space gradient */}
-      <div className="absolute inset-0 bg-gradient-to-b from-[hsl(240_30%_6%)] via-[hsl(260_25%_10%)] to-[hsl(230_25%_8%)]" />
+      {/* Deep space gradient — uses semantic tokens, NOT hardcoded dark values */}
+      <div
+        className="absolute inset-0"
+        style={{
+          background: `linear-gradient(to bottom, hsl(var(--background)), hsl(var(--background) / 0.95), hsl(var(--background)))`,
+        }}
+      />
 
-      {/* Static star layers */}
-      <div className="absolute inset-0 star-field opacity-60" />
+      {/* Static star layers — subtle sparkle */}
+      <div className="absolute inset-0 star-field opacity-40" />
 
       {/* Twinkling star layer 1 */}
-      <div className="absolute inset-0 star-field animate-twinkle-slow opacity-40" />
+      <div className="absolute inset-0 star-field animate-twinkle-slow opacity-25" />
 
       {/* Twinkling star layer 2 (offset timing) */}
-      <div className="absolute inset-0 star-field animate-twinkle-fast opacity-30 scale-[1.3] rotate-12" />
+      <div className="absolute inset-0 star-field animate-twinkle-fast opacity-15 scale-[1.3] rotate-12" />
 
-      {/* Primary nebula glow - pulsing */}
-      <div className="absolute top-1/4 left-1/3 w-[400px] h-[400px] rounded-full bg-[hsl(260_60%_30%/0.10)] blur-[100px] animate-nebula-pulse" />
+      {/* Primary nebula glow — very subtle, no darkening */}
+      <div className="absolute top-1/4 left-1/3 w-[400px] h-[400px] rounded-full blur-[100px] animate-nebula-pulse"
+        style={{ background: `hsl(var(--cosmic-glow) / 0.06)` }}
+      />
 
-      {/* Secondary nebula glow - counter-pulsing */}
-      <div className="absolute bottom-1/3 right-1/4 w-[300px] h-[300px] rounded-full bg-[hsl(195_70%_30%/0.08)] blur-[80px] animate-nebula-drift" />
+      {/* Secondary nebula glow */}
+      <div className="absolute bottom-1/3 right-1/4 w-[300px] h-[300px] rounded-full blur-[80px] animate-nebula-drift"
+        style={{ background: `hsl(var(--cosmic-cyan) / 0.04)` }}
+      />
 
       {/* Subtle gold accent nebula */}
-      <div className="absolute top-2/3 left-1/5 w-[200px] h-[200px] rounded-full bg-[hsl(42_60%_40%/0.04)] blur-[60px] animate-nebula-pulse-slow" />
+      <div className="absolute top-2/3 left-[20%] w-[200px] h-[200px] rounded-full blur-[60px] animate-nebula-pulse-slow"
+        style={{ background: `hsl(var(--cosmic-gold) / 0.03)` }}
+      />
     </div>
   );
 }
