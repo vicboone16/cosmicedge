@@ -123,8 +123,27 @@ Deno.serve(async (req) => {
   const playerCache = new Map<string, string | null>(); // name → player.id
   const gameKeyMap = new Map<number, string>();          // bdlId → internal UUID
 
-  async function resolvePlayer(name: string): Promise<string | null> {
-    if (playerCache.has(name)) return playerCache.get(name)!;
+  async function resolvePlayer(name: string, teamAbbr?: string): Promise<string | null> {
+    const cacheKey = teamAbbr ? `${name}::${teamAbbr}` : name;
+    if (playerCache.has(cacheKey)) return playerCache.get(cacheKey)!;
+
+    // Prefer team-scoped match to avoid same-name collisions
+    if (teamAbbr) {
+      const { data: teamMatch } = await sb
+        .from("players")
+        .select("id")
+        .eq("name", name)
+        .eq("league", "NBA")
+        .eq("team", teamAbbr)
+        .maybeSingle();
+      if (teamMatch?.id) {
+        playerCache.set(cacheKey, teamMatch.id);
+        playerCache.set(name, teamMatch.id); // also cache without team
+        return teamMatch.id;
+      }
+    }
+
+    // Fallback: league-only match (existing behavior)
     const { data } = await sb
       .from("players")
       .select("id")
@@ -132,6 +151,7 @@ Deno.serve(async (req) => {
       .eq("league", "NBA")
       .maybeSingle();
     const id = data?.id ?? null;
+    playerCache.set(cacheKey, id);
     playerCache.set(name, id);
     return id;
   }
