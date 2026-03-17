@@ -1513,6 +1513,208 @@ export type Database = {
           },
         ]
       }
+      bolt_connection_status: {
+        Row: {
+          created_at: string | null
+          id: string
+          last_connected_at: string | null
+          last_error: string | null
+          last_message_at: string | null
+          reconnect_count: number | null
+          status: string
+          subscription_filters: Json | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          last_connected_at?: string | null
+          last_error?: string | null
+          last_message_at?: string | null
+          reconnect_count?: number | null
+          status?: string
+          subscription_filters?: Json | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          last_connected_at?: string | null
+          last_error?: string | null
+          last_message_at?: string | null
+          reconnect_count?: number | null
+          status?: string
+          subscription_filters?: Json | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      bolt_games: {
+        Row: {
+          away_team: string | null
+          bolt_game_id: string
+          created_at: string | null
+          home_team: string | null
+          id: string
+          is_active: boolean | null
+          league: string | null
+          raw_data: Json | null
+          sport: string
+          start_time: string | null
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          away_team?: string | null
+          bolt_game_id: string
+          created_at?: string | null
+          home_team?: string | null
+          id?: string
+          is_active?: boolean | null
+          league?: string | null
+          raw_data?: Json | null
+          sport: string
+          start_time?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          away_team?: string | null
+          bolt_game_id?: string
+          created_at?: string | null
+          home_team?: string | null
+          id?: string
+          is_active?: boolean | null
+          league?: string | null
+          raw_data?: Json | null
+          sport?: string
+          start_time?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      bolt_markets: {
+        Row: {
+          bolt_game_id: string
+          created_at: string | null
+          id: string
+          is_suspended: boolean | null
+          market_key: string
+          market_name: string | null
+          market_type: string | null
+          player_name: string | null
+          raw_data: Json | null
+          updated_at: string | null
+        }
+        Insert: {
+          bolt_game_id: string
+          created_at?: string | null
+          id?: string
+          is_suspended?: boolean | null
+          market_key: string
+          market_name?: string | null
+          market_type?: string | null
+          player_name?: string | null
+          raw_data?: Json | null
+          updated_at?: string | null
+        }
+        Update: {
+          bolt_game_id?: string
+          created_at?: string | null
+          id?: string
+          is_suspended?: boolean | null
+          market_key?: string
+          market_name?: string | null
+          market_type?: string | null
+          player_name?: string | null
+          raw_data?: Json | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bolt_markets_bolt_game_id_fkey"
+            columns: ["bolt_game_id"]
+            isOneToOne: false
+            referencedRelation: "bolt_games"
+            referencedColumns: ["bolt_game_id"]
+          },
+        ]
+      }
+      bolt_outcomes: {
+        Row: {
+          american_odds: number | null
+          created_at: string | null
+          id: string
+          is_suspended: boolean | null
+          line: number | null
+          market_id: string
+          odds: number | null
+          outcome_name: string | null
+          raw_data: Json | null
+          sportsbook: string
+          updated_at: string | null
+        }
+        Insert: {
+          american_odds?: number | null
+          created_at?: string | null
+          id?: string
+          is_suspended?: boolean | null
+          line?: number | null
+          market_id: string
+          odds?: number | null
+          outcome_name?: string | null
+          raw_data?: Json | null
+          sportsbook: string
+          updated_at?: string | null
+        }
+        Update: {
+          american_odds?: number | null
+          created_at?: string | null
+          id?: string
+          is_suspended?: boolean | null
+          line?: number | null
+          market_id?: string
+          odds?: number | null
+          outcome_name?: string | null
+          raw_data?: Json | null
+          sportsbook?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bolt_outcomes_market_id_fkey"
+            columns: ["market_id"]
+            isOneToOne: false
+            referencedRelation: "bolt_markets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bolt_socket_logs: {
+        Row: {
+          created_at: string | null
+          id: string
+          message_type: string
+          payload: Json | null
+          sport: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          message_type: string
+          payload?: Json | null
+          sport?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          message_type?: string
+          payload?: Json | null
+          sport?: string | null
+        }
+        Relationships: []
+      }
       ce_astro_overrides: {
         Row: {
           astro_conf_multiplier: number | null
