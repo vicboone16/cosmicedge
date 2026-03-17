@@ -510,7 +510,9 @@ serve(async (req) => {
         const { data: playerRow } = await supabase.from("players").select("team, league").eq("id", pick.player_id).single();
         if (playerRow?.team) {
           const teamAbbr = playerRow.team;
-          const today = new Date().toISOString().slice(0, 10);
+          const _now = new Date();
+          const yesterday = new Date(_now.getTime() - 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+          const tomorrow = new Date(_now.getTime() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
           // 1) Try live/in_progress game first
           const { data: liveGame } = await supabase
@@ -528,8 +530,8 @@ serve(async (req) => {
               .from("games")
               .select("id, status, quarter")
               .or(`home_abbr.eq.${teamAbbr},away_abbr.eq.${teamAbbr}`)
-              .gte("start_time", `${today}T00:00:00Z`)
-              .lte("start_time", `${today}T23:59:59Z`)
+              .gte("start_time", `${yesterday}T00:00:00Z`)
+              .lte("start_time", `${tomorrow}T23:59:59Z`)
               .order("start_time", { ascending: true })
               .limit(1)
               .maybeSingle();

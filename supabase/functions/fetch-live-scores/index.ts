@@ -161,20 +161,23 @@ Deno.serve(async (req) => {
     const supabase = createClient(sbUrl, sbKey);
 
     const now = new Date();
-    const todayISO = now.toISOString().slice(0, 10);
+    // Widen window to ±1 day to handle PST/UTC offset
+    // e.g. a 7pm PST game = 3am UTC next day — using UTC-only date would miss it
+    const yesterdayISO = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const tomorrowISO = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
-    // Fetch games that are live or scheduled for today
+    // Fetch games that are live OR scheduled within the ±1 day window
     const { data: games, error: gamesError } = await supabase
       .from("games")
       .select("id, external_id, status, home_team, away_team, home_abbr, away_abbr, league, start_time, home_score, away_score")
-      .or(`status.eq.live,status.eq.in_progress,and(status.eq.scheduled,start_time.gte.${todayISO}T00:00:00Z,start_time.lte.${todayISO}T23:59:59Z)`);
+      .or(`status.eq.live,status.eq.in_progress,and(status.eq.scheduled,start_time.gte.${yesterdayISO}T00:00:00Z,start_time.lte.${tomorrowISO}T23:59:59Z)`);
 
     if (gamesError) {
       console.error(`[fetch-live-scores] Games query error: ${gamesError.message}`);
       throw new Error("Failed to fetch games: " + gamesError.message);
     }
     
-    console.log(`[fetch-live-scores] Found ${games?.length || 0} games in DB for ${todayISO}`);
+    console.log(`[fetch-live-scores] Found ${games?.length || 0} games in DB for ${yesterdayISO} to ${tomorrowISO}`);
     
     if (!games?.length) {
       return new Response(JSON.stringify({ message: "No active games to update", updated: 0 }), {

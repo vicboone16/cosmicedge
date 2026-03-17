@@ -196,9 +196,11 @@ Deno.serve(async (req) => {
       const teamLookup: Record<string, string> = {};
       plrs?.forEach(p => { if (p.team) teamLookup[p.id] = p.team; });
 
-      const today = new Date().toISOString().slice(0, 10);
+      const now = new Date();
+      const yesterdayISO = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      const tomorrowISO = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
       const { data: todayGames } = await sb.from("games").select("id, home_abbr, away_abbr, status")
-        .gte("start_time", `${today}T00:00:00Z`).lte("start_time", `${today}T23:59:59Z`);
+        .gte("start_time", `${yesterdayISO}T00:00:00Z`).lte("start_time", `${tomorrowISO}T23:59:59Z`);
 
       if (todayGames?.length) {
         for (const pick of nullPicks) {
