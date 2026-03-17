@@ -1,10 +1,10 @@
 /**
  * Super-admin diagnostics drawer.
  * Shows runtime state, model activation, variable grain, readiness flags,
- * roster hydration, lineup readiness, prop generation status, and publish safety.
+ * roster hydration, lineup readiness, prop generation status, and publish safety preflight.
  */
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { useAllActivations, type ModelActivationState } from "@/hooks/use-model-activation";
 import { useLiveReadiness, type LiveReadinessFlags } from "@/hooks/use-live-readiness";
@@ -14,7 +14,7 @@ import { supabase } from "@/integrations/supabase/client";
 import {
   Bug, ChevronDown, ChevronUp, CheckCircle2, XCircle, AlertTriangle,
   Cpu, Database, Radio, Shield, Loader2, Users, Activity, Layers,
-  GitBranch, Server
+  GitBranch, Server, Rocket, ShieldAlert
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
@@ -23,8 +23,8 @@ function StatusDot({ ok }: { ok: boolean }) {
   return <span className={cn("inline-block h-2 w-2 rounded-full shrink-0", ok ? "bg-green-400" : "bg-red-400")} />;
 }
 
-function DiagSection({ title, icon: Icon, children, defaultOpen = false }: {
-  title: string; icon: typeof Bug; children: React.ReactNode; defaultOpen?: boolean;
+function DiagSection({ title, icon: Icon, children, defaultOpen = false, badge }: {
+  title: string; icon: typeof Bug; children: React.ReactNode; defaultOpen?: boolean; badge?: React.ReactNode;
 }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
@@ -32,6 +32,7 @@ function DiagSection({ title, icon: Icon, children, defaultOpen = false }: {
       <button onClick={() => setOpen(!open)} className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-secondary/30 transition-colors">
         <Icon className="h-3.5 w-3.5 text-primary shrink-0" />
         <span className="text-[11px] font-bold text-foreground flex-1">{title}</span>
+        {badge}
         {open ? <ChevronUp className="h-3 w-3 text-muted-foreground" /> : <ChevronDown className="h-3 w-3 text-muted-foreground" />}
       </button>
       {open && <div className="px-3 pb-3 space-y-2">{children}</div>}
@@ -110,7 +111,7 @@ export default function AdminDiagnosticsDrawer({ context = "machina", gameId, pl
   });
 
   // Publish safety: schema parity check
-  const { data: parityIssues } = useQuery({
+  const { data: parityIssues, isLoading: parityLoading, refetch: refetchParity } = useQuery({
     queryKey: ["schema-parity-check"],
     queryFn: async () => {
       const { data, error } = await supabase.rpc("check_schema_parity" as any);
@@ -137,6 +138,21 @@ export default function AdminDiagnosticsDrawer({ context = "machina", gameId, pl
     (a: ModelActivationState) => a.scope_type === "global" && a.scope_key === "default"
   );
 
+  // Categorized parity issues for preflight summary
+  const preflightSummary = useMemo(() => {
+    if (!parityIssues) return null;
+    const cats: Record<string, number> = {};
+    for (const issue of parityIssues) {
+      const cat = issue.object_type;
+      cats[cat] = (cats[cat] || 0) + 1;
+    }
+    const critical = (cats["trigger"] ?? 0); // triggers on reserved schemas
+    const high = (cats["table"] ?? 0) + (cats["function"] ?? 0); // RLS disabled + unsafe functions
+    const medium = (cats["view"] ?? 0) + (cats["sequence"] ?? 0);
+    const isSafe = parityIssues.length === 0;
+    return { cats, critical, high, medium, total: parityIssues.length, isSafe };
+  }, [parityIssues]);
+
   return (
     <Sheet>
       <SheetTrigger asChild>
@@ -158,7 +174,13 @@ export default function AdminDiagnosticsDrawer({ context = "machina", gameId, pl
 
         <div className="mt-4 space-y-3">
           {/* Model Activation State */}
-          <DiagSection title="Model Activation" icon={Cpu} defaultOpen>
+          <DiagSection title="Model Activation" icon={Cpu} defaultOpen
+            badge={globalActivation ? (
+              <Badge variant="outline" className={cn("text-[7px] px-1 py-0",
+                globalActivation.runtime_status === "confirmed" ? "text-green-400 border-green-400/20" : "text-red-400 border-red-400/20"
+              )}>{globalActivation.runtime_status}</Badge>
+            ) : undefined}
+          >
             {actLoading ? (
               <Loader2 className="h-4 w-4 animate-spin text-primary" />
             ) : globalActivation ? (
@@ -170,9 +192,10 @@ export default function AdminDiagnosticsDrawer({ context = "machina", gameId, pl
                 <KV k="Activated At" v={globalActivation.activated_at ? new Date(globalActivation.activated_at).toLocaleString() : null} />
                 <KV k="Runtime Confirmed" v={globalActivation.runtime_confirmed_at ? new Date(globalActivation.runtime_confirmed_at).toLocaleString() : "NOT CONFIRMED"} status={globalActivation.runtime_confirmed_at ? "ok" : "fail"} />
                 <KV k="Cache Token" v={globalActivation.cache_bust_token ? globalActivation.cache_bust_token.slice(0, 12) + "…" : null} />
+                {globalActivation.notes && <KV k="Notes" v={globalActivation.notes} />}
                 {globalActivation.runtime_status !== "confirmed" && (
-                  <div className="mt-1 p-1.5 rounded bg-red-500/10 border border-red-500/20">
-                    <p className="text-[9px] font-bold text-red-400">⚠ Model NOT runtime-confirmed. UI should NOT show "Active".</p>
+                  <div className="mt-1 p-1.5 rounded bg-destructive/10 border border-destructive/20">
+                    <p className="text-[9px] font-bold text-destructive">⚠ Model NOT runtime-confirmed. Predictions may use stale weights.</p>
                   </div>
                 )}
               </div>
@@ -186,15 +209,20 @@ export default function AdminDiagnosticsDrawer({ context = "machina", gameId, pl
 
           {/* Live Prop Readiness (game context) */}
           {gameId && (
-            <DiagSection title="Live Prop Readiness" icon={Radio}>
+            <DiagSection title="Live Prop Readiness" icon={Radio}
+              badge={readiness ? (
+                <Badge variant="outline" className={cn("text-[7px] px-1 py-0",
+                  !readiness.failure_stage ? "text-green-400 border-green-400/20" : "text-red-400 border-red-400/20"
+                )}>{readiness.failure_stage ? "BLOCKED" : "READY"}</Badge>
+              ) : undefined}
+            >
               {readiness ? (
                 <div className="space-y-1">
-                  {/* Source indicator */}
                   <div className="flex items-center gap-1.5 mb-2">
                     <Server className="h-3 w-3 text-muted-foreground" />
                     <span className="text-[9px] text-muted-foreground">
                       Source: <span className={cn("font-bold", readiness.source === "server" ? "text-green-400" : "text-amber-400")}>
-                        {readiness.source === "server" ? "Server (precomputed)" : "Client fallback"}
+                        {readiness.source === "server" ? "Server (auto-refreshed)" : "Client fallback"}
                       </span>
                     </span>
                     {readiness.checked_at && (
@@ -213,10 +241,10 @@ export default function AdminDiagnosticsDrawer({ context = "machina", gameId, pl
                     );
                   })}
                   {readiness.failure_stage && (
-                    <div className="mt-2 p-2 rounded bg-red-500/10 border border-red-500/20">
-                      <p className="text-[9px] font-bold text-red-400">First Failed Stage: {readiness.failure_stage}</p>
+                    <div className="mt-2 p-2 rounded bg-destructive/10 border border-destructive/20">
+                      <p className="text-[9px] font-bold text-destructive">First Failed Stage: {readiness.failure_stage}</p>
                       {readiness.failure_detail && (
-                        <p className="text-[9px] text-red-300 mt-0.5">{readiness.failure_detail}</p>
+                        <p className="text-[9px] text-destructive/80 mt-0.5">{readiness.failure_detail}</p>
                       )}
                     </div>
                   )}
@@ -229,26 +257,23 @@ export default function AdminDiagnosticsDrawer({ context = "machina", gameId, pl
 
           {/* Roster & Lineup Hydration */}
           {gameId && (
-            <DiagSection title="Roster & Lineup Hydration" icon={Users}>
+            <DiagSection title="Roster & Lineup Hydration" icon={Users}
+              badge={rosterStatus ? (
+                <Badge variant="outline" className={cn("text-[7px] px-1 py-0",
+                  rosterStatus.confidence === "high" ? "text-green-400 border-green-400/20" :
+                  rosterStatus.confidence === "medium" ? "text-amber-400 border-amber-400/20" :
+                  "text-red-400 border-red-400/20"
+                )}>{rosterStatus.confidence}</Badge>
+              ) : undefined}
+            >
               {rosterStatus ? (
                 <div className="space-y-1.5">
-                  <div className="flex items-center gap-2">
-                    <Badge variant="outline" className={cn("text-[8px] px-1 py-0",
-                      rosterStatus.confidence === "high" ? "text-green-400 border-green-400/20" :
-                      rosterStatus.confidence === "medium" ? "text-amber-400 border-amber-400/20" :
-                      "text-red-400 border-red-400/20"
-                    )}>
-                      {rosterStatus.confidence} confidence
-                    </Badge>
-                  </div>
                   <KV k={`${rosterStatus.homeTeam} players`} v={String(rosterStatus.homePlayersCount)} status={rosterStatus.homePlayersCount >= 5 ? "ok" : "fail"} />
                   <KV k={`${rosterStatus.awayTeam} players`} v={String(rosterStatus.awayPlayersCount)} status={rosterStatus.awayPlayersCount >= 5 ? "ok" : "fail"} />
                   {rosterStatus.stalePlayerCount > 0 && (
                     <KV k="Stale/wrong-team" v={String(rosterStatus.stalePlayerCount)} status="fail" />
                   )}
                   <KV k="Detail" v={rosterStatus.detail} />
-
-                  {/* Lineup section */}
                   <div className="mt-2 pt-2 border-t border-border/20">
                     <div className="flex items-center gap-2 text-[10px]">
                       {rosterStatus.lineupsReady
@@ -261,7 +286,6 @@ export default function AdminDiagnosticsDrawer({ context = "machina", gameId, pl
                     <KV k="Depth Chart Entries" v={String(rosterStatus.lineupCount)} status={rosterStatus.lineupsReady ? "ok" : "fail"} />
                     <KV k="Lineup Detail" v={rosterStatus.lineupDetail} />
                   </div>
-
                   {rosterStatus.confidence !== "high" && (
                     <div className="mt-1 p-1.5 rounded bg-amber-500/10 border border-amber-500/20">
                       <p className="text-[9px] font-bold text-amber-400">⚠ Roster confidence is {rosterStatus.confidence}. Lineup/roster displays may be inaccurate.</p>
@@ -281,7 +305,7 @@ export default function AdminDiagnosticsDrawer({ context = "machina", gameId, pl
                 <KV k="Raw live props" v={String(propStats.rawProps)} status={propStats.rawProps > 0 ? "ok" : "fail"} />
                 <KV k="Nebula predictions" v={String(propStats.nebulaProps)} status={propStats.nebulaProps > 0 ? "ok" : "warn"} />
                 {propStats.rawProps === 0 && (
-                  <p className="text-[9px] text-red-400 mt-1">No live props found — check readiness pipeline above for failed stage</p>
+                  <p className="text-[9px] text-destructive mt-1">No live props found — check readiness pipeline above for failed stage</p>
                 )}
               </div>
             </DiagSection>
@@ -309,7 +333,8 @@ export default function AdminDiagnosticsDrawer({ context = "machina", gameId, pl
                       <span className="text-muted-foreground">{log.action}</span>
                       <span className="text-muted-foreground/50 ml-auto">{new Date(log.triggered_at).toLocaleString()}</span>
                     </div>
-                    <KV k="Model" v={log.new_model_id?.slice(0, 8)} />
+                    <KV k="Prev" v={log.previous_model_id?.slice(0, 8)} />
+                    <KV k="New" v={log.new_model_id?.slice(0, 8)} />
                     {log.result_message && <p className="text-muted-foreground/60 italic">{log.result_message}</p>}
                   </div>
                 ))}
@@ -319,31 +344,92 @@ export default function AdminDiagnosticsDrawer({ context = "machina", gameId, pl
             )}
           </DiagSection>
 
-          {/* Publish Safety / Schema Parity */}
-          <DiagSection title="Publish Safety" icon={GitBranch}>
-            {parityIssues && parityIssues.length > 0 ? (
-              <div className="space-y-1.5">
-                <p className="text-[9px] font-bold text-amber-400">{parityIssues.length} potential issues found</p>
-                {parityIssues.slice(0, 10).map((issue: any, i: number) => (
-                  <div key={i} className="text-[9px] p-1.5 rounded bg-card/50 border border-border/30 space-y-0.5">
-                    <div className="flex items-center gap-1.5">
-                      <Badge variant="outline" className="text-[7px] px-1 py-0 text-amber-400 border-amber-400/20">{issue.object_type}</Badge>
-                      <span className="font-mono text-foreground/80">{issue.object_name}</span>
-                    </div>
-                    <p className="text-muted-foreground/60">{issue.issue}</p>
+          {/* Publish Safety Preflight */}
+          <DiagSection title="Publish Preflight" icon={Rocket}
+            badge={preflightSummary ? (
+              <Badge variant="outline" className={cn("text-[7px] px-1 py-0",
+                preflightSummary.isSafe ? "text-green-400 border-green-400/20" :
+                preflightSummary.critical > 0 ? "text-red-400 border-red-400/20" :
+                "text-amber-400 border-amber-400/20"
+              )}>{preflightSummary.isSafe ? "SAFE" : `${preflightSummary.total} issues`}</Badge>
+            ) : undefined}
+          >
+            {parityLoading ? (
+              <Loader2 className="h-4 w-4 animate-spin text-primary" />
+            ) : preflightSummary ? (
+              <div className="space-y-2">
+                {/* Summary bar */}
+                <div className={cn(
+                  "p-2 rounded-lg border text-[10px] font-bold",
+                  preflightSummary.isSafe
+                    ? "bg-green-500/10 border-green-500/20 text-green-400"
+                    : preflightSummary.critical > 0
+                    ? "bg-destructive/10 border-destructive/20 text-destructive"
+                    : "bg-amber-500/10 border-amber-500/20 text-amber-400"
+                )}>
+                  {preflightSummary.isSafe ? (
+                    <span className="flex items-center gap-1.5"><CheckCircle2 className="h-3.5 w-3.5" /> All checks passed — safe to publish</span>
+                  ) : (
+                    <span className="flex items-center gap-1.5"><ShieldAlert className="h-3.5 w-3.5" /> Review before publishing</span>
+                  )}
+                </div>
+
+                {/* Categorized counts */}
+                {!preflightSummary.isSafe && (
+                  <div className="grid grid-cols-3 gap-2">
+                    {preflightSummary.critical > 0 && (
+                      <div className="text-center p-1.5 rounded bg-destructive/10 border border-destructive/20">
+                        <p className="text-[14px] font-bold text-destructive">{preflightSummary.critical}</p>
+                        <p className="text-[8px] text-destructive/70">Critical</p>
+                      </div>
+                    )}
+                    {preflightSummary.high > 0 && (
+                      <div className="text-center p-1.5 rounded bg-amber-500/10 border border-amber-500/20">
+                        <p className="text-[14px] font-bold text-amber-400">{preflightSummary.high}</p>
+                        <p className="text-[8px] text-amber-400/70">High</p>
+                      </div>
+                    )}
+                    {preflightSummary.medium > 0 && (
+                      <div className="text-center p-1.5 rounded bg-secondary border border-border/30">
+                        <p className="text-[14px] font-bold text-muted-foreground">{preflightSummary.medium}</p>
+                        <p className="text-[8px] text-muted-foreground/70">Medium</p>
+                      </div>
+                    )}
                   </div>
-                ))}
-                {parityIssues.length > 10 && (
-                  <p className="text-[8px] text-muted-foreground">+{parityIssues.length - 10} more…</p>
                 )}
-              </div>
-            ) : parityIssues ? (
-              <div className="flex items-center gap-2 text-[10px] text-green-400">
-                <CheckCircle2 className="h-3 w-3" />
-                No schema parity issues detected
+
+                {/* Issue details */}
+                {parityIssues && parityIssues.length > 0 && (
+                  <div className="space-y-1.5 max-h-[200px] overflow-y-auto">
+                    {parityIssues.slice(0, 15).map((issue: any, i: number) => (
+                      <div key={i} className="text-[9px] p-1.5 rounded bg-card/50 border border-border/30 space-y-0.5">
+                        <div className="flex items-center gap-1.5">
+                          <Badge variant="outline" className={cn("text-[7px] px-1 py-0",
+                            issue.object_type === "trigger" ? "text-red-400 border-red-400/20" :
+                            issue.object_type === "table" || issue.object_type === "function" ? "text-amber-400 border-amber-400/20" :
+                            "text-muted-foreground border-border/30"
+                          )}>{issue.object_type}</Badge>
+                          <span className="font-mono text-foreground/80 truncate">{issue.object_name}</span>
+                        </div>
+                        <p className="text-muted-foreground/60">{issue.issue}</p>
+                      </div>
+                    ))}
+                    {parityIssues.length > 15 && (
+                      <p className="text-[8px] text-muted-foreground">+{parityIssues.length - 15} more…</p>
+                    )}
+                  </div>
+                )}
+
+                {/* Re-check button */}
+                <button
+                  onClick={() => refetchParity()}
+                  className="w-full text-[9px] font-bold text-primary hover:text-primary/80 transition-colors py-1.5 border border-border/30 rounded"
+                >
+                  Re-run Preflight Check
+                </button>
               </div>
             ) : (
-              <p className="text-[10px] text-muted-foreground">Checking…</p>
+              <p className="text-[10px] text-muted-foreground">No parity data</p>
             )}
           </DiagSection>
         </div>

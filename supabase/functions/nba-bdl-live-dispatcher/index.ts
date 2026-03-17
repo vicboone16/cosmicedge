@@ -532,8 +532,20 @@ Deno.serve(async (req) => {
       }));
     }
 
+    // ── Post-processing: compute live readiness for all processed games ──
+    const readinessResults: Record<string, any> = {};
+    for (const gk of new Set(gameKeyMap.values())) {
+      try {
+        const { data } = await sb.rpc("compute_live_readiness", { p_game_id: gk });
+        readinessResults[gk] = data;
+      } catch (e) {
+        console.warn(`[nba-bdl] readiness compute failed for ${gk}:`, e);
+      }
+    }
+    stats.readinessChecks = Object.keys(readinessResults).length;
+
     console.log(`[nba-bdl] Done: ${JSON.stringify(stats)}`);
-    return new Response(JSON.stringify({ ok: true, stats }), {
+    return new Response(JSON.stringify({ ok: true, stats, readiness: readinessResults }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
