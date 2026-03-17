@@ -342,6 +342,10 @@ export default function AstraPage() {
       </header>
 
       <div className="px-4 py-4">
+        <GuidanceCard title="How to Use Astra" dismissKey="astra_intro" variant="tip">
+          <p>Ask natural questions like <em>"Should I take Brunson over 6.5 assists?"</em> or <em>"Run my prop model on Tatum points"</em>. Astra routes your question through decision engines, compute pipelines, and astrology interpreters.</p>
+          <p className="mt-1">Explore the <strong>Celestial Engines</strong> tab to see what formulas power each prediction, or <strong>Behind the Stars</strong> for full methodology.</p>
+        </GuidanceCard>
         {tab === "chat" && <AstraChat />}
         {tab === "about" && <AstraAboutTab />}
         {tab === "glossary" && <AstraGlossaryTab />}
