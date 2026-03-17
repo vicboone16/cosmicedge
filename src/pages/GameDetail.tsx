@@ -32,6 +32,7 @@ import { PeriodScoresTicker } from "@/components/game/PeriodScoresTicker";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { AlertSetupDialog } from "@/components/live/AlertSetupDialog";
 import ArchetypeCard from "@/components/cosmic/ArchetypeCard";
+import { LiveStoryLayer } from "@/components/game/LiveStoryLayer";
 
 function formatOdds(odds: number | null): string {
   if (odds == null || odds === 0) return "—";
