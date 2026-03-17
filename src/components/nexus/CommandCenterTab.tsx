@@ -261,7 +261,7 @@ export default function CommandCenterTab() {
           )}
         </DashCard>
 
-        <DashCard title="Opportunity Feed" icon={Zap}>
+        <DashCard title="Opportunity Feed" icon={Zap} onClick={() => navigate("/props")}>
           {filteredOpps.length === 0 ? <p className="text-[11px] text-muted-foreground">Feed empty. Waiting for model outputs…</p> : (
             <div className="space-y-1">{filteredOpps.slice(0, 5).map((o: any) => (<div key={o.id} className="text-[10px] text-muted-foreground truncate">{o.headline}</div>))}</div>
           )}
