@@ -786,6 +786,9 @@ const GameDetail = () => {
               </div>
             </section>
 
+            {/* Cosmic Archetype */}
+            <ArchetypeCard entityId={game.id} entityType="game" />
+
             {/* Astra AI Game Analysis */}
             <AstraInsightsSection
               gameId={game.id}
