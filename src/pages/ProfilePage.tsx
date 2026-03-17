@@ -275,6 +275,9 @@ const ProfilePage = () => {
           )}
         </div>
 
+        {/* Betting Profile */}
+        <BettingProfileCard />
+
         {/* Actions */}
         <div className="space-y-2">
           <button
