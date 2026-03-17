@@ -12828,8 +12828,8 @@ export type Database = {
           event_type: string | null
           game_key: string | null
           home_score: number | null
-          is_scoring_play: boolean | null
-          is_shooting_play: boolean | null
+          is_scoring_play: string | null
+          is_shooting_play: string | null
           pbp_id: number | null
           period: number | null
           play_order: number | null
@@ -13112,8 +13112,8 @@ export type Database = {
           event_type: string | null
           game_key: string | null
           home_score: number | null
-          is_scoring_play: boolean | null
-          is_shooting_play: boolean | null
+          is_scoring_play_text: string | null
+          is_shooting_play_text: string | null
           pbp_id: number | null
           period: number | null
           play_order: number | null
@@ -13138,8 +13138,8 @@ export type Database = {
           event_type?: string | null
           game_key?: string | null
           home_score?: number | null
-          is_scoring_play?: never
-          is_shooting_play?: never
+          is_scoring_play_text?: never
+          is_shooting_play_text?: never
           pbp_id?: number | null
           period?: number | null
           play_order?: never
@@ -13164,8 +13164,8 @@ export type Database = {
           event_type?: string | null
           game_key?: string | null
           home_score?: number | null
-          is_scoring_play?: never
-          is_shooting_play?: never
+          is_scoring_play_text?: never
+          is_shooting_play_text?: never
           pbp_id?: number | null
           period?: number | null
           play_order?: never
