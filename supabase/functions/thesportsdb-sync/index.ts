@@ -720,7 +720,7 @@ async function syncLiveScores(
 
     // Try to match existing game
     const extId = `tsdb_${ev.idEvent}`;
-    const eventDate = ev.dateEvent || todayStr;
+    const eventDate = ev.dateEvent || today.toISOString().split("T")[0];
     const fpKey = `${homeAbbr}|${awayAbbr}|${eventDate}`;
     const existing = extIdIndex.get(extId) || gameIndex.get(fpKey);
 
