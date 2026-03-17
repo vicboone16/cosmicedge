@@ -41,11 +41,14 @@ export function AstraInsightsSection({
       }
 
       // Step 2: Call astro-interpret with quant context
+      const momentumContext = momentum ? `\nGame Momentum: ${momentum.momentumLabel} (score ${momentum.momentumScore}). Tempo: ${momentum.tempoLabel}. Recent run: Home ${momentum.recentRunHome} – Away ${momentum.recentRunAway}.` : "";
+      const profileContext = profile ? `\nUser Profile: ${profile.betting_archetype} archetype. Risk: ${profile.risk_tolerance}. Best markets: ${profile.best_performing_markets.join(", ") || "none identified"}. Weakest: ${profile.worst_performing_markets.join(", ") || "none identified"}.` : "";
+
       const { data: result, error } = await supabase.functions.invoke("astro-interpret", {
         body: {
           mode: "freeform",
           delivery_mode: "chat",
-          custom_prompt: `Provide a comprehensive astrological and statistical analysis for this ${league} game: ${awayTeam} (${awayAbbr}) at ${homeTeam} (${homeAbbr}). Game time: ${startTime}. Venue: ${venue || "Unknown"} (${venueLat?.toFixed(2)}°, ${venueLng?.toFixed(2)}°). Cover horary factors, astrocartography, planetary hours, and any relevant transit considerations. Integrate statistical models if available. Focus on betting implications: moneyline, spread, and totals.`,
+          custom_prompt: `Provide a comprehensive astrological and statistical analysis for this ${league} game: ${awayTeam} (${awayAbbr}) at ${homeTeam} (${homeAbbr}). Game time: ${startTime}. Venue: ${venue || "Unknown"} (${venueLat?.toFixed(2)}°, ${venueLng?.toFixed(2)}°). Cover horary factors, astrocartography, planetary hours, and any relevant transit considerations. Integrate statistical models if available. Focus on betting implications: moneyline, spread, and totals.${momentumContext}${profileContext}`,
           game_context: { home_team: homeAbbr, away_team: awayAbbr, date: startTime.slice(0, 10), venue },
           quant_data: quantData,
         },
