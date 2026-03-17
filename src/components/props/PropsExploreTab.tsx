@@ -1,5 +1,8 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { useIsAdmin } from "@/hooks/use-admin";
+import { toast } from "sonner";
 import { Flame, Zap, TrendingUp, Star, BarChart3, Activity } from "lucide-react";
 import { useTopPropsToday, type TopProp, getPropLabel, getEdgeTier } from "@/hooks/use-top-props";
 import { PropChip } from "@/components/slate/PropChip";
