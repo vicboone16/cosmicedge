@@ -7,6 +7,7 @@ import { toast } from "@/hooks/use-toast";
 import { ProfileInputField } from "@/components/profile/ProfileInputField";
 import { AvatarUpload } from "@/components/profile/AvatarUpload";
 import { PublicProfilePreview } from "@/components/profile/PublicProfilePreview";
+import { BettingProfileCard } from "@/components/profile/BettingProfileCard";
 
 const SIGNS = ["Aries","Taurus","Gemini","Cancer","Leo","Virgo","Libra","Scorpio","Sagittarius","Capricorn","Aquarius","Pisces"];
 
