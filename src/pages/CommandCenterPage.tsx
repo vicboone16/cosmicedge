@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAstraMode, type AstraMode } from "@/hooks/use-astra-mode";
 import { useAuth } from "@/hooks/use-auth";
@@ -7,11 +8,12 @@ import { cn } from "@/lib/utils";
 import {
   TrendingUp, Sparkles, Crosshair, Shield, Eye, Moon,
   Activity, Target, AlertTriangle, Clock, Heart, Zap,
-  Send, ArrowRight, Loader2,
+  Send, ArrowRight, Loader2, Info, ChevronDown, ChevronUp,
 } from "lucide-react";
 import AstraVerdictCard, { type AstraVerdict } from "@/components/astra/AstraVerdictCard";
 import AstraAssessmentHistory from "@/components/astra/AstraAssessmentHistory";
 import { useBettingProfile, ARCHETYPE_META } from "@/hooks/use-betting-profile";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 const MODE_ICONS: Record<string, any> = {
   TrendingUp, Sparkles, Crosshair, Shield, Eye, Moon,
