@@ -29,6 +29,26 @@ export default function CommandCenterPage() {
   const { user } = useAuth();
   const { modes, activeMode, activeModeConfig, setMode } = useAstraMode();
   const [query, setQuery] = useState("");
+  const [verdict, setVerdict] = useState<AstraVerdict | null>(null);
+  const [isAsking, setIsAsking] = useState(false);
+
+  const askAstra = async () => {
+    const text = query.trim();
+    if (!text || isAsking) return;
+    setIsAsking(true);
+    setVerdict(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("astra-decision-engine", {
+        body: { question: text, mode: activeMode },
+      });
+      if (error) throw error;
+      if (data?.assessment) setVerdict(data.assessment as AstraVerdict);
+    } catch (e) {
+      console.error("Astra error:", e);
+    } finally {
+      setIsAsking(false);
+    }
+  };
 
   const { data: opportunities } = useQuery({
     queryKey: ["astra-opportunities", activeMode],
