@@ -3,6 +3,8 @@ import { useQuery } from "@tanstack/react-query";
 import { Sparkles, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import AstraStructuredResponse, { type CosmicEdgeResponse, type AstraResponse } from "@/components/astra/AstraStructuredResponse";
+import { useGameMomentum, getMomentumIcon } from "@/hooks/use-game-momentum";
+import { useBettingProfile, computeFitScore } from "@/hooks/use-betting-profile";
 
 interface Props {
   gameId: string;
