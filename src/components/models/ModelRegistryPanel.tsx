@@ -32,9 +32,13 @@ export default function ModelRegistryPanel({ onEdit, onRun }: Props) {
     );
   }
 
-  return (
-    <div className="space-y-3">
-      {models.map((m) => {
+      return (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs text-muted-foreground">{models.length} models</span>
+            <AdminDiagnosticsDrawer context="machina" />
+          </div>
+          {models.map((m) => {
         const isOpen = expanded === m.id;
         const enabledFactors = (m.factors as any[]).filter((f: any) => f.enabled);
         const marketLabel = MARKET_TYPES.find((mt) => mt.value === m.market_type)?.label ?? m.market_type;
