@@ -597,7 +597,7 @@ function LivePropCard({ tp, gameData, liveState, onDelete }: { tp: any; gameData
       {/* Game Momentum + Player Momentum + Fit + Astro */}
       <div className="flex flex-wrap items-center gap-1.5">
         <MomentumChip gameId={tp.game_id} isLive />
-        <FitScoreBadge marketType={tp.market_type || ""} statType={cleanStat} isLive />
+        <FitScoreBadge marketType={tp.market_type || ""} statType={tp.market_type} isLive />
         {astroNote && (
           <span className="text-[8px] text-cosmic-purple italic">✦ {astroNote}</span>
         )}
