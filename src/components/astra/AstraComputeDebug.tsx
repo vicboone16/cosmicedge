@@ -25,10 +25,13 @@ interface DebugResult {
 
 interface ComputeResponse {
   success: boolean;
+  compute_blocked?: boolean;
+  block_reason?: string;
   answer: string;
   computed_value: number | null;
   formula_used: any;
   variables_used: Record<string, number>;
+  sanity_violations?: string[];
   data_source: string | null;
   data_rows: number;
   intent: string;
@@ -186,6 +189,30 @@ export default function AstraComputeDebug() {
       {/* Results */}
       {response && (
         <div className="space-y-3">
+          {/* Compute Blocked Banner */}
+          {response.compute_blocked && (
+            <div className="rounded-xl border border-red-500/30 bg-red-500/5 p-3 space-y-1">
+              <div className="flex items-center gap-2">
+                <XCircle className="h-4 w-4 text-red-400" />
+                <span className="text-xs font-bold text-red-400">Compute Blocked</span>
+              </div>
+              <p className="text-[10px] text-red-300">{response.block_reason}</p>
+            </div>
+          )}
+
+          {/* Sanity Violations */}
+          {response.sanity_violations && response.sanity_violations.length > 0 && (
+            <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-3 space-y-1">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4 text-amber-400" />
+                <span className="text-xs font-bold text-amber-400">Sanity Violations ({response.sanity_violations.length})</span>
+              </div>
+              {response.sanity_violations.map((v: string, i: number) => (
+                <p key={i} className="text-[10px] text-amber-300 font-mono">• {v}</p>
+              ))}
+            </div>
+          )}
+
           {/* Intent */}
           <div className="cosmic-card rounded-xl p-3 space-y-2">
             <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Detected Intent</h4>

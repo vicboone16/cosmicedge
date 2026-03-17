@@ -4,8 +4,9 @@ import { useIsAdmin } from "@/hooks/use-admin";
 import { useSaveModel, type CustomModel } from "@/hooks/use-custom-models";
 import {
   Cpu, Loader2, LayoutDashboard, Brain, Wrench, History,
-  Database, Play, Pencil, BookOpen
+  Database, Play, Pencil, BookOpen, Bug
 } from "lucide-react";
+import AdminDiagnosticsDrawer from "@/components/admin/AdminDiagnosticsDrawer";
 import { Badge } from "@/components/ui/badge";
 import type { CustomModelData } from "@/lib/model-factors";
 
@@ -98,6 +99,7 @@ export default function MachinaPage() {
           <Cpu className="h-5 w-5 text-primary" />
           <h1 className="text-lg font-bold font-display text-foreground">Machina</h1>
           <Badge variant="outline" className="text-[8px] px-1.5 py-0 h-4 font-bold bg-primary/10 text-primary border-primary/20">Admin</Badge>
+          <div className="ml-auto"><AdminDiagnosticsDrawer context="machina" /></div>
         </div>
         <p className="text-[10px] text-muted-foreground mb-3">
           Advanced model lab · Build, execute, backtest & compare prediction models

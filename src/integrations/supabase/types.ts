@@ -3873,6 +3873,92 @@ export type Database = {
         }
         Relationships: []
       }
+      live_prop_readiness: {
+        Row: {
+          active_model_ready: boolean | null
+          checked_at: string
+          failure_detail: string | null
+          failure_stage: string | null
+          game_id: string
+          game_status_synced: boolean | null
+          id: string
+          lineups_ready: boolean | null
+          live_boxscore_ready: boolean | null
+          live_prop_rows_generated: boolean | null
+          market_definitions_ready: boolean | null
+          odds_ready: boolean | null
+          player_live_stats_ready: boolean | null
+          provider_game_mapped: boolean | null
+          roster_ready: boolean | null
+          scorecard_ready: boolean | null
+        }
+        Insert: {
+          active_model_ready?: boolean | null
+          checked_at?: string
+          failure_detail?: string | null
+          failure_stage?: string | null
+          game_id: string
+          game_status_synced?: boolean | null
+          id?: string
+          lineups_ready?: boolean | null
+          live_boxscore_ready?: boolean | null
+          live_prop_rows_generated?: boolean | null
+          market_definitions_ready?: boolean | null
+          odds_ready?: boolean | null
+          player_live_stats_ready?: boolean | null
+          provider_game_mapped?: boolean | null
+          roster_ready?: boolean | null
+          scorecard_ready?: boolean | null
+        }
+        Update: {
+          active_model_ready?: boolean | null
+          checked_at?: string
+          failure_detail?: string | null
+          failure_stage?: string | null
+          game_id?: string
+          game_status_synced?: boolean | null
+          id?: string
+          lineups_ready?: boolean | null
+          live_boxscore_ready?: boolean | null
+          live_prop_rows_generated?: boolean | null
+          market_definitions_ready?: boolean | null
+          odds_ready?: boolean | null
+          player_live_stats_ready?: boolean | null
+          provider_game_mapped?: boolean | null
+          roster_ready?: boolean | null
+          scorecard_ready?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "live_prop_readiness_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: true
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "live_prop_readiness_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: true
+            referencedRelation: "v_current_game_players"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "live_prop_readiness_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: true
+            referencedRelation: "v_game_live_state"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "live_prop_readiness_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: true
+            referencedRelation: "v_oracle_player_validity"
+            referencedColumns: ["game_id"]
+          },
+        ]
+      }
       live_prop_state: {
         Row: {
           astro_modifier: number | null
@@ -4110,6 +4196,87 @@ export type Database = {
           applied_at?: string | null
           id?: number
           migration_name?: string | null
+        }
+        Relationships: []
+      }
+      model_activation_audit_log: {
+        Row: {
+          action: string
+          id: string
+          new_model_id: string
+          previous_model_id: string | null
+          result_message: string | null
+          result_status: string | null
+          scope_key: string
+          scope_type: string
+          triggered_at: string
+          triggered_by: string | null
+        }
+        Insert: {
+          action?: string
+          id?: string
+          new_model_id: string
+          previous_model_id?: string | null
+          result_message?: string | null
+          result_status?: string | null
+          scope_key: string
+          scope_type: string
+          triggered_at?: string
+          triggered_by?: string | null
+        }
+        Update: {
+          action?: string
+          id?: string
+          new_model_id?: string
+          previous_model_id?: string | null
+          result_message?: string | null
+          result_status?: string | null
+          scope_key?: string
+          scope_type?: string
+          triggered_at?: string
+          triggered_by?: string | null
+        }
+        Relationships: []
+      }
+      model_activation_state: {
+        Row: {
+          activated_at: string
+          activated_by: string | null
+          active_model_id: string
+          active_model_version: string | null
+          cache_bust_token: string | null
+          id: string
+          notes: string | null
+          runtime_confirmed_at: string | null
+          runtime_status: string
+          scope_key: string
+          scope_type: string
+        }
+        Insert: {
+          activated_at?: string
+          activated_by?: string | null
+          active_model_id: string
+          active_model_version?: string | null
+          cache_bust_token?: string | null
+          id?: string
+          notes?: string | null
+          runtime_confirmed_at?: string | null
+          runtime_status?: string
+          scope_key?: string
+          scope_type?: string
+        }
+        Update: {
+          activated_at?: string
+          activated_by?: string | null
+          active_model_id?: string
+          active_model_version?: string | null
+          cache_bust_token?: string | null
+          id?: string
+          notes?: string | null
+          runtime_confirmed_at?: string | null
+          runtime_status?: string
+          scope_key?: string
+          scope_type?: string
         }
         Relationships: []
       }

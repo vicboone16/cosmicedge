@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { cn } from "@/lib/utils";
-import { useCustomModels, useDeleteModel, useToggleModelActive, useDuplicateModel, type CustomModel } from "@/hooks/use-custom-models";
+import { useCustomModels, useDeleteModel, useDuplicateModel, type CustomModel } from "@/hooks/use-custom-models";
+import { useModelActivation, useActivateModel } from "@/hooks/use-model-activation";
 import { FACTOR_LIBRARY, MARKET_TYPES, TARGET_OUTPUTS } from "@/lib/model-factors";
 import { Badge } from "@/components/ui/badge";
 import { Power, Copy, Trash2, Pencil, ChevronDown, ChevronUp, Loader2, FlaskConical } from "lucide-react";
+import AdminDiagnosticsDrawer from "@/components/admin/AdminDiagnosticsDrawer";
 
 interface Props {
   onEdit: (model: CustomModel) => void;
@@ -13,8 +15,9 @@ interface Props {
 export default function ModelRegistryPanel({ onEdit, onRun }: Props) {
   const { data: models, isLoading } = useCustomModels();
   const deleteMut = useDeleteModel();
-  const toggleMut = useToggleModelActive();
+  const activateMut = useActivateModel();
   const dupMut = useDuplicateModel();
+  const { data: activation } = useModelActivation();
   const [expanded, setExpanded] = useState<string | null>(null);
 
   if (isLoading) return <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>;
@@ -29,9 +32,13 @@ export default function ModelRegistryPanel({ onEdit, onRun }: Props) {
     );
   }
 
-  return (
-    <div className="space-y-3">
-      {models.map((m) => {
+      return (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs text-muted-foreground">{models.length} models</span>
+            <AdminDiagnosticsDrawer context="machina" />
+          </div>
+          {models.map((m) => {
         const isOpen = expanded === m.id;
         const enabledFactors = (m.factors as any[]).filter((f: any) => f.enabled);
         const marketLabel = MARKET_TYPES.find((mt) => mt.value === m.market_type)?.label ?? m.market_type;
@@ -85,10 +92,21 @@ export default function ModelRegistryPanel({ onEdit, onRun }: Props) {
                 {m.notes && <p className="text-[10px] text-muted-foreground italic">{m.notes}</p>}
 
                 {/* Actions */}
-                <div className="flex items-center gap-2 pt-1">
-                  <button onClick={() => toggleMut.mutate({ id: m.id, is_active: !m.is_active })} className={cn("flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-semibold border transition-colors", m.is_active ? "border-cosmic-green/30 text-cosmic-green hover:bg-cosmic-green/10" : "border-border text-muted-foreground hover:text-foreground")}>
-                    <Power className="h-3 w-3" /> {m.is_active ? "Active" : "Activate"}
-                  </button>
+                <div className="flex items-center gap-2 pt-1 flex-wrap">
+                  {(() => {
+                    const isRuntimeActive = activation?.active_model_id === m.id && activation?.runtime_status === "confirmed";
+                    const isPending = activateMut.isPending;
+                    return (
+                      <button
+                        onClick={() => { if (!isRuntimeActive) activateMut.mutate({ modelId: m.id }); }}
+                        disabled={isPending || isRuntimeActive}
+                        className={cn("flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-semibold border transition-colors", isRuntimeActive ? "border-cosmic-green/30 text-cosmic-green bg-cosmic-green/5 cursor-default" : "border-border text-muted-foreground hover:text-foreground")}
+                      >
+                        <Power className="h-3 w-3" />
+                        {isPending ? "Activating…" : isRuntimeActive ? "Active ✓" : "Activate"}
+                      </button>
+                    );
+                  })()}
                   <button onClick={() => onEdit(m)} className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-semibold border border-border text-muted-foreground hover:text-foreground transition-colors">
                     <Pencil className="h-3 w-3" /> Edit
                   </button>
