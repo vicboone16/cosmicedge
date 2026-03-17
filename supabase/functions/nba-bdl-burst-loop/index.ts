@@ -732,8 +732,21 @@ Deno.serve(async (req) => {
     }
   }
 
+  // ── Post-loop: compute live readiness for all processed games ──
+  const readinessResults: Record<string, any> = {};
+  const processedGameIds = new Set(gameKeyMap.values());
+  for (const gid of processedGameIds) {
+    try {
+      const { data } = await sb.rpc("compute_live_readiness", { p_game_id: gid });
+      readinessResults[gid] = data;
+    } catch (e) {
+      console.warn(`[burst] readiness compute failed for ${gid}:`, e);
+    }
+  }
+  totals.readinessChecks = Object.keys(readinessResults).length;
+
   console.log(`[burst] Done: ${JSON.stringify(totals)}`);
-  return new Response(JSON.stringify({ ok: true, totals }), {
+  return new Response(JSON.stringify({ ok: true, totals, readiness: readinessResults }), {
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 });
