@@ -255,6 +255,7 @@ export function PbpWatchView({ gameId, homeAbbr, awayAbbr, league }: PbpWatchVie
         recentEvents={normalizedEvents}
         eventCount={normalizedEvents.length}
         feedSource={feedSource}
+        gameId={gameId}
       />
     </div>
   );
