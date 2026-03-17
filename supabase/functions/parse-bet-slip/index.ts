@@ -530,8 +530,8 @@ serve(async (req) => {
               .from("games")
               .select("id, status, quarter")
               .or(`home_abbr.eq.${teamAbbr},away_abbr.eq.${teamAbbr}`)
-              .gte("start_time", `${today}T00:00:00Z`)
-              .lte("start_time", `${today}T23:59:59Z`)
+              .gte("start_time", `${yesterday}T00:00:00Z`)
+              .lte("start_time", `${tomorrow}T23:59:59Z`)
               .order("start_time", { ascending: true })
               .limit(1)
               .maybeSingle();
