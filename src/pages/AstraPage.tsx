@@ -12,10 +12,17 @@ import { useCustomModels } from "@/hooks/use-custom-models";
 import { detectModelIntent, resolvePlayer, findModelByName, formatPredictionForChat } from "@/lib/astra-model-router";
 import { fetchPlayerFactors, executeModel, STAT_KEYS } from "@/lib/model-engine";
 import { FACTOR_LIBRARY } from "@/lib/model-factors";
+import AstraComputeFailureCardUI from "@/components/astra/AstraComputeFailureCard";
+import type { ComputeFailureCard } from "@/lib/compute-gating";
 
 const MachinaSection = lazy(() => import("@/components/astra/MachinaSection"));
 
-type Msg = { role: "user" | "assistant"; content: string; structured?: AstraResponse | CosmicEdgeResponse };
+type Msg = {
+  role: "user" | "assistant";
+  content: string;
+  structured?: AstraResponse | CosmicEdgeResponse;
+  computeFailure?: ComputeFailureCard;
+};
 
 /* ── AI Chat (inline) ── */
 function AstraChat() {
@@ -75,7 +82,51 @@ function AstraChat() {
         return;
       }
 
-      // ── Step 1: Try compute pipeline ──
+      // ── Step 1: Try decision engine ──
+      const { data: decisionData, error: decisionError } = await supabase.functions.invoke("astra-decision-engine", {
+        body: { question: text },
+      });
+
+      // Handle compute-blocked responses with structured failure card
+      if (!decisionError && decisionData?.compute_blocked) {
+        const failureCard: ComputeFailureCard = {
+          type: "compute_failure",
+          query_target: text,
+          resolved_player: null,
+          resolved_game: null,
+          active_model: null,
+          missing_variables: [],
+          invalid_variables: decisionData.sanity_violations ?? [],
+          grain_mismatches: [],
+          compute_blocked_reason: decisionData.block_reason || "Compute pipeline blocked",
+          stages: (decisionData.pipeline ?? []).map((s: any) => ({
+            step: s.step,
+            status: s.status,
+            detail: s.detail,
+          })),
+        };
+        setMessages((prev) => [...prev, {
+          role: "assistant",
+          content: decisionData.block_reason || "Compute blocked",
+          computeFailure: failureCard,
+        }]);
+        setIsLoading(false);
+        return;
+      }
+
+      // Handle successful decision engine response
+      if (!decisionError && decisionData?.success && decisionData?.assessment?.answer_summary) {
+        const a = decisionData.assessment;
+        setMessages((prev) => [...prev, {
+          role: "assistant",
+          content: a.answer_summary,
+          structured: undefined,
+        }]);
+        setIsLoading(false);
+        return;
+      }
+
+      // ── Step 2: Try compute pipeline ──
       const { data: computeData, error: computeError } = await supabase.functions.invoke("astra-compute", {
         body: { question: text },
       });
@@ -96,7 +147,7 @@ function AstraChat() {
         }
         setMessages((prev) => [...prev, { role: "assistant", content }]);
       } else {
-        // ── Step 2: Fallback to astro-interpret ──
+        // ── Step 3: Fallback to astro-interpret ──
         const { data, error } = await supabase.functions.invoke("astro-interpret", {
           body: { mode: "freeform", delivery_mode: "chat", custom_prompt: text },
         });
@@ -171,13 +222,14 @@ function AstraChat() {
               <div className="rounded-xl px-3 py-2 text-xs leading-relaxed max-w-[85%] ml-auto bg-primary text-primary-foreground">
                 {m.content}
               </div>
+            ) : m.computeFailure ? (
+              <AstraComputeFailureCardUI failure={m.computeFailure} />
             ) : m.structured ? (
               <AstraStructuredResponse data={m.structured} onFollowUpClick={(q) => send(q)} />
             ) : (
               <div className="cosmic-card rounded-xl px-3 py-2 text-xs leading-relaxed max-w-[85%] text-foreground">
                 {m.content.split("\n").map((line, j) => {
                   const parts: React.ReactNode[] = [];
-                  // Split by bold (**...**) and italic (*...*)
                   const regex = /\*\*(.+?)\*\*|\*(.+?)\*/g;
                   let lastIndex = 0;
                   let match;

@@ -9,8 +9,41 @@ const DECISION_LABELS = [
   "lean_no", "pass", "high_risk", "trap_watch", "better_alternative_available",
 ] as const;
 
-const RISK_GRADES = ["low", "moderate", "elevated", "high", "extreme"] as const;
-const CONFIDENCE_GRADES = ["elite", "high", "medium", "cautious", "fragile"] as const;
+/* ── Sanity limits (server-side mirror) ── */
+const SANITY_LIMITS: Record<string, { min: number; max: number; label: string }> = {
+  points: { min: 0, max: 80, label: "Points" },
+  rebounds: { min: 0, max: 35, label: "Rebounds" },
+  assists: { min: 0, max: 30, label: "Assists" },
+  steals: { min: 0, max: 12, label: "Steals" },
+  blocks: { min: 0, max: 15, label: "Blocks" },
+  three_made: { min: 0, max: 16, label: "3PM" },
+  turnovers: { min: 0, max: 15, label: "Turnovers" },
+  minutes: { min: 0, max: 60, label: "Minutes" },
+};
+
+interface SanityViolation { key: string; value: number; reason: string }
+
+function runSanityChecks(season: any, features: any): SanityViolation[] {
+  const violations: SanityViolation[] = [];
+  if (!season) return violations;
+  const checks: [string, number | null | undefined][] = [
+    ["points", season.points], ["rebounds", season.rebounds],
+    ["assists", season.assists], ["steals", season.steals],
+    ["blocks", season.blocks], ["minutes", season.minutes],
+  ];
+  for (const [key, val] of checks) {
+    if (val == null) continue;
+    const limit = SANITY_LIMITS[key];
+    if (limit && (val < limit.min || val > limit.max)) {
+      violations.push({ key, value: val, reason: `${limit.label} = ${val} outside [${limit.min}, ${limit.max}]` });
+    }
+  }
+  // Check features
+  if (features?.mu_l10 != null && (features.mu_l10 < 0 || features.mu_l10 > 80)) {
+    violations.push({ key: "mu_l10", value: features.mu_l10, reason: `Rolling mean ${features.mu_l10} is outside [0, 80]` });
+  }
+  return violations;
+}
 
 /* ── Team aliases ── */
 const TEAM_ALIASES: Record<string, string> = {
@@ -62,6 +95,27 @@ async function resolvePlayer(sb: any, name: string) {
   return data?.[0] ? { id: data[0].player_id, name: data[0].player_name, team: data[0].player_team } : null;
 }
 
+/* ── Verify player is on active roster for game ── */
+async function verifyPlayerGameParticipation(sb: any, playerId: string, gameId: string | null): Promise<{ valid: boolean; detail: string }> {
+  if (!gameId) return { valid: true, detail: "No game to validate against" };
+  
+  // Check if player's team matches game participants
+  const [playerRes, gameRes] = await Promise.all([
+    sb.from("players").select("team").eq("id", playerId).maybeSingle(),
+    sb.from("games").select("home_abbr, away_abbr").eq("id", gameId).maybeSingle(),
+  ]);
+  
+  if (!playerRes.data || !gameRes.data) return { valid: false, detail: "Could not verify player/game" };
+  
+  const playerTeam = playerRes.data.team;
+  const { home_abbr, away_abbr } = gameRes.data;
+  
+  if (playerTeam === home_abbr || playerTeam === away_abbr) {
+    return { valid: true, detail: `${playerTeam} participates in ${home_abbr} vs ${away_abbr}` };
+  }
+  return { valid: false, detail: `Player team ${playerTeam} not in game ${home_abbr} vs ${away_abbr}` };
+}
+
 /* ── Fetch player context ── */
 async function fetchPlayerContext(sb: any, playerId: string, statType?: string) {
   const [seasonRes, recentRes, projRes, scorecardRes] = await Promise.all([
@@ -71,7 +125,6 @@ async function fetchPlayerContext(sb: any, playerId: string, statType?: string) 
     sb.from("ce_scorecards_fast_v9").select("*").eq("player_id", playerId).limit(10),
   ]);
 
-  // Compute hit rates if stat_type and line provided
   let features = null;
   if (statType) {
     const { data: feat } = await sb.rpc("np_build_prop_features", {
@@ -105,7 +158,7 @@ async function fetchGameContext(sb: any, gameId?: string, teamAbbr?: string) {
       .order("start_time", { ascending: true }).limit(1).maybeSingle();
     game = data;
   }
-  if (!game) return { game: null, pace: null, liveState: null, momentum: null };
+  if (!game) return { game: null, pace: null, liveState: null };
 
   const [paceRes, liveRes] = await Promise.all([
     sb.rpc("np_build_pace_features", { p_game_id: game.id }),
@@ -217,9 +270,11 @@ Deno.serve(async (req) => {
       global: { headers: { Authorization: authHeader } },
     });
 
-    // Get user
     const { data: { user } } = await sb.auth.getUser(authHeader.replace("Bearer ", ""));
     const userId = user?.id;
+
+    // ── Pipeline tracking ──
+    const pipeline: { step: string; status: string; detail: string }[] = [];
 
     // Step 1: Parse the question
     const parseResp = await fetch(AI_GATEWAY, {
@@ -246,20 +301,103 @@ Deno.serve(async (req) => {
       : { query_type: "general" };
     parsed.originalQuestion = question;
 
-    // Step 2: Gather context in parallel
+    // Step 2: Entity resolution
     const resolvedPlayer = parsed.player_name ? await resolvePlayer(sb, parsed.player_name) : (player_id ? { id: player_id, name: "", team: "" } : null);
+    
+    const needsPlayer = ["player_prop", "comparison"].includes(parsed.query_type);
+    if (needsPlayer && !resolvedPlayer) {
+      pipeline.push({ step: "Entity Resolution", status: "failed", detail: `Player "${parsed.player_name}" not found` });
+      
+      // BLOCKED: Return structured failure, no narrative
+      return new Response(JSON.stringify({
+        success: false,
+        compute_blocked: true,
+        block_reason: `Player "${parsed.player_name}" could not be resolved`,
+        pipeline,
+        assessment: {
+          decision_label: "neutral",
+          confidence_grade: "fragile",
+          risk_grade: "moderate",
+          answer_summary: null,
+          primary_reason: null,
+        },
+      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+    pipeline.push({ step: "Entity Resolution", status: resolvedPlayer ? "ok" : "skipped", detail: resolvedPlayer ? `${resolvedPlayer.name} (${resolvedPlayer.team})` : "Not required" });
 
+    // Step 3: Game resolution + participation verification
     const [playerCtx, gameCtx] = await Promise.all([
       resolvedPlayer ? fetchPlayerContext(sb, resolvedPlayer.id, parsed.stat_type) : Promise.resolve(null),
       fetchGameContext(sb, game_id, parsed.team_name),
     ]);
 
-    // Step 3: Compute assessment metrics
+    pipeline.push({
+      step: "Game Resolution",
+      status: gameCtx?.game ? "ok" : "partial",
+      detail: gameCtx?.game ? `${gameCtx.game.home_abbr} vs ${gameCtx.game.away_abbr}` : "No game found",
+    });
+
+    // Verify player participates in resolved game
+    if (resolvedPlayer && gameCtx?.game) {
+      const participation = await verifyPlayerGameParticipation(sb, resolvedPlayer.id, gameCtx.game.id);
+      pipeline.push({
+        step: "Roster Verification",
+        status: participation.valid ? "ok" : "failed",
+        detail: participation.detail,
+      });
+      
+      if (!participation.valid) {
+        return new Response(JSON.stringify({
+          success: false,
+          compute_blocked: true,
+          block_reason: `Player ${resolvedPlayer.name} (${resolvedPlayer.team}) does not participate in ${gameCtx.game.home_abbr} vs ${gameCtx.game.away_abbr}`,
+          pipeline,
+          assessment: {
+            decision_label: "neutral",
+            confidence_grade: "fragile",
+            answer_summary: null,
+          },
+        }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+    }
+
+    // Step 4: Variable retrieval + sanity check
     const season = playerCtx?.season;
     const features = playerCtx?.features;
     const projections = playerCtx?.projections ?? [];
 
-    // Hit probability from features or projection
+    const varsRetrieved = [season, features, projections.length > 0].filter(Boolean).length;
+    pipeline.push({
+      step: "Variable Retrieval",
+      status: varsRetrieved >= 2 ? "ok" : varsRetrieved >= 1 ? "partial" : "failed",
+      detail: `season=${!!season}, features=${!!features}, projections=${projections.length}`,
+    });
+
+    // Step 5: Sanity validation
+    const sanityViolations = runSanityChecks(season, features);
+    pipeline.push({
+      step: "Sanity Validation",
+      status: sanityViolations.length === 0 ? "ok" : "failed",
+      detail: sanityViolations.length > 0 ? sanityViolations.map(v => v.reason).join("; ") : "All values in range",
+    });
+
+    if (sanityViolations.length > 0) {
+      return new Response(JSON.stringify({
+        success: false,
+        compute_blocked: true,
+        block_reason: `Sanity check failed: ${sanityViolations.map(v => v.reason).join(", ")}`,
+        pipeline,
+        sanity_violations: sanityViolations,
+        assessment: {
+          decision_label: "neutral",
+          confidence_grade: "fragile",
+          risk_grade: "high",
+          answer_summary: null,
+        },
+      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    // Step 6: Deterministic compute
     const latestProj = projections[0];
     const hitProb = features?.hit_l10 ?? latestProj?.hit_prob_l10 ?? 0.5;
     const projectedFinal = features?.mu_l10 ?? latestProj?.mu ?? season?.points ?? 0;
@@ -278,6 +416,8 @@ Deno.serve(async (req) => {
     const confidenceGrade = computeConfidenceGrade(hitProb, Math.max(ev, 0), minutesSecure);
     const decisionLabel = computeDecision(hitProb, ev, riskGrade, confidenceGrade);
 
+    pipeline.push({ step: "Deterministic Compute", status: "ok", detail: `decision=${decisionLabel}, conf=${confidenceGrade}` });
+
     const assessment = {
       hit_probability: Math.round(hitProb * 1000) / 10,
       projected_final: Math.round(projectedFinal * 10) / 10,
@@ -295,10 +435,11 @@ Deno.serve(async (req) => {
       player_team: resolvedPlayer?.team,
     };
 
-    // Step 4: AI synthesis
+    // Step 7: AI synthesis (only if compute passed)
+    pipeline.push({ step: "Narrative Generation", status: "ok", detail: "Compute passed, generating narrative" });
     const aiAnswer = await synthesizeAnswer(lovableKey, parsed, playerCtx, gameCtx, assessment);
 
-    // Step 5: Persist assessment
+    // Step 8: Persist assessment
     const record = {
       user_id: userId,
       query_text: question,
@@ -335,13 +476,13 @@ Deno.serve(async (req) => {
     };
 
     if (userId) {
-      // Use service role to insert (bypasses RLS for the insert, user_id is verified)
       const adminSb = createClient(supabaseUrl, serviceKey);
       await adminSb.from("astra_bet_assessment").insert(record);
     }
 
     return new Response(JSON.stringify({
       success: true,
+      pipeline,
       assessment: {
         ...assessment,
         verdict: aiAnswer.verdict ?? decisionLabel,
@@ -356,7 +497,12 @@ Deno.serve(async (req) => {
     });
   } catch (err) {
     console.error("Astra Decision Engine error:", err);
-    return new Response(JSON.stringify({ success: false, error: err.message }), {
+    return new Response(JSON.stringify({
+      success: false,
+      compute_blocked: true,
+      block_reason: `Engine error: ${err.message}`,
+      pipeline: [{ step: "Engine", status: "failed", detail: err.message }],
+    }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
