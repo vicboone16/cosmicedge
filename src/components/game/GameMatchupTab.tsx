@@ -4,8 +4,37 @@ import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { Users, RefreshCw } from "lucide-react";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { toast } from "sonner";
+
+// Zodiac utilities for lineup display
+const ZODIAC_SIGNS_LOOKUP = [
+  { sign: "Capricorn", symbol: "♑", m1: 1, d1: 1, m2: 1, d2: 19 },
+  { sign: "Aquarius", symbol: "♒", m1: 1, d1: 20, m2: 2, d2: 18 },
+  { sign: "Pisces", symbol: "♓", m1: 2, d1: 19, m2: 3, d2: 20 },
+  { sign: "Aries", symbol: "♈", m1: 3, d1: 21, m2: 4, d2: 19 },
+  { sign: "Taurus", symbol: "♉", m1: 4, d1: 20, m2: 5, d2: 20 },
+  { sign: "Gemini", symbol: "♊", m1: 5, d1: 21, m2: 6, d2: 20 },
+  { sign: "Cancer", symbol: "♋", m1: 6, d1: 21, m2: 7, d2: 22 },
+  { sign: "Leo", symbol: "♌", m1: 7, d1: 23, m2: 8, d2: 22 },
+  { sign: "Virgo", symbol: "♍", m1: 8, d1: 23, m2: 9, d2: 22 },
+  { sign: "Libra", symbol: "♎", m1: 9, d1: 23, m2: 10, d2: 22 },
+  { sign: "Scorpio", symbol: "♏", m1: 10, d1: 23, m2: 11, d2: 21 },
+  { sign: "Sagittarius", symbol: "♐", m1: 11, d1: 22, m2: 12, d2: 21 },
+  { sign: "Capricorn", symbol: "♑", m1: 12, d1: 22, m2: 12, d2: 31 },
+];
+
+function getZodiacForDate(dateStr: string): { sign: string; symbol: string } | null {
+  if (!dateStr) return null;
+  const d = new Date(dateStr + "T12:00:00");
+  const month = d.getMonth() + 1;
+  const day = d.getDate();
+  for (const s of ZODIAC_SIGNS_LOOKUP) {
+    if ((month === s.m1 && day >= s.d1) || (month === s.m2 && day <= s.d2))
+      return { sign: s.sign, symbol: s.symbol };
+  }
+  return { sign: "Capricorn", symbol: "♑" };
+}
 
 export function GameMatchupTab({
   gameId,
