@@ -134,3 +134,6 @@ verify_jwt = false
 
 [functions.create-command-task]
 verify_jwt = false
+
+[functions.boltodds-ws]
+verify_jwt = false

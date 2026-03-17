@@ -122,7 +122,7 @@ export default function BoltOddsMonitorPage() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm flex items-center gap-2">
-              {isConnected ? <Wifi className="h-4 w-4 text-green-500" /> : <WifiOff className="h-4 w-4 text-muted-foreground" />}
+              {isConnected ? <Wifi className="h-4 w-4 text-cosmic-green" /> : <WifiOff className="h-4 w-4 text-muted-foreground" />}
               Connection Status
             </CardTitle>
           </CardHeader>
