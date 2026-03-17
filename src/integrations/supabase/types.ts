@@ -12263,6 +12263,50 @@ export type Database = {
         }
         Relationships: []
       }
+      v_game_snapshot_latest: {
+        Row: {
+          away_score: number | null
+          captured_at: string | null
+          clock: string | null
+          clock_seconds_remaining: number | null
+          game_id: string | null
+          home_score: number | null
+          id: string | null
+          possession: string | null
+          quarter: string | null
+          status: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "game_state_snapshots_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "game_state_snapshots_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "v_current_game_players"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "game_state_snapshots_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "v_game_live_state"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "game_state_snapshots_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "v_oracle_player_validity"
+            referencedColumns: ["game_id"]
+          },
+        ]
+      }
       v_game_watch_debug: {
         Row: {
           animation_key: string | null
@@ -12676,6 +12720,216 @@ export type Database = {
             referencedColumns: ["player_id"]
           },
         ]
+      }
+      v_nba_pbp_debug: {
+        Row: {
+          away_score: number | null
+          clock: string | null
+          coord_x: number | null
+          coord_y: number | null
+          event_type: string | null
+          game_key: string | null
+          home_score: number | null
+          is_scoring_play: boolean | null
+          is_shooting_play: boolean | null
+          pbp_id: number | null
+          period: number | null
+          play_order: number | null
+          play_text: string | null
+          player_name: string | null
+          provider: string | null
+          provider_event_id: string | null
+          score_value: number | null
+          team_abbr: string | null
+          wallclock: string | null
+        }
+        Insert: {
+          away_score?: number | null
+          clock?: string | null
+          coord_x?: never
+          coord_y?: never
+          event_type?: string | null
+          game_key?: string | null
+          home_score?: number | null
+          is_scoring_play?: never
+          is_shooting_play?: never
+          pbp_id?: number | null
+          period?: number | null
+          play_order?: never
+          play_text?: never
+          player_name?: string | null
+          provider?: string | null
+          provider_event_id?: string | null
+          score_value?: never
+          team_abbr?: string | null
+          wallclock?: never
+        }
+        Update: {
+          away_score?: number | null
+          clock?: string | null
+          coord_x?: never
+          coord_y?: never
+          event_type?: string | null
+          game_key?: string | null
+          home_score?: number | null
+          is_scoring_play?: never
+          is_shooting_play?: never
+          pbp_id?: number | null
+          period?: number | null
+          play_order?: never
+          play_text?: never
+          player_name?: string | null
+          provider?: string | null
+          provider_event_id?: string | null
+          score_value?: never
+          team_abbr?: string | null
+          wallclock?: never
+        }
+        Relationships: []
+      }
+      v_nba_pbp_latest_possession: {
+        Row: {
+          clock: string | null
+          game_key: string | null
+          period: number | null
+          possession_context: string | null
+          possession_team: string | null
+        }
+        Relationships: []
+      }
+      v_nba_pbp_momentum: {
+        Row: {
+          drought_seconds: number | null
+          game_key: string | null
+          momentum_state: string | null
+          recent_run_points: number | null
+          team_abbr: string | null
+        }
+        Relationships: []
+      }
+      v_nba_pbp_pace_proxy: {
+        Row: {
+          est_possessions: number | null
+          game_key: string | null
+          latest_period: number | null
+          shot_plays: number | null
+          total_plays: number | null
+          turnover_plays: number | null
+        }
+        Relationships: []
+      }
+      v_nba_pbp_player_involvement: {
+        Row: {
+          game_key: string | null
+          last_event_at: string | null
+          player_label: string | null
+          scoring_events: number | null
+          shot_attempts: number | null
+          team_abbr: string | null
+          total_events: number | null
+          total_points: number | null
+          turnovers: number | null
+        }
+        Relationships: []
+      }
+      v_nba_pbp_recent_runs: {
+        Row: {
+          game_key: string | null
+          recent_run_points: number | null
+          team_abbr: string | null
+        }
+        Relationships: []
+      }
+      v_nba_pbp_scoring_droughts: {
+        Row: {
+          drought_seconds: number | null
+          game_key: string | null
+          last_score_at: string | null
+          latest_event_at: string | null
+          team_abbr: string | null
+        }
+        Relationships: []
+      }
+      v_nba_pbp_source: {
+        Row: {
+          away_score: number | null
+          clock: string | null
+          coord_x: number | null
+          coord_y: number | null
+          created_at: string | null
+          description: string | null
+          event_type: string | null
+          game_key: string | null
+          home_score: number | null
+          is_scoring_play: boolean | null
+          is_shooting_play: boolean | null
+          pbp_id: number | null
+          period: number | null
+          play_order: number | null
+          play_text: string | null
+          player_name: string | null
+          provider: string | null
+          provider_event_id: string | null
+          provider_game_id: string | null
+          provider_player_id: string | null
+          raw_team_abbr: string | null
+          score_value: number | null
+          team_abbr: string | null
+          wallclock: string | null
+        }
+        Insert: {
+          away_score?: number | null
+          clock?: string | null
+          coord_x?: never
+          coord_y?: never
+          created_at?: string | null
+          description?: string | null
+          event_type?: string | null
+          game_key?: string | null
+          home_score?: number | null
+          is_scoring_play?: never
+          is_shooting_play?: never
+          pbp_id?: number | null
+          period?: number | null
+          play_order?: never
+          play_text?: never
+          player_name?: string | null
+          provider?: string | null
+          provider_event_id?: string | null
+          provider_game_id?: string | null
+          provider_player_id?: string | null
+          raw_team_abbr?: never
+          score_value?: never
+          team_abbr?: string | null
+          wallclock?: never
+        }
+        Update: {
+          away_score?: number | null
+          clock?: string | null
+          coord_x?: never
+          coord_y?: never
+          created_at?: string | null
+          description?: string | null
+          event_type?: string | null
+          game_key?: string | null
+          home_score?: number | null
+          is_scoring_play?: never
+          is_shooting_play?: never
+          pbp_id?: number | null
+          period?: number | null
+          play_order?: never
+          play_text?: never
+          player_name?: string | null
+          provider?: string | null
+          provider_event_id?: string | null
+          provider_game_id?: string | null
+          provider_player_id?: string | null
+          raw_team_abbr?: never
+          score_value?: never
+          team_abbr?: string | null
+          wallclock?: never
+        }
+        Relationships: []
       }
       v_nfl_player_game_metrics: {
         Row: {
