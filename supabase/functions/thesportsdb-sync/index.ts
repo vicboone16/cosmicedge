@@ -3,6 +3,7 @@ import { corsHeaders } from "../_shared/cors.ts";
 import { CANONICAL } from "../_shared/team-mappings.ts";
 
 const BASE = "https://www.thesportsdb.com/api/v1/json";
+const BASE_V2 = "https://www.thesportsdb.com/api/v2/json";
 
 const LEAGUE_IDS: Record<string, string> = {
   NBA: "4387",
@@ -611,6 +612,174 @@ async function syncScheduleSeason(
   };
 }
 
+// ─── MODE: live — fetch live scores via v2 livescore API ────────────────────
+
+const LIVE_SPORT_SLUG: Record<string, string> = {
+  NHL: "hockey",
+  NBA: "basketball",
+  NFL: "americanfootball",
+  MLB: "baseball",
+};
+
+async function syncLiveScores(
+  apiKey: string,
+  supabase: any,
+  league: string,
+) {
+  const sportSlug = LIVE_SPORT_SLUG[league];
+  if (!sportSlug) throw new Error(`No livescore slug for ${league}`);
+
+  const url = `${BASE_V2}/livescore/${sportSlug}`;
+  console.log(`Fetching live scores: ${url}`);
+  const resp = await fetch(url, {
+    headers: { "X-API-KEY": apiKey },
+  });
+  if (!resp.ok) {
+    const body = await resp.text();
+    throw new Error(`Livescore API ${resp.status}: ${body.slice(0, 300)}`);
+  }
+  const json = await resp.json();
+  const events = json.livescores?.events || json.events || json.livescore || [];
+  console.log(`Live events received: ${events.length}`);
+
+  if (!events.length) {
+    return { events_fetched: 0, games_updated: 0, games_inserted: 0, skipped: 0 };
+  }
+
+  // Filter to only the target league
+  const leagueId = LEAGUE_IDS[league];
+  const leagueEvents = events.filter((ev: any) =>
+    String(ev.idLeague) === leagueId || !ev.idLeague
+  );
+  console.log(`Filtered to ${leagueEvents.length} ${league} events`);
+
+  // Pre-fetch today's + yesterday's games from DB
+  const today = new Date();
+  const yesterday = new Date(today.getTime() - 86400000);
+  const todayStr = today.toISOString().split("T")[0];
+  const yesterdayStr = yesterday.toISOString().split("T")[0];
+
+  const { data: existingGames } = await supabase
+    .from("games")
+    .select("id, home_abbr, away_abbr, start_time, status, home_score, away_score, external_id")
+    .eq("league", league)
+    .gte("start_time", `${yesterdayStr}T00:00:00Z`)
+    .lte("start_time", `${todayStr}T23:59:59Z`);
+
+  // Build lookup
+  const gameIndex = new Map<string, any>();
+  const extIdIndex = new Map<string, any>();
+  for (const g of existingGames || []) {
+    const d = g.start_time.split("T")[0];
+    const dt = new Date(d);
+    for (let offset = -1; offset <= 1; offset++) {
+      const day = new Date(dt.getTime() + offset * 86400000).toISOString().split("T")[0];
+      gameIndex.set(`${g.home_abbr}|${g.away_abbr}|${day}`, g);
+    }
+    if (g.external_id) extIdIndex.set(g.external_id, g);
+  }
+
+  let gamesUpdated = 0;
+  let gamesInserted = 0;
+  let skipped = 0;
+
+  // Use hardcoded team ID map for matching
+  const teamIdMap = HARDCODED_TEAM_MAPS[league] || {};
+
+  for (const ev of leagueEvents) {
+    // Resolve team abbreviations
+    const homeIdTeam = String(ev.idHomeTeam || "");
+    const awayIdTeam = String(ev.idAwayTeam || "");
+    let homeAbbr = teamIdMap[homeIdTeam] || getAbbr(league, ev.strHomeTeam || "");
+    let awayAbbr = teamIdMap[awayIdTeam] || getAbbr(league, ev.strAwayTeam || "");
+
+    if (!homeAbbr || !awayAbbr) {
+      console.warn(`Unmapped teams: ${ev.strHomeTeam} vs ${ev.strAwayTeam}`);
+      skipped++;
+      continue;
+    }
+
+    const homeScore = ev.intHomeScore != null ? parseInt(ev.intHomeScore) : null;
+    const awayScore = ev.intAwayScore != null ? parseInt(ev.intAwayScore) : null;
+
+    // Map status
+    let status = "scheduled";
+    const evStatus = String(ev.strStatus || "").toUpperCase();
+    const evProgress = String(ev.strProgress || "").toUpperCase();
+    if (evStatus === "FT" || evStatus === "AOT" || evStatus === "AP" || evStatus === "AET") {
+      status = "final";
+    } else if (evStatus === "NS" || evStatus === "NOT STARTED") {
+      status = "scheduled";
+    } else if (
+      evProgress || evStatus === "LIVE" || evStatus === "1H" || evStatus === "2H" || evStatus === "HT" ||
+      /^P\d|^\d+(ST|ND|RD|TH)/i.test(evStatus) || /^\d+/.test(evProgress)
+    ) {
+      status = "in_progress";
+    }
+
+    // Try to match existing game
+    const extId = `tsdb_${ev.idEvent}`;
+    const eventDate = ev.dateEvent || todayStr;
+    const fpKey = `${homeAbbr}|${awayAbbr}|${eventDate}`;
+    const existing = extIdIndex.get(extId) || gameIndex.get(fpKey);
+
+    if (existing) {
+      // Update if scores changed or status changed
+      const needsUpdate =
+        existing.home_score !== homeScore ||
+        existing.away_score !== awayScore ||
+        (existing.status !== status && status !== "scheduled");
+
+      if (needsUpdate && (homeScore != null || status === "in_progress" || status === "final")) {
+        const updatePayload: Record<string, any> = { status };
+        if (homeScore != null) updatePayload.home_score = homeScore;
+        if (awayScore != null) updatePayload.away_score = awayScore;
+
+        const { error } = await supabase
+          .from("games")
+          .update(updatePayload)
+          .eq("id", existing.id);
+
+        if (!error) gamesUpdated++;
+        else console.error(`Update error for ${homeAbbr} vs ${awayAbbr}:`, error.message);
+      }
+    } else {
+      // Insert new game
+      const startTime = ev.strTimestamp
+        ? new Date(ev.strTimestamp + (ev.strTimestamp.includes("Z") ? "" : "+00:00")).toISOString()
+        : `${eventDate}T${ev.strTime || "00:00:00"}Z`;
+
+      const { error } = await supabase.from("games").insert({
+        home_team: ev.strHomeTeam,
+        away_team: ev.strAwayTeam,
+        home_abbr: homeAbbr,
+        away_abbr: awayAbbr,
+        league,
+        start_time: startTime,
+        status,
+        source: "thesportsdb",
+        external_id: extId,
+        venue: ev.strVenue || null,
+        home_score: homeScore,
+        away_score: awayScore,
+      });
+
+      if (!error) gamesInserted++;
+      else if (!error?.message?.includes("duplicate")) {
+        console.error(`Insert error:`, error.message);
+        skipped++;
+      }
+    }
+  }
+
+  return {
+    events_fetched: leagueEvents.length,
+    games_updated: gamesUpdated,
+    games_inserted: gamesInserted,
+    skipped,
+  };
+}
+
 // ─── MAIN HANDLER ───────────────────────────────────────────────────────────
 
 Deno.serve(async (req) => {
@@ -699,9 +868,12 @@ Deno.serve(async (req) => {
         result = await syncScheduleSeason(apiKey, supabase, league, schedSeason);
         break;
       }
+      case "live":
+        result = await syncLiveScores(apiKey, supabase, league);
+        break;
       default:
         return new Response(
-          JSON.stringify({ error: `Unknown mode: ${mode}. Use: teams, rosters, scores, scores_all, schedule, schedule_season` }),
+          JSON.stringify({ error: `Unknown mode: ${mode}. Use: teams, rosters, scores, scores_all, schedule, schedule_season, live` }),
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
         );
     }
