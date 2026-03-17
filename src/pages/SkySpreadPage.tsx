@@ -533,7 +533,7 @@ const SkySpreadPage = () => {
   const hasLiveGames = liveItems?.some(i => i.bet.status === "live" || i.snapshot?.status === "live");
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen overflow-x-hidden">
       <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-xl border-b border-border/50 px-4 pt-12 pb-3">
         <div className="flex items-center justify-between">
           <div>
