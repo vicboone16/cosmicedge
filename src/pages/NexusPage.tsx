@@ -144,13 +144,35 @@ function PlayersTab() {
   );
 }
 
+function TrendingPlayerChip({ player: p }: { player: any }) {
+  const navigate = useNavigate();
+  return (
+    <button
+      onClick={() => navigate(`/player/${p.id}`)}
+      className="shrink-0 w-[140px] cosmic-card rounded-2xl p-3 text-center hover:border-primary/30 transition-all"
+    >
+      <Avatar className="h-12 w-12 mx-auto mb-1.5">
+        {p.headshot_url && <AvatarImage src={p.headshot_url} alt={p.name} />}
+        <AvatarFallback className="text-xs bg-secondary">{p.name?.slice(0, 2).toUpperCase()}</AvatarFallback>
+      </Avatar>
+      <p className="text-xs font-bold text-foreground truncate">{p.name}</p>
+      <p className="text-[9px] text-muted-foreground">{p.position || "—"} · {p.team || "—"}</p>
+      {p._stats && (
+        <p className="text-[9px] text-primary font-semibold mt-1 tabular-nums">
+          {p._stats.points_per_game?.toFixed(1) ?? "—"} ppg
+        </p>
+      )}
+    </button>
+  );
+}
+
 function PlayerRow({ player: p }: { player: any }) {
   const navigate = useNavigate();
   return (
     <button onClick={() => navigate(`/player/${p.id}`)} className="w-full cosmic-card rounded-xl p-3 flex items-center gap-3 hover:border-primary/30 transition-colors text-left">
       <Avatar className="h-9 w-9 shrink-0">
         {p.headshot_url && <AvatarImage src={p.headshot_url} alt={p.name} />}
-        <AvatarFallback className="text-[10px] bg-secondary">{p.name.slice(0, 2).toUpperCase()}</AvatarFallback>
+        <AvatarFallback className="text-[10px] bg-secondary">{p.name?.slice(0, 2).toUpperCase()}</AvatarFallback>
       </Avatar>
       <div className="flex-1 min-w-0">
         <p className="text-sm font-semibold text-foreground">{p.name}</p>
