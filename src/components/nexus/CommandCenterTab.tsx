@@ -204,7 +204,6 @@ export default function CommandCenterTab() {
               <span className="text-[11px] text-foreground font-semibold">
                 {(liveGamesCount ?? 0) > 0 ? `${liveGamesCount} live game${liveGamesCount !== 1 ? "s" : ""} · Scanning` : "No live games — pregame analysis mode"}
               </span>
-              </span>
             </div>
             {profile && (
               <p className="text-[10px] text-muted-foreground">
