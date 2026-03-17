@@ -228,7 +228,7 @@ export default function CommandCenterTab() {
           )}
         </DashCard>
 
-        <DashCard title="Trap Watch" icon={AlertTriangle}>
+        <DashCard title="Trap Watch" icon={AlertTriangle} onClick={() => navigate("/astra")}>
           {(recentTraps?.length ?? 0) === 0 ? <p className="text-[11px] text-muted-foreground">No active trap alerts.</p> : (
             <div className="space-y-1">
               {recentTraps!.slice(0, 3).map((t: any) => (
