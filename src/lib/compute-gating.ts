@@ -38,9 +38,82 @@ export interface ComputeFailureCard {
   active_model: { id: string; version: string; scope: string } | null;
   missing_variables: string[];
   invalid_variables: { key: string; value: number; reason: string }[];
-  grain_mismatches: string[];
+  grain_mismatches: GrainMismatch[];
   compute_blocked_reason: string;
   stages: PipelineStage[];
+}
+
+// ── Grain Types ──
+
+export type DataGrain = "player_game" | "player_season" | "player_l5" | "player_l10" | "player_l20" | "team_game" | "team_season" | "team_live" | "game_live" | "league" | "unknown";
+
+export type ComputeContext = "player_prop" | "team_prop" | "game_total" | "moneyline" | "spread";
+
+export interface GrainMismatch {
+  variable: string;
+  expected_grain: DataGrain;
+  actual_grain: DataGrain;
+  reason: string;
+}
+
+export interface VariableManifestEntry {
+  key: string;
+  value: number | string | null;
+  source: string;
+  grain: DataGrain;
+  as_of: string | null;
+}
+
+/**
+ * Defines which grains are allowed for each compute context.
+ * Team-level data is explicitly allowed ONLY in team/game contexts
+ * or as labeled context variables in player contexts.
+ */
+const ALLOWED_GRAINS: Record<ComputeContext, DataGrain[]> = {
+  player_prop: ["player_game", "player_season", "player_l5", "player_l10", "player_l20"],
+  team_prop: ["team_game", "team_season", "team_live", "player_season"],
+  game_total: ["team_game", "team_season", "team_live", "game_live", "league"],
+  moneyline: ["team_game", "team_season", "team_live", "game_live", "league"],
+  spread: ["team_game", "team_season", "team_live", "game_live", "league"],
+};
+
+/** Variables explicitly allowed as team-level context in player prop compute */
+const TEAM_CONTEXT_VARIABLES = new Set([
+  "home_avg_pace", "away_avg_pace", "expected_possessions",
+  "home_off_rating", "home_def_rating", "away_off_rating", "away_def_rating",
+  "blowout_risk", "team_pace_delta", "matchup_pace_avg",
+  "home_net_rating", "away_net_rating",
+]);
+
+/**
+ * Validate variable grains against compute context.
+ * Returns array of grain mismatches. Empty = all good.
+ */
+export function validateGrains(
+  variables: VariableManifestEntry[],
+  context: ComputeContext,
+): GrainMismatch[] {
+  const allowed = ALLOWED_GRAINS[context] ?? [];
+  const mismatches: GrainMismatch[] = [];
+
+  for (const v of variables) {
+    if (v.grain === "unknown") continue; // can't validate unknown grain
+    if (v.value === null || v.value === undefined) continue; // skip missing
+
+    // Allow team-level context variables in player_prop compute
+    if (context === "player_prop" && TEAM_CONTEXT_VARIABLES.has(v.key)) continue;
+
+    if (!allowed.includes(v.grain)) {
+      mismatches.push({
+        variable: v.key,
+        expected_grain: allowed[0] ?? "unknown",
+        actual_grain: v.grain,
+        reason: `Variable "${v.key}" has grain "${v.grain}" but context "${context}" requires one of: ${allowed.join(", ")}`,
+      });
+    }
+  }
+
+  return mismatches;
 }
 
 /**
@@ -54,7 +127,7 @@ export function shouldAllowNarrative(state: ComputeGateState): boolean {
   if (state.sanity_validation_status === "failed") return false;
   if (state.required_inputs_status === "failed") return false;
   if (state.variable_retrieval_status === "failed") return false;
-  // Partial variable retrieval is allowed but grain mismatch blocks
+  // Grain mismatch is a hard block
   if (state.grain_validation_status === "failed") return false;
   return true;
 }
@@ -68,7 +141,7 @@ export function buildFailureCard(
   model: { id: string; version: string; scope: string } | null,
   missingVars: string[],
   invalidVars: { key: string; value: number; reason: string }[],
-  grainMismatches: string[],
+  grainMismatches: GrainMismatch[],
 ): ComputeFailureCard {
   return {
     type: "compute_failure",
@@ -108,7 +181,7 @@ export function runGatingPipeline(params: {
   variablesRetrieved: number;
   variablesRequired: number;
   sanityViolations: { key: string; value: number; reason: string }[];
-  grainMismatches: string[];
+  grainMismatches: GrainMismatch[];
   queryType: string;
 }): ComputeGateState {
   const state = createGateState();
@@ -155,13 +228,19 @@ export function runGatingPipeline(params: {
     state.stages.push({ step: "Variable Retrieval", status: "ok", detail: "No variables required" });
   }
 
-  // Step 4: Grain validation
-  state.grain_validation_status = params.grainMismatches.length === 0 ? "ok" : "failed";
-  state.stages.push({
-    step: "Grain Validation",
-    status: state.grain_validation_status,
-    detail: params.grainMismatches.length > 0 ? `${params.grainMismatches.length} mismatches` : "Clean",
-  });
+  // Step 4: Grain validation — hard block with detailed reasons
+  if (params.grainMismatches.length > 0) {
+    state.grain_validation_status = "failed";
+    const firstMismatch = params.grainMismatches[0];
+    state.stages.push({
+      step: "Grain Validation",
+      status: "failed",
+      detail: `${params.grainMismatches.length} mismatches: ${firstMismatch.reason}`,
+    });
+  } else {
+    state.grain_validation_status = "ok";
+    state.stages.push({ step: "Grain Validation", status: "ok", detail: "All variable grains valid for context" });
+  }
 
   // Step 5: Sanity validation
   state.sanity_validation_status = params.sanityViolations.length === 0 ? "ok" : "failed";
@@ -194,10 +273,11 @@ export function runGatingPipeline(params: {
   state.narrative_generation_status = allowed ? "allowed" : "blocked";
 
   if (!allowed && !state.block_reason) {
-    if (state.sanity_validation_status === "failed") {
+    if (state.grain_validation_status === "failed") {
+      const first = params.grainMismatches[0];
+      state.block_reason = `Grain mismatch: "${first.variable}" is ${first.actual_grain}, expected ${first.expected_grain} for this compute context`;
+    } else if (state.sanity_validation_status === "failed") {
       state.block_reason = "Sanity check failed — impossible stat values detected";
-    } else if (state.grain_validation_status === "failed") {
-      state.block_reason = "Grain mismatch — team-level data used in player-level compute";
     } else {
       state.block_reason = "Pipeline validation failed";
     }
