@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import AstraVerdictCard, { type AstraVerdict } from "@/components/astra/AstraVerdictCard";
 import AstraAssessmentHistory from "@/components/astra/AstraAssessmentHistory";
+import { useBettingProfile, ARCHETYPE_META } from "@/hooks/use-betting-profile";
 
 const MODE_ICONS: Record<string, any> = {
   TrendingUp, Sparkles, Crosshair, Shield, Eye, Moon,
@@ -28,6 +29,7 @@ const QUICK_CHIPS = [
 export default function CommandCenterPage() {
   const { user } = useAuth();
   const { modes, activeMode, activeModeConfig, setMode } = useAstraMode();
+  const { profile } = useBettingProfile();
   const [query, setQuery] = useState("");
   const [verdict, setVerdict] = useState<AstraVerdict | null>(null);
   const [isAsking, setIsAsking] = useState(false);
@@ -50,6 +52,7 @@ export default function CommandCenterPage() {
     }
   };
 
+  // Live opportunities from astra_opportunity_feed
   const { data: opportunities } = useQuery({
     queryKey: ["astra-opportunities", activeMode],
     queryFn: async () => {
@@ -61,6 +64,78 @@ export default function CommandCenterPage() {
         .limit(20);
       return data || [];
     },
+  });
+
+  // Live slip health from bet_slips + bet_slip_picks
+  const { data: slipHealth } = useQuery({
+    queryKey: ["cc-slip-health", user?.id],
+    queryFn: async () => {
+      if (!user) return null;
+      const { data: slips } = await supabase
+        .from("bet_slips")
+        .select("id, status, result, stake, payout, entry_type")
+        .eq("user_id", user.id)
+        .in("status", ["active", "pending", "live"])
+        .limit(20);
+
+      const { data: picks } = await supabase
+        .from("bet_slip_picks")
+        .select("slip_id, result, match_status, live_value, line, progress")
+        .in("slip_id", (slips || []).map(s => s.id))
+        .limit(100);
+
+      const activeSlips = slips || [];
+      const allPicks = picks || [];
+      const totalLegs = allPicks.length;
+      const hitLegs = allPicks.filter(p => p.result === "hit" || p.result === "win").length;
+      const dangerLegs = allPicks.filter(p => {
+        if (!p.live_value || !p.line) return false;
+        return Number(p.progress || 0) < 40;
+      }).length;
+
+      return {
+        activeCount: activeSlips.length,
+        totalLegs,
+        hitLegs,
+        dangerLegs,
+        weakestSlip: dangerLegs > 0 ? "Has struggling legs" : null,
+      };
+    },
+    enabled: !!user,
+    staleTime: 30_000,
+    refetchInterval: 30_000,
+  });
+
+  // Recent Astra assessments for trap detection
+  const { data: recentTraps } = useQuery({
+    queryKey: ["cc-trap-watch", user?.id],
+    queryFn: async () => {
+      if (!user) return [];
+      const { data } = await supabase
+        .from("astra_bet_assessment")
+        .select("id, decision_label, player_id, market_type, trap_score, warning_note, created_at")
+        .eq("user_id", user.id)
+        .in("decision_label", ["pass", "trap_watch"])
+        .order("created_at", { ascending: false })
+        .limit(5);
+      return data || [];
+    },
+    enabled: !!user,
+    staleTime: 60_000,
+  });
+
+  // Live games count for pulse
+  const { data: liveGamesCount } = useQuery({
+    queryKey: ["cc-live-count"],
+    queryFn: async () => {
+      const { count } = await supabase
+        .from("games")
+        .select("id", { count: "exact", head: true })
+        .in("status", ["live", "in_progress"]);
+      return count || 0;
+    },
+    staleTime: 30_000,
+    refetchInterval: 30_000,
   });
 
   const filteredOpps = useMemo(() => {
@@ -139,19 +214,39 @@ export default function CommandCenterPage() {
         ))}
       </div>
 
-      {/* Dashboard Grid */}
+      {/* Dashboard Grid — LIVE COMPUTED STATE */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {/* Astra Pulse — live computed */}
         <DashCard title="Astra Pulse" icon={Activity}>
-          <p className="text-[11px] text-muted-foreground">
-            {activeMode === "sharp" && "Quant signals active. Market edges scanning."}
-            {activeMode === "cosmic" && "Balanced cosmic + quant intelligence online."}
-            {activeMode === "sniper" && "Scanning for hidden live value…"}
-            {activeMode === "hedge" && "Risk radar active. Monitoring exposure."}
-            {activeMode === "shadow" && "Trap detection running. Watching for weakness."}
-            {activeMode === "ritual" && "Cosmic windows open. Archetypes aligned."}
-          </p>
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span className={cn(
+                "h-2 w-2 rounded-full",
+                (liveGamesCount ?? 0) > 0 ? "bg-cosmic-green animate-pulse" : "bg-muted-foreground"
+              )} />
+              <span className="text-[11px] text-foreground font-semibold">
+                {(liveGamesCount ?? 0) > 0
+                  ? `${liveGamesCount} live game${liveGamesCount !== 1 ? "s" : ""} · Scanning`
+                  : "No live games — pregame analysis mode"
+                }
+              </span>
+            </div>
+            {profile && (
+              <p className="text-[10px] text-muted-foreground">
+                {ARCHETYPE_META[profile.betting_archetype]?.emoji}{" "}
+                {ARCHETYPE_META[profile.betting_archetype]?.label || profile.betting_archetype}
+                {" · "}{activeModeConfig?.mode_name || activeMode} mode
+              </p>
+            )}
+            {filteredOpps.length > 0 && (
+              <p className="text-[10px] text-cosmic-green font-semibold">
+                {filteredOpps.length} opportunit{filteredOpps.length === 1 ? "y" : "ies"} detected
+              </p>
+            )}
+          </div>
         </DashCard>
 
+        {/* Best Opportunities — live from feed */}
         <DashCard title="Best Opportunities" icon={Target}>
           {filteredOpps.length === 0 ? (
             <p className="text-[11px] text-muted-foreground">No active opportunities right now.</p>
@@ -171,14 +266,26 @@ export default function CommandCenterPage() {
           )}
         </DashCard>
 
+        {/* Trap Watch — live from assessments */}
         <DashCard title="Trap Watch" icon={AlertTriangle}>
-          <p className="text-[11px] text-muted-foreground">
-            {activeMode === "shadow"
-              ? "Shadow mode: elevated trap sensitivity active."
-              : "Monitoring for trap lines and weakening support…"}
-          </p>
+          {(recentTraps?.length ?? 0) === 0 ? (
+            <p className="text-[11px] text-muted-foreground">No active trap alerts.</p>
+          ) : (
+            <div className="space-y-1">
+              {recentTraps!.slice(0, 3).map((t: any) => (
+                <div key={t.id} className="text-[10px]">
+                  <span className="text-cosmic-red font-semibold">⚠</span>{" "}
+                  <span className="text-foreground">{t.warning_note || t.market_type || "Trap detected"}</span>
+                  {t.trap_score != null && (
+                    <span className="text-muted-foreground ml-1">({Math.round(t.trap_score * 100)}%)</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </DashCard>
 
+        {/* Cosmic Windows */}
         <DashCard title="Cosmic Windows" icon={Moon} dimmed={activeMode === "sharp"}>
           <p className="text-[11px] text-muted-foreground">
             {activeMode === "sharp"
@@ -189,17 +296,38 @@ export default function CommandCenterPage() {
           </p>
         </DashCard>
 
+        {/* Slip Health — live computed */}
         <DashCard title="Slip Health" icon={Heart}>
-          <p className="text-[11px] text-muted-foreground">
-            {activeMode === "hedge"
-              ? "Hedge mode: prioritizing slip risk analysis."
-              : "Active slip health monitoring…"}
-          </p>
+          {!slipHealth || slipHealth.activeCount === 0 ? (
+            <p className="text-[11px] text-muted-foreground">No active slips to monitor.</p>
+          ) : (
+            <div className="space-y-1">
+              <div className="flex items-center gap-3 text-[11px]">
+                <span className="text-foreground font-semibold">
+                  {slipHealth.activeCount} active slip{slipHealth.activeCount !== 1 ? "s" : ""}
+                </span>
+                <span className="text-muted-foreground">
+                  {slipHealth.totalLegs} legs
+                </span>
+              </div>
+              {slipHealth.hitLegs > 0 && (
+                <p className="text-[10px] text-cosmic-green font-semibold">
+                  ✓ {slipHealth.hitLegs} leg{slipHealth.hitLegs !== 1 ? "s" : ""} hit
+                </p>
+              )}
+              {slipHealth.dangerLegs > 0 && (
+                <p className="text-[10px] text-cosmic-red font-semibold">
+                  ⚠ {slipHealth.dangerLegs} leg{slipHealth.dangerLegs !== 1 ? "s" : ""} struggling
+                </p>
+              )}
+            </div>
+          )}
         </DashCard>
 
+        {/* Opportunity Feed — live */}
         <DashCard title="Opportunity Feed" icon={Zap}>
           {filteredOpps.length === 0 ? (
-            <p className="text-[11px] text-muted-foreground">Feed empty. Games loading…</p>
+            <p className="text-[11px] text-muted-foreground">Feed empty. Waiting for model outputs…</p>
           ) : (
             <div className="space-y-1">
               {filteredOpps.slice(0, 5).map((o: any) => (

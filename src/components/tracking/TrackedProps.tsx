@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { cn } from "@/lib/utils";
 import { Plus, Target, Check, X, Zap, Trash2, TrendingUp, TrendingDown, Activity, Clock, BarChart3, Shield, AlertTriangle, Gauge } from "lucide-react";
+import { MomentumChip } from "@/components/game/GameMomentumBanner";
 import { toast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 
@@ -590,10 +591,13 @@ function LivePropCard({ tp, gameData, liveState, onDelete }: { tp: any; gameData
         </div>
       ) : null}
 
-      {/* Astro note */}
-      {astroNote && (
-        <p className="text-[8px] text-cosmic-purple italic">✦ {astroNote}</p>
-      )}
+      {/* Game Momentum + Astro */}
+      <div className="flex flex-wrap items-center gap-1.5">
+        <MomentumChip gameId={tp.game_id} isLive />
+        {astroNote && (
+          <span className="text-[8px] text-cosmic-purple italic">✦ {astroNote}</span>
+        )}
+      </div>
 
       {tp.notes && <p className="text-[10px] text-muted-foreground italic">{tp.notes}</p>}
     </div>

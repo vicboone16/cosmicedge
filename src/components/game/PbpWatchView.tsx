@@ -7,6 +7,8 @@ import { LiveCourtCanvas } from "./watch/LiveCourtCanvas";
 import { LatestPlayCard } from "./watch/LatestPlayCard";
 import { RecentEventsList } from "./watch/RecentEventsList";
 import { WatchDebugPanel } from "./watch/WatchDebugPanel";
+import { MomentumChip } from "./GameMomentumBanner";
+import { useGameMomentum } from "@/hooks/use-game-momentum";
 
 interface PbpWatchViewProps {
   gameId: string;
@@ -35,6 +37,7 @@ function parseClockSec(raw: string | null | undefined): number | null {
 }
 
 export function PbpWatchView({ gameId, homeAbbr, awayAbbr, league }: PbpWatchViewProps) {
+  const momentum = useGameMomentum(gameId, true);
   // ── Live score snapshot ──
   const { data: liveSnapshot } = useQuery({
     queryKey: ["watch-live-score", gameId],
@@ -200,8 +203,24 @@ export function PbpWatchView({ gameId, homeAbbr, awayAbbr, league }: PbpWatchVie
         awayTeamId={awayAbbr}
       />
 
-      {/* Insight chips */}
-      <div className="flex flex-wrap gap-1.5">
+      {/* Momentum + Insight chips */}
+      <div className="flex flex-wrap gap-1.5 items-center">
+        <MomentumChip gameId={gameId} isLive />
+        {momentum?.paceEstimate != null && (
+          <span className="text-[9px] font-medium px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
+            Pace {momentum.paceEstimate.toFixed(0)}
+          </span>
+        )}
+        {momentum?.inBonusHome && (
+          <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-cosmic-gold/10 text-cosmic-gold border border-cosmic-gold/20">
+            {homeAbbr} Bonus
+          </span>
+        )}
+        {momentum?.inBonusAway && (
+          <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-cosmic-gold/10 text-cosmic-gold border border-cosmic-gold/20">
+            {awayAbbr} Bonus
+          </span>
+        )}
         {visualState.recentRunHome > 0 && (
           <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
             {homeAbbr} {visualState.recentRunHome}–{visualState.recentRunAway} run
@@ -210,6 +229,16 @@ export function PbpWatchView({ gameId, homeAbbr, awayAbbr, league }: PbpWatchVie
         {visualState.recentRunAway > 0 && visualState.recentRunAway > visualState.recentRunHome && (
           <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-cosmic-cyan/10 text-cosmic-cyan border border-cosmic-cyan/20">
             {awayAbbr} {visualState.recentRunAway}–{visualState.recentRunHome} run
+          </span>
+        )}
+        {momentum?.droughtHomeSec != null && momentum.droughtHomeSec >= 120 && (
+          <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-destructive/10 text-destructive border border-destructive/20">
+            {homeAbbr} drought {Math.floor(momentum.droughtHomeSec / 60)}:{(momentum.droughtHomeSec % 60).toString().padStart(2, "0")}
+          </span>
+        )}
+        {momentum?.droughtAwaySec != null && momentum.droughtAwaySec >= 120 && (
+          <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-destructive/10 text-destructive border border-destructive/20">
+            {awayAbbr} drought {Math.floor(momentum.droughtAwaySec / 60)}:{(momentum.droughtAwaySec % 60).toString().padStart(2, "0")}
           </span>
         )}
       </div>
