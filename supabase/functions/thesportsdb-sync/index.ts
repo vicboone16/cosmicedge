@@ -884,10 +884,9 @@ Deno.serve(async (req) => {
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (error: unknown) {
-    const msg = error instanceof Error ? error.message : String(error);
-    console.error("thesportsdb-sync error:", msg);
+    console.error("thesportsdb-sync error:", error instanceof Error ? error.message : String(error));
     return new Response(
-      JSON.stringify({ error: msg }),
+      JSON.stringify({ error: "An internal error occurred." }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   }
