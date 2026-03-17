@@ -241,10 +241,12 @@ export type Database = {
         Row: {
           alternative_suggestion: string | null
           answer_summary: string | null
+          astro_mode: string | null
           astro_signal: string | null
           bet_type: string | null
           blowout_risk_level: string | null
           confidence_grade: string | null
+          cosmic_boost: number | null
           created_at: string
           current_stat: number | null
           decision_label: string
@@ -252,26 +254,38 @@ export type Database = {
           direction: string | null
           engine_inputs: Json | null
           engine_outputs: Json | null
+          ev_edge: number | null
           expected_value: number | null
+          expires_at: string | null
           foul_risk_level: string | null
           game_id: string | null
           game_momentum_state: string | null
           hit_probability: number | null
           id: string
           implied_probability: number | null
+          is_dismissed: boolean | null
+          is_live: boolean | null
           line_value: number | null
+          market_context: Json | null
           market_type: string | null
           minutes_security_score: number | null
           odds: number | null
           player_id: string | null
           player_momentum_state: string | null
           primary_reason: string | null
+          probability: number | null
           projected_final: number | null
+          projected_value: number | null
           query_text: string | null
           query_type: string
+          reasoning: string | null
+          recommendation: string | null
           risk_grade: string | null
+          risk_score: number | null
           secondary_reason: string | null
+          sportsbook: string | null
           team_id: string | null
+          trap_score: number | null
           updated_at: string
           user_id: string
           warning_note: string | null
@@ -279,10 +293,12 @@ export type Database = {
         Insert: {
           alternative_suggestion?: string | null
           answer_summary?: string | null
+          astro_mode?: string | null
           astro_signal?: string | null
           bet_type?: string | null
           blowout_risk_level?: string | null
           confidence_grade?: string | null
+          cosmic_boost?: number | null
           created_at?: string
           current_stat?: number | null
           decision_label?: string
@@ -290,26 +306,38 @@ export type Database = {
           direction?: string | null
           engine_inputs?: Json | null
           engine_outputs?: Json | null
+          ev_edge?: number | null
           expected_value?: number | null
+          expires_at?: string | null
           foul_risk_level?: string | null
           game_id?: string | null
           game_momentum_state?: string | null
           hit_probability?: number | null
           id?: string
           implied_probability?: number | null
+          is_dismissed?: boolean | null
+          is_live?: boolean | null
           line_value?: number | null
+          market_context?: Json | null
           market_type?: string | null
           minutes_security_score?: number | null
           odds?: number | null
           player_id?: string | null
           player_momentum_state?: string | null
           primary_reason?: string | null
+          probability?: number | null
           projected_final?: number | null
+          projected_value?: number | null
           query_text?: string | null
           query_type?: string
+          reasoning?: string | null
+          recommendation?: string | null
           risk_grade?: string | null
+          risk_score?: number | null
           secondary_reason?: string | null
+          sportsbook?: string | null
           team_id?: string | null
+          trap_score?: number | null
           updated_at?: string
           user_id: string
           warning_note?: string | null
@@ -317,10 +345,12 @@ export type Database = {
         Update: {
           alternative_suggestion?: string | null
           answer_summary?: string | null
+          astro_mode?: string | null
           astro_signal?: string | null
           bet_type?: string | null
           blowout_risk_level?: string | null
           confidence_grade?: string | null
+          cosmic_boost?: number | null
           created_at?: string
           current_stat?: number | null
           decision_label?: string
@@ -328,26 +358,38 @@ export type Database = {
           direction?: string | null
           engine_inputs?: Json | null
           engine_outputs?: Json | null
+          ev_edge?: number | null
           expected_value?: number | null
+          expires_at?: string | null
           foul_risk_level?: string | null
           game_id?: string | null
           game_momentum_state?: string | null
           hit_probability?: number | null
           id?: string
           implied_probability?: number | null
+          is_dismissed?: boolean | null
+          is_live?: boolean | null
           line_value?: number | null
+          market_context?: Json | null
           market_type?: string | null
           minutes_security_score?: number | null
           odds?: number | null
           player_id?: string | null
           player_momentum_state?: string | null
           primary_reason?: string | null
+          probability?: number | null
           projected_final?: number | null
+          projected_value?: number | null
           query_text?: string | null
           query_type?: string
+          reasoning?: string | null
+          recommendation?: string | null
           risk_grade?: string | null
+          risk_score?: number | null
           secondary_reason?: string | null
+          sportsbook?: string | null
           team_id?: string | null
+          trap_score?: number | null
           updated_at?: string
           user_id?: string
           warning_note?: string | null
