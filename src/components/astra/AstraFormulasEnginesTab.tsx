@@ -207,6 +207,8 @@ export default function AstraFormulasEnginesTab({ onRunInMachina }: Props) {
         <div className="flex items-center gap-2">
           <Cpu className="h-4 w-4 text-primary" />
           <h2 className="text-sm font-bold text-foreground">Engines</h2>
+          <InfoHint text="Engines are the runtime processors that combine formulas with live data to produce predictions. They run automatically during prop evaluation." />
+          <DataSourceBadge source="runtime" compact />
           <span className="text-[10px] text-muted-foreground ml-auto">{engines?.length ?? 0} active</span>
         </div>
 
