@@ -1,5 +1,8 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { useIsAdmin } from "@/hooks/use-admin";
+import { toast } from "sonner";
 import { Flame, Zap, TrendingUp, Star, BarChart3, Activity } from "lucide-react";
 import { useTopPropsToday, type TopProp, getPropLabel, getEdgeTier } from "@/hooks/use-top-props";
 import { PropChip } from "@/components/slate/PropChip";
@@ -125,7 +128,41 @@ function StatGroupCarousel({ title, icon, props }: { title: string; icon: React.
 }
 
 export function PropsExploreTab() {
-  const { data: allProps, isLoading } = useTopPropsToday(50);
+  const { data: allProps, isLoading, refetch } = useTopPropsToday(50);
+  const { isAdmin } = useIsAdmin();
+  const [runningPredictions, setRunningPredictions] = useState(false);
+
+  const handleRunPredictions = async () => {
+    setRunningPredictions(true);
+    try {
+      // Get today's games
+      const now = new Date();
+      const startOfDay = new Date(now); startOfDay.setHours(0, 0, 0, 0);
+      const endOfDay = new Date(now); endOfDay.setHours(23, 59, 59, 999);
+      const { data: games } = await supabase
+        .from("games")
+        .select("id")
+        .eq("league", "NBA")
+        .gte("start_time", startOfDay.toISOString())
+        .lte("start_time", endOfDay.toISOString());
+      if (!games || games.length === 0) {
+        toast.error("No NBA games found for today");
+        setRunningPredictions(false);
+        return;
+      }
+      let total = 0;
+      for (const g of games) {
+        const { data } = await supabase.functions.invoke("nebula-prop-engine", { body: { game_id: g.id } });
+        total += data?.predictions || 0;
+      }
+      toast.success(`Generated ${total} predictions across ${games.length} games`);
+      refetch();
+    } catch (e) {
+      console.error("Prediction run error:", e);
+      toast.error("Failed to run predictions");
+    }
+    setRunningPredictions(false);
+  };
 
   const { featured, bestToday, byPoints, byAssists, byRebounds, byCombos, trending } = useMemo(() => {
     if (!allProps || allProps.length === 0) {
@@ -159,12 +196,34 @@ export function PropsExploreTab() {
 
   if (!allProps || allProps.length === 0) {
     return (
-      <div className="cosmic-card rounded-2xl p-8 text-center space-y-3 mx-4">
+      <div className="cosmic-card rounded-2xl p-8 text-center space-y-4 mx-4">
         <TrendingUp className="h-8 w-8 text-muted-foreground/30 mx-auto" />
         <p className="text-sm font-medium text-foreground">No model predictions available yet</p>
         <p className="text-xs text-muted-foreground max-w-xs mx-auto">
-          Prop intelligence surfaces as games approach. Check back closer to tip-off.
+          The Nebula prediction engine needs to run for today's games. Predictions analyze player stats, pace, matchup quality, and hit rates to generate edge scores.
         </p>
+        <p className="text-[10px] text-muted-foreground/60 max-w-xs mx-auto">
+          Predictions are generated per-game and require player props to be available from the provider feed first.
+        </p>
+        {isAdmin && (
+          <button
+            onClick={handleRunPredictions}
+            disabled={runningPredictions}
+            className="mx-auto px-4 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center gap-2"
+          >
+            {runningPredictions ? (
+              <>
+                <div className="h-3 w-3 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin" />
+                Running predictions...
+              </>
+            ) : (
+              <>
+                <Zap className="h-3 w-3" />
+                Run Predictions for Today
+              </>
+            )}
+          </button>
+        )}
       </div>
     );
   }

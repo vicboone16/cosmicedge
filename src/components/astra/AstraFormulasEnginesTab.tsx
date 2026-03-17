@@ -4,6 +4,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { Loader2, Cpu, FlaskConical, Play, Info, ChevronDown, ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { DataSourceBadge } from "@/components/ui/DataSourceBadge";
+import { InfoHint } from "@/components/ui/InfoHint";
 
 interface Props {
   onRunInMachina?: (formulaSlug: string) => void;
@@ -96,6 +98,8 @@ export default function AstraFormulasEnginesTab({ onRunInMachina }: Props) {
         <div className="flex items-center gap-2">
           <FlaskConical className="h-4 w-4 text-primary" />
           <h2 className="text-sm font-bold text-foreground">Formulas</h2>
+          <InfoHint text="Formulas define the math behind each prediction. They are used by engines to calculate projections, edge scores, and probabilities." />
+          <DataSourceBadge source="runtime" compact />
           <span className="text-[10px] text-muted-foreground ml-auto">{formulas?.length ?? 0} registered</span>
         </div>
 
@@ -203,6 +207,8 @@ export default function AstraFormulasEnginesTab({ onRunInMachina }: Props) {
         <div className="flex items-center gap-2">
           <Cpu className="h-4 w-4 text-primary" />
           <h2 className="text-sm font-bold text-foreground">Engines</h2>
+          <InfoHint text="Engines are the runtime processors that combine formulas with live data to produce predictions. They run automatically during prop evaluation." />
+          <DataSourceBadge source="runtime" compact />
           <span className="text-[10px] text-muted-foreground ml-auto">{engines?.length ?? 0} active</span>
         </div>
 
