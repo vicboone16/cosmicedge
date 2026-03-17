@@ -16,59 +16,20 @@ interface WatchDebugPanelProps {
 export function WatchDebugPanel({ lastEvent, recentEvents, eventCount, feedSource, gameId }: WatchDebugPanelProps) {
   const [expanded, setExpanded] = useState(false);
 
-  // DB-derived momentum from views
-  const { data: dbMomentum } = useQuery({
-    queryKey: ["watch-db-momentum", gameId],
+  // Use live_game_visual_state directly — it has momentum, pace, droughts, possession
+  const { data: liveState } = useQuery({
+    queryKey: ["watch-live-visual-state", gameId],
     queryFn: async () => {
       const { data } = await supabase
-        .from("v_nba_pbp_momentum" as any)
+        .from("live_game_visual_state")
         .select("*")
-        .eq("game_key", gameId);
-      return (data as any[]) || [];
-    },
-    enabled: expanded,
-    staleTime: 15_000,
-  });
-
-  const { data: dbPace } = useQuery({
-    queryKey: ["watch-db-pace", gameId],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("v_nba_pbp_pace_proxy" as any)
-        .select("*")
-        .eq("game_key", gameId)
+        .eq("game_id", gameId)
         .maybeSingle();
-      return data as any;
-    },
-    enabled: expanded,
-    staleTime: 15_000,
-  });
-
-  const { data: dbPossession } = useQuery({
-    queryKey: ["watch-db-possession", gameId],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("v_nba_pbp_latest_possession" as any)
-        .select("*")
-        .eq("game_key", gameId)
-        .maybeSingle();
-      return data as any;
+      return data;
     },
     enabled: expanded,
     staleTime: 10_000,
-  });
-
-  const { data: dbDroughts } = useQuery({
-    queryKey: ["watch-db-droughts", gameId],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("v_nba_pbp_scoring_droughts" as any)
-        .select("*")
-        .eq("game_key", gameId);
-      return (data as any[]) || [];
-    },
-    enabled: expanded,
-    staleTime: 15_000,
+    refetchInterval: expanded ? 10_000 : false,
   });
 
   return (
@@ -109,80 +70,84 @@ export function WatchDebugPanel({ lastEvent, recentEvents, eventCount, feedSourc
             </div>
           )}
 
-          {/* ── DB-Derived Metrics ── */}
-          <div className="border-t border-border/20 pt-2 space-y-2">
-            <span className="text-[8px] font-bold uppercase tracking-wider text-primary/60">
-              DB-Derived Views
-            </span>
+          {/* ── Live Visual State (from live_game_visual_state) ── */}
+          {liveState && (
+            <div className="border-t border-border/20 pt-2 space-y-2">
+              <span className="text-[8px] font-bold uppercase tracking-wider text-primary/60">
+                Live Visual State
+              </span>
 
-            {/* Possession */}
-            {dbPossession && (
+              {/* Possession */}
               <div className="text-[9px]">
                 <span className="font-semibold text-muted-foreground/60">Possession: </span>
                 <span className="text-foreground/80 font-mono">
-                  {dbPossession.possession_team} · Q{dbPossession.period} {dbPossession.clock}
+                  {liveState.possession_team_id || "unknown"}
+                  {liveState.possession_confidence != null && (
+                    <span className="text-muted-foreground/40 ml-1">
+                      ({(Number(liveState.possession_confidence) * 100).toFixed(0)}% conf)
+                    </span>
+                  )}
                 </span>
-                {dbPossession.possession_context && (
-                  <span className="text-muted-foreground/40 ml-1 italic">
-                    ({dbPossession.possession_context?.slice(0, 50)})
-                  </span>
-                )}
               </div>
-            )}
 
-            {/* Pace */}
-            {dbPace && (
+              {/* Scores & Clock */}
               <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-[9px]">
-                <DebugRow label="Total Plays" value={String(dbPace.total_plays)} />
-                <DebugRow label="Est Possessions" value={String(dbPace.est_possessions)} />
-                <DebugRow label="Shot Plays" value={String(dbPace.shot_plays)} />
-                <DebugRow label="Turnovers" value={String(dbPace.turnover_plays)} />
-                <DebugRow label="Latest Period" value={String(dbPace.latest_period)} />
+                <DebugRow label="Period" value={String(liveState.period_number ?? "—")} />
+                <DebugRow label="Clock" value={liveState.clock_display || "—"} />
+                <DebugRow label="Home Score" value={String(liveState.home_score ?? "—")} />
+                <DebugRow label="Away Score" value={String(liveState.away_score ?? "—")} />
               </div>
-            )}
 
-            {/* Momentum per team */}
-            {dbMomentum && dbMomentum.length > 0 && (
-              <div className="space-y-1">
-                <span className="text-[8px] font-bold uppercase tracking-wider text-muted-foreground/50">
-                  Team Momentum
-                </span>
-                {dbMomentum.map((m: any) => (
-                  <div key={m.team_abbr} className="flex items-center gap-2 text-[9px]">
-                    <span className="font-mono font-bold w-8">{m.team_abbr}</span>
-                    <span className={cn(
-                      "px-1.5 py-0.5 rounded text-[8px] font-bold",
-                      m.momentum_state === "explosive" && "bg-primary/20 text-primary",
-                      m.momentum_state === "surge" && "bg-cosmic-gold/20 text-cosmic-gold",
-                      m.momentum_state === "heating_up" && "bg-accent/20 text-accent-foreground",
-                      m.momentum_state === "cold" && "bg-destructive/20 text-destructive",
-                      m.momentum_state === "neutral" && "bg-muted text-muted-foreground",
-                    )}>
-                      {m.momentum_state}
-                    </span>
-                    <span className="text-muted-foreground/60">
-                      run:{m.recent_run_points} · drought:{m.drought_seconds}s
-                    </span>
-                  </div>
-                ))}
+              {/* Momentum */}
+              <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-[9px]">
+                <DebugRow label="Momentum Team" value={liveState.momentum_team_id || "—"} />
+                <DebugRow label="Momentum Score" value={String(liveState.momentum_score ?? "—")} />
+                <DebugRow label="Run Home" value={String(liveState.recent_run_home ?? 0)} />
+                <DebugRow label="Run Away" value={String(liveState.recent_run_away ?? 0)} />
               </div>
-            )}
 
-            {/* Droughts */}
-            {dbDroughts && dbDroughts.length > 0 && (
-              <div className="space-y-0.5">
-                <span className="text-[8px] font-bold uppercase tracking-wider text-muted-foreground/50">
-                  Scoring Droughts
-                </span>
-                {dbDroughts.map((d: any) => (
-                  <div key={d.team_abbr} className="text-[9px] text-muted-foreground/60">
-                    <span className="font-mono font-bold">{d.team_abbr}</span>
-                    {" "}{d.drought_seconds}s since last score
-                  </div>
-                ))}
+              {/* Droughts & Pace */}
+              <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-[9px]">
+                <DebugRow label="Drought Home" value={`${liveState.recent_scoring_drought_home_sec ?? 0}s`} />
+                <DebugRow label="Drought Away" value={`${liveState.recent_scoring_drought_away_sec ?? 0}s`} />
+                <DebugRow label="Pace Est" value={String(liveState.pace_estimate ?? "—")} />
+                <DebugRow label="FG Drought H" value={`${liveState.fg_drought_home_sec ?? 0}s`} />
+                <DebugRow label="FG Drought A" value={`${liveState.fg_drought_away_sec ?? 0}s`} />
               </div>
-            )}
-          </div>
+
+              {/* Bonus & Fouls */}
+              <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-[9px]">
+                <DebugRow label="Bonus Home" value={liveState.in_bonus_home ? "YES" : "no"} />
+                <DebugRow label="Bonus Away" value={liveState.in_bonus_away ? "YES" : "no"} />
+                <DebugRow label="Fouls Home" value={String(liveState.home_fouls_period ?? 0)} />
+                <DebugRow label="Fouls Away" value={String(liveState.away_fouls_period ?? 0)} />
+              </div>
+
+              {/* Pressure */}
+              <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-[9px]">
+                <DebugRow label="OREB Press" value={liveState.oreb_pressure_team_id || "—"} />
+                <DebugRow label="2nd Chance" value={liveState.second_chance_pressure_team_id || "—"} />
+                <DebugRow label="Empty Poss H" value={String(liveState.empty_possessions_home ?? 0)} />
+                <DebugRow label="Empty Poss A" value={String(liveState.empty_possessions_away ?? 0)} />
+              </div>
+
+              {/* Meta */}
+              <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-[9px]">
+                <DebugRow label="Provider" value={liveState.source_provider || "—"} />
+                <DebugRow label="Parser Ver" value={liveState.parser_version || "—"} />
+                <DebugRow label="Latency" value={`${liveState.sync_latency_ms ?? "—"}ms`} />
+                <DebugRow label="Status" value={liveState.status || "—"} />
+              </div>
+            </div>
+          )}
+
+          {!liveState && expanded && (
+            <div className="border-t border-border/20 pt-2">
+              <span className="text-[9px] text-muted-foreground/40 italic">
+                No live visual state found for this game
+              </span>
+            </div>
+          )}
 
           {/* Recent events mini-log */}
           {recentEvents.length > 1 && (
