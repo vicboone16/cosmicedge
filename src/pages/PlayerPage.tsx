@@ -645,7 +645,7 @@ const PlayerPage = () => {
           </div>
 
           {/* Sample size filter */}
-          <div className="flex items-center gap-2 mb-3">
+          <div className="flex items-center gap-2 mb-3 flex-wrap">
             <span className="text-[10px] text-muted-foreground">Sample:</span>
             {([5, 10, "season"] as SampleSize[]).map(s => (
               <button
@@ -665,7 +665,7 @@ const PlayerPage = () => {
               <button
                 onClick={() => setShowOpponent(!showOpponent)}
                 className={cn(
-                  "px-2.5 py-1 rounded-full text-[10px] font-semibold transition-colors flex items-center gap-1 ml-auto",
+                  "px-2.5 py-1 rounded-full text-[10px] font-semibold transition-colors flex items-center gap-1 sm:ml-auto",
                   showOpponent ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground"
                 )}
               >
