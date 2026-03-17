@@ -209,6 +209,9 @@ export default function CommandCenterPage() {
           )}
         </DashCard>
       </div>
+
+      {/* Assessment History */}
+      <AstraAssessmentHistory limit={5} />
     </div>
   );
 }
