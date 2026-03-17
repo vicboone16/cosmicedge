@@ -283,18 +283,22 @@ export function parsePbpEvent(raw: {
     eventType = "block"; confidence = 0.8;
   }
   // Turnovers
-  else if (ilike(desc, "turnover") || ilike(desc, "bad pass") || ilike(desc, "lost ball") || ilike(desc, "traveling") || ilike(desc, "travel")) {
+  else if (ilike(desc, "turnover") || ilike(desc, "bad pass") || ilike(desc, "lost ball") || ilike(desc, "traveling") || ilike(desc, "travel") || ilike(desc, "palming") || ilike(desc, "double dribble") || ilike(desc, "backcourt")) {
     eventType = "turnover"; confidence = 0.85;
   }
-  // Fouls
-  else if (ilike(desc, "offensive foul")) {
+  // Fouls — order matters: specific before generic
+  else if (ilike(desc, "offensive foul") || ilike(desc, "charge")) {
     eventType = "foul_offensive"; confidence = 0.9;
+  } else if (ilike(desc, "flagrant foul") || ilike(desc, "flagrant")) {
+    eventType = "foul_technical"; confidence = 0.9;
   } else if (ilike(desc, "shooting foul")) {
     eventType = "foul_shooting"; confidence = 0.9;
-  } else if (ilike(desc, "technical foul")) {
+  } else if (ilike(desc, "technical foul") || ilike(desc, "tech foul")) {
     eventType = "foul_technical"; confidence = 0.9;
   } else if (ilike(desc, "loose ball foul")) {
     eventType = "foul_loose_ball"; confidence = 0.85;
+  } else if (ilike(desc, "away from play foul") || ilike(desc, "clear path")) {
+    eventType = "foul_personal"; confidence = 0.8;
   } else if (ilike(desc, "foul")) {
     eventType = "foul_personal"; confidence = 0.7;
   }
@@ -302,12 +306,21 @@ export function parsePbpEvent(raw: {
   else if (ilike(desc, "jump ball")) {
     eventType = "jump_ball"; confidence = 0.9;
   }
-  // Violation
-  else if (ilike(desc, "violation") || ilike(desc, "goaltending") || ilike(desc, "kick ball")) {
+  // Ejection
+  else if (ilike(desc, "ejected") || ilike(desc, "ejection")) {
+    eventType = "ejection"; confidence = 0.95;
+  }
+  // Goaltending / violation
+  else if (ilike(desc, "goaltending") || ilike(desc, "goaltend")) {
+    eventType = "violation"; confidence = 0.9;
+    // Goaltending on a shot = points awarded
+    if (ilike(desc, "defensive goaltending")) { pts = inferShotPoints(desc); }
+  }
+  else if (ilike(desc, "violation") || ilike(desc, "kick ball") || ilike(desc, "lane violation") || ilike(desc, "delay of game")) {
     eventType = "violation"; confidence = 0.8;
   }
-  // Review
-  else if (ilike(desc, "review") || ilike(desc, "replay") || ilike(desc, "challenge")) {
+  // Review/challenge
+  else if (ilike(desc, "review") || ilike(desc, "replay") || ilike(desc, "challenge") || ilike(desc, "instant replay")) {
     eventType = "review"; confidence = 0.8;
   }
 
