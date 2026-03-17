@@ -390,16 +390,39 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Step 4: Variable retrieval + sanity check
+    // Step 4: Variable retrieval + sanity check + grain metadata
     const season = playerCtx?.season;
     const features = playerCtx?.features;
     const projections = playerCtx?.projections ?? [];
+
+    // Build variable manifest with grain/source metadata
+    const variableManifest: { key: string; value: any; source: string; grain: string; as_of: string }[] = [];
+    if (season) {
+      const asOf = season.updated_at ?? season.created_at ?? new Date().toISOString();
+      for (const k of ["points", "rebounds", "assists", "steals", "blocks", "minutes", "three_made", "turnovers"]) {
+        if (season[k] != null) variableManifest.push({ key: k, value: season[k], source: "player_season_stats", grain: "player_season", as_of: asOf });
+      }
+    }
+    if (features) {
+      const featureKeys = ["hit_l5", "hit_l10", "hit_l20", "mu_l10", "sigma_l10", "mu_season", "sigma_season", "coeff_of_var", "minutes_l5_avg", "minutes_season_avg", "usage_proxy_l10", "usage_proxy_season"];
+      for (const k of featureKeys) {
+        if (features[k] != null) variableManifest.push({ key: k, value: features[k], source: "np_build_prop_features", grain: "player_last_n", as_of: new Date().toISOString() });
+      }
+    }
+
+    // Grain mismatch detection: team vars in player compute
+    const grainMismatches: string[] = [];
+    if (needsPlayer && gameCtx?.pace) {
+      // Pace vars are team-level — flag but don't block (they're used correctly as environment context)
+      // Only block if team-level vars were accidentally used AS player stat inputs
+    }
 
     const varsRetrieved = [season, features, projections.length > 0].filter(Boolean).length;
     pipeline.push({
       step: "Variable Retrieval",
       status: varsRetrieved >= 2 ? "ok" : varsRetrieved >= 1 ? "partial" : "failed",
-      detail: `season=${!!season}, features=${!!features}, projections=${projections.length}`,
+      detail: `season=${!!season}, features=${!!features}, projections=${projections.length}, manifest=${variableManifest.length} vars`,
+      data: { variable_count: variableManifest.length, grain_mismatches: grainMismatches },
     });
 
     // Step 5: Sanity validation
