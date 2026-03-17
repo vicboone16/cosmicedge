@@ -6,16 +6,13 @@ import { CANONICAL } from "../_shared/team-mappings.ts";
    TheSportsDB V2 Live Scores - with explicit error handling
    ══════════════════════════════════════════════════════════ */
 
+// NBA/NFL use dedicated pipelines (BDL, etc.) — only NHL & MLB here
 const SPORT_MAP: Record<string, string> = {
-  NBA: "basketball",
-  NFL: "americanfootball",
   NHL: "icehockey",
   MLB: "baseball",
 };
 
 const LEAGUE_IDS: Record<string, string> = {
-  NBA: "4387",
-  NFL: "4391",
   NHL: "4380",
   MLB: "4424",
 };
