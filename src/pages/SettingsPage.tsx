@@ -24,6 +24,7 @@ const SettingsPage = () => {
   const { userTimezone, updateTimezone } = useTimezone();
   const { isAdmin } = useIsAdmin();
   const { settings, updateSettings } = useSettings();
+  const { prefs: notifPrefs, updatePrefs: updateNotifPrefs } = useNotificationPreferences();
   const [csvLeague, setCsvLeague] = useState("NBA");
   const [csvDataType, setCsvDataType] = useState("games");
   const [importing, setImporting] = useState(false);
