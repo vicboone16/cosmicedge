@@ -248,7 +248,7 @@ export default function CommandCenterTab() {
           </p>
         </DashCard>
 
-        <DashCard title="Slip Health" icon={Heart}>
+        <DashCard title="Slip Health" icon={Heart} onClick={() => navigate("/skyspread")}>
           {!slipHealth || slipHealth.activeCount === 0 ? <p className="text-[11px] text-muted-foreground">No active slips to monitor.</p> : (
             <div className="space-y-1">
               <div className="flex items-center gap-3 text-[11px]">
