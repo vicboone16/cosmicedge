@@ -44,15 +44,31 @@ export async function fetchPlayerFactors(
   const values: Record<string, number> = {};
 
   try {
-    // Fetch player game stats for rolling averages, ordered by game date not created_at
-    const { data: gameStats } = await supabase
+    // Fetch player game stats for rolling averages
+    // Only include final games, ordered by game start_time desc
+    const { data: gameStatRows } = await supabase
       .from("player_game_stats")
-      .select("points, rebounds, assists, steals, blocks, three_made, turnovers, fg_attempted, minutes, game_id, games!inner(start_time, status)")
+      .select("points, rebounds, assists, steals, blocks, three_made, turnovers, fg_attempted, minutes, game_id")
       .eq("player_id", playerId)
       .eq("period", "full")
-      .eq("games.status", "final")
-      .order("games(start_time)", { ascending: false } as any)
-      .limit(30);
+      .limit(50);
+
+    // Filter to final games and sort by start_time
+    let gameStats: any[] = [];
+    if (gameStatRows?.length) {
+      const gIds = [...new Set(gameStatRows.map(r => r.game_id))];
+      const { data: gameMeta } = await supabase
+        .from("games")
+        .select("id, start_time, status")
+        .in("id", gIds)
+        .eq("status", "final")
+        .order("start_time", { ascending: false });
+      const finalGameOrder = new Map((gameMeta || []).map((g, i) => [g.id, i]));
+      gameStats = gameStatRows
+        .filter(r => finalGameOrder.has(r.game_id))
+        .sort((a, b) => (finalGameOrder.get(a.game_id) ?? 999) - (finalGameOrder.get(b.game_id) ?? 999))
+        .slice(0, 30);
+    }
 
     if (gameStats?.length) {
       const statValues = gameStats.map((g: any) => extractStat(g, statKey));
