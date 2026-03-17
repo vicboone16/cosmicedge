@@ -134,22 +134,45 @@ export default function CommandCenterTab() {
       </div>
 
       {/* Mode Selector */}
-      <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1 no-scrollbar">
-        {modes.map((m) => {
-          const Icon = MODE_ICONS[m.icon_name] || Sparkles;
-          const isActive = m.mode_key === activeMode;
-          return (
-            <button key={m.mode_key} onClick={() => setMode(m.mode_key as AstraMode)}
-              className={cn("flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold whitespace-nowrap transition-all border",
-                isActive ? "bg-primary/15 text-primary border-primary/30 shadow-sm" : "bg-card/50 text-muted-foreground border-border/30 hover:bg-card hover:text-foreground")}>
-              <Icon className="w-3.5 h-3.5" />
-              {m.mode_name}
-            </button>
-          );
-        })}
-      </div>
+      <TooltipProvider delayDuration={300}>
+        <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1 no-scrollbar">
+          {modes.map((m) => {
+            const Icon = MODE_ICONS[m.icon_name] || Sparkles;
+            const isActive = m.mode_key === activeMode;
+            return (
+              <Tooltip key={m.mode_key}>
+                <TooltipTrigger asChild>
+                  <button onClick={() => setMode(m.mode_key as AstraMode)}
+                    className={cn("flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold whitespace-nowrap transition-all border",
+                      isActive ? "bg-primary/15 text-primary border-primary/30 shadow-sm" : "bg-card/50 text-muted-foreground border-border/30 hover:bg-card hover:text-foreground")}>
+                    <Icon className="w-3.5 h-3.5" />
+                    {m.mode_name}
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-[260px] text-xs">
+                  <p className="font-semibold mb-0.5">{m.mode_name} Mode</p>
+                  <p className="text-muted-foreground">{m.description}</p>
+                </TooltipContent>
+              </Tooltip>
+            );
+          })}
+        </div>
+      </TooltipProvider>
 
-      {activeModeConfig && <p className="text-[11px] text-muted-foreground/70 italic">{activeModeConfig.description}</p>}
+      {activeModeConfig && (
+        <button onClick={() => setExpandedMode(!expandedMode)} className="w-full text-left group">
+          <div className="flex items-center gap-1.5">
+            <p className="text-[11px] text-muted-foreground/70 italic flex-1">{activeModeConfig.description}</p>
+            {expandedMode ? <ChevronUp className="w-3 h-3 text-muted-foreground/50 shrink-0" /> : <ChevronDown className="w-3 h-3 text-muted-foreground/50 shrink-0" />}
+          </div>
+          {expandedMode && (
+            <div className="mt-2 p-3 rounded-lg bg-primary/5 border border-primary/10 text-[11px] text-foreground/80 leading-relaxed">
+              <p className="font-semibold text-primary mb-1">Why {activeModeConfig.mode_name}?</p>
+              <p>{MODE_IMPORTANCE[activeMode] || activeModeConfig.description}</p>
+            </div>
+          )}
+        </button>
+      )}
 
       {/* Ask Astra */}
       <div className="relative">
