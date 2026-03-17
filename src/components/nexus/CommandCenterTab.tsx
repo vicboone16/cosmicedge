@@ -242,7 +242,7 @@ export default function CommandCenterTab() {
           )}
         </DashCard>
 
-        <DashCard title="Cosmic Windows" icon={Moon} dimmed={activeMode === "sharp"}>
+        <DashCard title="Cosmic Windows" icon={Moon} dimmed={activeMode === "sharp"} onClick={() => navigate("/celestial")}>
           <p className="text-[11px] text-muted-foreground">
             {activeMode === "sharp" ? "Cosmic layer de-emphasized in Sharp mode." : activeMode === "ritual" ? "Full cosmic window analysis active." : "Planetary hour and transit windows available."}
           </p>
