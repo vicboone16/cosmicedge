@@ -106,7 +106,7 @@ export default function MachinaManualInput() {
       </div>
 
       {/* Context */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
         <div className="space-y-1">
           <label className="text-[10px] font-semibold text-muted-foreground uppercase">Player Name</label>
           <Input value={playerName} onChange={(e) => setPlayerName(e.target.value)} placeholder="e.g. Jalen Brunson" className="bg-secondary text-xs h-8" />
