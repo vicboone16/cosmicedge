@@ -218,6 +218,14 @@ export function TransitScrubber({ startTime, venueLat, awayPlayers, homePlayers,
           </div>
         </div>
 
+        {/* Transit Insight Mini-Phrase */}
+        <TransitInsightPhrase
+          planetaryHour={planetaryHour}
+          offsetMinutes={offsetMinutes}
+          aspects={aspects}
+          selectedPlayer={selectedPlayer}
+        />
+
         {/* Slider */}
         <div className="space-y-1">
           <Slider
