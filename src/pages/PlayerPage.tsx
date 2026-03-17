@@ -618,7 +618,7 @@ const PlayerPage = () => {
           </div>
 
           {/* Stats tabs */}
-          <div className="flex bg-secondary rounded-lg p-0.5 mb-3 overflow-x-auto no-scrollbar">
+          <div className="flex bg-secondary rounded-lg p-0.5 mb-3 overflow-x-auto no-scrollbar -mx-1 px-1">
             {([
               { key: "stats" as StatsTab, label: "Full" },
               { key: "1h" as StatsTab, label: "1H" },
@@ -635,7 +635,7 @@ const PlayerPage = () => {
                 key={t.key}
                 onClick={() => setStatsTab(t.key)}
                 className={cn(
-                  "flex-1 py-1.5 rounded-md text-[11px] font-semibold transition-colors",
+                  "flex-shrink-0 px-2 py-1.5 rounded-md text-[11px] font-semibold transition-colors whitespace-nowrap",
                   statsTab === t.key ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground"
                 )}
               >
@@ -645,7 +645,7 @@ const PlayerPage = () => {
           </div>
 
           {/* Sample size filter */}
-          <div className="flex items-center gap-2 mb-3">
+          <div className="flex items-center gap-2 mb-3 flex-wrap">
             <span className="text-[10px] text-muted-foreground">Sample:</span>
             {([5, 10, "season"] as SampleSize[]).map(s => (
               <button
@@ -665,7 +665,7 @@ const PlayerPage = () => {
               <button
                 onClick={() => setShowOpponent(!showOpponent)}
                 className={cn(
-                  "px-2.5 py-1 rounded-full text-[10px] font-semibold transition-colors flex items-center gap-1 ml-auto",
+                  "px-2.5 py-1 rounded-full text-[10px] font-semibold transition-colors flex items-center gap-1 sm:ml-auto",
                   showOpponent ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground"
                 )}
               >

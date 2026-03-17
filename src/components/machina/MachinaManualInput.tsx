@@ -106,7 +106,7 @@ export default function MachinaManualInput() {
       </div>
 
       {/* Context */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
         <div className="space-y-1">
           <label className="text-[10px] font-semibold text-muted-foreground uppercase">Player Name</label>
           <Input value={playerName} onChange={(e) => setPlayerName(e.target.value)} placeholder="e.g. Jalen Brunson" className="bg-secondary text-xs h-8" />
@@ -148,10 +148,10 @@ export default function MachinaManualInput() {
             <RotateCcw className="h-3 w-3" /> Reset
           </button>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
           {MANUAL_FIELDS.map((f) => (
             <div key={f.key} className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-secondary/30 border border-border/50">
-              <span className="text-[10px] text-muted-foreground flex-1 truncate">{f.label}</span>
+              <span className="text-[10px] text-muted-foreground flex-1 min-w-0 truncate">{f.label}</span>
               <Input
                 type="number"
                 step="0.1"
@@ -178,7 +178,7 @@ export default function MachinaManualInput() {
               <span className="text-sm font-bold text-foreground">{result.modelName}</span>
               <Badge className={cn("text-xs font-bold", result.output.confidenceTier === "S" ? "bg-cosmic-green" : result.output.confidenceTier === "A" ? "bg-primary" : "bg-muted")}>{result.output.confidenceTier}-Tier</Badge>
             </div>
-            <div className="grid grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <div className="text-center"><p className="text-[10px] text-muted-foreground">Projection</p><p className="text-lg font-bold text-foreground">{result.output.projection}</p></div>
               <div className="text-center"><p className="text-[10px] text-muted-foreground">Edge</p><p className={cn("text-lg font-bold", result.output.edge > 0 ? "text-cosmic-green" : "text-destructive")}>{result.output.edge > 0 ? "+" : ""}{result.output.edge}</p></div>
               <div className="text-center"><p className="text-[10px] text-muted-foreground">Probability</p><p className="text-lg font-bold text-foreground">{(result.output.probability * 100).toFixed(1)}%</p></div>

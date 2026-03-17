@@ -50,7 +50,7 @@ export default function MachinaOverview({ onNavigate }: Props) {
   return (
     <div className="space-y-6">
       {/* Quick Actions */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
         {[
           { label: "Run Model", icon: Play, tab: "studio", color: "text-cosmic-green" },
           { label: "Build Model", icon: Plus, tab: "builder", color: "text-primary" },
@@ -70,7 +70,7 @@ export default function MachinaOverview({ onNavigate }: Props) {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3">
         <SummaryCard icon={FlaskConical} label="Active Models" value={String(activeModels.length)} sub={`${totalModels} total`} />
         <SummaryCard icon={Cpu} label="Engines" value={String(readyEngines)} sub={`${totalEngines} registered`} />
         <SummaryCard icon={BarChart3} label="Recent Runs" value={String(recentRuns?.length ?? 0)} sub="last 24h" />
