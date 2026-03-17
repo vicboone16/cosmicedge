@@ -6,6 +6,11 @@ import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import type { Tables } from "@/integrations/supabase/types";
 
+function americanToDecimal(odds: number): number {
+  if (odds > 0) return odds / 100 + 1;
+  return 100 / Math.abs(odds) + 1;
+}
+
 type BetRow = Tables<"bets">;
 
 const RESULT_ICONS: Record<string, typeof CheckCircle> = {
