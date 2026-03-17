@@ -12159,6 +12159,16 @@ export type Database = {
         }
         Relationships: []
       }
+      v_game_id_bridge_candidates: {
+        Row: {
+          external_id: string | null
+          internal_game_id: string | null
+          provider: string | null
+          provider_game_id: string | null
+          source_table: string | null
+        }
+        Relationships: []
+      }
       v_game_latest_snapshot: {
         Row: {
           away_score: number | null
@@ -12301,6 +12311,94 @@ export type Database = {
           {
             foreignKeyName: "game_state_snapshots_game_id_fkey"
             columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "v_oracle_player_validity"
+            referencedColumns: ["game_id"]
+          },
+        ]
+      }
+      v_game_state_snapshots_latest: {
+        Row: {
+          away_score: number | null
+          captured_at: string | null
+          clock: string | null
+          clock_seconds_remaining: number | null
+          home_score: number | null
+          id: string | null
+          internal_game_id: string | null
+          possession: string | null
+          quarter: string | null
+          status: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "game_state_snapshots_game_id_fkey"
+            columns: ["internal_game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "game_state_snapshots_game_id_fkey"
+            columns: ["internal_game_id"]
+            isOneToOne: false
+            referencedRelation: "v_current_game_players"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "game_state_snapshots_game_id_fkey"
+            columns: ["internal_game_id"]
+            isOneToOne: false
+            referencedRelation: "v_game_live_state"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "game_state_snapshots_game_id_fkey"
+            columns: ["internal_game_id"]
+            isOneToOne: false
+            referencedRelation: "v_oracle_player_validity"
+            referencedColumns: ["game_id"]
+          },
+        ]
+      }
+      v_game_state_snapshots_latest_v2: {
+        Row: {
+          away_score: number | null
+          captured_at: string | null
+          clock: string | null
+          clock_seconds_remaining: number | null
+          home_score: number | null
+          id: string | null
+          internal_game_id: string | null
+          possession: string | null
+          quarter: string | null
+          status: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "game_state_snapshots_game_id_fkey"
+            columns: ["internal_game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "game_state_snapshots_game_id_fkey"
+            columns: ["internal_game_id"]
+            isOneToOne: false
+            referencedRelation: "v_current_game_players"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "game_state_snapshots_game_id_fkey"
+            columns: ["internal_game_id"]
+            isOneToOne: false
+            referencedRelation: "v_game_live_state"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "game_state_snapshots_game_id_fkey"
+            columns: ["internal_game_id"]
             isOneToOne: false
             referencedRelation: "v_oracle_player_validity"
             referencedColumns: ["game_id"]
@@ -12730,8 +12828,8 @@ export type Database = {
           event_type: string | null
           game_key: string | null
           home_score: number | null
-          is_scoring_play: boolean | null
-          is_shooting_play: boolean | null
+          is_scoring_play: string | null
+          is_shooting_play: string | null
           pbp_id: number | null
           period: number | null
           play_order: number | null
@@ -12787,6 +12885,87 @@ export type Database = {
         }
         Relationships: []
       }
+      v_nba_pbp_debug_v2: {
+        Row: {
+          area: string | null
+          area_detail: string | null
+          assist_player_name: string | null
+          block_player_name: string | null
+          clock_seconds_remaining: number | null
+          elapsed: string | null
+          event_subtype: string | null
+          event_type: string | null
+          external_game_id: string | null
+          pbp_period: number | null
+          play_id: number | null
+          play_text: string | null
+          player_id: string | null
+          points_scored: number | null
+          possession_player_name: string | null
+          possession_team_id_after: string | null
+          qualifiers1: string | null
+          qualifiers2: string | null
+          qualifiers3: string | null
+          qualifiers4: string | null
+          remaining_time: string | null
+          steal_player_name: string | null
+          team_id: string | null
+          time_actual: string | null
+        }
+        Insert: {
+          area?: string | null
+          area_detail?: string | null
+          assist_player_name?: string | null
+          block_player_name?: string | null
+          clock_seconds_remaining?: never
+          elapsed?: string | null
+          event_subtype?: string | null
+          event_type?: string | null
+          external_game_id?: string | null
+          pbp_period?: number | null
+          play_id?: number | null
+          play_text?: string | null
+          player_id?: string | null
+          points_scored?: never
+          possession_player_name?: string | null
+          possession_team_id_after?: string | null
+          qualifiers1?: string | null
+          qualifiers2?: string | null
+          qualifiers3?: string | null
+          qualifiers4?: string | null
+          remaining_time?: string | null
+          steal_player_name?: string | null
+          team_id?: string | null
+          time_actual?: string | null
+        }
+        Update: {
+          area?: string | null
+          area_detail?: string | null
+          assist_player_name?: string | null
+          block_player_name?: string | null
+          clock_seconds_remaining?: never
+          elapsed?: string | null
+          event_subtype?: string | null
+          event_type?: string | null
+          external_game_id?: string | null
+          pbp_period?: number | null
+          play_id?: number | null
+          play_text?: string | null
+          player_id?: string | null
+          points_scored?: never
+          possession_player_name?: string | null
+          possession_team_id_after?: string | null
+          qualifiers1?: string | null
+          qualifiers2?: string | null
+          qualifiers3?: string | null
+          qualifiers4?: string | null
+          remaining_time?: string | null
+          steal_player_name?: string | null
+          team_id?: string | null
+          time_actual?: string | null
+        }
+        Relationships: []
+      }
       v_nba_pbp_latest_possession: {
         Row: {
           clock: string | null
@@ -12794,6 +12973,21 @@ export type Database = {
           period: number | null
           possession_context: string | null
           possession_team: string | null
+        }
+        Relationships: []
+      }
+      v_nba_pbp_latest_possession_v2: {
+        Row: {
+          clock_seconds_remaining: number | null
+          elapsed: string | null
+          external_game_id: string | null
+          pbp_period: number | null
+          play_id: number | null
+          possession_confidence: number | null
+          possession_context: string | null
+          possession_team_id: string | null
+          remaining_time: string | null
+          time_actual: string | null
         }
         Relationships: []
       }
@@ -12807,6 +13001,24 @@ export type Database = {
         }
         Relationships: []
       }
+      v_nba_pbp_momentum_v2: {
+        Row: {
+          drought_seconds: number | null
+          external_game_id: string | null
+          momentum_state: string | null
+          recent_points: number | null
+          team_id: string | null
+        }
+        Relationships: []
+      }
+      v_nba_pbp_oreb_pressure_v2: {
+        Row: {
+          external_game_id: string | null
+          oreb_events_last_5min: number | null
+          team_id: string | null
+        }
+        Relationships: []
+      }
       v_nba_pbp_pace_proxy: {
         Row: {
           est_possessions: number | null
@@ -12815,6 +13027,14 @@ export type Database = {
           shot_plays: number | null
           total_plays: number | null
           turnover_plays: number | null
+        }
+        Relationships: []
+      }
+      v_nba_pbp_pace_proxy_v2: {
+        Row: {
+          external_game_id: string | null
+          latest_period: number | null
+          pace_events: number | null
         }
         Relationships: []
       }
@@ -12832,11 +13052,34 @@ export type Database = {
         }
         Relationships: []
       }
+      v_nba_pbp_player_involvement_v2: {
+        Row: {
+          assisted_scores: number | null
+          blocks_recorded: number | null
+          external_game_id: string | null
+          last_event_at: string | null
+          player_id: string | null
+          scoring_events: number | null
+          steals_forced: number | null
+          team_id: string | null
+          total_events: number | null
+          turnovers_committed: number | null
+        }
+        Relationships: []
+      }
       v_nba_pbp_recent_runs: {
         Row: {
           game_key: string | null
           recent_run_points: number | null
           team_abbr: string | null
+        }
+        Relationships: []
+      }
+      v_nba_pbp_recent_runs_v2: {
+        Row: {
+          external_game_id: string | null
+          recent_points: number | null
+          team_id: string | null
         }
         Relationships: []
       }
@@ -12847,6 +13090,14 @@ export type Database = {
           last_score_at: string | null
           latest_event_at: string | null
           team_abbr: string | null
+        }
+        Relationships: []
+      }
+      v_nba_pbp_scoring_droughts_v2: {
+        Row: {
+          external_game_id: string | null
+          seconds_since_last_score: number | null
+          team_id: string | null
         }
         Relationships: []
       }
@@ -12861,8 +13112,8 @@ export type Database = {
           event_type: string | null
           game_key: string | null
           home_score: number | null
-          is_scoring_play: boolean | null
-          is_shooting_play: boolean | null
+          is_scoring_play_text: string | null
+          is_shooting_play_text: string | null
           pbp_id: number | null
           period: number | null
           play_order: number | null
@@ -12887,8 +13138,8 @@ export type Database = {
           event_type?: string | null
           game_key?: string | null
           home_score?: number | null
-          is_scoring_play?: never
-          is_shooting_play?: never
+          is_scoring_play_text?: never
+          is_shooting_play_text?: never
           pbp_id?: number | null
           period?: number | null
           play_order?: never
@@ -12913,8 +13164,8 @@ export type Database = {
           event_type?: string | null
           game_key?: string | null
           home_score?: number | null
-          is_scoring_play?: never
-          is_shooting_play?: never
+          is_scoring_play_text?: never
+          is_shooting_play_text?: never
           pbp_id?: number | null
           period?: number | null
           play_order?: never
@@ -12928,6 +13179,138 @@ export type Database = {
           score_value?: never
           team_abbr?: string | null
           wallclock?: never
+        }
+        Relationships: []
+      }
+      v_nba_pbp_source_v2: {
+        Row: {
+          area: string | null
+          area_detail: string | null
+          assist_player_name: string | null
+          away_score: number | null
+          away_team_id: string | null
+          block_player_name: string | null
+          clock_seconds_remaining: number | null
+          data_set: string | null
+          date: string | null
+          elapsed: string | null
+          entered_player_name: string | null
+          event_subtype: string | null
+          event_type: string | null
+          external_game_id: string | null
+          home_score: number | null
+          home_team_id: string | null
+          is_scoring_play: boolean | null
+          left_player_name: string | null
+          official: string | null
+          original_x: number | null
+          original_y: number | null
+          outof_player_name: string | null
+          pbp_period: number | null
+          play_id: number | null
+          play_length: string | null
+          play_text: string | null
+          player_id: string | null
+          points_scored: number | null
+          possession_player_name: string | null
+          possession_team_id_after: string | null
+          qualifiers1: string | null
+          qualifiers2: string | null
+          qualifiers3: string | null
+          qualifiers4: string | null
+          reason: string | null
+          remaining_time: string | null
+          result: string | null
+          shot_distance: number | null
+          steal_player_name: string | null
+          team_id: string | null
+          time_actual: string | null
+        }
+        Insert: {
+          area?: string | null
+          area_detail?: string | null
+          assist_player_name?: string | null
+          away_score?: number | null
+          away_team_id?: string | null
+          block_player_name?: string | null
+          clock_seconds_remaining?: never
+          data_set?: string | null
+          date?: string | null
+          elapsed?: string | null
+          entered_player_name?: string | null
+          event_subtype?: string | null
+          event_type?: string | null
+          external_game_id?: string | null
+          home_score?: number | null
+          home_team_id?: string | null
+          is_scoring_play?: never
+          left_player_name?: string | null
+          official?: string | null
+          original_x?: number | null
+          original_y?: number | null
+          outof_player_name?: string | null
+          pbp_period?: number | null
+          play_id?: number | null
+          play_length?: string | null
+          play_text?: string | null
+          player_id?: string | null
+          points_scored?: never
+          possession_player_name?: string | null
+          possession_team_id_after?: string | null
+          qualifiers1?: string | null
+          qualifiers2?: string | null
+          qualifiers3?: string | null
+          qualifiers4?: string | null
+          reason?: string | null
+          remaining_time?: string | null
+          result?: string | null
+          shot_distance?: number | null
+          steal_player_name?: string | null
+          team_id?: string | null
+          time_actual?: string | null
+        }
+        Update: {
+          area?: string | null
+          area_detail?: string | null
+          assist_player_name?: string | null
+          away_score?: number | null
+          away_team_id?: string | null
+          block_player_name?: string | null
+          clock_seconds_remaining?: never
+          data_set?: string | null
+          date?: string | null
+          elapsed?: string | null
+          entered_player_name?: string | null
+          event_subtype?: string | null
+          event_type?: string | null
+          external_game_id?: string | null
+          home_score?: number | null
+          home_team_id?: string | null
+          is_scoring_play?: never
+          left_player_name?: string | null
+          official?: string | null
+          original_x?: number | null
+          original_y?: number | null
+          outof_player_name?: string | null
+          pbp_period?: number | null
+          play_id?: number | null
+          play_length?: string | null
+          play_text?: string | null
+          player_id?: string | null
+          points_scored?: never
+          possession_player_name?: string | null
+          possession_team_id_after?: string | null
+          qualifiers1?: string | null
+          qualifiers2?: string | null
+          qualifiers3?: string | null
+          qualifiers4?: string | null
+          reason?: string | null
+          remaining_time?: string | null
+          result?: string | null
+          shot_distance?: number | null
+          steal_player_name?: string | null
+          team_id?: string | null
+          time_actual?: string | null
         }
         Relationships: []
       }
@@ -13643,6 +14026,10 @@ export type Database = {
       }
       np_rebuild_team_pace: {
         Args: { p_league?: string; p_season?: number }
+        Returns: number
+      }
+      parse_basketball_clock_to_seconds: {
+        Args: { p_clock: string }
         Returns: number
       }
       rebuild_nba_standings: { Args: { p_season?: number }; Returns: number }
