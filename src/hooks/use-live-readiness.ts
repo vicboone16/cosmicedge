@@ -78,14 +78,12 @@ export function useLiveReadiness(gameId: string | undefined) {
       }
 
       // ── Fallback: compute readiness client-side ──
-      const [gameRes, rosterRes, oddsRes, propsRes, modelRes, lineupsRes] = await Promise.all([
+      const [gameRes, rosterRes, oddsRes, propsRes, modelRes] = await Promise.all([
         supabase.from("games").select("id, status, external_id, home_abbr, away_abbr, league").eq("id", gameId).maybeSingle(),
         supabase.from("player_game_stats" as any).select("id").eq("game_id", gameId).eq("period", "full").limit(1),
         supabase.from("odds_snapshots").select("id").eq("game_id", gameId).limit(1),
         supabase.from("nba_player_props_live" as any).select("id").eq("game_id", gameId).limit(1),
         supabase.from("model_activation_state" as any).select("runtime_status").eq("scope_type", "global").eq("scope_key", "default").maybeSingle(),
-        // Lineup check via depth_charts
-        gameRes ? Promise.resolve({ data: [], error: null }) : Promise.resolve({ data: [], error: null }),
       ]);
 
       const game = gameRes.data;
