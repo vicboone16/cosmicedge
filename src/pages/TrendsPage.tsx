@@ -525,13 +525,18 @@ export default function TrendsPage() {
               <p className="text-sm text-muted-foreground">Loading insights...</p>
             </div>
           ) : filteredInsights.length === 0 ? (
-            <div className="text-center py-12">
-              <TrendingUp className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
+            <div className="text-center py-12 space-y-3">
+              <TrendingUp className="h-8 w-8 text-muted-foreground/30 mx-auto" />
               <p className="text-sm font-medium text-foreground">No insights available</p>
-              <p className="text-xs text-muted-foreground mt-1">
+              <p className="text-xs text-muted-foreground mt-1 max-w-xs mx-auto">
                 {(props || []).length === 0
-                  ? `No props loaded for ${leagueFilter} on ${format(selectedDate, "MMM d")}. Tap Refresh Props to fetch.`
-                  : "Adjust filters or try a different date."}
+                  ? `No props loaded for ${leagueFilter} on ${format(selectedDate, "MMM d")}. Tap Refresh Props to fetch from the provider feed.`
+                  : (playerStats || []).length === 0
+                    ? "Props are loaded but no player game stats found to compute hit rates. Stats are needed to generate trend insights."
+                    : "Adjust filters (hit rate, direction) or try a different date. Current filters may be too strict."}
+              </p>
+              <p className="text-[10px] text-muted-foreground/60 max-w-xs mx-auto">
+                Insights are computed by comparing current prop lines against each player's recent game log. They require both provider props and historical stats.
               </p>
             </div>
           ) : (
