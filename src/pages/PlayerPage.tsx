@@ -618,7 +618,7 @@ const PlayerPage = () => {
           </div>
 
           {/* Stats tabs */}
-          <div className="flex bg-secondary rounded-lg p-0.5 mb-3 overflow-x-auto no-scrollbar">
+          <div className="flex bg-secondary rounded-lg p-0.5 mb-3 overflow-x-auto no-scrollbar -mx-1 px-1">
             {([
               { key: "stats" as StatsTab, label: "Full" },
               { key: "1h" as StatsTab, label: "1H" },
