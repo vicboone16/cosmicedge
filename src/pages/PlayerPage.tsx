@@ -635,7 +635,7 @@ const PlayerPage = () => {
                 key={t.key}
                 onClick={() => setStatsTab(t.key)}
                 className={cn(
-                  "flex-1 py-1.5 rounded-md text-[11px] font-semibold transition-colors",
+                  "flex-shrink-0 px-2 py-1.5 rounded-md text-[11px] font-semibold transition-colors whitespace-nowrap",
                   statsTab === t.key ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground"
                 )}
               >
