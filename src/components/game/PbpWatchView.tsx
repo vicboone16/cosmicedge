@@ -51,7 +51,7 @@ export function PbpWatchView({ gameId, homeAbbr, awayAbbr, league }: PbpWatchVie
         .maybeSingle();
       return data;
     },
-    refetchInterval: 8_000,
+    refetchInterval: 4_000,
   });
 
   // ── Game key for cosmic pipeline ──
