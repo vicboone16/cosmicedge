@@ -196,12 +196,34 @@ export function PropsExploreTab() {
 
   if (!allProps || allProps.length === 0) {
     return (
-      <div className="cosmic-card rounded-2xl p-8 text-center space-y-3 mx-4">
+      <div className="cosmic-card rounded-2xl p-8 text-center space-y-4 mx-4">
         <TrendingUp className="h-8 w-8 text-muted-foreground/30 mx-auto" />
         <p className="text-sm font-medium text-foreground">No model predictions available yet</p>
         <p className="text-xs text-muted-foreground max-w-xs mx-auto">
-          Prop intelligence surfaces as games approach. Check back closer to tip-off.
+          The Nebula prediction engine needs to run for today's games. Predictions analyze player stats, pace, matchup quality, and hit rates to generate edge scores.
         </p>
+        <p className="text-[10px] text-muted-foreground/60 max-w-xs mx-auto">
+          Predictions are generated per-game and require player props to be available from the provider feed first.
+        </p>
+        {isAdmin && (
+          <button
+            onClick={handleRunPredictions}
+            disabled={runningPredictions}
+            className="mx-auto px-4 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center gap-2"
+          >
+            {runningPredictions ? (
+              <>
+                <div className="h-3 w-3 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin" />
+                Running predictions...
+              </>
+            ) : (
+              <>
+                <Zap className="h-3 w-3" />
+                Run Predictions for Today
+              </>
+            )}
+          </button>
+        )}
       </div>
     );
   }

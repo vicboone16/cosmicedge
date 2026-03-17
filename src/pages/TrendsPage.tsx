@@ -177,6 +177,7 @@ export default function TrendsPage() {
         .from("player_game_stats")
         .select("player_id, points, rebounds, assists, steals, blocks, three_made")
         .in("player_id", playerIds)
+        .eq("period", "full")
         .order("created_at", { ascending: false })
         .limit(playerIds.length * 20);
       return (stats || []).map(s => {
