@@ -167,11 +167,21 @@ Deno.serve(async (req) => {
 
         // Odds history snapshot
         const snapshotMinute = new Date(); snapshotMinute.setSeconds(0, 0);
+        // Build player name → internal UUID map for history rows
+        const histPlayerNames = [...new Set(propRows.map(p => p.player_name))];
+        const histPlayerMap: Record<string, string | null> = {};
+        for (let i = 0; i < histPlayerNames.length; i += 50) {
+          const batch = histPlayerNames.slice(i, i + 50);
+          const { data: plrs } = await supabase.from("players").select("id, name").eq("league", "NBA").in("name", batch);
+          if (plrs) for (const pl of plrs) histPlayerMap[pl.name] = pl.id;
+        }
+
         const historyRows: any[] = [];
         for (const p of propRows) {
+          const resolvedPlayerId = histPlayerMap[p.player_name] ?? null;
           if (p.over_price != null) {
             historyRows.push({
-              game_id: p.game_id, player_id: null, prop_type: p.market_key,
+              game_id: p.game_id, player_id: resolvedPlayerId, prop_type: p.market_key,
               book: p.bookmaker, line: p.line, side: "over", odds: p.over_price,
               snapshot_ts: new Date().toISOString(), snapshot_minute: snapshotMinute.toISOString(),
               source: "fetch-live-props-bdl",
@@ -179,7 +189,7 @@ Deno.serve(async (req) => {
           }
           if (p.under_price != null) {
             historyRows.push({
-              game_id: p.game_id, player_id: null, prop_type: p.market_key,
+              game_id: p.game_id, player_id: resolvedPlayerId, prop_type: p.market_key,
               book: p.bookmaker, line: p.line, side: "under", odds: p.under_price,
               snapshot_ts: new Date().toISOString(), snapshot_minute: snapshotMinute.toISOString(),
               source: "fetch-live-props-bdl",

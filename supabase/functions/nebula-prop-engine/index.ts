@@ -428,16 +428,34 @@ Deno.serve(async (req) => {
     const uniqueNames = [...new Set(mappedProps.map((p) => p.player_name))];
     const playerMap: Record<string, { id: string; team: string }> = {};
 
-    // 4a. Direct name match
+    // 4a. Direct name match — prefer players on game teams to avoid same-name collisions
+    const gameTeams = [game.home_abbr, game.away_abbr];
     for (let i = 0; i < uniqueNames.length; i += 50) {
       const batch = uniqueNames.slice(i, i + 50);
       const { data: players } = await sb
         .from("players")
         .select("id, name, team")
+        .eq("league", game.league || "NBA")
         .in("name", batch);
       if (players) {
+        // Group by name to detect collisions
+        const byName = new Map<string, typeof players>();
         for (const pl of players) {
-          playerMap[pl.name] = { id: pl.id, team: pl.team };
+          if (!byName.has(pl.name)) byName.set(pl.name, []);
+          byName.get(pl.name)!.push(pl);
+        }
+        for (const [name, matches] of byName) {
+          if (matches.length === 1) {
+            playerMap[name] = { id: matches[0].id, team: matches[0].team };
+          } else {
+            // Prefer player on one of the game's teams
+            const gamePlayer = matches.find(m => gameTeams.includes(m.team));
+            if (gamePlayer) {
+              playerMap[name] = { id: gamePlayer.id, team: gamePlayer.team };
+            } else {
+              playerMap[name] = { id: matches[0].id, team: matches[0].team };
+            }
+          }
         }
       }
     }
