@@ -81,8 +81,11 @@ Deno.serve(async (req) => {
         } else {
           raw = String(event.data);
         }
-        const data = JSON.parse(raw);
-        const action = data.action ?? "unknown";
+        let parsed = JSON.parse(raw);
+        // BoltOdds may wrap messages in an array
+        if (Array.isArray(parsed)) parsed = parsed[0];
+        const data = parsed as Record<string, unknown>;
+        const action = String(data.action ?? "unknown");
 
         // Log messages (first 50, then sample)
         if (messageCount <= 50 || messageCount % 100 === 0) {
