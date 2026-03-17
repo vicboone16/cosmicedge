@@ -131,3 +131,6 @@ verify_jwt = false
 
 [functions.pbp-watch-sync]
 verify_jwt = false
+
+[functions.create-command-task]
+verify_jwt = false

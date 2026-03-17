@@ -189,6 +189,39 @@ export type Database = {
         }
         Relationships: []
       }
+      app_command_registry: {
+        Row: {
+          allowed_commands: string[]
+          app_slug: string
+          created_at: string
+          id: string
+          is_active: boolean
+          repo_name: string
+          repo_owner: string
+          updated_at: string
+        }
+        Insert: {
+          allowed_commands?: string[]
+          app_slug: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          repo_name: string
+          repo_owner: string
+          updated_at?: string
+        }
+        Update: {
+          allowed_commands?: string[]
+          app_slug?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          repo_name?: string
+          repo_owner?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       app_feature_flags: {
         Row: {
           config: Json
@@ -2018,6 +2051,68 @@ export type Database = {
           vendor?: string | null
         }
         Relationships: []
+      }
+      command_tasks: {
+        Row: {
+          app_slug: string
+          command_name: string
+          command_payload: Json
+          completed_at: string | null
+          created_at: string
+          created_by: string | null
+          error_message: string | null
+          github_issue_number: number | null
+          github_issue_url: string | null
+          id: string
+          output_summary: string | null
+          priority: string
+          repo_name: string
+          repo_owner: string
+          status: string
+        }
+        Insert: {
+          app_slug: string
+          command_name: string
+          command_payload?: Json
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          error_message?: string | null
+          github_issue_number?: number | null
+          github_issue_url?: string | null
+          id?: string
+          output_summary?: string | null
+          priority?: string
+          repo_name: string
+          repo_owner: string
+          status?: string
+        }
+        Update: {
+          app_slug?: string
+          command_name?: string
+          command_payload?: Json
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          error_message?: string | null
+          github_issue_number?: number | null
+          github_issue_url?: string | null
+          id?: string
+          output_summary?: string | null
+          priority?: string
+          repo_name?: string
+          repo_owner?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "command_tasks_app_slug_fkey"
+            columns: ["app_slug"]
+            isOneToOne: false
+            referencedRelation: "app_command_registry"
+            referencedColumns: ["app_slug"]
+          },
+        ]
       }
       conversation_members: {
         Row: {
