@@ -54,6 +54,7 @@ const AppStorePrivacyScript = lazy(() => import("./pages/AppStorePrivacyScript")
 const ModelWorkspacePage = lazy(() => import("./pages/ModelWorkspacePage"));
 const MachinaPage = lazy(() => import("./pages/MachinaPage"));
 const CommandCenterPage = lazy(() => import("./pages/CommandCenterPage"));
+const FAQPage = lazy(() => import("./pages/FAQPage"));
 
 // Bootstrap global error capture immediately
 initErrorCapture();
