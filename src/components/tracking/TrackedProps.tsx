@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { cn } from "@/lib/utils";
 import { Plus, Target, Check, X, Zap, Trash2, TrendingUp, TrendingDown, Activity, Clock, BarChart3, Shield, AlertTriangle, Gauge } from "lucide-react";
+import { MomentumChip } from "@/components/game/GameMomentumBanner";
 import { toast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 
