@@ -586,6 +586,9 @@ const PlayerPage = () => {
 
         {profileTab === "overview" && (
           <>
+            {/* Cosmic Archetype */}
+            <ArchetypeCard entityId={id!} entityType="player" />
+
             {/* Props & Odds */}
             {player.team && (
               <PlayerPropsSection playerId={id!} playerName={player.name} teamAbbr={player.team} />
