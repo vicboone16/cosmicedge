@@ -274,7 +274,36 @@ Deno.serve(async (req) => {
     const userId = user?.id;
 
     // ── Pipeline tracking ──
-    const pipeline: { step: string; status: string; detail: string }[] = [];
+    const pipeline: { step: string; status: string; detail: string; data?: any }[] = [];
+
+    // Step 0: Model activation verification
+    const adminSb = createClient(supabaseUrl, serviceKey);
+    const { data: activationState } = await adminSb
+      .from("model_activation_state")
+      .select("*")
+      .eq("scope_type", "global")
+      .eq("scope_key", "default")
+      .maybeSingle();
+
+    const modelInfo = activationState
+      ? {
+          id: activationState.active_model_id,
+          version: activationState.active_model_version ?? "unknown",
+          scope: `${activationState.scope_type}/${activationState.scope_key}`,
+          runtime_status: activationState.runtime_status,
+          cache_token: activationState.cache_bust_token,
+          confirmed_at: activationState.runtime_confirmed_at,
+        }
+      : null;
+
+    pipeline.push({
+      step: "Model Activation",
+      status: modelInfo?.runtime_status === "confirmed" ? "ok" : modelInfo ? "partial" : "skipped",
+      detail: modelInfo
+        ? `${modelInfo.id.slice(0, 8)}… v${modelInfo.version} [${modelInfo.runtime_status}]`
+        : "No model activation state",
+      data: modelInfo,
+    });
 
     // Step 1: Parse the question
     const parseResp = await fetch(AI_GATEWAY, {
