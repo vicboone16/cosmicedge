@@ -19,6 +19,15 @@ const MODE_ICONS: Record<string, any> = {
   TrendingUp, Sparkles, Crosshair, Shield, Eye, Moon,
 };
 
+const MODE_IMPORTANCE: Record<string, string> = {
+  sharp: "Pure data-driven analysis. Strips cosmic layers to focus on EV, hit probability, and statistical edges. Best for bettors who want clean quant signals only.",
+  cosmic: "Balanced blend of statistical + astrological factors. Uses planetary transits and cosmic windows alongside projections. The default all-rounder mode.",
+  sniper: "Targets hidden value and live entry windows. Prioritizes opportunity score, timing quality, and undervalued lines that the market hasn't corrected yet.",
+  hedge: "Risk-first mindset. Emphasizes correlation risk, trap detection, and safety margins. Ideal when protecting bankroll or building conservative parlays.",
+  shadow: "Contrarian mode. Looks for market overreactions, public bias fades, and shadow value where the crowd is wrong. High conviction, lower volume.",
+  ritual: "Full cosmic immersion. Maximizes astrological weight — planetary hours, election windows, and natal chart alignment. For users who believe in the stars.",
+};
+
 const QUICK_CHIPS = [
   { label: "Good bet or pass", icon: Target },
   { label: "Best live spot", icon: Zap },
