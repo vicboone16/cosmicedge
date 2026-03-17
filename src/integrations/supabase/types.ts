@@ -13592,7 +13592,19 @@ export type Database = {
       }
       ce_randn: { Args: never; Returns: number }
       ce_uuid_to_bigint: { Args: { p_text: string }; Returns: number }
+      check_schema_parity: {
+        Args: never
+        Returns: {
+          issue: string
+          object_name: string
+          object_type: string
+        }[]
+      }
       cleanup_visual_event_queue: { Args: never; Returns: undefined }
+      compute_live_readiness: {
+        Args: { p_game_id: string }
+        Returns: undefined
+      }
       consume_visual_event: { Args: { p_queue_id: string }; Returns: undefined }
       enqueue_visual_event: {
         Args: {
