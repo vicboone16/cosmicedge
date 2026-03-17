@@ -559,6 +559,7 @@ export type Database = {
       }
       astra_opportunity_feed: {
         Row: {
+          color_accent: string | null
           confidence: number | null
           cosmic_boost: number | null
           created_at: string | null
@@ -567,14 +568,26 @@ export type Database = {
           expires_at: string | null
           game_id: string | null
           headline: string | null
+          hidden_value_score: number | null
           id: string
           is_active: boolean | null
-          mode_relevance: string[] | null
+          is_dismissed: boolean | null
+          is_live: boolean | null
+          mode_relevance: number | null
+          mode_relevance_legacy: string[] | null
+          opportunity_label: string | null
+          opportunity_score: number | null
           opportunity_type: string
           player_id: string | null
+          reasoning: string | null
+          recommendation: string | null
+          timing_quality_score: number | null
+          trap_risk_score: number | null
           trap_score: number | null
+          user_id: string | null
         }
         Insert: {
+          color_accent?: string | null
           confidence?: number | null
           cosmic_boost?: number | null
           created_at?: string | null
@@ -583,14 +596,26 @@ export type Database = {
           expires_at?: string | null
           game_id?: string | null
           headline?: string | null
+          hidden_value_score?: number | null
           id?: string
           is_active?: boolean | null
-          mode_relevance?: string[] | null
+          is_dismissed?: boolean | null
+          is_live?: boolean | null
+          mode_relevance?: number | null
+          mode_relevance_legacy?: string[] | null
+          opportunity_label?: string | null
+          opportunity_score?: number | null
           opportunity_type: string
           player_id?: string | null
+          reasoning?: string | null
+          recommendation?: string | null
+          timing_quality_score?: number | null
+          trap_risk_score?: number | null
           trap_score?: number | null
+          user_id?: string | null
         }
         Update: {
+          color_accent?: string | null
           confidence?: number | null
           cosmic_boost?: number | null
           created_at?: string | null
@@ -599,12 +624,23 @@ export type Database = {
           expires_at?: string | null
           game_id?: string | null
           headline?: string | null
+          hidden_value_score?: number | null
           id?: string
           is_active?: boolean | null
-          mode_relevance?: string[] | null
+          is_dismissed?: boolean | null
+          is_live?: boolean | null
+          mode_relevance?: number | null
+          mode_relevance_legacy?: string[] | null
+          opportunity_label?: string | null
+          opportunity_score?: number | null
           opportunity_type?: string
           player_id?: string | null
+          reasoning?: string | null
+          recommendation?: string | null
+          timing_quality_score?: number | null
+          trap_risk_score?: number | null
           trap_score?: number | null
+          user_id?: string | null
         }
         Relationships: [
           {
