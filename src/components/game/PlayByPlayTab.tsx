@@ -211,7 +211,7 @@ export function PlayByPlayTab({ gameId, homeAbbr, awayAbbr, league, gameStatus }
       return data || [];
     },
     enabled: isNBA && !!gameKeyQuery.data,
-    refetchInterval: 15000,
+    refetchInterval: isLiveGame ? 5000 : 30000,
   });
 
   // ── BDL provider pbp events ──
