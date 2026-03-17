@@ -681,12 +681,30 @@ Deno.serve(async (req) => {
       debugLog.steps[debugLog.steps.length - 1].result = { count: glossaryTerms.length };
     }
 
-    // Step 5: Extract variables and compute
-    const variables = extractVariables(scorecardResult.data, playerStats, modelPredictions);
+    // Step 5: Extract variables, sanitize, and compute
+    const rawVariables = extractVariables(scorecardResult.data, playerStats, modelPredictions);
+    const { cleaned: variables, violations: sanityViolations, blocked: sanityBlocked } = validateAndSanitize(rawVariables);
     debugLog.variables = variables;
+    debugLog.sanity_violations = sanityViolations;
+    debugLog.sanity_blocked = sanityBlocked;
 
     let computeResult: any = null;
-    if (formula && intent.intent === "formula_compute") {
+    let narrativeBlocked = false;
+    let blockReason = "";
+
+    // Gate: entity resolution required for player queries
+    if (["formula_compute", "stat_lookup", "model_output"].includes(intent.intent) && intent.entities?.player_name && !player) {
+      narrativeBlocked = true;
+      blockReason = `Player "${intent.entities.player_name}" could not be resolved`;
+    }
+
+    // Gate: sanity blocked
+    if (sanityBlocked) {
+      narrativeBlocked = true;
+      blockReason = `Sanity validation failed: ${sanityViolations.join("; ")}`;
+    }
+
+    if (formula && intent.intent === "formula_compute" && !narrativeBlocked) {
       debugLog.steps.push({ step: "computation", status: "running" });
       computeResult = computeFromFormula(formula, variables);
       debugLog.computeResult = computeResult;
@@ -695,7 +713,7 @@ Deno.serve(async (req) => {
     }
 
     // For model_output intent without explicit formula, surface scorecard values directly
-    if (intent.intent === "model_output" && !computeResult && scorecardResult.data.length > 0) {
+    if (intent.intent === "model_output" && !computeResult && scorecardResult.data.length > 0 && !narrativeBlocked) {
       const sc = scorecardResult.data[0];
       computeResult = {
         result: sc.edge_score_v9 ?? sc.edge_score_v6 ?? sc.edge_score_v5 ?? sc.edge_score_v4 ?? sc.adjusted_projection_v9 ?? sc.adjusted_projection_v6 ?? sc.adjusted_projection,
@@ -707,13 +725,23 @@ Deno.serve(async (req) => {
       debugLog.computeResult = computeResult;
     }
 
-    // Step 6: Generate narrative
-    debugLog.steps.push({ step: "narrative_generation", status: "running" });
-    const narrative = await generateNarrative(
-      lovableKey, question, intent, formula, computeResult,
-      variables, scorecardResult.data, player, glossaryTerms, teamData,
-    );
-    debugLog.steps[debugLog.steps.length - 1].status = "done";
+    // Step 6: Generate narrative (only if NOT blocked)
+    let narrative: string;
+    if (narrativeBlocked) {
+      debugLog.steps.push({ step: "narrative_generation", status: "blocked", result: { reason: blockReason } });
+      narrative = `⚠️ **Compute Blocked**\n\n${blockReason}\n\n` +
+        (sanityViolations.length > 0 ? `**Sanity violations:** ${sanityViolations.join(", ")}\n\n` : "") +
+        (player ? `**Resolved player:** ${player.name} (${player.team})\n` : `**Player:** Not resolved\n`) +
+        `**Intent:** ${intent.intent}\n` +
+        `**Variables available:** ${Object.keys(variables).length}`;
+    } else {
+      debugLog.steps.push({ step: "narrative_generation", status: "running" });
+      narrative = await generateNarrative(
+        lovableKey, question, intent, formula, computeResult,
+        variables, scorecardResult.data, player, glossaryTerms, teamData,
+      );
+      debugLog.steps[debugLog.steps.length - 1].status = "done";
+    }
 
     // Build fallback info
     const fallbackInfo: string[] = [];
