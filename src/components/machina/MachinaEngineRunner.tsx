@@ -141,7 +141,7 @@ export default function MachinaEngineRunner() {
           </div>
 
           {/* Target config */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
             <div className="space-y-1">
               <label className="text-[10px] font-semibold text-muted-foreground uppercase">Sport</label>
               <div className="flex gap-1.5">
