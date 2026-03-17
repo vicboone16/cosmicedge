@@ -3,6 +3,7 @@ import { corsHeaders } from "../_shared/cors.ts";
 import { CANONICAL } from "../_shared/team-mappings.ts";
 
 const BASE = "https://www.thesportsdb.com/api/v1/json";
+const BASE_V2 = "https://www.thesportsdb.com/api/v2/json";
 
 const LEAGUE_IDS: Record<string, string> = {
   NBA: "4387",
