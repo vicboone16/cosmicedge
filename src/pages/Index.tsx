@@ -12,6 +12,7 @@ import { format, addDays, isToday } from "date-fns";
 import { TrendingPlaysStrip } from "@/components/slate/TrendingPlaysStrip";
 import { LiveNowStrip } from "@/components/slate/LiveNowStrip";
 import { LiveRadarPill } from "@/components/slate/LiveRadarPill";
+import { GuidanceCard } from "@/components/ui/GuidanceCard";
 
 const Index = () => {
   const [selectedLeague, setSelectedLeague] = useState<League | "ALL">("ALL");
