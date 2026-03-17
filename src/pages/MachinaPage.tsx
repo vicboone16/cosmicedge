@@ -4,8 +4,9 @@ import { useIsAdmin } from "@/hooks/use-admin";
 import { useSaveModel, type CustomModel } from "@/hooks/use-custom-models";
 import {
   Cpu, Loader2, LayoutDashboard, Brain, Wrench, History,
-  Database, Play, Pencil, BookOpen
+  Database, Play, Pencil, BookOpen, Bug
 } from "lucide-react";
+import AdminDiagnosticsDrawer from "@/components/admin/AdminDiagnosticsDrawer";
 import { Badge } from "@/components/ui/badge";
 import type { CustomModelData } from "@/lib/model-factors";
 
