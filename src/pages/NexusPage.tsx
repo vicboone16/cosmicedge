@@ -338,6 +338,10 @@ export default function NexusPage() {
       </header>
 
       <div className="px-4 pt-4">
+        <GuidanceCard title="Nexus Intelligence Hub" dismissKey="nexus_intro" variant="onboarding">
+          <p>Your central research hub. The <strong>Command Center</strong> shows your Astra pulse, trap alerts, and top opportunities. Use <strong>Players</strong> and <strong>Teams</strong> for deep dives.</p>
+          <p className="mt-1"><strong>Trends</strong> analyzes prop hit rates, and <strong>History</strong> tracks past results.</p>
+        </GuidanceCard>
         <Tabs defaultValue="command" className="w-full">
           <TabsList className="grid w-full grid-cols-5 mb-4">
             <TabsTrigger value="command" className="text-xs gap-1">
