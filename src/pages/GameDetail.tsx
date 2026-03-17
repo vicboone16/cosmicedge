@@ -927,7 +927,7 @@ const GameDetail = () => {
                   <Shield className="h-3.5 w-3.5" />
                   Depth Chart
                 </h3>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {[{ abbr: game.away_abbr, depth: awayDepth }, { abbr: game.home_abbr, depth: homeDepth }].map(({ abbr, depth }) => {
                     const byPos = depth.reduce((acc, d) => {
                       (acc[d.position] = acc[d.position] || []).push(d);
