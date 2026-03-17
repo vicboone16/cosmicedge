@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Star, Filter, ArrowUpDown, CheckSquare, Square, Zap, TrendingUp, AlertTriangle, ChevronDown, ChevronUp, Pin, PinOff, Trash2, CheckCircle, RefreshCw, Wallet, DollarSign, Edit2, Target, FileText } from "lucide-react";
+import { GuidanceCard } from "@/components/ui/GuidanceCard";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
@@ -586,6 +587,10 @@ const SkySpreadPage = () => {
       </header>
 
       <div className="px-4 py-4 space-y-4">
+        <GuidanceCard title="SkySpread Betting Hub" dismissKey="skyspread_intro" variant="onboarding">
+          <p>Track your bets, manage slips, and monitor live positions all in one place. Use <strong>Tracked Props</strong> to watch individual player lines, or import parlays via <strong>Slips</strong>.</p>
+          <p className="mt-1">The <strong>Bankroll</strong> tab tracks your overall P&L and unit performance.</p>
+        </GuidanceCard>
         {activeTab === "bankroll" ? (
           <BankrollTab userId={userId} />
         ) : activeTab === "tracked" ? (

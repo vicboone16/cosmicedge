@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { TrendingUp, TrendingDown, BarChart3, Star } from "lucide-react";
 import { getPlanetaryHourAt } from "@/lib/planetary-hours";
+import { GuidanceCard } from "@/components/ui/GuidanceCard";
 
 function impliedProb(americanOdds: number): number {
   if (americanOdds > 0) return 100 / (americanOdds + 100);
@@ -136,6 +137,10 @@ export default function CLVCalculatorPage() {
       </header>
 
       <div className="px-4 py-4 space-y-4">
+        <GuidanceCard title="What is CLV?" dismissKey="clv_intro" variant="tip">
+          <p><strong>Closing Line Value</strong> measures whether you got a better price than the market's closing odds. Positive CLV means you're consistently beating the market — the strongest indicator of long-term profit.</p>
+          <p className="mt-1">CLV data requires bets placed in SkySpread with historical closing odds available.</p>
+        </GuidanceCard>
         {/* Aggregate Stats */}
         {stats && (
           <div className="grid grid-cols-3 gap-2">
@@ -208,7 +213,10 @@ export default function CLVCalculatorPage() {
             <p className="text-xs text-muted-foreground text-center py-4">Loading...</p>
           ) : clvData.length === 0 ? (
             <div className="cosmic-card rounded-xl p-8 text-center">
-              <p className="text-xs text-muted-foreground">No bets found. Place bets in SkySpread to track CLV.</p>
+              <BarChart3 className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
+              <p className="text-sm font-medium text-foreground">No CLV Data Yet</p>
+              <p className="text-xs text-muted-foreground mt-1">Place bets in SkySpread to start tracking your closing line value.</p>
+              <p className="text-[10px] text-muted-foreground/70 mt-2 italic">CLV requires both your opening odds and the market's closing odds to compute.</p>
             </div>
           ) : (
             <div className="space-y-1.5">

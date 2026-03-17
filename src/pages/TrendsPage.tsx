@@ -10,6 +10,8 @@ import { TrendsFilterModal, type TrendFilters } from "@/components/trends/Trends
 import { getMarketShort } from "@/lib/market-catalog";
 import { Input } from "@/components/ui/input";
 import { useNavigate } from "react-router-dom";
+import { GuidanceCard } from "@/components/ui/GuidanceCard";
+import { DataSourceBadge } from "@/components/ui/DataSourceBadge";
 
 const DEFAULT_FILTERS: TrendFilters = {
   scope: "all",
@@ -413,6 +415,10 @@ export default function TrendsPage() {
       </div>
 
       <div className="px-4 py-3 space-y-3">
+        <GuidanceCard title="How Trends Work" dismissKey="trends_intro" variant="tip">
+          <p>Trends analyzes player props against recent game logs to find hit-rate streaks and edges. <DataSourceBadge source="provider" compact /> lines come from sportsbook feeds. <DataSourceBadge source="model" compact /> insights are computed from your stat history.</p>
+          <p className="mt-1">Use the <strong>Insights</strong> tab to see ranked edges, or <strong>Games</strong> to browse by matchup.</p>
+        </GuidanceCard>
         {gamesLoading ? (
           <div className="text-center py-12">
             <Flame className="h-6 w-6 text-primary mx-auto mb-2 animate-pulse" />
@@ -424,6 +430,7 @@ export default function TrendsPage() {
               <TrendingUp className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
               <p className="text-sm font-medium text-foreground">No {leagueFilter} games on {format(selectedDate, "MMM d")}</p>
               <p className="text-xs text-muted-foreground mt-1">Try a different date or league.</p>
+              <p className="text-[10px] text-muted-foreground/70 mt-2 italic">Games are loaded from the provider schedule. If a date looks empty, check a nearby date or refresh.</p>
             </div>
           ) : (
             filteredGames.map(game => {

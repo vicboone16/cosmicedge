@@ -5,7 +5,7 @@ import { PropDrawerProvider } from "@/hooks/use-prop-drawer";
 import { useAuth } from "@/hooks/use-auth";
 import { useIsAdmin } from "@/hooks/use-admin";
 import { useMemo } from "react";
-import { User, LogIn, Moon, Settings, Users, LogOut, Shield, Sparkles, FlaskConical, Telescope, Calculator, BarChart3 } from "lucide-react";
+import { User, LogIn, Moon, Settings, Users, LogOut, Shield, Sparkles, FlaskConical, Telescope, Calculator, BarChart3, HelpCircle } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -103,6 +103,10 @@ export function AppLayout() {
                 <DropdownMenuItem onClick={() => navigate("/analytics")} className="gap-2 cursor-pointer">
                   <BarChart3 className="h-4 w-4" />
                   Analytics
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate("/faq")} className="gap-2 cursor-pointer">
+                  <HelpCircle className="h-4 w-4" />
+                  Help & FAQ
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => navigate("/settings")} className="gap-2 cursor-pointer">
