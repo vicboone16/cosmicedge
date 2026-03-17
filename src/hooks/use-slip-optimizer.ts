@@ -109,7 +109,6 @@ export function useSlipOptimizer({ slip, picks, intentState }: UseSlipOptimizerO
           } : null,
         },
       });
-      });
 
       if (res.error) throw new Error(res.error.message || "AI analysis failed");
       if (!res.data?.ok) throw new Error(res.data?.error || "AI analysis failed");
