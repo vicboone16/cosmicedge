@@ -430,6 +430,7 @@ export default function TrendsPage() {
               <TrendingUp className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
               <p className="text-sm font-medium text-foreground">No {leagueFilter} games on {format(selectedDate, "MMM d")}</p>
               <p className="text-xs text-muted-foreground mt-1">Try a different date or league.</p>
+              <p className="text-[10px] text-muted-foreground/70 mt-2 italic">Games are loaded from the provider schedule. If a date looks empty, check a nearby date or refresh.</p>
             </div>
           ) : (
             filteredGames.map(game => {

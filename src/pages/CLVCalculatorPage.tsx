@@ -213,7 +213,10 @@ export default function CLVCalculatorPage() {
             <p className="text-xs text-muted-foreground text-center py-4">Loading...</p>
           ) : clvData.length === 0 ? (
             <div className="cosmic-card rounded-xl p-8 text-center">
-              <p className="text-xs text-muted-foreground">No bets found. Place bets in SkySpread to track CLV.</p>
+              <BarChart3 className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
+              <p className="text-sm font-medium text-foreground">No CLV Data Yet</p>
+              <p className="text-xs text-muted-foreground mt-1">Place bets in SkySpread to start tracking your closing line value.</p>
+              <p className="text-[10px] text-muted-foreground/70 mt-2 italic">CLV requires both your opening odds and the market's closing odds to compute.</p>
             </div>
           ) : (
             <div className="space-y-1.5">

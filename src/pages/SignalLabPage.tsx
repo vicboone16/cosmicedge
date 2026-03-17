@@ -173,6 +173,10 @@ export default function SignalLabPage() {
       </header>
 
       <div className="px-4 py-4 space-y-3">
+        <GuidanceCard title="Signal Lab Guide" dismissKey="signal_lab_intro" variant="tip">
+          <p>Signal Lab surfaces <DataSourceBadge source="model" compact /> edges from the prop overlay pipeline. Each tab filters by a different signal type — streaks, momentum, defensive matchups, and astro modifiers.</p>
+          <p className="mt-1">Tap any card for full prop detail. Signals refresh every 60 seconds near game time.</p>
+        </GuidanceCard>
         <SignalDescription tab={activeTab} />
 
         {activeTab === "live_signals" ? (
@@ -184,8 +188,10 @@ export default function SignalLabPage() {
           </div>
         ) : cards.length === 0 ? (
           <div className="text-center py-12">
-            <p className="text-sm text-muted-foreground">No signals detected for this category</p>
-            <p className="text-xs text-muted-foreground mt-1">Check back closer to game time</p>
+            <FlaskConical className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
+            <p className="text-sm font-medium text-foreground">No signals detected</p>
+            <p className="text-xs text-muted-foreground mt-1">This category requires active prop data from today's games. Check back closer to game time or try another tab.</p>
+            <p className="text-[10px] text-muted-foreground/70 mt-2 italic">Signals depend on the model overlay pipeline running — if no games are scheduled, no signals will appear.</p>
           </div>
         ) : (
           cards.map((o: any) => (
