@@ -140,7 +140,7 @@ const App = () => {
                   <Route path="/admin/tt-edge" element={<RequireAuth><TTEdgePage /></RequireAuth>} />
                   <Route path="/models" element={<Navigate to="/machina" replace />} />
                   <Route path="/machina" element={<RequireAuth><MachinaPage /></RequireAuth>} />
-                  <Route path="/command-center" element={<RequireAuth><CommandCenterPage /></RequireAuth>} />
+                  <Route path="/command-center" element={<Navigate to="/nexus" replace />} />
                   <Route path="/paywall" element={<RequireAuth><PaywallPage /></RequireAuth>} />
                   <Route path="/subscription" element={<RequireAuth><SubscriptionPage /></RequireAuth>} />
                 </Route>
