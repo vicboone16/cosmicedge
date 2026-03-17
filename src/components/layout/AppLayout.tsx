@@ -5,7 +5,7 @@ import { PropDrawerProvider } from "@/hooks/use-prop-drawer";
 import { useAuth } from "@/hooks/use-auth";
 import { useIsAdmin } from "@/hooks/use-admin";
 import { useMemo } from "react";
-import { User, LogIn, Moon, Settings, Users, LogOut, Shield, Sparkles } from "lucide-react";
+import { User, LogIn, Moon, Settings, Users, LogOut, Shield, Sparkles, FlaskConical, Telescope, Calculator, BarChart3 } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -87,6 +87,24 @@ export function AppLayout() {
                   <Users className="h-4 w-4" />
                   Friends
                 </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => navigate("/signal-lab")} className="gap-2 cursor-pointer">
+                  <FlaskConical className="h-4 w-4" />
+                  Signal Lab
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate("/transits")} className="gap-2 cursor-pointer">
+                  <Telescope className="h-4 w-4" />
+                  Celestial Insights
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate("/clv")} className="gap-2 cursor-pointer">
+                  <Calculator className="h-4 w-4" />
+                  CLV Calculator
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate("/analytics")} className="gap-2 cursor-pointer">
+                  <BarChart3 className="h-4 w-4" />
+                  Analytics
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => navigate("/settings")} className="gap-2 cursor-pointer">
                   <Settings className="h-4 w-4" />
                   Settings
@@ -97,9 +115,14 @@ export function AppLayout() {
                 </DropdownMenuItem>
                 {isAdmin && (
                   <>
+                    <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={() => navigate("/admin")} className="gap-2 cursor-pointer">
                       <Shield className="h-4 w-4" />
                       Admin
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => navigate("/machina")} className="gap-2 cursor-pointer">
+                      <FlaskConical className="h-4 w-4" />
+                      Machina Lab
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => navigate("/admin/tt-edge")} className="gap-2 cursor-pointer">
                       <Sparkles className="h-4 w-4" />
