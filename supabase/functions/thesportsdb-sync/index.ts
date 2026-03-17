@@ -868,11 +868,10 @@ Deno.serve(async (req) => {
         result = await syncScheduleSeason(apiKey, supabase, league, schedSeason);
         break;
       }
+      case "live":
+        result = await syncLiveScores(apiKey, supabase, league);
+        break;
       default:
-        if (mode === "live") {
-          result = await syncLiveScores(apiKey, supabase, league);
-          break;
-        }
         return new Response(
           JSON.stringify({ error: `Unknown mode: ${mode}. Use: teams, rosters, scores, scores_all, schedule, schedule_season, live` }),
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
