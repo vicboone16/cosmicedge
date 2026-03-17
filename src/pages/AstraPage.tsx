@@ -222,13 +222,14 @@ function AstraChat() {
               <div className="rounded-xl px-3 py-2 text-xs leading-relaxed max-w-[85%] ml-auto bg-primary text-primary-foreground">
                 {m.content}
               </div>
+            ) : m.computeFailure ? (
+              <AstraComputeFailureCardUI failure={m.computeFailure} />
             ) : m.structured ? (
               <AstraStructuredResponse data={m.structured} onFollowUpClick={(q) => send(q)} />
             ) : (
               <div className="cosmic-card rounded-xl px-3 py-2 text-xs leading-relaxed max-w-[85%] text-foreground">
                 {m.content.split("\n").map((line, j) => {
                   const parts: React.ReactNode[] = [];
-                  // Split by bold (**...**) and italic (*...*)
                   const regex = /\*\*(.+?)\*\*|\*(.+?)\*/g;
                   let lastIndex = 0;
                   let match;
