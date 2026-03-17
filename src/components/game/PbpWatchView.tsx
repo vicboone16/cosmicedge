@@ -186,6 +186,10 @@ export function PbpWatchView({ gameId, homeAbbr, awayAbbr, league }: PbpWatchVie
       <div className="flex flex-col items-center justify-center py-12 space-y-3">
         <div className="w-8 h-8 rounded-full border-2 border-primary/30 border-t-primary animate-spin" />
         <p className="text-xs text-muted-foreground">Waiting for live play-by-play feed…</p>
+        <div className="text-[9px] text-muted-foreground/60 font-mono space-y-0.5 text-center">
+          <p>BDL: {bdlEvents?.length ?? 0} events | Cosmic: {(livePbpEvents as any[])?.length ?? 0} | Historical: {historicalEvents?.length ?? 0}</p>
+          <p>Game key: {gameKey ?? "unresolved"} | Source: {feedSource}</p>
+        </div>
       </div>
     );
   }

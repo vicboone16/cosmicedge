@@ -7,9 +7,9 @@ interface LiveStoryLayerProps {
 }
 
 /**
- * Immersive atmospheric overlay for live game detail pages.
- * Intensifies based on momentum state — explosive games get dramatic effects,
- * dead zones get subdued atmospheres.
+ * Subtle atmospheric overlay for live game detail pages.
+ * Provides a "cosmic alive" feel without reducing readability.
+ * All effects are very low opacity — content always stays crisp.
  */
 export function LiveStoryLayer({ gameId, isLive }: LiveStoryLayerProps) {
   const momentum = useGameMomentum(gameId, isLive);
@@ -28,41 +28,36 @@ export function LiveStoryLayer({ gameId, isLive }: LiveStoryLayerProps) {
       )}
       aria-hidden
     >
-      {/* Ambient gradient wash — shifts hue with momentum */}
+      {/* Soft ambient gradient — very subtle, behind all content */}
       <div
         className="absolute inset-0 transition-all duration-[3000ms] ease-in-out"
         style={{
           background: `radial-gradient(ellipse 80% 60% at 50% 30%, ${palette.primary}, transparent 70%)`,
-          opacity: intensity * 0.35,
+          opacity: intensity * 0.15,
         }}
       />
 
-      {/* Secondary pulse — corner accent */}
+      {/* Secondary pulse — corner accent, barely visible */}
       <div
         className={cn(
-          "absolute bottom-0 right-0 w-[50vw] h-[50vh] rounded-full blur-[100px] transition-all duration-[3000ms]",
+          "absolute bottom-0 right-0 w-[50vw] h-[50vh] rounded-full blur-[120px] transition-all duration-[3000ms]",
           intensity >= 0.7 ? "animate-nebula-pulse" : "animate-nebula-pulse-slow"
         )}
         style={{
           background: palette.secondary,
-          opacity: intensity * 0.25,
+          opacity: intensity * 0.10,
         }}
       />
 
-      {/* Surge ribbon — visible only during high-intensity moments */}
-      {intensity >= 0.6 && (
+      {/* Thin surge ribbon — visible only during high-intensity moments */}
+      {intensity >= 0.7 && (
         <div
-          className="absolute top-0 left-0 w-full h-1 animate-nebula-drift"
+          className="absolute top-0 left-0 w-full h-px animate-nebula-drift"
           style={{
             background: `linear-gradient(90deg, transparent, ${palette.accent}, transparent)`,
-            opacity: intensity * 0.5,
+            opacity: intensity * 0.3,
           }}
         />
-      )}
-
-      {/* Explosive particle shimmer — max intensity only */}
-      {intensity >= 0.9 && (
-        <div className="absolute inset-0 star-field animate-twinkle-fast opacity-20" />
       )}
     </div>
   );
@@ -89,42 +84,42 @@ function getPalette(label: MomentumLabel): { primary: string; secondary: string;
     case "Explosive":
     case "Surge":
       return {
-        primary: "hsl(0 65% 50% / 0.15)",
-        secondary: "hsl(42 80% 55% / 0.12)",
-        accent: "hsl(42 80% 55% / 0.4)",
+        primary: "hsl(0 65% 50% / 0.08)",
+        secondary: "hsl(42 80% 55% / 0.06)",
+        accent: "hsl(42 80% 55% / 0.25)",
       };
     case "Heating Up":
     case "Closing Battle":
       return {
-        primary: "hsl(42 80% 55% / 0.12)",
-        secondary: "hsl(260 60% 55% / 0.10)",
-        accent: "hsl(42 80% 55% / 0.3)",
+        primary: "hsl(42 80% 55% / 0.06)",
+        secondary: "hsl(260 60% 55% / 0.05)",
+        accent: "hsl(42 80% 55% / 0.2)",
       };
     case "Comeback Pressure":
       return {
-        primary: "hsl(195 70% 45% / 0.15)",
-        secondary: "hsl(0 65% 50% / 0.10)",
-        accent: "hsl(195 70% 45% / 0.4)",
+        primary: "hsl(195 70% 45% / 0.08)",
+        secondary: "hsl(0 65% 50% / 0.05)",
+        accent: "hsl(195 70% 45% / 0.25)",
       };
     case "Volatile":
       return {
-        primary: "hsl(270 40% 55% / 0.12)",
-        secondary: "hsl(195 70% 45% / 0.08)",
-        accent: "hsl(270 40% 55% / 0.3)",
+        primary: "hsl(270 40% 55% / 0.06)",
+        secondary: "hsl(195 70% 45% / 0.04)",
+        accent: "hsl(270 40% 55% / 0.2)",
       };
     case "Cooling":
     case "Slowing":
     case "Dead Zone":
       return {
-        primary: "hsl(230 25% 30% / 0.06)",
-        secondary: "hsl(230 20% 20% / 0.04)",
-        accent: "hsl(230 20% 40% / 0.15)",
+        primary: "hsl(230 25% 30% / 0.03)",
+        secondary: "hsl(230 20% 20% / 0.02)",
+        accent: "hsl(230 20% 40% / 0.1)",
       };
     default: // Neutral
       return {
-        primary: "hsl(260 60% 55% / 0.06)",
-        secondary: "hsl(195 70% 45% / 0.04)",
-        accent: "hsl(260 60% 55% / 0.2)",
+        primary: "hsl(260 60% 55% / 0.04)",
+        secondary: "hsl(195 70% 45% / 0.03)",
+        accent: "hsl(260 60% 55% / 0.12)",
       };
   }
 }
