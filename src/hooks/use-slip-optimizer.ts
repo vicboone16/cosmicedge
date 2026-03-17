@@ -127,7 +127,7 @@ export function useSlipOptimizer({ slip, picks, intentState }: UseSlipOptimizerO
     } finally {
       setAiLoading(false);
     }
-  }, [slip, picks, intentState, slipScore]);
+  }, [slip, picks, intentState, slipScore, bettingProfile]);
 
   return { slipScore, aiAnalysis, aiLoading, lastAction, runAiAction };
 }
