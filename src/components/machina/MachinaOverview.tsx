@@ -50,7 +50,7 @@ export default function MachinaOverview({ onNavigate }: Props) {
   return (
     <div className="space-y-6">
       {/* Quick Actions */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
         {[
           { label: "Run Model", icon: Play, tab: "studio", color: "text-cosmic-green" },
           { label: "Build Model", icon: Plus, tab: "builder", color: "text-primary" },
