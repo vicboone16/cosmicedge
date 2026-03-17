@@ -1,7 +1,7 @@
 /**
  * Super-admin diagnostics drawer.
  * Shows runtime state, model activation, variable grain, readiness flags,
- * roster hydration, and prop generation status.
+ * roster hydration, lineup readiness, prop generation status, and publish safety.
  */
 
 import { useState } from "react";
@@ -13,7 +13,8 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import {
   Bug, ChevronDown, ChevronUp, CheckCircle2, XCircle, AlertTriangle,
-  Cpu, Database, Radio, Shield, Loader2, Users, Activity, Layers
+  Cpu, Database, Radio, Shield, Loader2, Users, Activity, Layers,
+  GitBranch, Server
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
@@ -48,7 +49,7 @@ function KV({ k, v, status }: { k: string; v: string | null | undefined; status?
   );
 }
 
-const READINESS_LABELS: [keyof LiveReadinessFlags, string][] = [
+const READINESS_LABELS: [keyof Omit<LiveReadinessFlags, "failure_stage" | "failure_detail" | "checked_at" | "source">, string][] = [
   ["game_status_synced", "Game Status Synced"],
   ["provider_game_mapped", "Provider Mapped"],
   ["roster_ready", "Roster Ready"],
@@ -92,12 +93,12 @@ export default function AdminDiagnosticsDrawer({ context = "machina", gameId, pl
     queryKey: ["diag-prop-stats", gameId],
     queryFn: async () => {
       if (!gameId) return null;
-      const { data, count } = await supabase
+      const { count } = await supabase
         .from("nba_player_props_live" as any)
         .select("id", { count: "exact" })
         .eq("game_id", gameId)
         .limit(0);
-      const { data: nebulaData, count: nebulaCount } = await supabase
+      const { count: nebulaCount } = await supabase
         .from("nebula_prop_predictions" as any)
         .select("id", { count: "exact" })
         .eq("game_id", gameId)
@@ -106,6 +107,17 @@ export default function AdminDiagnosticsDrawer({ context = "machina", gameId, pl
     },
     enabled: !!gameId,
     staleTime: 15_000,
+  });
+
+  // Publish safety: schema parity check
+  const { data: parityIssues } = useQuery({
+    queryKey: ["schema-parity-check"],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("check_schema_parity" as any);
+      if (error) return [];
+      return (data ?? []) as { object_type: string; object_name: string; issue: string }[];
+    },
+    staleTime: 120_000,
   });
 
   const globalActivation = activations?.find(
@@ -164,6 +176,20 @@ export default function AdminDiagnosticsDrawer({ context = "machina", gameId, pl
             <DiagSection title="Live Prop Readiness" icon={Radio}>
               {readiness ? (
                 <div className="space-y-1">
+                  {/* Source indicator */}
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <Server className="h-3 w-3 text-muted-foreground" />
+                    <span className="text-[9px] text-muted-foreground">
+                      Source: <span className={cn("font-bold", readiness.source === "server" ? "text-green-400" : "text-amber-400")}>
+                        {readiness.source === "server" ? "Server (precomputed)" : "Client fallback"}
+                      </span>
+                    </span>
+                    {readiness.checked_at && (
+                      <span className="text-[8px] text-muted-foreground/50 ml-auto">
+                        {new Date(readiness.checked_at).toLocaleTimeString()}
+                      </span>
+                    )}
+                  </div>
                   {READINESS_LABELS.map(([key, label]) => {
                     const ok = !!(readiness as any)[key];
                     return (
@@ -188,9 +214,9 @@ export default function AdminDiagnosticsDrawer({ context = "machina", gameId, pl
             </DiagSection>
           )}
 
-          {/* Roster Hydration */}
+          {/* Roster & Lineup Hydration */}
           {gameId && (
-            <DiagSection title="Roster Hydration" icon={Users}>
+            <DiagSection title="Roster & Lineup Hydration" icon={Users}>
               {rosterStatus ? (
                 <div className="space-y-1.5">
                   <div className="flex items-center gap-2">
@@ -208,6 +234,21 @@ export default function AdminDiagnosticsDrawer({ context = "machina", gameId, pl
                     <KV k="Stale/wrong-team" v={String(rosterStatus.stalePlayerCount)} status="fail" />
                   )}
                   <KV k="Detail" v={rosterStatus.detail} />
+
+                  {/* Lineup section */}
+                  <div className="mt-2 pt-2 border-t border-border/20">
+                    <div className="flex items-center gap-2 text-[10px]">
+                      {rosterStatus.lineupsReady
+                        ? <CheckCircle2 className="h-3 w-3 text-green-400" />
+                        : <XCircle className="h-3 w-3 text-red-400" />}
+                      <span className={cn("font-medium", rosterStatus.lineupsReady ? "text-foreground/80" : "text-red-400")}>
+                        Lineups Ready
+                      </span>
+                    </div>
+                    <KV k="Depth Chart Entries" v={String(rosterStatus.lineupCount)} status={rosterStatus.lineupsReady ? "ok" : "fail"} />
+                    <KV k="Lineup Detail" v={rosterStatus.lineupDetail} />
+                  </div>
+
                   {rosterStatus.confidence !== "high" && (
                     <div className="mt-1 p-1.5 rounded bg-amber-500/10 border border-amber-500/20">
                       <p className="text-[9px] font-bold text-amber-400">⚠ Roster confidence is {rosterStatus.confidence}. Lineup/roster displays may be inaccurate.</p>
@@ -262,6 +303,34 @@ export default function AdminDiagnosticsDrawer({ context = "machina", gameId, pl
               </div>
             ) : (
               <p className="text-[10px] text-muted-foreground">No audit entries</p>
+            )}
+          </DiagSection>
+
+          {/* Publish Safety / Schema Parity */}
+          <DiagSection title="Publish Safety" icon={GitBranch}>
+            {parityIssues && parityIssues.length > 0 ? (
+              <div className="space-y-1.5">
+                <p className="text-[9px] font-bold text-amber-400">{parityIssues.length} potential issues found</p>
+                {parityIssues.slice(0, 10).map((issue: any, i: number) => (
+                  <div key={i} className="text-[9px] p-1.5 rounded bg-card/50 border border-border/30 space-y-0.5">
+                    <div className="flex items-center gap-1.5">
+                      <Badge variant="outline" className="text-[7px] px-1 py-0 text-amber-400 border-amber-400/20">{issue.object_type}</Badge>
+                      <span className="font-mono text-foreground/80">{issue.object_name}</span>
+                    </div>
+                    <p className="text-muted-foreground/60">{issue.issue}</p>
+                  </div>
+                ))}
+                {parityIssues.length > 10 && (
+                  <p className="text-[8px] text-muted-foreground">+{parityIssues.length - 10} more…</p>
+                )}
+              </div>
+            ) : parityIssues ? (
+              <div className="flex items-center gap-2 text-[10px] text-green-400">
+                <CheckCircle2 className="h-3 w-3" />
+                No schema parity issues detected
+              </div>
+            ) : (
+              <p className="text-[10px] text-muted-foreground">Checking…</p>
             )}
           </DiagSection>
         </div>

@@ -1,6 +1,7 @@
 /**
  * Roster hydration confidence hook.
  * Validates player/team entity resolution integrity for a game.
+ * Includes lineup readiness from depth_charts.
  */
 
 import { useQuery } from "@tanstack/react-query";
@@ -14,6 +15,9 @@ export interface RosterHydrationStatus {
   awayTeam: string;
   missingTeams: string[];
   stalePlayerCount: number;
+  lineupsReady: boolean;
+  lineupCount: number;
+  lineupDetail: string;
   detail: string;
 }
 
@@ -31,14 +35,22 @@ export function useRosterHydration(gameId: string | undefined) {
 
       if (!game) return null;
 
-      // Get player_game_stats to check roster presence
-      const { data: stats } = await supabase
-        .from("player_game_stats" as any)
-        .select("player_id, team_abbr")
-        .eq("game_id", gameId)
-        .eq("period", "full");
+      // Get player_game_stats + depth_charts in parallel
+      const [statsRes, lineupsRes] = await Promise.all([
+        supabase
+          .from("player_game_stats" as any)
+          .select("player_id, team_abbr")
+          .eq("game_id", gameId)
+          .eq("period", "full"),
+        supabase
+          .from("depth_charts")
+          .select("id, team_abbr, position, depth_order")
+          .in("team_abbr", [game.home_abbr, game.away_abbr])
+          .eq("league", game.league ?? "NBA"),
+      ]);
 
-      const players = stats ?? [];
+      const players = statsRes.data ?? [];
+      const lineups = lineupsRes.data ?? [];
       const homePlayers = players.filter((p: any) => p.team_abbr === game.home_abbr);
       const awayPlayers = players.filter((p: any) => p.team_abbr === game.away_abbr);
 
@@ -46,10 +58,24 @@ export function useRosterHydration(gameId: string | undefined) {
       if (homePlayers.length === 0) missingTeams.push(game.home_abbr);
       if (awayPlayers.length === 0) missingTeams.push(game.away_abbr);
 
-      // Check for players with wrong teams (not matching either game team)
+      // Check for wrong-team players
       const stalePlayerCount = players.filter(
         (p: any) => p.team_abbr && p.team_abbr !== game.home_abbr && p.team_abbr !== game.away_abbr
       ).length;
+
+      // Lineup readiness
+      const homeLineups = lineups.filter((l: any) => l.team_abbr === game.home_abbr);
+      const awayLineups = lineups.filter((l: any) => l.team_abbr === game.away_abbr);
+      const lineupsReady = homeLineups.length >= 5 && awayLineups.length >= 5;
+
+      let lineupDetail: string;
+      if (lineupsReady) {
+        lineupDetail = `${homeLineups.length} home + ${awayLineups.length} away depth chart entries`;
+      } else if (lineups.length > 0) {
+        lineupDetail = `Partial: ${homeLineups.length} home, ${awayLineups.length} away entries`;
+      } else {
+        lineupDetail = "No depth chart data available";
+      }
 
       let confidence: RosterHydrationStatus["confidence"];
       if (homePlayers.length >= 5 && awayPlayers.length >= 5 && stalePlayerCount === 0) {
@@ -70,6 +96,9 @@ export function useRosterHydration(gameId: string | undefined) {
         awayTeam: game.away_abbr,
         missingTeams,
         stalePlayerCount,
+        lineupsReady,
+        lineupCount: lineups.length,
+        lineupDetail,
         detail: confidence === "high"
           ? `${homePlayers.length} home + ${awayPlayers.length} away players`
           : confidence === "none"

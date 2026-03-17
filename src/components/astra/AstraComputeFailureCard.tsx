@@ -1,12 +1,13 @@
 /**
  * Structured failure card shown when Astra compute is blocked.
  * Replaces fake/generic narrative answers with transparent failure diagnostics.
+ * Now includes typed grain mismatch details.
  */
 
-import { AlertTriangle, XCircle, CheckCircle2, User, Gamepad2, Cpu, Variable, ShieldAlert } from "lucide-react";
+import { AlertTriangle, XCircle, CheckCircle2, User, Gamepad2, Cpu, Variable, ShieldAlert, Layers } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import type { ComputeFailureCard } from "@/lib/compute-gating";
+import type { ComputeFailureCard, GrainMismatch } from "@/lib/compute-gating";
 import type { PipelineStage } from "@/lib/compute-gating";
 
 function StageRow({ stage }: { stage: PipelineStage }) {
@@ -25,7 +26,22 @@ function StageRow({ stage }: { stage: PipelineStage }) {
       )}>
         {stage.step}
       </span>
-      {stage.detail && <span className="text-muted-foreground/60 ml-auto text-[9px] truncate max-w-[150px]">{stage.detail}</span>}
+      {stage.detail && <span className="text-muted-foreground/60 ml-auto text-[9px] truncate max-w-[180px]">{stage.detail}</span>}
+    </div>
+  );
+}
+
+function GrainMismatchRow({ mismatch }: { mismatch: GrainMismatch }) {
+  return (
+    <div className="text-[9px] space-y-0.5 p-1.5 rounded bg-amber-500/5 border border-amber-500/10">
+      <div className="flex items-center gap-1.5">
+        <span className="font-mono font-bold text-amber-400">{mismatch.variable}</span>
+        <span className="text-muted-foreground">→</span>
+        <Badge variant="outline" className="text-[7px] px-1 py-0 text-red-400 border-red-400/20">{mismatch.actual_grain}</Badge>
+        <span className="text-muted-foreground text-[8px]">expected</span>
+        <Badge variant="outline" className="text-[7px] px-1 py-0 text-green-400 border-green-400/20">{mismatch.expected_grain}</Badge>
+      </div>
+      <p className="text-muted-foreground/60">{mismatch.reason}</p>
     </div>
   );
 }
@@ -36,6 +52,8 @@ interface Props {
 }
 
 export default function AstraComputeFailureCardUI({ failure, compact }: Props) {
+  const grainMismatches = failure.grain_mismatches as GrainMismatch[];
+
   return (
     <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-4 space-y-3">
       {/* Header */}
@@ -49,7 +67,6 @@ export default function AstraComputeFailureCardUI({ failure, compact }: Props) {
 
       {/* Resolution Status */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-        {/* Player */}
         <div className="flex items-center gap-2 p-2 rounded-lg bg-card/50 border border-border/30">
           <User className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
           <div className="min-w-0">
@@ -64,7 +81,6 @@ export default function AstraComputeFailureCardUI({ failure, compact }: Props) {
           </div>
         </div>
 
-        {/* Game */}
         <div className="flex items-center gap-2 p-2 rounded-lg bg-card/50 border border-border/30">
           <Gamepad2 className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
           <div className="min-w-0">
@@ -77,7 +93,6 @@ export default function AstraComputeFailureCardUI({ failure, compact }: Props) {
           </div>
         </div>
 
-        {/* Model */}
         <div className="flex items-center gap-2 p-2 rounded-lg bg-card/50 border border-border/30">
           <Cpu className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
           <div className="min-w-0">
@@ -125,13 +140,18 @@ export default function AstraComputeFailureCardUI({ failure, compact }: Props) {
         </div>
       )}
 
-      {/* Grain Mismatches */}
-      {failure.grain_mismatches.length > 0 && (
+      {/* Grain Mismatches — now typed with full detail */}
+      {grainMismatches.length > 0 && (
         <div>
-          <p className="text-[9px] font-bold text-amber-400 uppercase tracking-wider mb-1">Grain Mismatches</p>
-          {failure.grain_mismatches.map((m, i) => (
-            <p key={i} className="text-[9px] text-amber-300">• {m}</p>
-          ))}
+          <div className="flex items-center gap-1.5 mb-1">
+            <Layers className="h-3 w-3 text-amber-400" />
+            <p className="text-[9px] font-bold text-amber-400 uppercase tracking-wider">Grain Mismatches ({grainMismatches.length})</p>
+          </div>
+          <div className="space-y-1">
+            {grainMismatches.map((m, i) => (
+              <GrainMismatchRow key={i} mismatch={m} />
+            ))}
+          </div>
         </div>
       )}
 
