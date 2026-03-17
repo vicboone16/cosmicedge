@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { TrendingUp, TrendingDown, BarChart3, Star } from "lucide-react";
 import { getPlanetaryHourAt } from "@/lib/planetary-hours";
+import { GuidanceCard } from "@/components/ui/GuidanceCard";
 
 function impliedProb(americanOdds: number): number {
   if (americanOdds > 0) return 100 / (americanOdds + 100);
