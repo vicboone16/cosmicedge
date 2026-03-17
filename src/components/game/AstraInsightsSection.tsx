@@ -24,7 +24,8 @@ export function AstraInsightsSection({
   startTime, venue, venueLat, venueLng, league,
 }: Props) {
   const [requested, setRequested] = useState(false);
-
+  const momentum = useGameMomentum(gameId, true);
+  const { profile } = useBettingProfile();
   const { data, isLoading, error } = useQuery({
     queryKey: ["cosmic-edge-insights", gameId],
     queryFn: async () => {
