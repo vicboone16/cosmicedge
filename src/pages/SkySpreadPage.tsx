@@ -535,12 +535,12 @@ const SkySpreadPage = () => {
   return (
     <div className="min-h-screen overflow-x-hidden">
       <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-xl border-b border-border/50 px-4 pt-12 pb-3">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
           <div>
             <h1 className="text-xl font-bold font-display">SkySpread</h1>
             <p className="text-xs text-muted-foreground">Where the line meets the sky.</p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <BetSlipImportDialog />
             <PropBuilderDialog userId={userId} />
             <button
