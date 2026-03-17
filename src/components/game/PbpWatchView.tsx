@@ -107,7 +107,7 @@ export function PbpWatchView({ gameId, homeAbbr, awayAbbr, league }: PbpWatchVie
       return data || [];
     },
     enabled: !!gameKey,
-    refetchInterval: 10_000,
+    refetchInterval: 5_000,
   });
 
   // ── Historical NBA PBP ──
