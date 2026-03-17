@@ -623,6 +623,16 @@ const GameDetail = () => {
 
       <div className="px-4 py-4 space-y-4">
 
+        {/* Momentum Banner — shown for live/in-progress games across all tabs */}
+        {(game.status === "live" || game.status === "in_progress") && (
+          <GameMomentumBanner
+            gameId={game.id}
+            homeAbbr={game.home_abbr}
+            awayAbbr={game.away_abbr}
+            isLive
+          />
+        )}
+
         {activeTab === "odds" && (
           <>
             {/* Sub-tabs for odds */}
