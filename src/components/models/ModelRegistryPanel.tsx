@@ -15,8 +15,9 @@ interface Props {
 export default function ModelRegistryPanel({ onEdit, onRun }: Props) {
   const { data: models, isLoading } = useCustomModels();
   const deleteMut = useDeleteModel();
-  const toggleMut = useToggleModelActive();
+  const activateMut = useActivateModel();
   const dupMut = useDuplicateModel();
+  const { data: activation } = useModelActivation();
   const [expanded, setExpanded] = useState<string | null>(null);
 
   if (isLoading) return <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>;
