@@ -533,7 +533,6 @@ Deno.serve(async (req) => {
     };
 
     if (userId) {
-      const adminSb = createClient(supabaseUrl, serviceKey);
       await adminSb.from("astra_bet_assessment").insert(record);
     }
 
