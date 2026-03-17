@@ -237,6 +237,201 @@ export type Database = {
         }
         Relationships: []
       }
+      astra_bet_assessment: {
+        Row: {
+          alternative_suggestion: string | null
+          answer_summary: string | null
+          astro_signal: string | null
+          bet_type: string | null
+          blowout_risk_level: string | null
+          confidence_grade: string | null
+          created_at: string
+          current_stat: number | null
+          decision_label: string
+          decision_score: number | null
+          direction: string | null
+          engine_inputs: Json | null
+          engine_outputs: Json | null
+          expected_value: number | null
+          foul_risk_level: string | null
+          game_id: string | null
+          game_momentum_state: string | null
+          hit_probability: number | null
+          id: string
+          implied_probability: number | null
+          line_value: number | null
+          market_type: string | null
+          minutes_security_score: number | null
+          odds: number | null
+          player_id: string | null
+          player_momentum_state: string | null
+          primary_reason: string | null
+          projected_final: number | null
+          query_text: string | null
+          query_type: string
+          risk_grade: string | null
+          secondary_reason: string | null
+          team_id: string | null
+          updated_at: string
+          user_id: string
+          warning_note: string | null
+        }
+        Insert: {
+          alternative_suggestion?: string | null
+          answer_summary?: string | null
+          astro_signal?: string | null
+          bet_type?: string | null
+          blowout_risk_level?: string | null
+          confidence_grade?: string | null
+          created_at?: string
+          current_stat?: number | null
+          decision_label?: string
+          decision_score?: number | null
+          direction?: string | null
+          engine_inputs?: Json | null
+          engine_outputs?: Json | null
+          expected_value?: number | null
+          foul_risk_level?: string | null
+          game_id?: string | null
+          game_momentum_state?: string | null
+          hit_probability?: number | null
+          id?: string
+          implied_probability?: number | null
+          line_value?: number | null
+          market_type?: string | null
+          minutes_security_score?: number | null
+          odds?: number | null
+          player_id?: string | null
+          player_momentum_state?: string | null
+          primary_reason?: string | null
+          projected_final?: number | null
+          query_text?: string | null
+          query_type?: string
+          risk_grade?: string | null
+          secondary_reason?: string | null
+          team_id?: string | null
+          updated_at?: string
+          user_id: string
+          warning_note?: string | null
+        }
+        Update: {
+          alternative_suggestion?: string | null
+          answer_summary?: string | null
+          astro_signal?: string | null
+          bet_type?: string | null
+          blowout_risk_level?: string | null
+          confidence_grade?: string | null
+          created_at?: string
+          current_stat?: number | null
+          decision_label?: string
+          decision_score?: number | null
+          direction?: string | null
+          engine_inputs?: Json | null
+          engine_outputs?: Json | null
+          expected_value?: number | null
+          foul_risk_level?: string | null
+          game_id?: string | null
+          game_momentum_state?: string | null
+          hit_probability?: number | null
+          id?: string
+          implied_probability?: number | null
+          line_value?: number | null
+          market_type?: string | null
+          minutes_security_score?: number | null
+          odds?: number | null
+          player_id?: string | null
+          player_momentum_state?: string | null
+          primary_reason?: string | null
+          projected_final?: number | null
+          query_text?: string | null
+          query_type?: string
+          risk_grade?: string | null
+          secondary_reason?: string | null
+          team_id?: string | null
+          updated_at?: string
+          user_id?: string
+          warning_note?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "astra_bet_assessment_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "astra_bet_assessment_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "v_current_game_players"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "astra_bet_assessment_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "v_game_live_state"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "astra_bet_assessment_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "v_oracle_player_validity"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "astra_bet_assessment_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "pbp_event_participants"
+            referencedColumns: ["participant_player_id"]
+          },
+          {
+            foreignKeyName: "astra_bet_assessment_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "pbp_event_participants"
+            referencedColumns: ["primary_player_id"]
+          },
+          {
+            foreignKeyName: "astra_bet_assessment_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "pbp_parsed_events"
+            referencedColumns: ["resolved_player_id"]
+          },
+          {
+            foreignKeyName: "astra_bet_assessment_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "pbp_substitution_events"
+            referencedColumns: ["participant_player_id"]
+          },
+          {
+            foreignKeyName: "astra_bet_assessment_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "astra_bet_assessment_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "v_current_game_players"
+            referencedColumns: ["player_id"]
+          },
+          {
+            foreignKeyName: "astra_bet_assessment_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "v_oracle_player_validity"
+            referencedColumns: ["player_id"]
+          },
+        ]
+      }
       astra_command_center_state: {
         Row: {
           active_bias: string | null
