@@ -294,16 +294,16 @@ export default function MachinaFormulaReference() {
         </h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           {UNIVERSAL_LEGEND.map((v) => (
-            <div key={v.symbol} className="px-3 py-2.5 rounded-lg bg-secondary/30 border border-border/50">
-              <div className="flex items-center gap-2 mb-1">
-                <span className="text-sm font-bold font-mono text-primary">{v.symbol}</span>
-                <span className="text-[10px] font-semibold text-foreground">{v.name}</span>
+            <div key={v.symbol} className="px-4 py-3 rounded-xl bg-secondary/30 border border-border/50">
+              <div className="flex items-center gap-2 mb-1.5">
+                <span className="text-base font-bold font-mono text-primary">{v.symbol}</span>
+                <span className="text-xs font-semibold text-foreground">{v.name}</span>
               </div>
-              <p className="text-[9px] text-muted-foreground">{v.desc}</p>
-              <div className="mt-1.5 space-y-0.5">
-                <p className="text-[8px] text-muted-foreground"><span className="font-bold text-foreground/70">Source:</span> {v.source}</p>
-                <p className="text-[8px] text-muted-foreground"><span className="font-bold text-foreground/70">Find it:</span> {v.howToFind}</p>
-                <p className="text-[8px] text-muted-foreground"><span className="font-bold text-foreground/70">Plug in:</span> {v.plugIn}</p>
+              <p className="text-xs text-muted-foreground leading-relaxed">{v.desc}</p>
+              <div className="mt-2 space-y-1">
+                <p className="text-[11px] text-muted-foreground"><span className="font-bold text-foreground/80">Source:</span> <code className="font-mono text-primary/80">{v.source}</code></p>
+                <p className="text-[11px] text-muted-foreground"><span className="font-bold text-foreground/80">Find it:</span> {v.howToFind}</p>
+                <p className="text-[11px] text-muted-foreground"><span className="font-bold text-foreground/80">Plug in:</span> {v.plugIn}</p>
               </div>
             </div>
           ))}
