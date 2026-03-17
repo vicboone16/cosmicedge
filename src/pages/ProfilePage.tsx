@@ -171,7 +171,7 @@ const ProfilePage = () => {
         <div className="cosmic-card rounded-xl p-4 space-y-3">
           <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">Account</p>
           <ProfileInputField icon={User} label="Username" value={profile.username} onChange={(v) => setProfile(p => ({ ...p, username: v.replace(/[^a-zA-Z0-9_]/g, "") }))} placeholder="CosmicEdge_User" />
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <ProfileInputField icon={User} label="First Name" value={profile.first_name} onChange={(v) => setProfile(p => ({ ...p, first_name: v }))} />
             <ProfileInputField icon={User} label="Last Name" value={profile.last_name} onChange={(v) => setProfile(p => ({ ...p, last_name: v }))} />
           </div>
@@ -205,7 +205,7 @@ const ProfilePage = () => {
             <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">Astro Identity</p>
             <Star className="h-4 w-4 text-cosmic-gold" />
           </div>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <SignSelect label="☉ Sun" value={profile.sun_sign} onChange={(v) => setProfile(p => ({ ...p, sun_sign: v }))} />
             <SignSelect label="☽ Moon" value={profile.moon_sign} onChange={(v) => setProfile(p => ({ ...p, moon_sign: v }))} />
             <SignSelect label="⬆ Rising" value={profile.rising_sign} onChange={(v) => setProfile(p => ({ ...p, rising_sign: v }))} />

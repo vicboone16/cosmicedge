@@ -143,7 +143,7 @@ function EditBetInline({ bet, onSaved, onCancel }: { bet: BetRow; onSaved: () =>
         <Label className="text-xs">Selection</Label>
         <Input value={selection} onChange={(e) => setSelection(e.target.value)} />
       </div>
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
         <div className="space-y-1.5">
           <Label className="text-xs">Side</Label>
           <Input value={side} onChange={(e) => setSide(e.target.value)} placeholder="home/away/over/under" />
@@ -153,7 +153,7 @@ function EditBetInline({ bet, onSaved, onCancel }: { bet: BetRow; onSaved: () =>
           <Input type="number" value={line} onChange={(e) => setLine(e.target.value)} />
         </div>
       </div>
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
         <div className="space-y-1.5">
           <Label className="text-xs">Odds</Label>
           <Input type="number" value={odds} onChange={(e) => setOdds(e.target.value)} />
@@ -533,14 +533,14 @@ const SkySpreadPage = () => {
   const hasLiveGames = liveItems?.some(i => i.bet.status === "live" || i.snapshot?.status === "live");
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen overflow-x-hidden">
       <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-xl border-b border-border/50 px-4 pt-12 pb-3">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
           <div>
             <h1 className="text-xl font-bold font-display">SkySpread</h1>
             <p className="text-xs text-muted-foreground">Where the line meets the sky.</p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <BetSlipImportDialog />
             <PropBuilderDialog userId={userId} />
             <button

@@ -311,7 +311,7 @@ const SettingsPage = () => {
               </div>
             </div>
             <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <Select value={csvLeague} onValueChange={setCsvLeague}>
                   <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="League" /></SelectTrigger>
                   <SelectContent>

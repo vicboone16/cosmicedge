@@ -52,10 +52,10 @@ export function AppLayout() {
     refetchInterval: 30000,
   });
   return (
-    <div className="min-h-screen bg-background star-field">
+    <div className="min-h-screen bg-background star-field overflow-x-hidden">
       <CosmicBackground />
       {/* Top header with profile dropdown */}
-      <div className="fixed top-0 right-0 z-50 p-3 safe-area-top">
+      <div className="fixed top-0 right-0 z-50 p-3 safe-area-top safe-area-right">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
@@ -132,7 +132,7 @@ export function AppLayout() {
         </DropdownMenu>
       </div>
       {/* Environment badge — always visible */}
-      <div className="fixed top-0 left-0 z-50 p-3 safe-area-top">
+      <div className="fixed top-0 left-0 z-50 p-3 safe-area-top safe-area-left">
         <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-mono font-bold border ${
           isLive
             ? "bg-emerald-950/80 text-emerald-400 border-emerald-700"
@@ -143,7 +143,7 @@ export function AppLayout() {
         </span>
       </div>
       <PropDrawerProvider>
-        <main className="pb-[4.5rem]">
+        <main className="pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))] overflow-x-hidden">
           <Outlet />
         </main>
       </PropDrawerProvider>

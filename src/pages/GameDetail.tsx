@@ -498,7 +498,7 @@ const GameDetail = () => {
   const homeInjuries = (injuries || []).filter(i => i.team_abbr === game.home_abbr);
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen overflow-x-hidden">
       <header className="px-4 pt-12 pb-3 bg-background/80 backdrop-blur-xl border-b border-border/50">
         <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-muted-foreground hover:text-foreground mb-3 transition-colors">
           <ArrowLeft className="h-4 w-4" />
@@ -590,7 +590,7 @@ const GameDetail = () => {
         </div>
 
         {/* Tab bar - ESPN style underline tabs */}
-        <div className="flex gap-1 justify-center border-b border-border/50 -mx-4 px-4 overflow-x-auto no-scrollbar">
+        <div className="flex gap-1 justify-start sm:justify-center border-b border-border/50 -mx-4 px-4 overflow-x-auto no-scrollbar" style={{ touchAction: "pan-x" }}>
         {([
             { val: "oracle" as const, label: "Oracle" },
             { val: "liveprops" as const, label: "Live Props" },
@@ -877,7 +877,7 @@ const GameDetail = () => {
                   <AlertTriangle className="h-3.5 w-3.5" />
                   Injury Report
                 </h3>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">{game.away_abbr}</p>
                     <div className="space-y-1.5">
@@ -927,7 +927,7 @@ const GameDetail = () => {
                   <Shield className="h-3.5 w-3.5" />
                   Depth Chart
                 </h3>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {[{ abbr: game.away_abbr, depth: awayDepth }, { abbr: game.home_abbr, depth: homeDepth }].map(({ abbr, depth }) => {
                     const byPos = depth.reduce((acc, d) => {
                       (acc[d.position] = acc[d.position] || []).push(d);
@@ -962,7 +962,7 @@ const GameDetail = () => {
                   <Users className="h-3.5 w-3.5" />
                   Rosters
                 </h3>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">{game.away_abbr}</p>
                     <div className="space-y-1.5">
