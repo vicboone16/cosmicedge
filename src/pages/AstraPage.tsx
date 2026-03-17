@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, lazy, Suspense } from "react";
 import { Sparkles, Info, BookOpen, FlaskConical, Compass, Send, Loader2, ChevronRight, Cpu } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { GuidanceCard } from "@/components/ui/GuidanceCard";
 import { supabase } from "@/integrations/supabase/client";
 import AstraStructuredResponse, { type AstraResponse, type CosmicEdgeResponse } from "@/components/astra/AstraStructuredResponse";
 import AstraAboutTab from "@/components/astra/AstraAboutTab";
