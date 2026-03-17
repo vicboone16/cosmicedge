@@ -980,8 +980,10 @@ const GameDetail = () => {
                             <div key={pos} className="cosmic-card rounded-lg p-2">
                               <p className="text-[9px] font-bold text-primary uppercase mb-1">{pos}</p>
                               {entries.map((e, i) => {
-                                // Look up zodiac from players array
-                                const matchedPlayer = players?.find(p => p.id === e.player_id);
+                                // Look up zodiac: try player_id first, then name match
+                                const matchedPlayer = e.player_id
+                                  ? players?.find(p => p.id === e.player_id)
+                                  : players?.find(p => p.name.toLowerCase() === e.player_name.toLowerCase());
                                 const zodiac = matchedPlayer?.birth_date ? getZodiacFromDateStr(matchedPlayer.birth_date) : null;
                                 return (
                                   <button
