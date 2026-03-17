@@ -55,6 +55,7 @@ const ModelWorkspacePage = lazy(() => import("./pages/ModelWorkspacePage"));
 const MachinaPage = lazy(() => import("./pages/MachinaPage"));
 const CommandCenterPage = lazy(() => import("./pages/CommandCenterPage"));
 const FAQPage = lazy(() => import("./pages/FAQPage"));
+const BoltOddsMonitorPage = lazy(() => import("./pages/BoltOddsMonitorPage"));
 
 // Bootstrap global error capture immediately
 initErrorCapture();
@@ -144,6 +145,7 @@ const App = () => {
                   <Route path="/command-center" element={<Navigate to="/nexus" replace />} />
                   <Route path="/paywall" element={<RequireAuth><PaywallPage /></RequireAuth>} />
                   <Route path="/faq" element={<RequireAuth><FAQPage /></RequireAuth>} />
+                  <Route path="/admin/boltodds" element={<RequireAuth><BoltOddsMonitorPage /></RequireAuth>} />
                   <Route path="/subscription" element={<RequireAuth><SubscriptionPage /></RequireAuth>} />
                 </Route>
                 <Route path="/auth" element={<AuthPage />} />
