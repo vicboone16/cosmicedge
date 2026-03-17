@@ -25,10 +25,13 @@ interface DebugResult {
 
 interface ComputeResponse {
   success: boolean;
+  compute_blocked?: boolean;
+  block_reason?: string;
   answer: string;
   computed_value: number | null;
   formula_used: any;
   variables_used: Record<string, number>;
+  sanity_violations?: string[];
   data_source: string | null;
   data_rows: number;
   intent: string;
