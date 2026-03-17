@@ -148,10 +148,10 @@ export default function MachinaManualInput() {
             <RotateCcw className="h-3 w-3" /> Reset
           </button>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
           {MANUAL_FIELDS.map((f) => (
             <div key={f.key} className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-secondary/30 border border-border/50">
-              <span className="text-[10px] text-muted-foreground flex-1 truncate">{f.label}</span>
+              <span className="text-[10px] text-muted-foreground flex-1 min-w-0 truncate">{f.label}</span>
               <Input
                 type="number"
                 step="0.1"
