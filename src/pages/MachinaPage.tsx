@@ -103,8 +103,8 @@ export default function MachinaPage() {
           Advanced model lab · Build, execute, backtest & compare prediction models
         </p>
 
-        {/* Tab bar */}
-        <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-1">
+      {/* Tab bar */}
+        <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-1 -mx-4 px-4">
           {TABS.map((t) => (
             <button
               key={t.key}

@@ -198,7 +198,7 @@ export default function MachinaEngineRunner() {
           {/* Result */}
           {result && (
             <div className="space-y-3">
-              <div className="rounded-xl border border-primary/20 bg-card p-4 grid grid-cols-4 gap-3">
+              <div className="rounded-xl border border-primary/20 bg-card p-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <div className="text-center">
                   <p className="text-[10px] text-muted-foreground">Projection</p>
                   <p className="text-lg font-bold text-foreground">{result.output.projection}</p>

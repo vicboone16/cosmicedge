@@ -178,7 +178,7 @@ export default function MachinaManualInput() {
               <span className="text-sm font-bold text-foreground">{result.modelName}</span>
               <Badge className={cn("text-xs font-bold", result.output.confidenceTier === "S" ? "bg-cosmic-green" : result.output.confidenceTier === "A" ? "bg-primary" : "bg-muted")}>{result.output.confidenceTier}-Tier</Badge>
             </div>
-            <div className="grid grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <div className="text-center"><p className="text-[10px] text-muted-foreground">Projection</p><p className="text-lg font-bold text-foreground">{result.output.projection}</p></div>
               <div className="text-center"><p className="text-[10px] text-muted-foreground">Edge</p><p className={cn("text-lg font-bold", result.output.edge > 0 ? "text-cosmic-green" : "text-destructive")}>{result.output.edge > 0 ? "+" : ""}{result.output.edge}</p></div>
               <div className="text-center"><p className="text-[10px] text-muted-foreground">Probability</p><p className="text-lg font-bold text-foreground">{(result.output.probability * 100).toFixed(1)}%</p></div>
