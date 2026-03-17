@@ -137,6 +137,10 @@ export default function CLVCalculatorPage() {
       </header>
 
       <div className="px-4 py-4 space-y-4">
+        <GuidanceCard title="What is CLV?" dismissKey="clv_intro" variant="tip">
+          <p><strong>Closing Line Value</strong> measures whether you got a better price than the market's closing odds. Positive CLV means you're consistently beating the market — the strongest indicator of long-term profit.</p>
+          <p className="mt-1">CLV data requires bets placed in SkySpread with historical closing odds available.</p>
+        </GuidanceCard>
         {/* Aggregate Stats */}
         {stats && (
           <div className="grid grid-cols-3 gap-2">
