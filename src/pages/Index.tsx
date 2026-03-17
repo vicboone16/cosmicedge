@@ -97,6 +97,10 @@ const Index = () => {
 
       {/* Content */}
       <div className="px-4 py-4 space-y-5">
+        <GuidanceCard title="Welcome to Cosmic Edge" dismissKey="slate_welcome" variant="onboarding">
+          <p>Your daily game slate — tap any game card to open full matchup analysis, props, live watch mode, and astrological insights.</p>
+          <p className="mt-1">Use the bottom nav to explore <strong>Astra AI</strong>, <strong>SkySpread</strong> betting tools, and <strong>Nexus</strong> intelligence hub.</p>
+        </GuidanceCard>
         {/* Trending Plays + Live Now + Radar - only when not blocked */}
         {!isBlockedLeague && !isLoading && !isError && filteredGames.length > 0 && (
           <>
