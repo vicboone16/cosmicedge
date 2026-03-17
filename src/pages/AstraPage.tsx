@@ -12,10 +12,17 @@ import { useCustomModels } from "@/hooks/use-custom-models";
 import { detectModelIntent, resolvePlayer, findModelByName, formatPredictionForChat } from "@/lib/astra-model-router";
 import { fetchPlayerFactors, executeModel, STAT_KEYS } from "@/lib/model-engine";
 import { FACTOR_LIBRARY } from "@/lib/model-factors";
+import AstraComputeFailureCardUI from "@/components/astra/AstraComputeFailureCard";
+import type { ComputeFailureCard } from "@/lib/compute-gating";
 
 const MachinaSection = lazy(() => import("@/components/astra/MachinaSection"));
 
-type Msg = { role: "user" | "assistant"; content: string; structured?: AstraResponse | CosmicEdgeResponse };
+type Msg = {
+  role: "user" | "assistant";
+  content: string;
+  structured?: AstraResponse | CosmicEdgeResponse;
+  computeFailure?: ComputeFailureCard;
+};
 
 /* ── AI Chat (inline) ── */
 function AstraChat() {
