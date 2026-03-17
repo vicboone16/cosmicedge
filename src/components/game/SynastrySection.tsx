@@ -152,10 +152,6 @@ export function SynastrySection({ awayPlayers, homePlayers, awayAbbr, homeAbbr }
 
   if (matchups.length === 0) return null;
 
-  // Summary: count harmonious vs challenging
-  const harmonious = matchups.filter(m => m.aspect.nature === "harmonious").length;
-  const challenging = matchups.filter(m => m.aspect.nature === "challenging").length;
-
   const activePairs = viewMode === "matchup" ? matchups
     : viewMode === "away_team" ? teamSynastry.away
     : teamSynastry.home;
