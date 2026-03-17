@@ -304,6 +304,39 @@ async function fetchModelPredictions(sb: any, playerId: string, statKey: string 
 
 /* ─── Deterministic computation ─── */
 
+/* ─── Sanity limits for player stats ─── */
+const SANITY_LIMITS: Record<string, [number, number]> = {
+  points_per_game: [0, 60], points_l10_avg: [0, 60],
+  rebounds_per_game: [0, 30], rebounds_l10_avg: [0, 30],
+  assists_per_game: [0, 20], assists_l10_avg: [0, 20],
+  minutes_l10_avg: [0, 48], fg_pct: [0, 100], three_pct: [0, 100],
+  usage_rate: [0, 50], mu: [0, 80], sigma: [0.1, 30],
+  projection_mean: [0, 80], adjusted_projection: [0, 80],
+};
+
+function validateAndSanitize(vars: Record<string, number>): { cleaned: Record<string, number>; violations: string[]; blocked: boolean } {
+  const cleaned: Record<string, number> = {};
+  const violations: string[] = [];
+  let blocked = false;
+
+  for (const [key, value] of Object.entries(vars)) {
+    if (value == null || typeof value !== "number" || isNaN(value)) continue;
+    const limits = SANITY_LIMITS[key];
+    if (limits) {
+      if (value < limits[0] || value > limits[1]) {
+        violations.push(`${key}=${value} outside [${limits[0]}, ${limits[1]}]`);
+        // Critical vars being insane blocks compute
+        if (["mu", "sigma", "projection_mean"].includes(key)) blocked = true;
+        continue; // Don't include insane values
+      }
+    }
+    cleaned[key] = value;
+  }
+  return { cleaned, violations, blocked };
+}
+
+/* ─── Deterministic computation ─── */
+
 function computeFromFormula(formula: any, variables: Record<string, number>): { result: number | null; computation: string; missingVars: string[] } {
   const missingVars: string[] = [];
   const formulaVars = formula.variables as any;
@@ -356,7 +389,6 @@ function computeFromFormula(formula: any, variables: Record<string, number>): { 
       }
       case "pie":
       case "player_impact_estimate": {
-        // PIE = (PTS + FGM + FTM - FGA - FTA + DREB + 0.5*OREB + AST + STL + 0.5*BLK - PF - TOV) / (GmPTS + GmFGM + GmFTM - GmFGA - GmFTA + GmDREB + 0.5*GmOREB + GmAST + GmSTL + 0.5*GmBLK - GmPF - GmTOV)
         const { points, fg_made, ft_made, fg_attempted, ft_attempted, def_rebounds, off_rebounds, assists, steals, blocks, fouls, turnovers } = variables as any;
         if (points != null) {
           const playerPie = (points || 0) + (fg_made || 0) + (ft_made || 0) - (fg_attempted || 0) - (ft_attempted || 0) + (def_rebounds || 0) + 0.5 * (off_rebounds || 0) + (assists || 0) + (steals || 0) + 0.5 * (blocks || 0) - (fouls || 0) - (turnovers || 0);
@@ -373,7 +405,6 @@ function computeFromFormula(formula: any, variables: Record<string, number>): { 
         break;
       }
       default: {
-        // Try to evaluate from formula_text if it's a simple expression
         computation = `Formula '${slug}' not yet implemented for deterministic computation`;
         break;
       }
