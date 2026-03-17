@@ -590,7 +590,7 @@ const GameDetail = () => {
         </div>
 
         {/* Tab bar - ESPN style underline tabs */}
-        <div className="flex gap-1 justify-center border-b border-border/50 -mx-4 px-4 overflow-x-auto no-scrollbar">
+        <div className="flex gap-1 justify-start sm:justify-center border-b border-border/50 -mx-4 px-4 overflow-x-auto no-scrollbar" style={{ touchAction: "pan-x" }}>
         {([
             { val: "oracle" as const, label: "Oracle" },
             { val: "liveprops" as const, label: "Live Props" },
