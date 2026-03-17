@@ -3141,6 +3141,13 @@ export type Database = {
             foreignKeyName: "live_game_visual_state_last_event_id_fkey"
             columns: ["last_event_id"]
             isOneToOne: false
+            referencedRelation: "v_latest_possession_signal"
+            referencedColumns: ["normalized_event_id"]
+          },
+          {
+            foreignKeyName: "live_game_visual_state_last_event_id_fkey"
+            columns: ["last_event_id"]
+            isOneToOne: false
             referencedRelation: "v_pbp_fg_makes"
             referencedColumns: ["id"]
           },
@@ -4898,6 +4905,13 @@ export type Database = {
             foreignKeyName: "normalized_pbp_event_tags_normalized_event_id_fkey"
             columns: ["normalized_event_id"]
             isOneToOne: false
+            referencedRelation: "v_latest_possession_signal"
+            referencedColumns: ["normalized_event_id"]
+          },
+          {
+            foreignKeyName: "normalized_pbp_event_tags_normalized_event_id_fkey"
+            columns: ["normalized_event_id"]
+            isOneToOne: false
             referencedRelation: "v_pbp_fg_makes"
             referencedColumns: ["id"]
           },
@@ -4955,6 +4969,7 @@ export type Database = {
       normalized_pbp_events: {
         Row: {
           animation_key: string | null
+          away_team_id: string | null
           clock_display: string | null
           clock_seconds_remaining: number | null
           created_at: string | null
@@ -4962,6 +4977,7 @@ export type Database = {
           event_subtype: string | null
           event_type: string
           game_id: string
+          home_team_id: string | null
           id: string
           is_foul: boolean | null
           is_rebound: boolean | null
@@ -4977,6 +4993,7 @@ export type Database = {
           period_number: number | null
           points_scored: number | null
           possession_result: string | null
+          possession_team_id_after: string | null
           primary_player_id: string | null
           primary_player_name: string | null
           raw_description: string | null
@@ -4995,6 +5012,7 @@ export type Database = {
         }
         Insert: {
           animation_key?: string | null
+          away_team_id?: string | null
           clock_display?: string | null
           clock_seconds_remaining?: number | null
           created_at?: string | null
@@ -5002,6 +5020,7 @@ export type Database = {
           event_subtype?: string | null
           event_type: string
           game_id: string
+          home_team_id?: string | null
           id?: string
           is_foul?: boolean | null
           is_rebound?: boolean | null
@@ -5017,6 +5036,7 @@ export type Database = {
           period_number?: number | null
           points_scored?: number | null
           possession_result?: string | null
+          possession_team_id_after?: string | null
           primary_player_id?: string | null
           primary_player_name?: string | null
           raw_description?: string | null
@@ -5035,6 +5055,7 @@ export type Database = {
         }
         Update: {
           animation_key?: string | null
+          away_team_id?: string | null
           clock_display?: string | null
           clock_seconds_remaining?: number | null
           created_at?: string | null
@@ -5042,6 +5063,7 @@ export type Database = {
           event_subtype?: string | null
           event_type?: string
           game_id?: string
+          home_team_id?: string | null
           id?: string
           is_foul?: boolean | null
           is_rebound?: boolean | null
@@ -5057,6 +5079,7 @@ export type Database = {
           period_number?: number | null
           points_scored?: number | null
           possession_result?: string | null
+          possession_team_id_after?: string | null
           primary_player_id?: string | null
           primary_player_name?: string | null
           raw_description?: string | null
@@ -8967,6 +8990,13 @@ export type Database = {
             foreignKeyName: "visual_event_queue_normalized_event_id_fkey"
             columns: ["normalized_event_id"]
             isOneToOne: false
+            referencedRelation: "v_latest_possession_signal"
+            referencedColumns: ["normalized_event_id"]
+          },
+          {
+            foreignKeyName: "visual_event_queue_normalized_event_id_fkey"
+            columns: ["normalized_event_id"]
+            isOneToOne: false
             referencedRelation: "v_pbp_fg_makes"
             referencedColumns: ["id"]
           },
@@ -11097,6 +11127,17 @@ export type Database = {
         }
         Relationships: []
       }
+      v_game_elapsed_time: {
+        Row: {
+          clock_display: string | null
+          clock_seconds_remaining: number | null
+          elapsed_seconds: number | null
+          game_id: string | null
+          league: string | null
+          period_number: number | null
+        }
+        Relationships: []
+      }
       v_game_latest_snapshot: {
         Row: {
           away_score: number | null
@@ -11139,6 +11180,16 @@ export type Database = {
           },
         ]
       }
+      v_game_live_pace: {
+        Row: {
+          elapsed_seconds: number | null
+          estimated_possessions: number | null
+          game_id: string | null
+          league: string | null
+          live_pace_48: number | null
+        }
+        Relationships: []
+      }
       v_game_live_state: {
         Row: {
           away_abbr: string | null
@@ -11154,6 +11205,40 @@ export type Database = {
           possession: string | null
           quarter: string | null
           status: string | null
+        }
+        Relationships: []
+      }
+      v_game_momentum: {
+        Row: {
+          game_id: string | null
+          momentum_score: number | null
+          momentum_side: string | null
+          recent_run_away: number | null
+          recent_run_home: number | null
+        }
+        Relationships: []
+      }
+      v_game_possession_counts: {
+        Row: {
+          estimated_possessions: number | null
+          game_id: string | null
+          league: string | null
+        }
+        Relationships: []
+      }
+      v_game_recent_runs: {
+        Row: {
+          game_id: string | null
+          recent_run_away: number | null
+          recent_run_home: number | null
+        }
+        Relationships: []
+      }
+      v_game_scoring_droughts: {
+        Row: {
+          drought_away_sec: number | null
+          drought_home_sec: number | null
+          game_id: string | null
         }
         Relationships: []
       }
@@ -11269,6 +11354,13 @@ export type Database = {
             foreignKeyName: "live_game_visual_state_last_event_id_fkey"
             columns: ["last_event_id"]
             isOneToOne: false
+            referencedRelation: "v_latest_possession_signal"
+            referencedColumns: ["normalized_event_id"]
+          },
+          {
+            foreignKeyName: "live_game_visual_state_last_event_id_fkey"
+            columns: ["last_event_id"]
+            isOneToOne: false
             referencedRelation: "v_pbp_fg_makes"
             referencedColumns: ["id"]
           },
@@ -11322,6 +11414,28 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      v_game_watch_derived_metrics: {
+        Row: {
+          away_score: number | null
+          away_team_id: string | null
+          clock_display: string | null
+          drought_away_sec: number | null
+          drought_home_sec: number | null
+          estimated_possessions: number | null
+          game_id: string | null
+          home_score: number | null
+          home_team_id: string | null
+          live_pace_48: number | null
+          momentum_score: number | null
+          momentum_team_id: string | null
+          period_number: number | null
+          possession_confidence: number | null
+          possession_team_id: string | null
+          recent_run_away: number | null
+          recent_run_home: number | null
+        }
+        Relationships: []
       }
       v_game_watch_insights: {
         Row: {
@@ -11597,6 +11711,29 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "pbp_zone_catalog"
             referencedColumns: ["zone_key"]
+          },
+        ]
+      }
+      v_latest_possession_signal: {
+        Row: {
+          clock_display: string | null
+          clock_seconds_remaining: number | null
+          created_at: string | null
+          event_subtype: string | null
+          event_type: string | null
+          game_id: string | null
+          normalized_event_id: string | null
+          period_number: number | null
+          possession_confidence: number | null
+          possession_team_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "normalized_pbp_events_event_type_fk"
+            columns: ["event_type"]
+            isOneToOne: false
+            referencedRelation: "pbp_event_type_catalog"
+            referencedColumns: ["event_type"]
           },
         ]
       }
@@ -12670,6 +12807,18 @@ export type Database = {
       }
       f_unaccent: { Args: { "": string }; Returns: string }
       format_seconds_mmss: { Args: { p_seconds: number }; Returns: string }
+      get_basketball_elapsed_seconds: {
+        Args: {
+          p_clock_seconds_remaining: number
+          p_league: string
+          p_period_number: number
+        }
+        Returns: number
+      }
+      get_basketball_period_minutes: {
+        Args: { p_league: string; p_period_number: number }
+        Returns: number
+      }
       get_confidence_band: { Args: { p_conf: number }; Returns: string }
       get_current_run_for_game: {
         Args: { p_game_id: string }
@@ -12830,6 +12979,10 @@ export type Database = {
       }
       rebuild_nba_standings: { Args: { p_season?: number }; Returns: number }
       refresh_game_live_wp: { Args: { p_game_id: string }; Returns: undefined }
+      refresh_live_game_after_event: {
+        Args: { p_game_id: string }
+        Returns: undefined
+      }
       refresh_live_game_derived_metrics: {
         Args: { p_game_id: string }
         Returns: undefined
