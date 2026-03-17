@@ -173,6 +173,19 @@ Deno.serve(async (req) => {
       await fetchAndWriteTeamStats(supabase, apiKey, mappedGameIds, results, addLog);
     }
 
+    // ── F) Compute live readiness for all processed games ──────────────
+    const readinessResults: Record<string, any> = {};
+    const processedGameKeys = results.filter(r => r.game_key).map(r => r.game_key);
+    for (const gk of new Set(processedGameKeys)) {
+      try {
+        const { data } = await supabase.rpc("compute_live_readiness", { p_game_id: gk });
+        readinessResults[gk] = data;
+      } catch (e) {
+        addLog(`readiness compute failed for ${gk}: ${e.message}`);
+      }
+    }
+    addLog(`Readiness computed for ${Object.keys(readinessResults).length} games`);
+
     return new Response(
       JSON.stringify({
         success: true,
@@ -180,6 +193,7 @@ Deno.serve(async (req) => {
         live_count: liveGames.length,
         write_mode: writeMode,
         results,
+        readiness: readinessResults,
         log,
         latency_ms: Date.now() - t0,
       }),
