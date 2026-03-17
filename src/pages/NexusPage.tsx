@@ -195,6 +195,15 @@ function PlayerRow({ player: p }: { player: any }) {
 }
 
 // ── Teams Tab ──
+const TEAM_ABBR_NORMALIZE: Record<string, string> = {
+  PHO: "PHX", BRK: "BKN", CHO: "CHA", NOH: "NOP", NOK: "NOP",
+  GS: "GSW", SA: "SAS", NY: "NYK", NO: "NOP", VEG: "VGK",
+  NJ: "NJD", TB: "TBL", LA: "LAK", SJ: "SJS", MON: "MTL",
+};
+function normalizeAbbr(abbr: string): string {
+  return TEAM_ABBR_NORMALIZE[abbr] || abbr;
+}
+
 function TeamsTab() {
   const navigate = useNavigate();
   const [league, setLeague] = useState("NBA");
@@ -205,7 +214,12 @@ function TeamsTab() {
     queryFn: async () => {
       const { data } = await supabase.from("standings").select("team_abbr, team_name, league, wins, losses, streak, conference, playoff_seed").eq("league", league).order("season", { ascending: false }).limit(50);
       const seen = new Set<string>();
-      return (data || []).filter(t => { if (seen.has(t.team_abbr)) return false; seen.add(t.team_abbr); return true; });
+      return (data || []).filter(t => {
+        const norm = normalizeAbbr(t.team_abbr);
+        if (seen.has(norm)) return false;
+        seen.add(norm);
+        return true;
+      }).map(t => ({ ...t, team_abbr: normalizeAbbr(t.team_abbr) }));
     },
     staleTime: 5 * 60_000,
   });
