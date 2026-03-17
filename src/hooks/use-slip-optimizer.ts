@@ -15,6 +15,7 @@ export function useSlipOptimizer({ slip, picks, intentState }: UseSlipOptimizerO
   const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [lastAction, setLastAction] = useState<string | null>(null);
+  const { profile: bettingProfile } = useBettingProfile();
 
   // Fetch live_prop_state for all picks to enrich scoring
   const gameIds = [...new Set((picks || []).map((p: any) => p.game_id).filter(Boolean) as string[])];
