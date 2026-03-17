@@ -242,6 +242,21 @@ export default function MachinaFormulaReference() {
 
   return (
     <div className="space-y-6">
+      {/* Page instructions */}
+      <div className="cosmic-card rounded-xl p-4 space-y-1.5 border-primary/20">
+        <div className="flex items-center gap-2">
+          <Info className="h-4 w-4 text-primary shrink-0" />
+          <h2 className="text-sm font-bold text-foreground">Formula & Engine Reference</h2>
+        </div>
+        <p className="text-xs text-muted-foreground leading-relaxed">
+          Complete technical reference for every formula, variable, engine, and factor used in the CosmicEdge prediction system.
+          These run automatically — you don't need to call them. Use this page to understand what drives each prediction.
+        </p>
+        <p className="text-xs text-muted-foreground leading-relaxed italic">
+          Admin only · Find this under Machina → Reference tab
+        </p>
+      </div>
+
       {/* Search */}
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
@@ -253,18 +268,19 @@ export default function MachinaFormulaReference() {
         <button onClick={() => setShowPipeline(!showPipeline)} className="w-full flex items-center gap-1.5 mb-2">
           <Cpu className="h-3.5 w-3.5 text-primary" />
           <h3 className="text-xs font-bold text-foreground">10-Step Prediction Pipeline</h3>
+          <span className="text-[10px] text-muted-foreground ml-1">How every projection is built, step by step</span>
           {showPipeline ? <ChevronUp className="h-3 w-3 ml-auto text-muted-foreground" /> : <ChevronDown className="h-3 w-3 ml-auto text-muted-foreground" />}
         </button>
         {showPipeline && (
-          <div className="space-y-1.5">
+          <div className="space-y-2">
             {CALCULATION_PIPELINE.map((step) => (
-              <div key={step.step} className="px-3 py-2 rounded-lg bg-secondary/30 border border-border/50">
+              <div key={step.step} className="px-4 py-3 rounded-xl bg-secondary/30 border border-border/50">
                 <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-bold text-primary bg-primary/10 rounded-full h-5 w-5 flex items-center justify-center shrink-0">{step.step}</span>
-                  <span className="text-[10px] font-semibold text-foreground">{step.name}</span>
+                  <span className="text-xs font-bold text-primary bg-primary/10 rounded-full h-6 w-6 flex items-center justify-center shrink-0">{step.step}</span>
+                  <span className="text-xs font-semibold text-foreground">{step.name}</span>
                 </div>
-                <p className="text-[9px] font-mono text-primary mt-0.5 break-all">{step.formula}</p>
-                <p className="text-[9px] text-muted-foreground mt-0.5">Inputs: {step.inputs}</p>
+                <code className="block text-xs font-mono text-primary mt-1.5 whitespace-pre-wrap break-words leading-relaxed">{step.formula}</code>
+                <p className="text-[11px] text-muted-foreground mt-1">Inputs: {step.inputs}</p>
               </div>
             ))}
           </div>
