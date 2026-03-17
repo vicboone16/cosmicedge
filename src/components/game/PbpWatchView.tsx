@@ -90,7 +90,7 @@ export function PbpWatchView({ gameId, homeAbbr, awayAbbr, league }: PbpWatchVie
         .limit(1000);
       return (data || []) as any[];
     },
-    refetchInterval: 10_000,
+    refetchInterval: 5_000,
   });
 
   // ── Cosmic pipeline PBP events ──
