@@ -1047,7 +1047,7 @@ const GameDetail = () => {
           </>
         )}
 
-        {activeTab === "pbp" && (
+        {activeTab === "pbp" && isAdmin && (
           <PlayByPlayTab
             gameId={game.id}
             homeAbbr={game.home_abbr}
