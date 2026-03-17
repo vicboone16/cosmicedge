@@ -1,4 +1,4 @@
-import { Settings, Sliders, Star, MapPin, Shield, LogIn, LogOut, User, Globe, Upload, FileSpreadsheet, ChevronRight, Moon, Sun } from "lucide-react";
+import { Settings, Sliders, Star, MapPin, Shield, LogIn, LogOut, User, Globe, Upload, FileSpreadsheet, ChevronRight, Moon, Sun, Bell, BellOff } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useAuth } from "@/hooks/use-auth";
 import { useTimezone } from "@/hooks/use-timezone";
