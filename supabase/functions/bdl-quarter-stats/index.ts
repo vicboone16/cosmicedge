@@ -245,14 +245,27 @@ async function resolvePlayer(supabase: any, name: string, teamAbbr: string | nul
   const key = `${name}|${teamAbbr}`;
   if (cache.has(key)) return cache.get(key)!;
 
-  let query = supabase.from("players").select("id").ilike("name", name).limit(1);
-  if (teamAbbr) query = query.eq("team", teamAbbr);
+  // Prefer exact name + team + league match to avoid same-name collisions
+  if (teamAbbr) {
+    const { data: teamMatch } = await supabase
+      .from("players").select("id")
+      .eq("name", name).eq("team", teamAbbr).eq("league", "NBA")
+      .maybeSingle();
+    if (teamMatch?.id) { cache.set(key, teamMatch.id); return teamMatch.id; }
+  }
 
-  const { data } = await query.maybeSingle();
-  if (data?.id) { cache.set(key, data.id); return data.id; }
+  // Fallback: exact name match without team filter
+  const { data: exactMatch } = await supabase
+    .from("players").select("id")
+    .eq("name", name).eq("league", "NBA")
+    .maybeSingle();
+  if (exactMatch?.id) { cache.set(key, exactMatch.id); return exactMatch.id; }
 
-  // Without team filter
-  const { data: loose } = await supabase.from("players").select("id").ilike("name", name).limit(1).maybeSingle();
+  // Last resort: ilike for accent/case differences
+  const { data: loose } = await supabase
+    .from("players").select("id")
+    .ilike("name", name).eq("league", "NBA")
+    .limit(1).maybeSingle();
   const result = loose?.id || null;
   cache.set(key, result);
   return result;
