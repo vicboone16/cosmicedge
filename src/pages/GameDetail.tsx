@@ -603,7 +603,7 @@ const GameDetail = () => {
             { val: "insights" as const, label: "Insights" },
             { val: "matchup" as const, label: "Matchup" },
             { val: "odds" as const, label: "Odds" },
-            { val: "pbp" as const, label: "Plays" },
+            ...(isAdmin ? [{ val: "pbp" as const, label: "Plays" }] : []),
             { val: "stats" as const, label: "Stats" },
           ]).map(t => (
             <button
@@ -1047,7 +1047,7 @@ const GameDetail = () => {
           </>
         )}
 
-        {activeTab === "pbp" && (
+        {activeTab === "pbp" && isAdmin && (
           <PlayByPlayTab
             gameId={game.id}
             homeAbbr={game.home_abbr}
