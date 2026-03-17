@@ -9,6 +9,7 @@ import { format } from "date-fns";
 import { PlayerPropsSection } from "@/components/player/PlayerPropsSection";
 import { ModelsTab } from "@/components/models/ModelsTab";
 import { useNebulaOverlayByPlayer } from "@/hooks/use-nebula-overlay";
+import ArchetypeCard from "@/components/cosmic/ArchetypeCard";
 
 function getZodiacFromDate(dateStr: string): { sign: string; symbol: string; element: string; quality: string } {
   const d = new Date(dateStr + "T12:00:00");
