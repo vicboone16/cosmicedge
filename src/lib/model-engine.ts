@@ -54,21 +54,10 @@ export async function fetchPlayerFactors(
       .order("games(start_time)", { ascending: false })
       .limit(50);
 
-    // Filter to final games and sort by start_time
+    // Already filtered to final games and sorted by start_time desc via the join
     let gameStats: any[] = [];
     if (gameStatRows?.length) {
-      const gIds = [...new Set(gameStatRows.map(r => r.game_id))];
-      const { data: gameMeta } = await supabase
-        .from("games")
-        .select("id, start_time, status")
-        .in("id", gIds)
-        .eq("status", "final")
-        .order("start_time", { ascending: false });
-      const finalGameOrder = new Map((gameMeta || []).map((g, i) => [g.id, i]));
-      gameStats = gameStatRows
-        .filter(r => finalGameOrder.has(r.game_id))
-        .sort((a, b) => (finalGameOrder.get(a.game_id) ?? 999) - (finalGameOrder.get(b.game_id) ?? 999))
-        .slice(0, 30);
+      gameStats = gameStatRows.slice(0, 30);
     }
 
     if (gameStats?.length) {

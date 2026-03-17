@@ -812,11 +812,12 @@ Deno.serve(async (req) => {
     }
 
     if (nebulaPredictions.length > 0) {
-      await sb.from("nebula_prop_predictions").delete().eq("game_id", gameId);
       for (let i = 0; i < nebulaPredictions.length; i += 100) {
         const batch = nebulaPredictions.slice(i, i + 100);
-        const { error: npErr } = await sb.from("nebula_prop_predictions").insert(batch);
-        if (npErr) console.error("nebula_prop_predictions insert error:", npErr.message);
+        const { error: npErr } = await sb.from("nebula_prop_predictions").upsert(batch, {
+          onConflict: "game_id,player_id,prop_type",
+        });
+        if (npErr) console.error("nebula_prop_predictions upsert error:", npErr.message);
       }
     }
 
