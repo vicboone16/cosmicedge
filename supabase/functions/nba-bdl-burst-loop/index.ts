@@ -356,7 +356,7 @@ Deno.serve(async (req) => {
           if (!p.player?.id) continue;
           const playerName = `${p.player.first_name || ""} ${p.player.last_name || ""}`.trim();
           if (!playerName) continue;
-          const internalId = await resolvePlayer(playerName);
+          const internalId = await resolvePlayer(playerName, p.teamAbbr);
           if (internalId) {
             await sb.from("player_game_stats").upsert({
               player_id: internalId, game_id: gameKey, team_abbr: p.teamAbbr,

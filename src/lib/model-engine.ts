@@ -44,13 +44,14 @@ export async function fetchPlayerFactors(
   const values: Record<string, number> = {};
 
   try {
-    // Fetch player game stats for rolling averages
+    // Fetch player game stats for rolling averages, ordered by game date not created_at
     const { data: gameStats } = await supabase
       .from("player_game_stats")
-      .select("points, rebounds, assists, steals, blocks, three_made, turnovers, fg_attempted, minutes")
+      .select("points, rebounds, assists, steals, blocks, three_made, turnovers, fg_attempted, minutes, game_id, games!inner(start_time, status)")
       .eq("player_id", playerId)
       .eq("period", "full")
-      .order("created_at", { ascending: false })
+      .eq("games.status", "final")
+      .order("games(start_time)", { ascending: false } as any)
       .limit(30);
 
     if (gameStats?.length) {

@@ -189,7 +189,7 @@ Deno.serve(async (req) => {
           }
           if (p.under_price != null) {
             historyRows.push({
-              game_id: p.game_id, player_id: null, prop_type: p.market_key,
+              game_id: p.game_id, player_id: resolvedPlayerId, prop_type: p.market_key,
               book: p.bookmaker, line: p.line, side: "under", odds: p.under_price,
               snapshot_ts: new Date().toISOString(), snapshot_minute: snapshotMinute.toISOString(),
               source: "fetch-live-props-bdl",
