@@ -347,6 +347,25 @@ export function GameMatchupTab({
     },
   });
 
+  // Fetch birth dates for lineup players to show zodiac signs
+  const lineupPlayerIds = useMemo(() => (lineups || []).map(l => l.player_id).filter(Boolean) as string[], [lineups]);
+  const { data: lineupBirthDates } = useQuery({
+    queryKey: ["lineup-birth-dates", lineupPlayerIds],
+    queryFn: async () => {
+      if (lineupPlayerIds.length === 0) return {};
+      const { data } = await supabase
+        .from("players")
+        .select("id, birth_date")
+        .in("id", lineupPlayerIds);
+      const map: Record<string, string> = {};
+      for (const p of data || []) {
+        if (p.birth_date) map[p.id] = p.birth_date;
+      }
+      return map;
+    },
+    enabled: lineupPlayerIds.length > 0,
+  });
+
   const [fetchingLineups, setFetchingLineups] = useState(false);
   const handleFetchLineups = async () => {
     setFetchingLineups(true);
