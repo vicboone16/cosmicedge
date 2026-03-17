@@ -10,18 +10,18 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const BOLTODDS_KEY = Deno.env.get("BOLTODDS_API_KEY") ?? "";
 
-const DEFAULT_FILTERS = {
-  sports: ["baseball", "hockey"],
+const DEFAULT_FILTERS: Record<string, string[]> = {
+  sports: ["MLB", "NHL"],
   sportsbooks: ["draftkings", "fanduel", "betmgm", "caesars"],
   markets: [
-    "moneyline", "spread", "total",
-    "player_hits", "player_home_runs", "player_strikeouts",
-    "player_total_bases", "player_points", "player_goals",
-    "player_assists", "player_shots_on_goal",
+    "Moneyline", "Spread", "Total",
+    "Hits", "Home Runs", "Strikeouts",
+    "Total Bases", "Points", "Goals",
+    "Assists", "Shots on Goal",
   ],
 };
 
-const MAX_RUNTIME_MS = 140_000; // ~2.3 min, stay under edge function limit
+const MAX_RUNTIME_MS = 140_000;
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -38,13 +38,12 @@ Deno.serve(async (req) => {
   }
 
   // Parse optional custom filters from body
-  let filters = DEFAULT_FILTERS;
+  let filters = { ...DEFAULT_FILTERS };
   try {
     const body = await req.json().catch(() => null);
     if (body?.filters) filters = { ...DEFAULT_FILTERS, ...body.filters };
   } catch { /* use defaults */ }
 
-  // Update connection status
   await upsertConnectionStatus(sb, "connecting", filters);
 
   const wsUrl = `wss://spro.agency/api?key=${BOLTODDS_KEY}`;
@@ -53,7 +52,7 @@ Deno.serve(async (req) => {
 
   return new Promise<Response>((resolve) => {
     const timeout = setTimeout(() => {
-      logMsg("timeout_close", null);
+      logMsg(sb, "timeout_close", { runtime_ms: Date.now() - startTime, messages: messageCount });
       try { ws.close(1000, "edge function timeout"); } catch {}
       resolve(
         new Response(
@@ -66,67 +65,87 @@ Deno.serve(async (req) => {
     const ws = new WebSocket(wsUrl);
 
     ws.onopen = () => {
-      console.log("[BoltOdds] WebSocket opened");
-      logMsg("ws_open", null);
+      console.log("[BoltOdds] WebSocket opened, waiting for socket_connected ack...");
+      logMsg(sb, "ws_open", null);
     };
 
     ws.onmessage = async (event) => {
       messageCount++;
       try {
         const data = JSON.parse(event.data);
-        const msgType = data.type ?? data.event ?? "unknown";
+        const action = data.action ?? "unknown";
 
-        // Log every message type (first 50, then sample)
+        // Log messages (first 50, then sample)
         if (messageCount <= 50 || messageCount % 100 === 0) {
           await sb.from("bolt_socket_logs").insert({
-            message_type: msgType,
-            sport: data.sport ?? data.data?.sport ?? null,
-            payload: messageCount <= 20 ? data : { type: msgType, keys: Object.keys(data) },
+            message_type: action,
+            sport: data.data?.sport ?? null,
+            payload: messageCount <= 20 ? data : { action, keys: Object.keys(data) },
           });
         }
 
-        // Update last_message_at
+        // Update last_message_at periodically
         if (messageCount % 10 === 0) {
           await upsertConnectionStatus(sb, "connected", filters);
         }
 
-        switch (msgType) {
-          case "socket_connected":
-            console.log("[BoltOdds] Socket connected, sending subscribe");
+        switch (action) {
+          case "socket_connected": {
+            console.log("[BoltOdds] Authenticated! Sending subscribe with filters:", JSON.stringify(filters));
             await upsertConnectionStatus(sb, "connected", filters);
-            // Send subscribe
+            // BoltOdds uses "action": "subscribe" with "filters" object
             ws.send(JSON.stringify({
-              type: "subscribe",
-              sports: filters.sports,
-              sportsbooks: filters.sportsbooks,
-              markets: filters.markets,
+              action: "subscribe",
+              filters: {
+                sports: filters.sports,
+                sportsbooks: filters.sportsbooks,
+                markets: filters.markets,
+              },
             }));
             break;
+          }
+
+          case "subscription_updated": {
+            console.log("[BoltOdds] Subscription confirmed:", data.message);
+            await logMsg(sb, "subscription_updated", data);
+            break;
+          }
 
           case "initial_state":
-          case "game_update":
-            await handleGameUpdate(sb, data);
+          case "game_update": {
+            await handleGameData(sb, data);
             break;
+          }
 
-          case "line_update":
+          case "line_update": {
             await handleLineUpdate(sb, data);
             break;
+          }
 
-          case "game_removed":
+          case "game_removed": {
             await handleGameRemoved(sb, data);
             break;
+          }
 
           case "sport_clear":
-          case "book_clear":
-            await handleClear(sb, data, msgType);
+          case "book_clear": {
+            await handleClear(sb, data, action);
             break;
+          }
 
-          case "ping":
-            ws.send(JSON.stringify({ type: "pong" }));
+          case "ping": {
+            ws.send(JSON.stringify({ action: "pong" }));
             break;
+          }
+
+          case "error": {
+            console.error("[BoltOdds] Error:", data.message);
+            await logMsg(sb, "error", data);
+            break;
+          }
 
           default:
-            console.log(`[BoltOdds] Unknown message type: ${msgType}`);
+            console.log(`[BoltOdds] Unknown action: ${action}`);
         }
       } catch (err) {
         console.error("[BoltOdds] Message processing error:", err);
@@ -149,14 +168,14 @@ Deno.serve(async (req) => {
         )
       );
     };
-
-    function logMsg(type: string, payload: unknown) {
-      sb.from("bolt_socket_logs").insert({ message_type: type, payload: payload as Record<string, unknown> }).then(() => {});
-    }
   });
 });
 
 // ─── Helpers ───
+
+function logMsg(sb: ReturnType<typeof createClient>, type: string, payload: unknown) {
+  sb.from("bolt_socket_logs").insert({ message_type: type, payload: payload as Record<string, unknown> }).then(() => {});
+}
 
 async function upsertConnectionStatus(
   sb: ReturnType<typeof createClient>,
@@ -164,7 +183,6 @@ async function upsertConnectionStatus(
   filters: Record<string, unknown>,
   error?: string
 ) {
-  // Use a single-row pattern
   const { data: existing } = await sb.from("bolt_connection_status").select("id").limit(1).single();
   const row = {
     status,
@@ -181,95 +199,137 @@ async function upsertConnectionStatus(
   }
 }
 
-async function handleGameUpdate(sb: ReturnType<typeof createClient>, data: Record<string, unknown>) {
-  const game = (data.data ?? data.game ?? data) as Record<string, unknown>;
-  const gameId = String(game.id ?? game.game_id ?? game.key ?? "");
-  if (!gameId) return;
+/**
+ * Handle initial_state and game_update messages.
+ * BoltOdds format:
+ * {
+ *   action: "initial_state" | "game_update",
+ *   timestamp: "...",
+ *   data: {
+ *     sport: "MLB",
+ *     sportsbook: "draftkings",
+ *     game: "Team A vs Team B, 2025-07-23, 01",
+ *     home_team: "Team A",
+ *     away_team: "Team B",
+ *     info: { id, game, when, link },
+ *     outcomes: {
+ *       "Team A Moneyline": { odds: "-150", outcome_name, outcome_line, outcome_over_under, outcome_target, link },
+ *       ...
+ *     }
+ *   }
+ * }
+ */
+async function handleGameData(sb: ReturnType<typeof createClient>, msg: Record<string, unknown>) {
+  const d = msg.data as Record<string, unknown> | undefined;
+  if (!d) return;
+
+  const gameKey = String(d.game ?? "");
+  const sport = String(d.sport ?? "");
+  const sportsbook = String(d.sportsbook ?? "");
+  const homeTeam = String(d.home_team ?? "");
+  const awayTeam = String(d.away_team ?? "");
+  const info = (d.info ?? {}) as Record<string, unknown>;
+  const startTime = info.when ? String(info.when) : null;
+
+  if (!gameKey) return;
 
   // Upsert game
   await sb.from("bolt_games").upsert({
-    bolt_game_id: gameId,
-    sport: String(game.sport ?? ""),
-    league: String(game.league ?? game.sport ?? ""),
-    home_team: String(game.home ?? game.home_team ?? ""),
-    away_team: String(game.away ?? game.away_team ?? ""),
-    start_time: game.start_time ?? game.commence_time ?? null,
+    bolt_game_id: gameKey,
+    sport,
+    league: sport,
+    home_team: homeTeam,
+    away_team: awayTeam,
+    start_time: startTime,
     status: "active",
     is_active: true,
-    raw_data: game,
+    raw_data: d,
     updated_at: new Date().toISOString(),
   }, { onConflict: "bolt_game_id" });
 
-  // Process markets/lines if present
-  const markets = (game.markets ?? game.lines ?? game.odds ?? []) as Record<string, unknown>[];
-  if (Array.isArray(markets)) {
-    for (const market of markets) {
-      await upsertMarketAndOutcomes(sb, gameId, market);
-    }
-  }
+  // Process outcomes
+  const outcomes = (d.outcomes ?? {}) as Record<string, Record<string, unknown>>;
+  await upsertOutcomes(sb, gameKey, sportsbook, outcomes);
 }
 
-async function upsertMarketAndOutcomes(
+/**
+ * Outcomes are keyed by a composite name like "Team A Moneyline"
+ * Each has: odds (string, can be None/""), outcome_name, outcome_line, outcome_over_under, outcome_target, link
+ */
+async function upsertOutcomes(
   sb: ReturnType<typeof createClient>,
-  gameId: string,
-  market: Record<string, unknown>
+  gameKey: string,
+  sportsbook: string,
+  outcomes: Record<string, Record<string, unknown>>
 ) {
-  const marketKey = String(market.key ?? market.market ?? market.type ?? `${gameId}_${Date.now()}`);
-  const { data: mkt } = await sb.from("bolt_markets").upsert({
-    bolt_game_id: gameId,
-    market_key: marketKey,
-    market_name: String(market.name ?? market.market ?? marketKey),
-    market_type: String(market.type ?? market.category ?? ""),
-    player_name: market.player ? String(market.player) : null,
-    is_suspended: !market.odds && !market.outcomes,
-    raw_data: market,
-    updated_at: new Date().toISOString(),
-  }, { onConflict: "bolt_game_id,market_key" }).select("id").single();
+  for (const [outcomeKey, o] of Object.entries(outcomes)) {
+    const outcomeName = String(o.outcome_name ?? "");
+    const marketKey = outcomeName || outcomeKey;
+    const oddsStr = o.odds;
+    const isSuspended = oddsStr === null || oddsStr === "" || oddsStr === "None";
+    const americanOdds = isSuspended ? null : parseInt(String(oddsStr), 10);
 
-  if (!mkt?.id) return;
+    // Upsert market (group by game + market name)
+    const { data: mkt } = await sb.from("bolt_markets").upsert({
+      bolt_game_id: gameKey,
+      market_key: marketKey,
+      market_name: outcomeName,
+      market_type: outcomeName,
+      player_name: o.outcome_target ? String(o.outcome_target) : null,
+      is_suspended: isSuspended,
+      raw_data: { outcomeKey, ...o },
+      updated_at: new Date().toISOString(),
+    }, { onConflict: "bolt_game_id,market_key" }).select("id").single();
 
-  const outcomes = (market.outcomes ?? market.odds ?? market.lines ?? []) as Record<string, unknown>[];
-  if (Array.isArray(outcomes)) {
-    for (const o of outcomes) {
-      const book = String(o.sportsbook ?? o.book ?? "unknown");
-      await sb.from("bolt_outcomes").upsert({
-        market_id: mkt.id,
-        sportsbook: book,
-        outcome_name: String(o.name ?? o.outcome ?? o.label ?? ""),
-        line: o.line != null ? Number(o.line) : null,
-        odds: o.odds != null ? Number(o.odds) : null,
-        american_odds: o.american_odds != null ? Number(o.american_odds) : (o.price != null ? Number(o.price) : null),
-        is_suspended: o.odds == null && o.price == null,
-        raw_data: o,
-        updated_at: new Date().toISOString(),
-      }, { onConflict: "market_id,sportsbook,outcome_name" });
-    }
+    if (!mkt?.id) continue;
+
+    // Upsert outcome
+    const line = o.outcome_line != null ? Number(o.outcome_line) : null;
+    await sb.from("bolt_outcomes").upsert({
+      market_id: mkt.id,
+      sportsbook,
+      outcome_name: String(o.outcome_target ?? outcomeKey),
+      line,
+      odds: americanOdds != null && !isNaN(americanOdds)
+        ? (americanOdds < 0 ? (100 / (Math.abs(americanOdds) + 100)) : (americanOdds / (americanOdds + 100)))
+        : null,
+      american_odds: isNaN(americanOdds ?? NaN) ? null : americanOdds,
+      is_suspended: isSuspended,
+      raw_data: o,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: "market_id,sportsbook,outcome_name" });
   }
 }
 
-async function handleLineUpdate(sb: ReturnType<typeof createClient>, data: Record<string, unknown>) {
-  // line_update is a partial update — same shape as game_update but only changed lines
-  await handleGameUpdate(sb, data);
+async function handleLineUpdate(sb: ReturnType<typeof createClient>, msg: Record<string, unknown>) {
+  // Same shape as game_update but only changed lines
+  await handleGameData(sb, msg);
 }
 
-async function handleGameRemoved(sb: ReturnType<typeof createClient>, data: Record<string, unknown>) {
-  const gameId = String((data as Record<string, unknown>).game_id ?? (data as Record<string, unknown>).id ?? "");
-  if (gameId) {
-    await sb.from("bolt_games").update({ is_active: false, status: "removed", updated_at: new Date().toISOString() }).eq("bolt_game_id", gameId);
+async function handleGameRemoved(sb: ReturnType<typeof createClient>, msg: Record<string, unknown>) {
+  const d = msg.data as Record<string, unknown> | undefined;
+  const gameKey = String(d?.game ?? "");
+  if (gameKey) {
+    await sb.from("bolt_games").update({
+      is_active: false,
+      status: "removed",
+      updated_at: new Date().toISOString(),
+    }).eq("bolt_game_id", gameKey);
   }
 }
 
-async function handleClear(sb: ReturnType<typeof createClient>, data: Record<string, unknown>, type: string) {
-  if (type === "sport_clear") {
-    const sport = String(data.sport ?? "");
+async function handleClear(sb: ReturnType<typeof createClient>, msg: Record<string, unknown>, action: string) {
+  const d = msg.data as Record<string, unknown> | undefined;
+  if (action === "sport_clear") {
+    const sport = String(d?.sport ?? "");
     if (sport) {
       await sb.from("bolt_games").update({ is_active: false, status: "stale" }).eq("sport", sport);
     }
-  } else if (type === "book_clear") {
-    const book = String(data.sportsbook ?? data.book ?? "");
+  } else if (action === "book_clear") {
+    const book = String(d?.sportsbook ?? "");
     if (book) {
       await sb.from("bolt_outcomes").update({ is_suspended: true }).eq("sportsbook", book);
     }
   }
-  await sb.from("bolt_socket_logs").insert({ message_type: type, payload: data });
+  await sb.from("bolt_socket_logs").insert({ message_type: action, payload: msg });
 }
