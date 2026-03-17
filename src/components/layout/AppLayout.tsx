@@ -104,6 +104,10 @@ export function AppLayout() {
                   <BarChart3 className="h-4 w-4" />
                   Analytics
                 </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate("/faq")} className="gap-2 cursor-pointer">
+                  <HelpCircle className="h-4 w-4" />
+                  Help & FAQ
+                </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => navigate("/settings")} className="gap-2 cursor-pointer">
                   <Settings className="h-4 w-4" />
