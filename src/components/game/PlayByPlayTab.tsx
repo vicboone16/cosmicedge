@@ -488,6 +488,7 @@ export function PlayByPlayTab({ gameId, homeAbbr, awayAbbr, league, gameStatus }
       {/* Watch mode: full visual experience */}
       {mode === "watch" && showWatchToggle ? (
         <PbpWatchView gameId={gameId} homeAbbr={homeAbbr} awayAbbr={awayAbbr} league={league} />
+
       ) : (
         <>
           {/* Live score banner from game_state_snapshots */}
