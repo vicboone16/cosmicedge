@@ -7,6 +7,8 @@ import { LiveCourtCanvas } from "./watch/LiveCourtCanvas";
 import { LatestPlayCard } from "./watch/LatestPlayCard";
 import { RecentEventsList } from "./watch/RecentEventsList";
 import { WatchDebugPanel } from "./watch/WatchDebugPanel";
+import { MomentumChip } from "./GameMomentumBanner";
+import { useGameMomentum } from "@/hooks/use-game-momentum";
 
 interface PbpWatchViewProps {
   gameId: string;
