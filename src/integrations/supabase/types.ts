@@ -241,10 +241,12 @@ export type Database = {
         Row: {
           alternative_suggestion: string | null
           answer_summary: string | null
+          astro_mode: string | null
           astro_signal: string | null
           bet_type: string | null
           blowout_risk_level: string | null
           confidence_grade: string | null
+          cosmic_boost: number | null
           created_at: string
           current_stat: number | null
           decision_label: string
@@ -252,26 +254,38 @@ export type Database = {
           direction: string | null
           engine_inputs: Json | null
           engine_outputs: Json | null
+          ev_edge: number | null
           expected_value: number | null
+          expires_at: string | null
           foul_risk_level: string | null
           game_id: string | null
           game_momentum_state: string | null
           hit_probability: number | null
           id: string
           implied_probability: number | null
+          is_dismissed: boolean | null
+          is_live: boolean | null
           line_value: number | null
+          market_context: Json | null
           market_type: string | null
           minutes_security_score: number | null
           odds: number | null
           player_id: string | null
           player_momentum_state: string | null
           primary_reason: string | null
+          probability: number | null
           projected_final: number | null
+          projected_value: number | null
           query_text: string | null
           query_type: string
+          reasoning: string | null
+          recommendation: string | null
           risk_grade: string | null
+          risk_score: number | null
           secondary_reason: string | null
+          sportsbook: string | null
           team_id: string | null
+          trap_score: number | null
           updated_at: string
           user_id: string
           warning_note: string | null
@@ -279,10 +293,12 @@ export type Database = {
         Insert: {
           alternative_suggestion?: string | null
           answer_summary?: string | null
+          astro_mode?: string | null
           astro_signal?: string | null
           bet_type?: string | null
           blowout_risk_level?: string | null
           confidence_grade?: string | null
+          cosmic_boost?: number | null
           created_at?: string
           current_stat?: number | null
           decision_label?: string
@@ -290,26 +306,38 @@ export type Database = {
           direction?: string | null
           engine_inputs?: Json | null
           engine_outputs?: Json | null
+          ev_edge?: number | null
           expected_value?: number | null
+          expires_at?: string | null
           foul_risk_level?: string | null
           game_id?: string | null
           game_momentum_state?: string | null
           hit_probability?: number | null
           id?: string
           implied_probability?: number | null
+          is_dismissed?: boolean | null
+          is_live?: boolean | null
           line_value?: number | null
+          market_context?: Json | null
           market_type?: string | null
           minutes_security_score?: number | null
           odds?: number | null
           player_id?: string | null
           player_momentum_state?: string | null
           primary_reason?: string | null
+          probability?: number | null
           projected_final?: number | null
+          projected_value?: number | null
           query_text?: string | null
           query_type?: string
+          reasoning?: string | null
+          recommendation?: string | null
           risk_grade?: string | null
+          risk_score?: number | null
           secondary_reason?: string | null
+          sportsbook?: string | null
           team_id?: string | null
+          trap_score?: number | null
           updated_at?: string
           user_id: string
           warning_note?: string | null
@@ -317,10 +345,12 @@ export type Database = {
         Update: {
           alternative_suggestion?: string | null
           answer_summary?: string | null
+          astro_mode?: string | null
           astro_signal?: string | null
           bet_type?: string | null
           blowout_risk_level?: string | null
           confidence_grade?: string | null
+          cosmic_boost?: number | null
           created_at?: string
           current_stat?: number | null
           decision_label?: string
@@ -328,26 +358,38 @@ export type Database = {
           direction?: string | null
           engine_inputs?: Json | null
           engine_outputs?: Json | null
+          ev_edge?: number | null
           expected_value?: number | null
+          expires_at?: string | null
           foul_risk_level?: string | null
           game_id?: string | null
           game_momentum_state?: string | null
           hit_probability?: number | null
           id?: string
           implied_probability?: number | null
+          is_dismissed?: boolean | null
+          is_live?: boolean | null
           line_value?: number | null
+          market_context?: Json | null
           market_type?: string | null
           minutes_security_score?: number | null
           odds?: number | null
           player_id?: string | null
           player_momentum_state?: string | null
           primary_reason?: string | null
+          probability?: number | null
           projected_final?: number | null
+          projected_value?: number | null
           query_text?: string | null
           query_type?: string
+          reasoning?: string | null
+          recommendation?: string | null
           risk_grade?: string | null
+          risk_score?: number | null
           secondary_reason?: string | null
+          sportsbook?: string | null
           team_id?: string | null
+          trap_score?: number | null
           updated_at?: string
           user_id?: string
           warning_note?: string | null
@@ -2036,6 +2078,110 @@ export type Database = {
         }
         Relationships: []
       }
+      cosmic_archetype_state: {
+        Row: {
+          archetype_confidence: number | null
+          archetype_family: string | null
+          archetype_reason_primary: string | null
+          archetype_reason_secondary: string | null
+          archetype_score: number | null
+          created_at: string
+          entity_id: string
+          entity_type: string
+          game_id: string | null
+          id: string
+          is_live: boolean
+          math_archetype_relation: string | null
+          momentum_signature: string | null
+          pressure_signature: string | null
+          primary_archetype: string
+          recommended_interpretation: string | null
+          secondary_archetype: string | null
+          shadow_signature: string | null
+          timing_signature: string | null
+          updated_at: string
+          user_id: string | null
+          volatility_signature: string | null
+        }
+        Insert: {
+          archetype_confidence?: number | null
+          archetype_family?: string | null
+          archetype_reason_primary?: string | null
+          archetype_reason_secondary?: string | null
+          archetype_score?: number | null
+          created_at?: string
+          entity_id: string
+          entity_type: string
+          game_id?: string | null
+          id?: string
+          is_live?: boolean
+          math_archetype_relation?: string | null
+          momentum_signature?: string | null
+          pressure_signature?: string | null
+          primary_archetype: string
+          recommended_interpretation?: string | null
+          secondary_archetype?: string | null
+          shadow_signature?: string | null
+          timing_signature?: string | null
+          updated_at?: string
+          user_id?: string | null
+          volatility_signature?: string | null
+        }
+        Update: {
+          archetype_confidence?: number | null
+          archetype_family?: string | null
+          archetype_reason_primary?: string | null
+          archetype_reason_secondary?: string | null
+          archetype_score?: number | null
+          created_at?: string
+          entity_id?: string
+          entity_type?: string
+          game_id?: string | null
+          id?: string
+          is_live?: boolean
+          math_archetype_relation?: string | null
+          momentum_signature?: string | null
+          pressure_signature?: string | null
+          primary_archetype?: string
+          recommended_interpretation?: string | null
+          secondary_archetype?: string | null
+          shadow_signature?: string | null
+          timing_signature?: string | null
+          updated_at?: string
+          user_id?: string | null
+          volatility_signature?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cosmic_archetype_state_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cosmic_archetype_state_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "v_current_game_players"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "cosmic_archetype_state_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "v_game_live_state"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "cosmic_archetype_state_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "v_oracle_player_validity"
+            referencedColumns: ["game_id"]
+          },
+        ]
+      }
       cosmic_game_id_map: {
         Row: {
           confidence: number
@@ -2545,6 +2691,83 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      game_archetype_profile: {
+        Row: {
+          archetype_confidence: number | null
+          archetype_family: string | null
+          archetype_score: number | null
+          baseline_game_archetype: string | null
+          ending_archetype: string | null
+          game_id: string
+          live_game_archetype: string | null
+          pressure_archetype: string | null
+          recommended_interpretation: string | null
+          risk_archetype: string | null
+          tempo_archetype: string | null
+          updated_at: string
+          volatility_archetype: string | null
+        }
+        Insert: {
+          archetype_confidence?: number | null
+          archetype_family?: string | null
+          archetype_score?: number | null
+          baseline_game_archetype?: string | null
+          ending_archetype?: string | null
+          game_id: string
+          live_game_archetype?: string | null
+          pressure_archetype?: string | null
+          recommended_interpretation?: string | null
+          risk_archetype?: string | null
+          tempo_archetype?: string | null
+          updated_at?: string
+          volatility_archetype?: string | null
+        }
+        Update: {
+          archetype_confidence?: number | null
+          archetype_family?: string | null
+          archetype_score?: number | null
+          baseline_game_archetype?: string | null
+          ending_archetype?: string | null
+          game_id?: string
+          live_game_archetype?: string | null
+          pressure_archetype?: string | null
+          recommended_interpretation?: string | null
+          risk_archetype?: string | null
+          tempo_archetype?: string | null
+          updated_at?: string
+          volatility_archetype?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "game_archetype_profile_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: true
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "game_archetype_profile_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: true
+            referencedRelation: "v_current_game_players"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "game_archetype_profile_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: true
+            referencedRelation: "v_game_live_state"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "game_archetype_profile_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: true
+            referencedRelation: "v_oracle_player_validity"
+            referencedColumns: ["game_id"]
+          },
+        ]
       }
       game_live_wp: {
         Row: {
@@ -6200,6 +6423,116 @@ export type Database = {
           player_name?: string | null
         }
         Relationships: []
+      }
+      player_archetype_profile: {
+        Row: {
+          archetype_family: string | null
+          archetype_stability_score: number | null
+          baseline_archetype: string | null
+          baseline_confidence: number | null
+          baseline_score: number | null
+          closing_archetype: string | null
+          live_archetype: string | null
+          live_confidence: number | null
+          live_score: number | null
+          player_id: string
+          pressure_archetype: string | null
+          recommended_interpretation: string | null
+          role_archetype: string | null
+          shadow_archetype: string | null
+          surge_archetype: string | null
+          updated_at: string
+          volatility_archetype: string | null
+        }
+        Insert: {
+          archetype_family?: string | null
+          archetype_stability_score?: number | null
+          baseline_archetype?: string | null
+          baseline_confidence?: number | null
+          baseline_score?: number | null
+          closing_archetype?: string | null
+          live_archetype?: string | null
+          live_confidence?: number | null
+          live_score?: number | null
+          player_id: string
+          pressure_archetype?: string | null
+          recommended_interpretation?: string | null
+          role_archetype?: string | null
+          shadow_archetype?: string | null
+          surge_archetype?: string | null
+          updated_at?: string
+          volatility_archetype?: string | null
+        }
+        Update: {
+          archetype_family?: string | null
+          archetype_stability_score?: number | null
+          baseline_archetype?: string | null
+          baseline_confidence?: number | null
+          baseline_score?: number | null
+          closing_archetype?: string | null
+          live_archetype?: string | null
+          live_confidence?: number | null
+          live_score?: number | null
+          player_id?: string
+          pressure_archetype?: string | null
+          recommended_interpretation?: string | null
+          role_archetype?: string | null
+          shadow_archetype?: string | null
+          surge_archetype?: string | null
+          updated_at?: string
+          volatility_archetype?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "player_archetype_profile_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: true
+            referencedRelation: "pbp_event_participants"
+            referencedColumns: ["participant_player_id"]
+          },
+          {
+            foreignKeyName: "player_archetype_profile_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: true
+            referencedRelation: "pbp_event_participants"
+            referencedColumns: ["primary_player_id"]
+          },
+          {
+            foreignKeyName: "player_archetype_profile_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: true
+            referencedRelation: "pbp_parsed_events"
+            referencedColumns: ["resolved_player_id"]
+          },
+          {
+            foreignKeyName: "player_archetype_profile_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: true
+            referencedRelation: "pbp_substitution_events"
+            referencedColumns: ["participant_player_id"]
+          },
+          {
+            foreignKeyName: "player_archetype_profile_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: true
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "player_archetype_profile_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: true
+            referencedRelation: "v_current_game_players"
+            referencedColumns: ["player_id"]
+          },
+          {
+            foreignKeyName: "player_archetype_profile_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: true
+            referencedRelation: "v_oracle_player_validity"
+            referencedColumns: ["player_id"]
+          },
+        ]
       }
       player_boxscores_raw: {
         Row: {
