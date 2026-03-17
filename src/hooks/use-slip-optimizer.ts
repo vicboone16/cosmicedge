@@ -100,7 +100,15 @@ export function useSlipOptimizer({ slip, picks, intentState }: UseSlipOptimizerO
           picks,
           intent_state: intentState,
           slip_score: slipScore,
+          user_profile: bettingProfile ? {
+            archetype: bettingProfile.betting_archetype,
+            risk_tolerance: bettingProfile.risk_tolerance,
+            best_markets: bettingProfile.best_performing_markets,
+            worst_markets: bettingProfile.worst_performing_markets,
+            strongest_stats: bettingProfile.strongest_stat_types,
+          } : null,
         },
+      });
       });
 
       if (res.error) throw new Error(res.error.message || "AI analysis failed");
