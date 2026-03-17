@@ -962,7 +962,7 @@ const GameDetail = () => {
                   <Users className="h-3.5 w-3.5" />
                   Rosters
                 </h3>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">{game.away_abbr}</p>
                     <div className="space-y-1.5">
