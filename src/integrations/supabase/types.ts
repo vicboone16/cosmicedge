@@ -559,6 +559,7 @@ export type Database = {
       }
       astra_opportunity_feed: {
         Row: {
+          color_accent: string | null
           confidence: number | null
           cosmic_boost: number | null
           created_at: string | null
@@ -567,14 +568,28 @@ export type Database = {
           expires_at: string | null
           game_id: string | null
           headline: string | null
+          hidden_value_score: number | null
           id: string
           is_active: boolean | null
-          mode_relevance: string[] | null
-          opportunity_type: string
+          is_dismissed: boolean | null
+          is_live: boolean | null
+          mode_key: string | null
+          mode_relevance: number | null
+          mode_relevance_tags: string[] | null
+          opportunity_label: string | null
+          opportunity_score: number | null
+          opportunity_type: string | null
           player_id: string | null
+          reasoning: string | null
+          recommendation: string | null
+          timing_quality_score: number | null
+          trap_risk_score: number | null
           trap_score: number | null
+          updated_at: string | null
+          user_id: string | null
         }
         Insert: {
+          color_accent?: string | null
           confidence?: number | null
           cosmic_boost?: number | null
           created_at?: string | null
@@ -583,14 +598,28 @@ export type Database = {
           expires_at?: string | null
           game_id?: string | null
           headline?: string | null
+          hidden_value_score?: number | null
           id?: string
           is_active?: boolean | null
-          mode_relevance?: string[] | null
-          opportunity_type: string
+          is_dismissed?: boolean | null
+          is_live?: boolean | null
+          mode_key?: string | null
+          mode_relevance?: number | null
+          mode_relevance_tags?: string[] | null
+          opportunity_label?: string | null
+          opportunity_score?: number | null
+          opportunity_type?: string | null
           player_id?: string | null
+          reasoning?: string | null
+          recommendation?: string | null
+          timing_quality_score?: number | null
+          trap_risk_score?: number | null
           trap_score?: number | null
+          updated_at?: string | null
+          user_id?: string | null
         }
         Update: {
+          color_accent?: string | null
           confidence?: number | null
           cosmic_boost?: number | null
           created_at?: string | null
@@ -599,92 +628,27 @@ export type Database = {
           expires_at?: string | null
           game_id?: string | null
           headline?: string | null
+          hidden_value_score?: number | null
           id?: string
           is_active?: boolean | null
-          mode_relevance?: string[] | null
-          opportunity_type?: string
+          is_dismissed?: boolean | null
+          is_live?: boolean | null
+          mode_key?: string | null
+          mode_relevance?: number | null
+          mode_relevance_tags?: string[] | null
+          opportunity_label?: string | null
+          opportunity_score?: number | null
+          opportunity_type?: string | null
           player_id?: string | null
+          reasoning?: string | null
+          recommendation?: string | null
+          timing_quality_score?: number | null
+          trap_risk_score?: number | null
           trap_score?: number | null
+          updated_at?: string | null
+          user_id?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "astra_opportunity_feed_game_id_fkey"
-            columns: ["game_id"]
-            isOneToOne: false
-            referencedRelation: "games"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "astra_opportunity_feed_game_id_fkey"
-            columns: ["game_id"]
-            isOneToOne: false
-            referencedRelation: "v_current_game_players"
-            referencedColumns: ["game_id"]
-          },
-          {
-            foreignKeyName: "astra_opportunity_feed_game_id_fkey"
-            columns: ["game_id"]
-            isOneToOne: false
-            referencedRelation: "v_game_live_state"
-            referencedColumns: ["game_id"]
-          },
-          {
-            foreignKeyName: "astra_opportunity_feed_game_id_fkey"
-            columns: ["game_id"]
-            isOneToOne: false
-            referencedRelation: "v_oracle_player_validity"
-            referencedColumns: ["game_id"]
-          },
-          {
-            foreignKeyName: "astra_opportunity_feed_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
-            referencedRelation: "pbp_event_participants"
-            referencedColumns: ["participant_player_id"]
-          },
-          {
-            foreignKeyName: "astra_opportunity_feed_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
-            referencedRelation: "pbp_event_participants"
-            referencedColumns: ["primary_player_id"]
-          },
-          {
-            foreignKeyName: "astra_opportunity_feed_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
-            referencedRelation: "pbp_parsed_events"
-            referencedColumns: ["resolved_player_id"]
-          },
-          {
-            foreignKeyName: "astra_opportunity_feed_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
-            referencedRelation: "pbp_substitution_events"
-            referencedColumns: ["participant_player_id"]
-          },
-          {
-            foreignKeyName: "astra_opportunity_feed_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
-            referencedRelation: "players"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "astra_opportunity_feed_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
-            referencedRelation: "v_current_game_players"
-            referencedColumns: ["player_id"]
-          },
-          {
-            foreignKeyName: "astra_opportunity_feed_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
-            referencedRelation: "v_oracle_player_validity"
-            referencedColumns: ["player_id"]
-          },
-        ]
+        Relationships: []
       }
       astro_calculations: {
         Row: {
@@ -3396,62 +3360,6 @@ export type Database = {
             referencedRelation: "v_latest_possession_signal"
             referencedColumns: ["normalized_event_id"]
           },
-          {
-            foreignKeyName: "live_game_visual_state_last_event_id_fkey"
-            columns: ["last_event_id"]
-            isOneToOne: false
-            referencedRelation: "v_pbp_fg_makes"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "live_game_visual_state_last_event_id_fkey"
-            columns: ["last_event_id"]
-            isOneToOne: false
-            referencedRelation: "v_pbp_fg_misses"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "live_game_visual_state_last_event_id_fkey"
-            columns: ["last_event_id"]
-            isOneToOne: false
-            referencedRelation: "v_pbp_fg_scoring_events"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "live_game_visual_state_last_event_id_fkey"
-            columns: ["last_event_id"]
-            isOneToOne: false
-            referencedRelation: "v_pbp_offensive_rebounds"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "live_game_visual_state_last_event_id_fkey"
-            columns: ["last_event_id"]
-            isOneToOne: false
-            referencedRelation: "v_pbp_possession_change_events"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "live_game_visual_state_last_event_id_fkey"
-            columns: ["last_event_id"]
-            isOneToOne: false
-            referencedRelation: "v_pbp_possession_end_events"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "live_game_visual_state_last_event_id_fkey"
-            columns: ["last_event_id"]
-            isOneToOne: false
-            referencedRelation: "v_pbp_scoring_events"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "live_game_visual_state_last_event_id_fkey"
-            columns: ["last_event_id"]
-            isOneToOne: false
-            referencedRelation: "v_pbp_team_foul_events"
-            referencedColumns: ["id"]
-          },
         ]
       }
       live_player_stats: {
@@ -5270,62 +5178,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_latest_possession_signal"
             referencedColumns: ["normalized_event_id"]
-          },
-          {
-            foreignKeyName: "normalized_pbp_event_tags_normalized_event_id_fkey"
-            columns: ["normalized_event_id"]
-            isOneToOne: false
-            referencedRelation: "v_pbp_fg_makes"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "normalized_pbp_event_tags_normalized_event_id_fkey"
-            columns: ["normalized_event_id"]
-            isOneToOne: false
-            referencedRelation: "v_pbp_fg_misses"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "normalized_pbp_event_tags_normalized_event_id_fkey"
-            columns: ["normalized_event_id"]
-            isOneToOne: false
-            referencedRelation: "v_pbp_fg_scoring_events"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "normalized_pbp_event_tags_normalized_event_id_fkey"
-            columns: ["normalized_event_id"]
-            isOneToOne: false
-            referencedRelation: "v_pbp_offensive_rebounds"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "normalized_pbp_event_tags_normalized_event_id_fkey"
-            columns: ["normalized_event_id"]
-            isOneToOne: false
-            referencedRelation: "v_pbp_possession_change_events"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "normalized_pbp_event_tags_normalized_event_id_fkey"
-            columns: ["normalized_event_id"]
-            isOneToOne: false
-            referencedRelation: "v_pbp_possession_end_events"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "normalized_pbp_event_tags_normalized_event_id_fkey"
-            columns: ["normalized_event_id"]
-            isOneToOne: false
-            referencedRelation: "v_pbp_scoring_events"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "normalized_pbp_event_tags_normalized_event_id_fkey"
-            columns: ["normalized_event_id"]
-            isOneToOne: false
-            referencedRelation: "v_pbp_team_foul_events"
-            referencedColumns: ["id"]
           },
         ]
       }
@@ -9383,62 +9235,6 @@ export type Database = {
             referencedRelation: "v_latest_possession_signal"
             referencedColumns: ["normalized_event_id"]
           },
-          {
-            foreignKeyName: "visual_event_queue_normalized_event_id_fkey"
-            columns: ["normalized_event_id"]
-            isOneToOne: false
-            referencedRelation: "v_pbp_fg_makes"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "visual_event_queue_normalized_event_id_fkey"
-            columns: ["normalized_event_id"]
-            isOneToOne: false
-            referencedRelation: "v_pbp_fg_misses"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "visual_event_queue_normalized_event_id_fkey"
-            columns: ["normalized_event_id"]
-            isOneToOne: false
-            referencedRelation: "v_pbp_fg_scoring_events"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "visual_event_queue_normalized_event_id_fkey"
-            columns: ["normalized_event_id"]
-            isOneToOne: false
-            referencedRelation: "v_pbp_offensive_rebounds"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "visual_event_queue_normalized_event_id_fkey"
-            columns: ["normalized_event_id"]
-            isOneToOne: false
-            referencedRelation: "v_pbp_possession_change_events"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "visual_event_queue_normalized_event_id_fkey"
-            columns: ["normalized_event_id"]
-            isOneToOne: false
-            referencedRelation: "v_pbp_possession_end_events"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "visual_event_queue_normalized_event_id_fkey"
-            columns: ["normalized_event_id"]
-            isOneToOne: false
-            referencedRelation: "v_pbp_scoring_events"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "visual_event_queue_normalized_event_id_fkey"
-            columns: ["normalized_event_id"]
-            isOneToOne: false
-            referencedRelation: "v_pbp_team_foul_events"
-            referencedColumns: ["id"]
-          },
         ]
       }
     }
@@ -10172,104 +9968,11 @@ export type Database = {
       }
       fantasy_scores: {
         Row: {
-          assists: number | null
-          blocks: number | null
           fantasy_score: number | null
-          first_half_points: number | null
-          game_id: string | null
-          game_points: number | null
-          player_id: string | null
+          game_id: number | null
           player_name: string | null
-          q1_points: number | null
-          q2_points: number | null
-          q3_points: number | null
-          q4_points: number | null
-          rebounds: number | null
-          second_half_points: number | null
-          sportsbook: string | null
-          steals: number | null
-          team_abbr: string | null
-          turnovers: number | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "player_game_stats_game_id_fkey"
-            columns: ["game_id"]
-            isOneToOne: false
-            referencedRelation: "games"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "player_game_stats_game_id_fkey"
-            columns: ["game_id"]
-            isOneToOne: false
-            referencedRelation: "v_current_game_players"
-            referencedColumns: ["game_id"]
-          },
-          {
-            foreignKeyName: "player_game_stats_game_id_fkey"
-            columns: ["game_id"]
-            isOneToOne: false
-            referencedRelation: "v_game_live_state"
-            referencedColumns: ["game_id"]
-          },
-          {
-            foreignKeyName: "player_game_stats_game_id_fkey"
-            columns: ["game_id"]
-            isOneToOne: false
-            referencedRelation: "v_oracle_player_validity"
-            referencedColumns: ["game_id"]
-          },
-          {
-            foreignKeyName: "player_game_stats_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
-            referencedRelation: "pbp_event_participants"
-            referencedColumns: ["participant_player_id"]
-          },
-          {
-            foreignKeyName: "player_game_stats_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
-            referencedRelation: "pbp_event_participants"
-            referencedColumns: ["primary_player_id"]
-          },
-          {
-            foreignKeyName: "player_game_stats_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
-            referencedRelation: "pbp_parsed_events"
-            referencedColumns: ["resolved_player_id"]
-          },
-          {
-            foreignKeyName: "player_game_stats_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
-            referencedRelation: "pbp_substitution_events"
-            referencedColumns: ["participant_player_id"]
-          },
-          {
-            foreignKeyName: "player_game_stats_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
-            referencedRelation: "players"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "player_game_stats_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
-            referencedRelation: "v_current_game_players"
-            referencedColumns: ["player_id"]
-          },
-          {
-            foreignKeyName: "player_game_stats_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
-            referencedRelation: "v_oracle_player_validity"
-            referencedColumns: ["player_id"]
-          },
-        ]
+        Relationships: []
       }
       live_player_fantasy_scores: {
         Row: {
@@ -11343,10 +11046,8 @@ export type Database = {
           assists: number | null
           blocks: number | null
           first_half_points: number | null
-          game_id: string | null
+          game_id: number | null
           game_points: number | null
-          minutes: number | null
-          player_id: string | null
           player_name: string | null
           q1_points: number | null
           q2_points: number | null
@@ -11355,89 +11056,9 @@ export type Database = {
           rebounds: number | null
           second_half_points: number | null
           steals: number | null
-          team_abbr: string | null
-          three_made: number | null
           turnovers: number | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "player_game_stats_game_id_fkey"
-            columns: ["game_id"]
-            isOneToOne: false
-            referencedRelation: "games"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "player_game_stats_game_id_fkey"
-            columns: ["game_id"]
-            isOneToOne: false
-            referencedRelation: "v_current_game_players"
-            referencedColumns: ["game_id"]
-          },
-          {
-            foreignKeyName: "player_game_stats_game_id_fkey"
-            columns: ["game_id"]
-            isOneToOne: false
-            referencedRelation: "v_game_live_state"
-            referencedColumns: ["game_id"]
-          },
-          {
-            foreignKeyName: "player_game_stats_game_id_fkey"
-            columns: ["game_id"]
-            isOneToOne: false
-            referencedRelation: "v_oracle_player_validity"
-            referencedColumns: ["game_id"]
-          },
-          {
-            foreignKeyName: "player_game_stats_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
-            referencedRelation: "pbp_event_participants"
-            referencedColumns: ["participant_player_id"]
-          },
-          {
-            foreignKeyName: "player_game_stats_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
-            referencedRelation: "pbp_event_participants"
-            referencedColumns: ["primary_player_id"]
-          },
-          {
-            foreignKeyName: "player_game_stats_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
-            referencedRelation: "pbp_parsed_events"
-            referencedColumns: ["resolved_player_id"]
-          },
-          {
-            foreignKeyName: "player_game_stats_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
-            referencedRelation: "pbp_substitution_events"
-            referencedColumns: ["participant_player_id"]
-          },
-          {
-            foreignKeyName: "player_game_stats_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
-            referencedRelation: "players"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "player_game_stats_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
-            referencedRelation: "v_current_game_players"
-            referencedColumns: ["player_id"]
-          },
-          {
-            foreignKeyName: "player_game_stats_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
-            referencedRelation: "v_oracle_player_validity"
-            referencedColumns: ["player_id"]
-          },
-        ]
+        Relationships: []
       }
       schema_drift_report: {
         Row: {
@@ -11864,62 +11485,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_latest_possession_signal"
             referencedColumns: ["normalized_event_id"]
-          },
-          {
-            foreignKeyName: "live_game_visual_state_last_event_id_fkey"
-            columns: ["last_event_id"]
-            isOneToOne: false
-            referencedRelation: "v_pbp_fg_makes"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "live_game_visual_state_last_event_id_fkey"
-            columns: ["last_event_id"]
-            isOneToOne: false
-            referencedRelation: "v_pbp_fg_misses"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "live_game_visual_state_last_event_id_fkey"
-            columns: ["last_event_id"]
-            isOneToOne: false
-            referencedRelation: "v_pbp_fg_scoring_events"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "live_game_visual_state_last_event_id_fkey"
-            columns: ["last_event_id"]
-            isOneToOne: false
-            referencedRelation: "v_pbp_offensive_rebounds"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "live_game_visual_state_last_event_id_fkey"
-            columns: ["last_event_id"]
-            isOneToOne: false
-            referencedRelation: "v_pbp_possession_change_events"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "live_game_visual_state_last_event_id_fkey"
-            columns: ["last_event_id"]
-            isOneToOne: false
-            referencedRelation: "v_pbp_possession_end_events"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "live_game_visual_state_last_event_id_fkey"
-            columns: ["last_event_id"]
-            isOneToOne: false
-            referencedRelation: "v_pbp_scoring_events"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "live_game_visual_state_last_event_id_fkey"
-            columns: ["last_event_id"]
-            isOneToOne: false
-            referencedRelation: "v_pbp_team_foul_events"
-            referencedColumns: ["id"]
           },
         ]
       }
@@ -12745,407 +12310,6 @@ export type Database = {
         }
         Relationships: []
       }
-      v_pbp_fg_makes: {
-        Row: {
-          clock_display: string | null
-          clock_seconds_remaining: number | null
-          created_at: string | null
-          event_index: number | null
-          event_subtype: string | null
-          event_type: string | null
-          game_id: string | null
-          id: string | null
-          period_number: number | null
-          points_scored: number | null
-          sequence_number: number | null
-          team_id: string | null
-        }
-        Insert: {
-          clock_display?: string | null
-          clock_seconds_remaining?: number | null
-          created_at?: string | null
-          event_index?: number | null
-          event_subtype?: string | null
-          event_type?: string | null
-          game_id?: string | null
-          id?: string | null
-          period_number?: number | null
-          points_scored?: number | null
-          sequence_number?: number | null
-          team_id?: string | null
-        }
-        Update: {
-          clock_display?: string | null
-          clock_seconds_remaining?: number | null
-          created_at?: string | null
-          event_index?: number | null
-          event_subtype?: string | null
-          event_type?: string | null
-          game_id?: string | null
-          id?: string | null
-          period_number?: number | null
-          points_scored?: number | null
-          sequence_number?: number | null
-          team_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "normalized_pbp_events_event_type_fk"
-            columns: ["event_type"]
-            isOneToOne: false
-            referencedRelation: "pbp_event_type_catalog"
-            referencedColumns: ["event_type"]
-          },
-        ]
-      }
-      v_pbp_fg_misses: {
-        Row: {
-          clock_display: string | null
-          clock_seconds_remaining: number | null
-          created_at: string | null
-          event_index: number | null
-          event_subtype: string | null
-          event_type: string | null
-          game_id: string | null
-          id: string | null
-          period_number: number | null
-          sequence_number: number | null
-          team_id: string | null
-        }
-        Insert: {
-          clock_display?: string | null
-          clock_seconds_remaining?: number | null
-          created_at?: string | null
-          event_index?: number | null
-          event_subtype?: string | null
-          event_type?: string | null
-          game_id?: string | null
-          id?: string | null
-          period_number?: number | null
-          sequence_number?: number | null
-          team_id?: string | null
-        }
-        Update: {
-          clock_display?: string | null
-          clock_seconds_remaining?: number | null
-          created_at?: string | null
-          event_index?: number | null
-          event_subtype?: string | null
-          event_type?: string | null
-          game_id?: string | null
-          id?: string | null
-          period_number?: number | null
-          sequence_number?: number | null
-          team_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "normalized_pbp_events_event_type_fk"
-            columns: ["event_type"]
-            isOneToOne: false
-            referencedRelation: "pbp_event_type_catalog"
-            referencedColumns: ["event_type"]
-          },
-        ]
-      }
-      v_pbp_fg_scoring_events: {
-        Row: {
-          clock_display: string | null
-          clock_seconds_remaining: number | null
-          created_at: string | null
-          event_index: number | null
-          event_subtype: string | null
-          event_type: string | null
-          game_id: string | null
-          id: string | null
-          period_number: number | null
-          points_scored: number | null
-          sequence_number: number | null
-          team_id: string | null
-        }
-        Insert: {
-          clock_display?: string | null
-          clock_seconds_remaining?: number | null
-          created_at?: string | null
-          event_index?: number | null
-          event_subtype?: string | null
-          event_type?: string | null
-          game_id?: string | null
-          id?: string | null
-          period_number?: number | null
-          points_scored?: number | null
-          sequence_number?: number | null
-          team_id?: string | null
-        }
-        Update: {
-          clock_display?: string | null
-          clock_seconds_remaining?: number | null
-          created_at?: string | null
-          event_index?: number | null
-          event_subtype?: string | null
-          event_type?: string | null
-          game_id?: string | null
-          id?: string | null
-          period_number?: number | null
-          points_scored?: number | null
-          sequence_number?: number | null
-          team_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "normalized_pbp_events_event_type_fk"
-            columns: ["event_type"]
-            isOneToOne: false
-            referencedRelation: "pbp_event_type_catalog"
-            referencedColumns: ["event_type"]
-          },
-        ]
-      }
-      v_pbp_offensive_rebounds: {
-        Row: {
-          clock_display: string | null
-          clock_seconds_remaining: number | null
-          created_at: string | null
-          event_index: number | null
-          game_id: string | null
-          id: string | null
-          period_number: number | null
-          sequence_number: number | null
-          team_id: string | null
-        }
-        Insert: {
-          clock_display?: string | null
-          clock_seconds_remaining?: number | null
-          created_at?: string | null
-          event_index?: number | null
-          game_id?: string | null
-          id?: string | null
-          period_number?: number | null
-          sequence_number?: number | null
-          team_id?: string | null
-        }
-        Update: {
-          clock_display?: string | null
-          clock_seconds_remaining?: number | null
-          created_at?: string | null
-          event_index?: number | null
-          game_id?: string | null
-          id?: string | null
-          period_number?: number | null
-          sequence_number?: number | null
-          team_id?: string | null
-        }
-        Relationships: []
-      }
-      v_pbp_possession_change_events: {
-        Row: {
-          clock_display: string | null
-          clock_seconds_remaining: number | null
-          created_at: string | null
-          event_index: number | null
-          event_subtype: string | null
-          event_type: string | null
-          game_id: string | null
-          id: string | null
-          opponent_team_id: string | null
-          period_number: number | null
-          possession_result: string | null
-          sequence_number: number | null
-          team_id: string | null
-        }
-        Insert: {
-          clock_display?: string | null
-          clock_seconds_remaining?: number | null
-          created_at?: string | null
-          event_index?: number | null
-          event_subtype?: string | null
-          event_type?: string | null
-          game_id?: string | null
-          id?: string | null
-          opponent_team_id?: string | null
-          period_number?: number | null
-          possession_result?: string | null
-          sequence_number?: number | null
-          team_id?: string | null
-        }
-        Update: {
-          clock_display?: string | null
-          clock_seconds_remaining?: number | null
-          created_at?: string | null
-          event_index?: number | null
-          event_subtype?: string | null
-          event_type?: string | null
-          game_id?: string | null
-          id?: string | null
-          opponent_team_id?: string | null
-          period_number?: number | null
-          possession_result?: string | null
-          sequence_number?: number | null
-          team_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "normalized_pbp_events_event_type_fk"
-            columns: ["event_type"]
-            isOneToOne: false
-            referencedRelation: "pbp_event_type_catalog"
-            referencedColumns: ["event_type"]
-          },
-        ]
-      }
-      v_pbp_possession_end_events: {
-        Row: {
-          clock_seconds_remaining: number | null
-          event_index: number | null
-          event_subtype: string | null
-          event_type: string | null
-          game_id: string | null
-          id: string | null
-          opponent_team_id: string | null
-          period_number: number | null
-          possession_end_flag: number | null
-          sequence_number: number | null
-          team_id: string | null
-        }
-        Insert: {
-          clock_seconds_remaining?: number | null
-          event_index?: number | null
-          event_subtype?: string | null
-          event_type?: string | null
-          game_id?: string | null
-          id?: string | null
-          opponent_team_id?: string | null
-          period_number?: number | null
-          possession_end_flag?: never
-          sequence_number?: number | null
-          team_id?: string | null
-        }
-        Update: {
-          clock_seconds_remaining?: number | null
-          event_index?: number | null
-          event_subtype?: string | null
-          event_type?: string | null
-          game_id?: string | null
-          id?: string | null
-          opponent_team_id?: string | null
-          period_number?: number | null
-          possession_end_flag?: never
-          sequence_number?: number | null
-          team_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "normalized_pbp_events_event_type_fk"
-            columns: ["event_type"]
-            isOneToOne: false
-            referencedRelation: "pbp_event_type_catalog"
-            referencedColumns: ["event_type"]
-          },
-        ]
-      }
-      v_pbp_scoring_events: {
-        Row: {
-          clock_display: string | null
-          clock_seconds_remaining: number | null
-          created_at: string | null
-          event_index: number | null
-          event_subtype: string | null
-          event_type: string | null
-          game_id: string | null
-          id: string | null
-          period_number: number | null
-          points_scored: number | null
-          sequence_number: number | null
-          team_id: string | null
-        }
-        Insert: {
-          clock_display?: string | null
-          clock_seconds_remaining?: number | null
-          created_at?: string | null
-          event_index?: number | null
-          event_subtype?: string | null
-          event_type?: string | null
-          game_id?: string | null
-          id?: string | null
-          period_number?: number | null
-          points_scored?: number | null
-          sequence_number?: number | null
-          team_id?: string | null
-        }
-        Update: {
-          clock_display?: string | null
-          clock_seconds_remaining?: number | null
-          created_at?: string | null
-          event_index?: number | null
-          event_subtype?: string | null
-          event_type?: string | null
-          game_id?: string | null
-          id?: string | null
-          period_number?: number | null
-          points_scored?: number | null
-          sequence_number?: number | null
-          team_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "normalized_pbp_events_event_type_fk"
-            columns: ["event_type"]
-            isOneToOne: false
-            referencedRelation: "pbp_event_type_catalog"
-            referencedColumns: ["event_type"]
-          },
-        ]
-      }
-      v_pbp_team_foul_events: {
-        Row: {
-          clock_display: string | null
-          clock_seconds_remaining: number | null
-          created_at: string | null
-          event_index: number | null
-          event_subtype: string | null
-          event_type: string | null
-          game_id: string | null
-          id: string | null
-          period_number: number | null
-          sequence_number: number | null
-          team_id: string | null
-        }
-        Insert: {
-          clock_display?: string | null
-          clock_seconds_remaining?: number | null
-          created_at?: string | null
-          event_index?: number | null
-          event_subtype?: string | null
-          event_type?: string | null
-          game_id?: string | null
-          id?: string | null
-          period_number?: number | null
-          sequence_number?: number | null
-          team_id?: string | null
-        }
-        Update: {
-          clock_display?: string | null
-          clock_seconds_remaining?: number | null
-          created_at?: string | null
-          event_index?: number | null
-          event_subtype?: string | null
-          event_type?: string | null
-          game_id?: string | null
-          id?: string | null
-          period_number?: number | null
-          sequence_number?: number | null
-          team_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "normalized_pbp_events_event_type_fk"
-            columns: ["event_type"]
-            isOneToOne: false
-            referencedRelation: "pbp_event_type_catalog"
-            referencedColumns: ["event_type"]
-          },
-        ]
-      }
       v_prop_overlay_enhanced: {
         Row: {
           astro: Json | null
@@ -13513,10 +12677,6 @@ export type Database = {
         Returns: undefined
       }
       refresh_live_game_derived_metrics: {
-        Args: { p_game_id: string }
-        Returns: undefined
-      }
-      refresh_live_game_phase2_metrics: {
         Args: { p_game_id: string }
         Returns: undefined
       }
