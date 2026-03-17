@@ -328,14 +328,14 @@ export default function MachinaFormulaReference() {
                 </button>
                 {isOpen && (
                   <div className="px-4 pb-3 space-y-2 border-t border-border pt-3">
-                    {eng.variables.map((v) => (
-                      <div key={v.var} className="px-3 py-2 rounded-lg bg-secondary/20 border border-border/30">
-                        <div className="flex items-center gap-2 mb-0.5">
-                          <span className="text-[10px] font-mono font-bold text-primary">{v.var}</span>
-                          <span className="text-[10px] font-semibold text-foreground">{v.fullName}</span>
+                     {eng.variables.map((v) => (
+                      <div key={v.var} className="px-3 py-2.5 rounded-xl bg-secondary/20 border border-border/30">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-xs font-mono font-bold text-primary">{v.var}</span>
+                          <span className="text-xs font-semibold text-foreground">{v.fullName}</span>
                         </div>
-                        <p className="text-[9px] text-muted-foreground"><span className="font-bold text-foreground/70">Where:</span> <code className="font-mono text-primary/80">{v.where}</code></p>
-                        <p className="text-[9px] text-muted-foreground"><span className="font-bold text-foreground/70">How to get:</span> {v.howToGet}</p>
+                        <p className="text-[11px] text-muted-foreground"><span className="font-bold text-foreground/80">Where:</span> <code className="font-mono text-primary/80">{v.where}</code></p>
+                        <p className="text-[11px] text-muted-foreground mt-0.5"><span className="font-bold text-foreground/80">How to get:</span> {v.howToGet}</p>
                       </div>
                     ))}
                   </div>
