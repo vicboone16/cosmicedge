@@ -8,6 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { getPropLabel, getEdgeTier, type TopProp } from "@/hooks/use-top-props";
 import { usePropDrawer } from "@/hooks/use-prop-drawer";
+import { GuidanceCard } from "@/components/ui/GuidanceCard";
+import { DataSourceBadge } from "@/components/ui/DataSourceBadge";
 
 import { LiveSignalFeed } from "@/components/live/LiveSignalFeed";
 
