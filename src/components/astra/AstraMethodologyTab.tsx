@@ -96,7 +96,7 @@ export default function AstraMethodologyTab() {
               {page.summary && (
                 <p className="text-[11px] text-muted-foreground leading-relaxed">{page.summary}</p>
               )}
-              {page.content_md && <MarkdownBody md={page.content_md} />}
+              {page.body_md && <MarkdownBody text={page.body_md} />}
             </div>
           ))}
         </div>
