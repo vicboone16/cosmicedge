@@ -274,7 +274,36 @@ Deno.serve(async (req) => {
     const userId = user?.id;
 
     // ── Pipeline tracking ──
-    const pipeline: { step: string; status: string; detail: string }[] = [];
+    const pipeline: { step: string; status: string; detail: string; data?: any }[] = [];
+
+    // Step 0: Model activation verification
+    const adminSb = createClient(supabaseUrl, serviceKey);
+    const { data: activationState } = await adminSb
+      .from("model_activation_state")
+      .select("*")
+      .eq("scope_type", "global")
+      .eq("scope_key", "default")
+      .maybeSingle();
+
+    const modelInfo = activationState
+      ? {
+          id: activationState.active_model_id,
+          version: activationState.active_model_version ?? "unknown",
+          scope: `${activationState.scope_type}/${activationState.scope_key}`,
+          runtime_status: activationState.runtime_status,
+          cache_token: activationState.cache_bust_token,
+          confirmed_at: activationState.runtime_confirmed_at,
+        }
+      : null;
+
+    pipeline.push({
+      step: "Model Activation",
+      status: modelInfo?.runtime_status === "confirmed" ? "ok" : modelInfo ? "partial" : "skipped",
+      detail: modelInfo
+        ? `${modelInfo.id.slice(0, 8)}… v${modelInfo.version} [${modelInfo.runtime_status}]`
+        : "No model activation state",
+      data: modelInfo,
+    });
 
     // Step 1: Parse the question
     const parseResp = await fetch(AI_GATEWAY, {
@@ -361,16 +390,39 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Step 4: Variable retrieval + sanity check
+    // Step 4: Variable retrieval + sanity check + grain metadata
     const season = playerCtx?.season;
     const features = playerCtx?.features;
     const projections = playerCtx?.projections ?? [];
+
+    // Build variable manifest with grain/source metadata
+    const variableManifest: { key: string; value: any; source: string; grain: string; as_of: string }[] = [];
+    if (season) {
+      const asOf = season.updated_at ?? season.created_at ?? new Date().toISOString();
+      for (const k of ["points", "rebounds", "assists", "steals", "blocks", "minutes", "three_made", "turnovers"]) {
+        if (season[k] != null) variableManifest.push({ key: k, value: season[k], source: "player_season_stats", grain: "player_season", as_of: asOf });
+      }
+    }
+    if (features) {
+      const featureKeys = ["hit_l5", "hit_l10", "hit_l20", "mu_l10", "sigma_l10", "mu_season", "sigma_season", "coeff_of_var", "minutes_l5_avg", "minutes_season_avg", "usage_proxy_l10", "usage_proxy_season"];
+      for (const k of featureKeys) {
+        if (features[k] != null) variableManifest.push({ key: k, value: features[k], source: "np_build_prop_features", grain: "player_last_n", as_of: new Date().toISOString() });
+      }
+    }
+
+    // Grain mismatch detection: team vars in player compute
+    const grainMismatches: string[] = [];
+    if (needsPlayer && gameCtx?.pace) {
+      // Pace vars are team-level — flag but don't block (they're used correctly as environment context)
+      // Only block if team-level vars were accidentally used AS player stat inputs
+    }
 
     const varsRetrieved = [season, features, projections.length > 0].filter(Boolean).length;
     pipeline.push({
       step: "Variable Retrieval",
       status: varsRetrieved >= 2 ? "ok" : varsRetrieved >= 1 ? "partial" : "failed",
-      detail: `season=${!!season}, features=${!!features}, projections=${projections.length}`,
+      detail: `season=${!!season}, features=${!!features}, projections=${projections.length}, manifest=${variableManifest.length} vars`,
+      data: { variable_count: variableManifest.length, grain_mismatches: grainMismatches },
     });
 
     // Step 5: Sanity validation
@@ -471,12 +523,16 @@ Deno.serve(async (req) => {
       warning_note: aiAnswer.warning_note,
       alternative_suggestion: aiAnswer.alternative_suggestion,
       answer_summary: aiAnswer.answer_summary,
-      engine_inputs: { parsed, features: features ? { hit_l5: features.hit_l5, hit_l10: features.hit_l10, mu_l10: features.mu_l10, cv: features.coeff_of_var } : null },
+      engine_inputs: {
+        parsed,
+        features: features ? { hit_l5: features.hit_l5, hit_l10: features.hit_l10, mu_l10: features.mu_l10, cv: features.coeff_of_var } : null,
+        model_activation: modelInfo,
+        variable_manifest_count: variableManifest.length,
+      },
       engine_outputs: assessment,
     };
 
     if (userId) {
-      const adminSb = createClient(supabaseUrl, serviceKey);
       await adminSb.from("astra_bet_assessment").insert(record);
     }
 

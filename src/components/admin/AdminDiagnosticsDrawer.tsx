@@ -1,16 +1,19 @@
 /**
  * Super-admin diagnostics drawer.
- * Shows runtime state, model activation, variable grain, readiness flags.
+ * Shows runtime state, model activation, variable grain, readiness flags,
+ * roster hydration, and prop generation status.
  */
 
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { useAllActivations, type ModelActivationState } from "@/hooks/use-model-activation";
+import { useLiveReadiness, type LiveReadinessFlags } from "@/hooks/use-live-readiness";
+import { useRosterHydration, type RosterHydrationStatus } from "@/hooks/use-roster-hydration";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import {
   Bug, ChevronDown, ChevronUp, CheckCircle2, XCircle, AlertTriangle,
-  Cpu, Database, Radio, Shield, Loader2
+  Cpu, Database, Radio, Shield, Loader2, Users, Activity, Layers
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
@@ -45,6 +48,20 @@ function KV({ k, v, status }: { k: string; v: string | null | undefined; status?
   );
 }
 
+const READINESS_LABELS: [keyof LiveReadinessFlags, string][] = [
+  ["game_status_synced", "Game Status Synced"],
+  ["provider_game_mapped", "Provider Mapped"],
+  ["roster_ready", "Roster Ready"],
+  ["lineups_ready", "Lineups Ready"],
+  ["live_boxscore_ready", "Live Boxscore"],
+  ["player_live_stats_ready", "Player Live Stats"],
+  ["odds_ready", "Odds Ready"],
+  ["market_definitions_ready", "Market Defs"],
+  ["active_model_ready", "Active Model"],
+  ["scorecard_ready", "Scorecard Ready"],
+  ["live_prop_rows_generated", "Props Generated"],
+];
+
 interface Props {
   context?: "astra" | "game" | "machina" | "live_props";
   gameId?: string;
@@ -53,22 +70,8 @@ interface Props {
 
 export default function AdminDiagnosticsDrawer({ context = "machina", gameId, playerId }: Props) {
   const { data: activations, isLoading: actLoading } = useAllActivations();
-
-  // Fetch live prop readiness for game context
-  const { data: readiness } = useQuery({
-    queryKey: ["live-prop-readiness", gameId],
-    queryFn: async () => {
-      if (!gameId) return null;
-      const { data } = await supabase
-        .from("live_prop_readiness" as any)
-        .select("*")
-        .eq("game_id", gameId)
-        .maybeSingle();
-      return data as any;
-    },
-    enabled: !!gameId,
-    staleTime: 15_000,
-  });
+  const { data: readiness } = useLiveReadiness(gameId);
+  const { data: rosterStatus } = useRosterHydration(gameId);
 
   // Fetch recent audit log
   const { data: auditLog } = useQuery({
@@ -82,6 +85,27 @@ export default function AdminDiagnosticsDrawer({ context = "machina", gameId, pl
       return (data ?? []) as any[];
     },
     staleTime: 30_000,
+  });
+
+  // Fetch prop generation stats for game
+  const { data: propStats } = useQuery({
+    queryKey: ["diag-prop-stats", gameId],
+    queryFn: async () => {
+      if (!gameId) return null;
+      const { data, count } = await supabase
+        .from("nba_player_props_live" as any)
+        .select("id", { count: "exact" })
+        .eq("game_id", gameId)
+        .limit(0);
+      const { data: nebulaData, count: nebulaCount } = await supabase
+        .from("nebula_prop_predictions" as any)
+        .select("id", { count: "exact" })
+        .eq("game_id", gameId)
+        .limit(0);
+      return { rawProps: count ?? 0, nebulaProps: nebulaCount ?? 0 };
+    },
+    enabled: !!gameId,
+    staleTime: 15_000,
   });
 
   const globalActivation = activations?.find(
@@ -120,7 +144,12 @@ export default function AdminDiagnosticsDrawer({ context = "machina", gameId, pl
                 <KV k="Runtime Status" v={globalActivation.runtime_status} status={globalActivation.runtime_status === "confirmed" ? "ok" : "fail"} />
                 <KV k="Activated At" v={globalActivation.activated_at ? new Date(globalActivation.activated_at).toLocaleString() : null} />
                 <KV k="Runtime Confirmed" v={globalActivation.runtime_confirmed_at ? new Date(globalActivation.runtime_confirmed_at).toLocaleString() : "NOT CONFIRMED"} status={globalActivation.runtime_confirmed_at ? "ok" : "fail"} />
-                <KV k="Cache Token" v={globalActivation.cache_bust_token?.slice(0, 12) + "…"} />
+                <KV k="Cache Token" v={globalActivation.cache_bust_token ? globalActivation.cache_bust_token.slice(0, 12) + "…" : null} />
+                {globalActivation.runtime_status !== "confirmed" && (
+                  <div className="mt-1 p-1.5 rounded bg-red-500/10 border border-red-500/20">
+                    <p className="text-[9px] font-bold text-red-400">⚠ Model NOT runtime-confirmed. UI should NOT show "Active".</p>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="flex items-center gap-2 text-[10px] text-amber-400">
@@ -135,27 +164,18 @@ export default function AdminDiagnosticsDrawer({ context = "machina", gameId, pl
             <DiagSection title="Live Prop Readiness" icon={Radio}>
               {readiness ? (
                 <div className="space-y-1">
-                  {[
-                    ["Game Status Synced", readiness.game_status_synced],
-                    ["Provider Mapped", readiness.provider_game_mapped],
-                    ["Roster Ready", readiness.roster_ready],
-                    ["Lineups Ready", readiness.lineups_ready],
-                    ["Live Boxscore", readiness.live_boxscore_ready],
-                    ["Player Live Stats", readiness.player_live_stats_ready],
-                    ["Odds Ready", readiness.odds_ready],
-                    ["Market Defs", readiness.market_definitions_ready],
-                    ["Active Model", readiness.active_model_ready],
-                    ["Scorecard Ready", readiness.scorecard_ready],
-                    ["Props Generated", readiness.live_prop_rows_generated],
-                  ].map(([label, ok]) => (
-                    <div key={label as string} className="flex items-center gap-2 text-[10px]">
-                      {ok ? <CheckCircle2 className="h-3 w-3 text-green-400" /> : <XCircle className="h-3 w-3 text-red-400" />}
-                      <span className={cn("font-medium", ok ? "text-foreground/80" : "text-red-400")}>{label as string}</span>
-                    </div>
-                  ))}
+                  {READINESS_LABELS.map(([key, label]) => {
+                    const ok = !!(readiness as any)[key];
+                    return (
+                      <div key={key} className="flex items-center gap-2 text-[10px]">
+                        {ok ? <CheckCircle2 className="h-3 w-3 text-green-400" /> : <XCircle className="h-3 w-3 text-red-400" />}
+                        <span className={cn("font-medium", ok ? "text-foreground/80" : "text-red-400")}>{label}</span>
+                      </div>
+                    );
+                  })}
                   {readiness.failure_stage && (
                     <div className="mt-2 p-2 rounded bg-red-500/10 border border-red-500/20">
-                      <p className="text-[9px] font-bold text-red-400">Failed Stage: {readiness.failure_stage}</p>
+                      <p className="text-[9px] font-bold text-red-400">First Failed Stage: {readiness.failure_stage}</p>
                       {readiness.failure_detail && (
                         <p className="text-[9px] text-red-300 mt-0.5">{readiness.failure_detail}</p>
                       )}
@@ -165,6 +185,51 @@ export default function AdminDiagnosticsDrawer({ context = "machina", gameId, pl
               ) : (
                 <p className="text-[10px] text-muted-foreground">No readiness data for this game</p>
               )}
+            </DiagSection>
+          )}
+
+          {/* Roster Hydration */}
+          {gameId && (
+            <DiagSection title="Roster Hydration" icon={Users}>
+              {rosterStatus ? (
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className={cn("text-[8px] px-1 py-0",
+                      rosterStatus.confidence === "high" ? "text-green-400 border-green-400/20" :
+                      rosterStatus.confidence === "medium" ? "text-amber-400 border-amber-400/20" :
+                      "text-red-400 border-red-400/20"
+                    )}>
+                      {rosterStatus.confidence} confidence
+                    </Badge>
+                  </div>
+                  <KV k={`${rosterStatus.homeTeam} players`} v={String(rosterStatus.homePlayersCount)} status={rosterStatus.homePlayersCount >= 5 ? "ok" : "fail"} />
+                  <KV k={`${rosterStatus.awayTeam} players`} v={String(rosterStatus.awayPlayersCount)} status={rosterStatus.awayPlayersCount >= 5 ? "ok" : "fail"} />
+                  {rosterStatus.stalePlayerCount > 0 && (
+                    <KV k="Stale/wrong-team" v={String(rosterStatus.stalePlayerCount)} status="fail" />
+                  )}
+                  <KV k="Detail" v={rosterStatus.detail} />
+                  {rosterStatus.confidence !== "high" && (
+                    <div className="mt-1 p-1.5 rounded bg-amber-500/10 border border-amber-500/20">
+                      <p className="text-[9px] font-bold text-amber-400">⚠ Roster confidence is {rosterStatus.confidence}. Lineup/roster displays may be inaccurate.</p>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <p className="text-[10px] text-muted-foreground">No roster data</p>
+              )}
+            </DiagSection>
+          )}
+
+          {/* Prop Generation Stats */}
+          {gameId && propStats && (
+            <DiagSection title="Prop Generation" icon={Activity}>
+              <div className="space-y-1">
+                <KV k="Raw live props" v={String(propStats.rawProps)} status={propStats.rawProps > 0 ? "ok" : "fail"} />
+                <KV k="Nebula predictions" v={String(propStats.nebulaProps)} status={propStats.nebulaProps > 0 ? "ok" : "warn"} />
+                {propStats.rawProps === 0 && (
+                  <p className="text-[9px] text-red-400 mt-1">No live props found — check readiness pipeline above for failed stage</p>
+                )}
+              </div>
             </DiagSection>
           )}
 
