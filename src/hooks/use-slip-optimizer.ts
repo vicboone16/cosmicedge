@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { scoreSlip, type LegInput, type SlipScore } from "@/lib/slip-optimizer-engine";
 import { toast } from "@/hooks/use-toast";
+import { useBettingProfile } from "@/hooks/use-betting-profile";
 
 interface UseSlipOptimizerOptions {
   slip: any;
@@ -14,6 +15,7 @@ export function useSlipOptimizer({ slip, picks, intentState }: UseSlipOptimizerO
   const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [lastAction, setLastAction] = useState<string | null>(null);
+  const { profile: bettingProfile } = useBettingProfile();
 
   // Fetch live_prop_state for all picks to enrich scoring
   const gameIds = [...new Set((picks || []).map((p: any) => p.game_id).filter(Boolean) as string[])];
@@ -98,6 +100,13 @@ export function useSlipOptimizer({ slip, picks, intentState }: UseSlipOptimizerO
           picks,
           intent_state: intentState,
           slip_score: slipScore,
+          user_profile: bettingProfile ? {
+            archetype: bettingProfile.betting_archetype,
+            risk_tolerance: bettingProfile.risk_tolerance,
+            best_markets: bettingProfile.best_performing_markets,
+            worst_markets: bettingProfile.worst_performing_markets,
+            strongest_stats: bettingProfile.strongest_stat_types,
+          } : null,
         },
       });
 
@@ -117,7 +126,7 @@ export function useSlipOptimizer({ slip, picks, intentState }: UseSlipOptimizerO
     } finally {
       setAiLoading(false);
     }
-  }, [slip, picks, intentState, slipScore]);
+  }, [slip, picks, intentState, slipScore, bettingProfile]);
 
   return { slipScore, aiAnalysis, aiLoading, lastAction, runAiAction };
 }
