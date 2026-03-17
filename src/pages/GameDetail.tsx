@@ -32,6 +32,7 @@ import { PeriodScoresTicker } from "@/components/game/PeriodScoresTicker";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { AlertSetupDialog } from "@/components/live/AlertSetupDialog";
 import ArchetypeCard from "@/components/cosmic/ArchetypeCard";
+import { LiveStoryLayer } from "@/components/game/LiveStoryLayer";
 
 function formatOdds(odds: number | null): string {
   if (odds == null || odds === 0) return "—";
@@ -499,7 +500,9 @@ const GameDetail = () => {
   const homeInjuries = (injuries || []).filter(i => i.team_abbr === game.home_abbr);
 
   return (
-    <div className="min-h-screen overflow-x-hidden">
+    <div className="min-h-screen overflow-x-hidden relative">
+      {/* Live Story Layer — immersive atmospheric background for live games */}
+      <LiveStoryLayer gameId={game.id} isLive={game.status === "live" || game.status === "in_progress"} />
       <header className="px-4 pt-12 pb-3 bg-background/80 backdrop-blur-xl border-b border-border/50">
         <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-muted-foreground hover:text-foreground mb-3 transition-colors">
           <ArrowLeft className="h-4 w-4" />
