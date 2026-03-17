@@ -9870,6 +9870,108 @@ export type Database = {
           },
         ]
       }
+      user_betting_profiles: {
+        Row: {
+          astro_weight_preference: number | null
+          avg_live_bet_frequency: number | null
+          avg_pregame_bet_frequency: number | null
+          best_performing_markets: string[] | null
+          bets_analyzed: number | null
+          betting_archetype: string | null
+          correlation_tolerance: number | null
+          created_at: string
+          favorite_astra_tone: string | null
+          games_analyzed: number | null
+          hedging_tendency: number | null
+          high_volatility_tendency: number | null
+          id: string
+          live_vs_pregame_ratio: number | null
+          over_under_bias: number | null
+          overexposure_habits: string[] | null
+          preferred_bet_types: string[] | null
+          preferred_market_types: string[] | null
+          preferred_slip_size: number | null
+          profile_generated_at: string | null
+          recurring_mistakes: string[] | null
+          risk_tolerance: string | null
+          same_game_stack_tendency: number | null
+          strongest_edge_zones: string[] | null
+          strongest_slip_structures: string[] | null
+          strongest_stat_types: string[] | null
+          tilt_risk_score: number | null
+          updated_at: string
+          user_id: string
+          weakest_leak_zones: string[] | null
+          worst_performing_markets: string[] | null
+        }
+        Insert: {
+          astro_weight_preference?: number | null
+          avg_live_bet_frequency?: number | null
+          avg_pregame_bet_frequency?: number | null
+          best_performing_markets?: string[] | null
+          bets_analyzed?: number | null
+          betting_archetype?: string | null
+          correlation_tolerance?: number | null
+          created_at?: string
+          favorite_astra_tone?: string | null
+          games_analyzed?: number | null
+          hedging_tendency?: number | null
+          high_volatility_tendency?: number | null
+          id?: string
+          live_vs_pregame_ratio?: number | null
+          over_under_bias?: number | null
+          overexposure_habits?: string[] | null
+          preferred_bet_types?: string[] | null
+          preferred_market_types?: string[] | null
+          preferred_slip_size?: number | null
+          profile_generated_at?: string | null
+          recurring_mistakes?: string[] | null
+          risk_tolerance?: string | null
+          same_game_stack_tendency?: number | null
+          strongest_edge_zones?: string[] | null
+          strongest_slip_structures?: string[] | null
+          strongest_stat_types?: string[] | null
+          tilt_risk_score?: number | null
+          updated_at?: string
+          user_id: string
+          weakest_leak_zones?: string[] | null
+          worst_performing_markets?: string[] | null
+        }
+        Update: {
+          astro_weight_preference?: number | null
+          avg_live_bet_frequency?: number | null
+          avg_pregame_bet_frequency?: number | null
+          best_performing_markets?: string[] | null
+          bets_analyzed?: number | null
+          betting_archetype?: string | null
+          correlation_tolerance?: number | null
+          created_at?: string
+          favorite_astra_tone?: string | null
+          games_analyzed?: number | null
+          hedging_tendency?: number | null
+          high_volatility_tendency?: number | null
+          id?: string
+          live_vs_pregame_ratio?: number | null
+          over_under_bias?: number | null
+          overexposure_habits?: string[] | null
+          preferred_bet_types?: string[] | null
+          preferred_market_types?: string[] | null
+          preferred_slip_size?: number | null
+          profile_generated_at?: string | null
+          recurring_mistakes?: string[] | null
+          risk_tolerance?: string | null
+          same_game_stack_tendency?: number | null
+          strongest_edge_zones?: string[] | null
+          strongest_slip_structures?: string[] | null
+          strongest_stat_types?: string[] | null
+          tilt_risk_score?: number | null
+          updated_at?: string
+          user_id?: string
+          weakest_leak_zones?: string[] | null
+          worst_performing_markets?: string[] | null
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           id: string

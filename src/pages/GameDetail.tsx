@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Star, MapPin, Orbit, Moon, Zap, Users, ChevronDown, ChevronUp, TrendingUp, TrendingDown, Lightbulb, Swords, Flame, AlertTriangle, Shield, ListOrdered, TableProperties } from "lucide-react";
+import { GameMomentumBanner } from "@/components/game/GameMomentumBanner";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { useQuery } from "@tanstack/react-query";
@@ -621,6 +622,16 @@ const GameDetail = () => {
       </header>
 
       <div className="px-4 py-4 space-y-4">
+
+        {/* Momentum Banner — shown for live/in-progress games across all tabs */}
+        {(game.status === "live" || game.status === "in_progress") && (
+          <GameMomentumBanner
+            gameId={game.id}
+            homeAbbr={game.home_abbr}
+            awayAbbr={game.away_abbr}
+            isLive
+          />
+        )}
 
         {activeTab === "odds" && (
           <>

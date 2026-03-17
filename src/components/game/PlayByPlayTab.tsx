@@ -151,10 +151,12 @@ export function PlayByPlayTab({ gameId, homeAbbr, awayAbbr, league, gameStatus }
   const { isAdmin } = useIsAdmin();
   const isNBA = league === "NBA";
 
-  // Feature flag + gating: show Watch toggle only for admin + live NBA games
-  const ENABLE_PBP_WATCH_MODE = true; // Feature flag
+  // Feature flag + gating: show Watch toggle for NBA games with PBP data
+  // Admin can always see it; all users can see it for live or final games
+  const ENABLE_PBP_WATCH_MODE = true;
   const isLiveGame = gameStatus === "live" || gameStatus === "in_progress";
-  const showWatchToggle = isAdmin && isLiveGame && isNBA && ENABLE_PBP_WATCH_MODE;
+  const isFinalGame = gameStatus === "final";
+  const showWatchToggle = isNBA && ENABLE_PBP_WATCH_MODE && (isAdmin || isLiveGame || isFinalGame);
 
   // ── Live score from game_state_snapshots (authoritative) ──
   const { data: liveSnapshot } = useQuery({
@@ -486,6 +488,7 @@ export function PlayByPlayTab({ gameId, homeAbbr, awayAbbr, league, gameStatus }
       {/* Watch mode: full visual experience */}
       {mode === "watch" && showWatchToggle ? (
         <PbpWatchView gameId={gameId} homeAbbr={homeAbbr} awayAbbr={awayAbbr} league={league} />
+
       ) : (
         <>
           {/* Live score banner from game_state_snapshots */}
