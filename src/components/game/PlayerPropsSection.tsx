@@ -151,7 +151,8 @@ export function PlayerPropsSection({ gameId }: PlayerPropsProps) {
     if (!props || props.length === 0) return [];
     const byPlayer = new Map<string, Map<string, PropRow>>();
     for (const p of props) {
-      const name = (!p.player_name || /^\d+$/.test(p.player_name)) ? "Unknown Player" : p.player_name;
+      const name = (!p.player_name || /^\d+$/.test(p.player_name)) ? null : p.player_name;
+      if (!name) continue; // Skip unresolved numeric IDs instead of showing "Unknown Player"
       if (!byPlayer.has(name)) byPlayer.set(name, new Map());
       const markets = byPlayer.get(name)!;
       if (!markets.has(p.market_key)) markets.set(p.market_key, p);

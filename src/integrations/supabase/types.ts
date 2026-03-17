@@ -6015,6 +6015,90 @@ export type Database = {
           },
         ]
       }
+      notification_log: {
+        Row: {
+          body: string | null
+          category: string
+          delivered: boolean | null
+          id: string
+          payload: Json | null
+          sent_at: string
+          title: string
+          user_id: string
+        }
+        Insert: {
+          body?: string | null
+          category: string
+          delivered?: boolean | null
+          id?: string
+          payload?: Json | null
+          sent_at?: string
+          title: string
+          user_id: string
+        }
+        Update: {
+          body?: string | null
+          category?: string
+          delivered?: boolean | null
+          id?: string
+          payload?: Json | null
+          sent_at?: string
+          title?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      notification_preferences: {
+        Row: {
+          created_at: string
+          game_start: boolean
+          id: string
+          lead_changes: boolean
+          live_opportunities: boolean
+          model_edge_alerts: boolean
+          quiet_mode: boolean
+          score_changes: boolean
+          slip_updates: boolean
+          throttle_minutes: number
+          tracked_prop_danger: boolean
+          tracked_prop_hit: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          game_start?: boolean
+          id?: string
+          lead_changes?: boolean
+          live_opportunities?: boolean
+          model_edge_alerts?: boolean
+          quiet_mode?: boolean
+          score_changes?: boolean
+          slip_updates?: boolean
+          throttle_minutes?: number
+          tracked_prop_danger?: boolean
+          tracked_prop_hit?: boolean
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          game_start?: boolean
+          id?: string
+          lead_changes?: boolean
+          live_opportunities?: boolean
+          model_edge_alerts?: boolean
+          quiet_mode?: boolean
+          score_changes?: boolean
+          slip_updates?: boolean
+          throttle_minutes?: number
+          tracked_prop_danger?: boolean
+          tracked_prop_hit?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       np_player_prop_odds_history: {
         Row: {
           book: string
@@ -7773,6 +7857,39 @@ export type Database = {
           provider_game_id?: string
           start_time_utc?: string | null
           updated_at?: string
+        }
+        Relationships: []
+      }
+      push_device_tokens: {
+        Row: {
+          created_at: string
+          device_name: string | null
+          id: string
+          is_active: boolean
+          last_used_at: string | null
+          platform: string
+          token: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          device_name?: string | null
+          id?: string
+          is_active?: boolean
+          last_used_at?: string | null
+          platform?: string
+          token: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          device_name?: string | null
+          id?: string
+          is_active?: boolean
+          last_used_at?: string | null
+          platform?: string
+          token?: string
+          user_id?: string
         }
         Relationships: []
       }
