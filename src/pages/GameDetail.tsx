@@ -30,6 +30,7 @@ import { BestPropsSection } from "@/components/game/BestPropsSection";
 import { PeriodScoresTicker } from "@/components/game/PeriodScoresTicker";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { AlertSetupDialog } from "@/components/live/AlertSetupDialog";
+import ArchetypeCard from "@/components/cosmic/ArchetypeCard";
 
 function formatOdds(odds: number | null): string {
   if (odds == null || odds === 0) return "—";
@@ -784,6 +785,9 @@ const GameDetail = () => {
                 </div>
               </div>
             </section>
+
+            {/* Cosmic Archetype */}
+            <ArchetypeCard entityId={game.id} entityType="game" />
 
             {/* Astra AI Game Analysis */}
             <AstraInsightsSection
