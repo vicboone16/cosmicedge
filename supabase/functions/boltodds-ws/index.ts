@@ -72,7 +72,16 @@ Deno.serve(async (req) => {
     ws.onmessage = async (event) => {
       messageCount++;
       try {
-        const data = JSON.parse(event.data);
+        // BoltOdds may send Blob or string — handle both
+        let raw: string;
+        if (typeof event.data === "string") {
+          raw = event.data;
+        } else if (event.data instanceof Blob) {
+          raw = await event.data.text();
+        } else {
+          raw = String(event.data);
+        }
+        const data = JSON.parse(raw);
         const action = data.action ?? "unknown";
 
         // Log messages (first 50, then sample)
