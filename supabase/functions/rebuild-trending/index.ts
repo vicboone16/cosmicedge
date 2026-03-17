@@ -1,4 +1,5 @@
 import { corsHeaders } from "../_shared/cors.ts";
+import { verifyCronAuth } from "../_shared/cron-auth.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 Deno.serve(async (req) => {
