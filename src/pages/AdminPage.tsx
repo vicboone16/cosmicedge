@@ -35,17 +35,19 @@ export default function AdminPage() {
 
       <div className="px-4 py-4">
         <Tabs defaultValue="imports" className="w-full">
-          <TabsList className="w-full grid grid-cols-8 h-9">
-            <TabsTrigger value="imports" className="text-[10px]">Imports</TabsTrigger>
-            <TabsTrigger value="games" className="text-[10px]">Games</TabsTrigger>
-            <TabsTrigger value="players" className="text-[10px]">Players</TabsTrigger>
-            <TabsTrigger value="teams" className="text-[10px]">Teams</TabsTrigger>
-            <TabsTrigger value="pbp" className="text-[10px]">PBP</TabsTrigger>
-            <TabsTrigger value="nba-pbp" className="text-[10px]">NBA PBP</TabsTrigger>
-            <TabsTrigger value="backtest" className="text-[10px]">Backtest</TabsTrigger>
-            <TabsTrigger value="backend" className="text-[10px]">Backend</TabsTrigger>
-            <TabsTrigger value="tt-edge" className="text-[10px]" onClick={() => navigate("/admin/tt-edge")}>TT Edge</TabsTrigger>
-          </TabsList>
+          <div className="overflow-x-auto no-scrollbar -mx-4 px-4">
+            <TabsList className="inline-flex w-auto min-w-full md:w-full md:grid md:grid-cols-8 h-9 gap-0.5">
+              <TabsTrigger value="imports" className="text-[10px] whitespace-nowrap px-2">Imports</TabsTrigger>
+              <TabsTrigger value="games" className="text-[10px] whitespace-nowrap px-2">Games</TabsTrigger>
+              <TabsTrigger value="players" className="text-[10px] whitespace-nowrap px-2">Players</TabsTrigger>
+              <TabsTrigger value="teams" className="text-[10px] whitespace-nowrap px-2">Teams</TabsTrigger>
+              <TabsTrigger value="pbp" className="text-[10px] whitespace-nowrap px-2">PBP</TabsTrigger>
+              <TabsTrigger value="nba-pbp" className="text-[10px] whitespace-nowrap px-2">NBA PBP</TabsTrigger>
+              <TabsTrigger value="backtest" className="text-[10px] whitespace-nowrap px-2">Backtest</TabsTrigger>
+              <TabsTrigger value="backend" className="text-[10px] whitespace-nowrap px-2">Backend</TabsTrigger>
+              <TabsTrigger value="tt-edge" className="text-[10px] whitespace-nowrap px-2" onClick={() => navigate("/admin/tt-edge")}>TT Edge</TabsTrigger>
+            </TabsList>
+          </div>
 
           <TabsContent value="imports" className="mt-4">
             <AdminImportContent />

@@ -17,18 +17,18 @@ export function BottomNav() {
   const navigate = useNavigate();
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-background/85 backdrop-blur-xl safe-area-bottom shadow-[0_-2px_12px_rgba(0,0,0,0.08)]">
-      <div className="flex items-center justify-around h-[4.25rem] max-w-lg mx-auto px-2">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-background/85 backdrop-blur-xl safe-area-bottom safe-area-x shadow-[0_-2px_12px_rgba(0,0,0,0.08)]">
+      <div className="flex items-center justify-around h-[4.25rem] max-w-lg mx-auto px-1 sm:px-2">
         {navItems.map(({ to, icon: Icon, label, requiresAuth }) => {
           if (requiresAuth && !user) {
             return (
               <button
                 key={to}
                 onClick={() => navigate("/auth")}
-                className="flex flex-col items-center gap-1 px-2 py-2 rounded-lg text-muted-foreground/50"
+                className="flex flex-col items-center gap-0.5 px-1 sm:px-2 py-2 rounded-lg text-muted-foreground/50 min-w-0"
               >
-                <Icon className="h-5 w-5" />
-                <span className="text-[10px] font-medium">{label}</span>
+                <Icon className="h-5 w-5 shrink-0" />
+                <span className="text-[9px] sm:text-[10px] font-medium truncate">{label}</span>
               </button>
             );
           }
@@ -39,7 +39,7 @@ export function BottomNav() {
               to={to}
               className={({ isActive }) =>
                 cn(
-                  "flex flex-col items-center gap-1 px-2 py-2 rounded-lg transition-all duration-200",
+                  "flex flex-col items-center gap-0.5 px-1 sm:px-2 py-2 rounded-lg transition-all duration-200 min-w-0",
                   isActive
                     ? "text-primary"
                     : "text-muted-foreground hover:text-foreground"
@@ -54,7 +54,7 @@ export function BottomNav() {
                       <div className="absolute -inset-1 rounded-full bg-primary/20 blur-sm -z-10" />
                     )}
                   </div>
-                  <span className="text-[10px] font-medium">{label}</span>
+                  <span className="text-[9px] sm:text-[10px] font-medium truncate">{label}</span>
                 </>
               )}
             </NavLink>

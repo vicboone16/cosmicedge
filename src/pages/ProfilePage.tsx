@@ -205,7 +205,7 @@ const ProfilePage = () => {
             <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">Astro Identity</p>
             <Star className="h-4 w-4 text-cosmic-gold" />
           </div>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <SignSelect label="☉ Sun" value={profile.sun_sign} onChange={(v) => setProfile(p => ({ ...p, sun_sign: v }))} />
             <SignSelect label="☽ Moon" value={profile.moon_sign} onChange={(v) => setProfile(p => ({ ...p, moon_sign: v }))} />
             <SignSelect label="⬆ Rising" value={profile.rising_sign} onChange={(v) => setProfile(p => ({ ...p, rising_sign: v }))} />

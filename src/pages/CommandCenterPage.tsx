@@ -140,7 +140,7 @@ export default function CommandCenterPage() {
       </div>
 
       {/* Dashboard Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <DashCard title="Astra Pulse" icon={Activity}>
           <p className="text-[11px] text-muted-foreground">
             {activeMode === "sharp" && "Quant signals active. Market edges scanning."}

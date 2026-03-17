@@ -143,7 +143,7 @@ function EditBetInline({ bet, onSaved, onCancel }: { bet: BetRow; onSaved: () =>
         <Label className="text-xs">Selection</Label>
         <Input value={selection} onChange={(e) => setSelection(e.target.value)} />
       </div>
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
         <div className="space-y-1.5">
           <Label className="text-xs">Side</Label>
           <Input value={side} onChange={(e) => setSide(e.target.value)} placeholder="home/away/over/under" />
@@ -153,7 +153,7 @@ function EditBetInline({ bet, onSaved, onCancel }: { bet: BetRow; onSaved: () =>
           <Input type="number" value={line} onChange={(e) => setLine(e.target.value)} />
         </div>
       </div>
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
         <div className="space-y-1.5">
           <Label className="text-xs">Odds</Label>
           <Input type="number" value={odds} onChange={(e) => setOdds(e.target.value)} />
