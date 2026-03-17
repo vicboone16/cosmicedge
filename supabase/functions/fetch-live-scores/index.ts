@@ -177,7 +177,7 @@ Deno.serve(async (req) => {
       throw new Error("Failed to fetch games: " + gamesError.message);
     }
     
-    console.log(`[fetch-live-scores] Found ${games?.length || 0} games in DB for ${todayISO}`);
+    console.log(`[fetch-live-scores] Found ${games?.length || 0} games in DB for ${yesterdayISO} to ${tomorrowISO}`);
     
     if (!games?.length) {
       return new Response(JSON.stringify({ message: "No active games to update", updated: 0 }), {
