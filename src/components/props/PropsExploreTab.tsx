@@ -128,7 +128,41 @@ function StatGroupCarousel({ title, icon, props }: { title: string; icon: React.
 }
 
 export function PropsExploreTab() {
-  const { data: allProps, isLoading } = useTopPropsToday(50);
+  const { data: allProps, isLoading, refetch } = useTopPropsToday(50);
+  const { isAdmin } = useIsAdmin();
+  const [runningPredictions, setRunningPredictions] = useState(false);
+
+  const handleRunPredictions = async () => {
+    setRunningPredictions(true);
+    try {
+      // Get today's games
+      const now = new Date();
+      const startOfDay = new Date(now); startOfDay.setHours(0, 0, 0, 0);
+      const endOfDay = new Date(now); endOfDay.setHours(23, 59, 59, 999);
+      const { data: games } = await supabase
+        .from("games")
+        .select("id")
+        .eq("league", "NBA")
+        .gte("start_time", startOfDay.toISOString())
+        .lte("start_time", endOfDay.toISOString());
+      if (!games || games.length === 0) {
+        toast.error("No NBA games found for today");
+        setRunningPredictions(false);
+        return;
+      }
+      let total = 0;
+      for (const g of games) {
+        const { data } = await supabase.functions.invoke("nebula-prop-engine", { body: { game_id: g.id } });
+        total += data?.predictions || 0;
+      }
+      toast.success(`Generated ${total} predictions across ${games.length} games`);
+      refetch();
+    } catch (e) {
+      console.error("Prediction run error:", e);
+      toast.error("Failed to run predictions");
+    }
+    setRunningPredictions(false);
+  };
 
   const { featured, bestToday, byPoints, byAssists, byRebounds, byCombos, trending } = useMemo(() => {
     if (!allProps || allProps.length === 0) {
