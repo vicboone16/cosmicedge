@@ -653,18 +653,19 @@ async function syncLiveScores(
   );
   console.log(`Filtered to ${leagueEvents.length} ${league} events`);
 
-  // Pre-fetch today's + yesterday's games from DB
+  // Pre-fetch today's + yesterday's games from DB (extend window for PST/PT offset)
   const today = new Date();
-  const yesterday = new Date(today.getTime() - 86400000);
-  const todayStr = today.toISOString().split("T")[0];
-  const yesterdayStr = yesterday.toISOString().split("T")[0];
+  const twoDaysAgo = new Date(today.getTime() - 2 * 86400000);
+  const tomorrow = new Date(today.getTime() + 86400000);
+  const startStr = twoDaysAgo.toISOString().split("T")[0];
+  const endStr = tomorrow.toISOString().split("T")[0];
 
   const { data: existingGames } = await supabase
     .from("games")
     .select("id, home_abbr, away_abbr, start_time, status, home_score, away_score, external_id")
     .eq("league", league)
-    .gte("start_time", `${yesterdayStr}T00:00:00Z`)
-    .lte("start_time", `${todayStr}T23:59:59Z`);
+    .gte("start_time", `${startStr}T00:00:00Z`)
+    .lte("start_time", `${endStr}T23:59:59Z`);
 
   // Build lookup
   const gameIndex = new Map<string, any>();
@@ -719,7 +720,7 @@ async function syncLiveScores(
 
     // Try to match existing game
     const extId = `tsdb_${ev.idEvent}`;
-    const eventDate = ev.dateEvent || todayStr;
+    const eventDate = ev.dateEvent || today.toISOString().split("T")[0];
     const fpKey = `${homeAbbr}|${awayAbbr}|${eventDate}`;
     const existing = extIdIndex.get(extId) || gameIndex.get(fpKey);
 
