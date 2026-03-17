@@ -328,12 +328,13 @@ export default function CommandCenterTab() {
   );
 }
 
-function DashCard({ title, icon: Icon, dimmed, children }: { title: string; icon: any; dimmed?: boolean; children: React.ReactNode }) {
+function DashCard({ title, icon: Icon, dimmed, onClick, children }: { title: string; icon: any; dimmed?: boolean; onClick?: () => void; children: React.ReactNode }) {
   return (
-    <div className={cn("rounded-xl border border-border/30 bg-card/50 backdrop-blur-sm p-4 space-y-2 transition-opacity", dimmed && "opacity-50")}>
+    <div onClick={onClick} className={cn("rounded-xl border border-border/30 bg-card/50 backdrop-blur-sm p-4 space-y-2 transition-all", dimmed && "opacity-50", onClick && "cursor-pointer hover:border-primary/30 hover:bg-card/70 active:scale-[0.99]")}>
       <div className="flex items-center gap-2">
         <Icon className="w-4 h-4 text-primary" />
         <span className="text-xs font-bold uppercase tracking-wider text-foreground">{title}</span>
+        {onClick && <ArrowRight className="w-3 h-3 text-muted-foreground/40 ml-auto" />}
       </div>
       {children}
     </div>
