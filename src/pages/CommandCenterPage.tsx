@@ -7,8 +7,10 @@ import { cn } from "@/lib/utils";
 import {
   TrendingUp, Sparkles, Crosshair, Shield, Eye, Moon,
   Activity, Target, AlertTriangle, Clock, Heart, Zap,
-  Send, ArrowRight,
+  Send, ArrowRight, Loader2,
 } from "lucide-react";
+import AstraVerdictCard, { type AstraVerdict } from "@/components/astra/AstraVerdictCard";
+import AstraAssessmentHistory from "@/components/astra/AstraAssessmentHistory";
 
 const MODE_ICONS: Record<string, any> = {
   TrendingUp, Sparkles, Crosshair, Shield, Eye, Moon,
