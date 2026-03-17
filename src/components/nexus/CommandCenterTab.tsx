@@ -215,7 +215,7 @@ export default function CommandCenterTab() {
           </div>
         </DashCard>
 
-        <DashCard title="Best Opportunities" icon={Target}>
+        <DashCard title="Best Opportunities" icon={Target} onClick={() => navigate("/props")}>
           {filteredOpps.length === 0 ? <p className="text-[11px] text-muted-foreground">No active opportunities right now.</p> : (
             <div className="space-y-1.5">
               {filteredOpps.slice(0, 3).map((o: any) => (
