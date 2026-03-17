@@ -92,10 +92,21 @@ export default function ModelRegistryPanel({ onEdit, onRun }: Props) {
                 {m.notes && <p className="text-[10px] text-muted-foreground italic">{m.notes}</p>}
 
                 {/* Actions */}
-                <div className="flex items-center gap-2 pt-1">
-                  <button onClick={() => toggleMut.mutate({ id: m.id, is_active: !m.is_active })} className={cn("flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-semibold border transition-colors", m.is_active ? "border-cosmic-green/30 text-cosmic-green hover:bg-cosmic-green/10" : "border-border text-muted-foreground hover:text-foreground")}>
-                    <Power className="h-3 w-3" /> {m.is_active ? "Active" : "Activate"}
-                  </button>
+                <div className="flex items-center gap-2 pt-1 flex-wrap">
+                  {(() => {
+                    const isRuntimeActive = activation?.active_model_id === m.id && activation?.runtime_status === "confirmed";
+                    const isPending = activateMut.isPending;
+                    return (
+                      <button
+                        onClick={() => { if (!isRuntimeActive) activateMut.mutate({ modelId: m.id }); }}
+                        disabled={isPending || isRuntimeActive}
+                        className={cn("flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-semibold border transition-colors", isRuntimeActive ? "border-cosmic-green/30 text-cosmic-green bg-cosmic-green/5 cursor-default" : "border-border text-muted-foreground hover:text-foreground")}
+                      >
+                        <Power className="h-3 w-3" />
+                        {isPending ? "Activating…" : isRuntimeActive ? "Active ✓" : "Activate"}
+                      </button>
+                    );
+                  })()}
                   <button onClick={() => onEdit(m)} className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-semibold border border-border text-muted-foreground hover:text-foreground transition-colors">
                     <Pencil className="h-3 w-3" /> Edit
                   </button>
