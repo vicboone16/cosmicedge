@@ -4,6 +4,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { Loader2, Cpu, FlaskConical, Play, Info, ChevronDown, ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { DataSourceBadge } from "@/components/ui/DataSourceBadge";
+import { InfoHint } from "@/components/ui/InfoHint";
 
 interface Props {
   onRunInMachina?: (formulaSlug: string) => void;
