@@ -256,8 +256,7 @@ export default function CommandCenterPage() {
 
       {/* Dashboard Grid — LIVE COMPUTED STATE */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        {/* Astra Pulse — live computed */}
-        <DashCard title="Astra Pulse" icon={Activity}>
+        <DashCard title="Astra Pulse" icon={Activity} onClick={() => navigate("/")}>
           <div className="space-y-1">
             <div className="flex items-center gap-2">
               <span className={cn(
@@ -267,16 +266,18 @@ export default function CommandCenterPage() {
               <span className="text-[11px] text-foreground font-semibold">
                 {(liveGamesCount ?? 0) > 0
                   ? `${liveGamesCount} live game${liveGamesCount !== 1 ? "s" : ""} · Scanning`
-                  : "No live games — pregame analysis mode"
-                }
+                  : "No live games — pregame analysis mode"}
               </span>
             </div>
             {profile && (
-              <p className="text-[10px] text-muted-foreground">
+              <button
+                onClick={(e) => { e.stopPropagation(); navigate("/profile"); }}
+                className="text-[10px] text-muted-foreground hover:text-foreground transition-colors text-left"
+              >
                 {ARCHETYPE_META[profile.betting_archetype]?.emoji}{" "}
                 {ARCHETYPE_META[profile.betting_archetype]?.label || profile.betting_archetype}
                 {" · "}{activeModeConfig?.mode_name || activeMode} mode
-              </p>
+              </button>
             )}
             {filteredOpps.length > 0 && (
               <p className="text-[10px] text-cosmic-green font-semibold">
@@ -286,47 +287,52 @@ export default function CommandCenterPage() {
           </div>
         </DashCard>
 
-        {/* Best Opportunities — live from feed */}
-        <DashCard title="Best Opportunities" icon={Target}>
+        <DashCard title="Best Opportunities" icon={Target} onClick={() => navigate("/props")}>
           {filteredOpps.length === 0 ? (
             <p className="text-[11px] text-muted-foreground">No active opportunities right now.</p>
           ) : (
             <div className="space-y-1.5">
               {filteredOpps.slice(0, 3).map((o: any) => (
-                <div key={o.id} className="flex items-center justify-between text-[11px]">
+                <button
+                  key={o.id}
+                  onClick={(e) => { e.stopPropagation(); if (o.game_id) navigate(`/game/${o.game_id}`); }}
+                  className="flex items-center justify-between text-[11px] w-full text-left hover:bg-primary/5 rounded px-1 -mx-1 transition-colors"
+                >
                   <span className="text-foreground truncate flex-1">{o.headline}</span>
                   {o.confidence != null && (
                     <span className="text-primary font-bold tabular-nums ml-2">
                       {(o.confidence * 100).toFixed(0)}%
                     </span>
                   )}
-                </div>
+                </button>
               ))}
             </div>
           )}
         </DashCard>
 
-        {/* Trap Watch — live from assessments */}
-        <DashCard title="Trap Watch" icon={AlertTriangle}>
+        <DashCard title="Trap Watch" icon={AlertTriangle} onClick={() => navigate("/astra")}>
           {(recentTraps?.length ?? 0) === 0 ? (
             <p className="text-[11px] text-muted-foreground">No active trap alerts.</p>
           ) : (
             <div className="space-y-1">
               {recentTraps!.slice(0, 3).map((t: any) => (
-                <div key={t.id} className="text-[10px]">
+                <button
+                  key={t.id}
+                  onClick={(e) => { e.stopPropagation(); if (t.game_id) navigate(`/game/${t.game_id}`); }}
+                  className="text-[10px] w-full text-left hover:bg-primary/5 rounded px-1 -mx-1 transition-colors"
+                >
                   <span className="text-cosmic-red font-semibold">⚠</span>{" "}
                   <span className="text-foreground">{t.warning_note || t.market_type || "Trap detected"}</span>
                   {t.trap_score != null && (
                     <span className="text-muted-foreground ml-1">({Math.round(t.trap_score * 100)}%)</span>
                   )}
-                </div>
+                </button>
               ))}
             </div>
           )}
         </DashCard>
 
-        {/* Cosmic Windows */}
-        <DashCard title="Cosmic Windows" icon={Moon} dimmed={activeMode === "sharp"}>
+        <DashCard title="Cosmic Windows" icon={Moon} dimmed={activeMode === "sharp"} onClick={() => navigate("/celestial")}>
           <p className="text-[11px] text-muted-foreground">
             {activeMode === "sharp"
               ? "Cosmic layer de-emphasized in Sharp mode."
@@ -336,8 +342,7 @@ export default function CommandCenterPage() {
           </p>
         </DashCard>
 
-        {/* Slip Health — live computed */}
-        <DashCard title="Slip Health" icon={Heart}>
+        <DashCard title="Slip Health" icon={Heart} onClick={() => navigate("/skyspread")}>
           {!slipHealth || slipHealth.activeCount === 0 ? (
             <p className="text-[11px] text-muted-foreground">No active slips to monitor.</p>
           ) : (
@@ -346,9 +351,7 @@ export default function CommandCenterPage() {
                 <span className="text-foreground font-semibold">
                   {slipHealth.activeCount} active slip{slipHealth.activeCount !== 1 ? "s" : ""}
                 </span>
-                <span className="text-muted-foreground">
-                  {slipHealth.totalLegs} legs
-                </span>
+                <span className="text-muted-foreground">{slipHealth.totalLegs} legs</span>
               </div>
               {slipHealth.hitLegs > 0 && (
                 <p className="text-[10px] text-cosmic-green font-semibold">
@@ -364,40 +367,50 @@ export default function CommandCenterPage() {
           )}
         </DashCard>
 
-        {/* Opportunity Feed — live */}
-        <DashCard title="Opportunity Feed" icon={Zap}>
+        <DashCard title="Opportunity Feed" icon={Zap} onClick={() => navigate("/props")}>
           {filteredOpps.length === 0 ? (
             <p className="text-[11px] text-muted-foreground">Feed empty. Waiting for model outputs…</p>
           ) : (
             <div className="space-y-1">
               {filteredOpps.slice(0, 5).map((o: any) => (
-                <div key={o.id} className="text-[10px] text-muted-foreground truncate">{o.headline}</div>
+                <button
+                  key={o.id}
+                  onClick={(e) => { e.stopPropagation(); if (o.game_id) navigate(`/game/${o.game_id}`); }}
+                  className="text-[10px] text-muted-foreground truncate w-full text-left hover:text-foreground transition-colors"
+                >
+                  {o.headline}
+                </button>
               ))}
             </div>
           )}
         </DashCard>
       </div>
 
-      {/* Assessment History */}
       <AstraAssessmentHistory limit={5} />
     </div>
   );
 }
 
-function DashCard({ title, icon: Icon, dimmed, children }: {
+function DashCard({ title, icon: Icon, dimmed, onClick, children }: {
   title: string;
   icon: any;
   dimmed?: boolean;
+  onClick?: () => void;
   children: React.ReactNode;
 }) {
   return (
-    <div className={cn(
-      "rounded-xl border border-border/30 bg-card/50 backdrop-blur-sm p-4 space-y-2 transition-opacity",
-      dimmed && "opacity-50"
-    )}>
+    <div
+      onClick={onClick}
+      className={cn(
+        "rounded-xl border border-border/30 bg-card/50 backdrop-blur-sm p-4 space-y-2 transition-all",
+        dimmed && "opacity-50",
+        onClick && "cursor-pointer hover:border-primary/30 hover:bg-card/70 active:scale-[0.99]"
+      )}
+    >
       <div className="flex items-center gap-2">
         <Icon className="w-4 h-4 text-primary" />
         <span className="text-xs font-bold uppercase tracking-wider text-foreground">{title}</span>
+        {onClick && <ArrowRight className="w-3 h-3 text-muted-foreground/40 ml-auto" />}
       </div>
       {children}
     </div>
