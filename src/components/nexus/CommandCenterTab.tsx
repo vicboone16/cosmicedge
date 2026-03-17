@@ -197,12 +197,13 @@ export default function CommandCenterTab() {
 
       {/* Dashboard Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <DashCard title="Astra Pulse" icon={Activity}>
+        <DashCard title="Astra Pulse" icon={Activity} onClick={() => navigate("/")}>
           <div className="space-y-1">
             <div className="flex items-center gap-2">
               <span className={cn("h-2 w-2 rounded-full", (liveGamesCount ?? 0) > 0 ? "bg-cosmic-green animate-pulse" : "bg-muted-foreground")} />
               <span className="text-[11px] text-foreground font-semibold">
                 {(liveGamesCount ?? 0) > 0 ? `${liveGamesCount} live game${liveGamesCount !== 1 ? "s" : ""} · Scanning` : "No live games — pregame analysis mode"}
+              </span>
               </span>
             </div>
             {profile && (
