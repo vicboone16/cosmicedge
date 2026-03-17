@@ -91,8 +91,9 @@ interface MatchupPair {
 }
 
 export function SynastrySection({ awayPlayers, homePlayers, awayAbbr, homeAbbr }: SynastrySectionProps) {
+  const [viewMode, setViewMode] = useState<"matchup" | "away_team" | "home_team">("matchup");
+
   const matchups = useMemo(() => {
-    // Pair players by position for key matchups
     const positionOrder = ["PG", "SG", "SF", "PF", "C", "G", "F"];
     const sortByPos = (a: Player, b: Player) => {
       const ia = positionOrder.indexOf(a.position || "");
@@ -122,6 +123,31 @@ export function SynastrySection({ awayPlayers, homePlayers, awayAbbr, homeAbbr }
       });
     }
     return pairs;
+  }, [awayPlayers, homePlayers]);
+
+  // Teammate synastry — how players on the same team work together
+  const teamSynastry = useMemo(() => {
+    const computeTeam = (teamPlayers: Player[]) => {
+      const withSign = teamPlayers
+        .filter(p => p.birth_date)
+        .slice(0, 5)
+        .map(p => ({ ...p, sign: getSign(p.birth_date!) }));
+      const pairs: MatchupPair[] = [];
+      for (let i = 0; i < withSign.length; i++) {
+        for (let j = i + 1; j < withSign.length; j++) {
+          pairs.push({
+            away: withSign[i],
+            home: withSign[j],
+            aspect: getAspect(withSign[i].sign, withSign[j].sign),
+          });
+        }
+      }
+      return pairs.sort((a, b) => {
+        const order = { harmonious: 0, neutral: 1, challenging: 2 };
+        return order[a.aspect.nature] - order[b.aspect.nature];
+      }).slice(0, 5);
+    };
+    return { away: computeTeam(awayPlayers), home: computeTeam(homePlayers) };
   }, [awayPlayers, homePlayers]);
 
   if (matchups.length === 0) return null;
