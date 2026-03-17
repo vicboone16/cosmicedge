@@ -658,6 +658,7 @@ const GameDetail = () => {
           </details>
         )}
 
+        {activeTab === "odds" && (
           <>
             {/* Sub-tabs for odds */}
             <div className="flex gap-3 overflow-x-auto no-scrollbar">
