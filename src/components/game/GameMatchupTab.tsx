@@ -4,8 +4,37 @@ import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { Users, RefreshCw } from "lucide-react";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { toast } from "sonner";
+
+// Zodiac utilities for lineup display
+const ZODIAC_SIGNS_LOOKUP = [
+  { sign: "Capricorn", symbol: "♑", m1: 1, d1: 1, m2: 1, d2: 19 },
+  { sign: "Aquarius", symbol: "♒", m1: 1, d1: 20, m2: 2, d2: 18 },
+  { sign: "Pisces", symbol: "♓", m1: 2, d1: 19, m2: 3, d2: 20 },
+  { sign: "Aries", symbol: "♈", m1: 3, d1: 21, m2: 4, d2: 19 },
+  { sign: "Taurus", symbol: "♉", m1: 4, d1: 20, m2: 5, d2: 20 },
+  { sign: "Gemini", symbol: "♊", m1: 5, d1: 21, m2: 6, d2: 20 },
+  { sign: "Cancer", symbol: "♋", m1: 6, d1: 21, m2: 7, d2: 22 },
+  { sign: "Leo", symbol: "♌", m1: 7, d1: 23, m2: 8, d2: 22 },
+  { sign: "Virgo", symbol: "♍", m1: 8, d1: 23, m2: 9, d2: 22 },
+  { sign: "Libra", symbol: "♎", m1: 9, d1: 23, m2: 10, d2: 22 },
+  { sign: "Scorpio", symbol: "♏", m1: 10, d1: 23, m2: 11, d2: 21 },
+  { sign: "Sagittarius", symbol: "♐", m1: 11, d1: 22, m2: 12, d2: 21 },
+  { sign: "Capricorn", symbol: "♑", m1: 12, d1: 22, m2: 12, d2: 31 },
+];
+
+function getZodiacForDate(dateStr: string): { sign: string; symbol: string } | null {
+  if (!dateStr) return null;
+  const d = new Date(dateStr + "T12:00:00");
+  const month = d.getMonth() + 1;
+  const day = d.getDate();
+  for (const s of ZODIAC_SIGNS_LOOKUP) {
+    if ((month === s.m1 && day >= s.d1) || (month === s.m2 && day <= s.d2))
+      return { sign: s.sign, symbol: s.symbol };
+  }
+  return { sign: "Capricorn", symbol: "♑" };
+}
 
 export function GameMatchupTab({
   gameId,
@@ -318,6 +347,25 @@ export function GameMatchupTab({
     },
   });
 
+  // Fetch birth dates for lineup players to show zodiac signs
+  const lineupPlayerIds = useMemo(() => (lineups || []).map(l => l.player_id).filter(Boolean) as string[], [lineups]);
+  const { data: lineupBirthDates } = useQuery({
+    queryKey: ["lineup-birth-dates", lineupPlayerIds],
+    queryFn: async () => {
+      if (lineupPlayerIds.length === 0) return {};
+      const { data } = await supabase
+        .from("players")
+        .select("id, birth_date")
+        .in("id", lineupPlayerIds);
+      const map: Record<string, string> = {};
+      for (const p of data || []) {
+        if (p.birth_date) map[p.id] = p.birth_date;
+      }
+      return map;
+    },
+    enabled: lineupPlayerIds.length > 0,
+  });
+
   const [fetchingLineups, setFetchingLineups] = useState(false);
   const handleFetchLineups = async () => {
     setFetchingLineups(true);
@@ -352,24 +400,33 @@ export function GameMatchupTab({
   const awayBench = awayLineup.filter(p => p.depth_order > 1);
   const hasLineups = homeLineup.length > 0 || awayLineup.length > 0;
 
-  const PlayerRow = ({ player }: { player: typeof homeLineup[number] }) => (
-    <button
-      onClick={() => {
-        if (player.player_id) navigate(`/player/${player.player_id}`);
-      }}
-      className="flex items-center gap-2 py-1.5 w-full text-left hover:bg-secondary/40 rounded-lg px-2 transition-colors"
-    >
-      <Avatar className="h-6 w-6 shrink-0">
-        <AvatarFallback className="text-[8px] bg-secondary">
-          {player.player_name?.slice(0, 2).toUpperCase()}
-        </AvatarFallback>
-      </Avatar>
-      <div className="min-w-0 flex-1">
-        <p className="text-xs font-medium text-foreground truncate">{player.player_name}</p>
-      </div>
-      <span className="text-[10px] text-muted-foreground font-mono shrink-0">{player.position}</span>
-    </button>
-  );
+  const PlayerRow = ({ player }: { player: typeof homeLineup[number] }) => {
+    const birthDate = player.player_id ? lineupBirthDates?.[player.player_id] : null;
+    const zodiac = birthDate ? getZodiacForDate(birthDate) : null;
+    return (
+      <button
+        onClick={() => {
+          if (player.player_id) navigate(`/player/${player.player_id}`);
+        }}
+        className="flex items-center gap-2 py-1.5 w-full text-left hover:bg-secondary/40 rounded-lg px-2 transition-colors"
+      >
+        <Avatar className="h-6 w-6 shrink-0">
+          <AvatarFallback className="text-[8px] bg-secondary">
+            {zodiac ? zodiac.symbol : player.player_name?.slice(0, 2).toUpperCase()}
+          </AvatarFallback>
+        </Avatar>
+        <div className="min-w-0 flex-1">
+          <p className="text-xs font-medium text-foreground truncate">
+            {player.player_name}
+            {zodiac && (
+              <span className="text-[9px] text-primary/70 ml-1">{zodiac.symbol}</span>
+            )}
+          </p>
+        </div>
+        <span className="text-[10px] text-muted-foreground font-mono shrink-0">{player.position}</span>
+      </button>
+    );
+  };
 
   return (
     <div className="space-y-4">
