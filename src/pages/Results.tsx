@@ -6,6 +6,11 @@ import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import type { Tables } from "@/integrations/supabase/types";
 
+function americanToDecimal(odds: number): number {
+  if (odds > 0) return odds / 100 + 1;
+  return 100 / Math.abs(odds) + 1;
+}
+
 type BetRow = Tables<"bets">;
 
 const RESULT_ICONS: Record<string, typeof CheckCircle> = {
@@ -46,12 +51,13 @@ const Results = () => {
 
   // ROI calculation
   const totalStaked = bets?.reduce((sum, b) => sum + (b.stake_amount ?? b.stake ?? 0), 0) || 0;
-  const totalPayout = bets?.reduce((sum, b) => {
-    if (b.status === "won") return sum + (b.payout ?? (b.stake_amount ?? b.stake ?? 0) * 2);
-    if (b.status === "push") return sum + (b.stake_amount ?? b.stake ?? 0);
+  const totalReturned = bets?.reduce((sum, b) => {
+    const stake = b.stake_amount ?? b.stake ?? 0;
+    if (b.status === "won") return sum + (b.payout ?? stake * americanToDecimal(b.odds));
+    if (b.status === "push") return sum + stake;
     return sum;
   }, 0) || 0;
-  const roi = totalStaked > 0 ? (((totalPayout - totalStaked) / totalStaked) * 100).toFixed(1) : "—";
+  const roi = totalStaked > 0 ? (((totalReturned - totalStaked) / totalStaked) * 100).toFixed(1) : "—";
 
   if (!user) {
     return (
