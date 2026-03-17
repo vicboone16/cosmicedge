@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { scoreSlip, type LegInput, type SlipScore } from "@/lib/slip-optimizer-engine";
 import { toast } from "@/hooks/use-toast";
+import { useBettingProfile } from "@/hooks/use-betting-profile";
 
 interface UseSlipOptimizerOptions {
   slip: any;
