@@ -13601,10 +13601,7 @@ export type Database = {
         }[]
       }
       cleanup_visual_event_queue: { Args: never; Returns: undefined }
-      compute_live_readiness: {
-        Args: { p_game_id: string }
-        Returns: undefined
-      }
+      compute_live_readiness: { Args: { p_game_id: string }; Returns: Json }
       consume_visual_event: { Args: { p_queue_id: string }; Returns: undefined }
       enqueue_visual_event: {
         Args: {

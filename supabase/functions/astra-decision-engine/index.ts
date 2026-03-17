@@ -395,8 +395,9 @@ Deno.serve(async (req) => {
     const features = playerCtx?.features;
     const projections = playerCtx?.projections ?? [];
 
-    // Build variable manifest with grain/source metadata
-    const variableManifest: { key: string; value: any; source: string; grain: string; as_of: string }[] = [];
+    // ── Build variable manifest with grain/source metadata ──
+    type VarEntry = { key: string; value: any; source: string; grain: string; as_of: string };
+    const variableManifest: VarEntry[] = [];
     if (season) {
       const asOf = season.updated_at ?? season.created_at ?? new Date().toISOString();
       for (const k of ["points", "rebounds", "assists", "steals", "blocks", "minutes", "three_made", "turnovers"]) {
@@ -406,15 +407,43 @@ Deno.serve(async (req) => {
     if (features) {
       const featureKeys = ["hit_l5", "hit_l10", "hit_l20", "mu_l10", "sigma_l10", "mu_season", "sigma_season", "coeff_of_var", "minutes_l5_avg", "minutes_season_avg", "usage_proxy_l10", "usage_proxy_season"];
       for (const k of featureKeys) {
-        if (features[k] != null) variableManifest.push({ key: k, value: features[k], source: "np_build_prop_features", grain: "player_last_n", as_of: new Date().toISOString() });
+        if (features[k] != null) variableManifest.push({ key: k, value: features[k], source: "np_build_prop_features", grain: "player_l10", as_of: new Date().toISOString() });
+      }
+    }
+    // Pace/team context variables — tagged as team_season grain
+    const TEAM_CONTEXT_KEYS = new Set([
+      "home_avg_pace", "away_avg_pace", "expected_possessions",
+      "home_off_rating", "home_def_rating", "away_off_rating", "away_def_rating",
+      "blowout_risk", "team_pace_delta", "matchup_pace_avg",
+      "home_net_rating", "away_net_rating",
+    ]);
+    if (gameCtx?.pace) {
+      for (const [k, v] of Object.entries(gameCtx.pace)) {
+        if (v != null && typeof v === "number") {
+          variableManifest.push({ key: k, value: v, source: "np_build_pace_features", grain: "team_season", as_of: new Date().toISOString() });
+        }
       }
     }
 
-    // Grain mismatch detection: team vars in player compute
-    const grainMismatches: string[] = [];
-    if (needsPlayer && gameCtx?.pace) {
-      // Pace vars are team-level — flag but don't block (they're used correctly as environment context)
-      // Only block if team-level vars were accidentally used AS player stat inputs
+    // ── Hard grain validation ──
+    // For player_prop context, only player-grain vars + whitelisted team context are allowed
+    const ALLOWED_PLAYER_GRAINS = new Set(["player_game", "player_season", "player_l5", "player_l10", "player_l20", "player_last_n"]);
+    interface GrainMismatchEntry { variable: string; expected: string; actual: string; reason: string }
+    const grainMismatches: GrainMismatchEntry[] = [];
+
+    if (needsPlayer) {
+      for (const v of variableManifest) {
+        if (v.grain === "unknown") continue;
+        if (TEAM_CONTEXT_KEYS.has(v.key)) continue; // explicitly allowed team context
+        if (!ALLOWED_PLAYER_GRAINS.has(v.grain)) {
+          grainMismatches.push({
+            variable: v.key,
+            expected: "player_*",
+            actual: v.grain,
+            reason: `"${v.key}" has grain "${v.grain}" but player_prop compute requires player-level grain. Not in team-context whitelist.`,
+          });
+        }
+      }
     }
 
     const varsRetrieved = [season, features, projections.length > 0].filter(Boolean).length;
@@ -424,6 +453,30 @@ Deno.serve(async (req) => {
       detail: `season=${!!season}, features=${!!features}, projections=${projections.length}, manifest=${variableManifest.length} vars`,
       data: { variable_count: variableManifest.length, grain_mismatches: grainMismatches },
     });
+
+    // Step 4b: Grain validation — HARD BLOCK
+    if (grainMismatches.length > 0) {
+      pipeline.push({
+        step: "Grain Validation",
+        status: "failed",
+        detail: `${grainMismatches.length} mismatches: ${grainMismatches[0].reason}`,
+      });
+      return new Response(JSON.stringify({
+        success: false,
+        compute_blocked: true,
+        block_reason: `Grain mismatch: ${grainMismatches[0].reason}`,
+        pipeline,
+        grain_mismatches: grainMismatches,
+        variable_manifest: variableManifest,
+        assessment: {
+          decision_label: "neutral",
+          confidence_grade: "fragile",
+          risk_grade: "high",
+          answer_summary: null,
+        },
+      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+    pipeline.push({ step: "Grain Validation", status: "ok", detail: `All ${variableManifest.length} vars valid for ${parsed.query_type} context` });
 
     // Step 5: Sanity validation
     const sanityViolations = runSanityChecks(season, features);
@@ -528,6 +581,8 @@ Deno.serve(async (req) => {
         features: features ? { hit_l5: features.hit_l5, hit_l10: features.hit_l10, mu_l10: features.mu_l10, cv: features.coeff_of_var } : null,
         model_activation: modelInfo,
         variable_manifest_count: variableManifest.length,
+        variable_manifest: variableManifest.slice(0, 30), // first 30 for diagnostics
+        grain_validation: { passed: true, checked_vars: variableManifest.length },
       },
       engine_outputs: assessment,
     };

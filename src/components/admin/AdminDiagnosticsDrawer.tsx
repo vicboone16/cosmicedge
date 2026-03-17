@@ -120,6 +120,19 @@ export default function AdminDiagnosticsDrawer({ context = "machina", gameId, pl
     staleTime: 120_000,
   });
 
+  // Trigger server-side readiness compute if game context
+  const { data: serverReadinessResult } = useQuery({
+    queryKey: ["compute-readiness", gameId],
+    queryFn: async () => {
+      if (!gameId) return null;
+      const { data, error } = await supabase.rpc("compute_live_readiness" as any, { p_game_id: gameId });
+      if (error) return null;
+      return data as { ok: boolean; failure_stage: string | null; failure_detail: string | null; all_ready: boolean } | null;
+    },
+    enabled: !!gameId,
+    staleTime: 30_000,
+  });
+
   const globalActivation = activations?.find(
     (a: ModelActivationState) => a.scope_type === "global" && a.scope_key === "default"
   );
