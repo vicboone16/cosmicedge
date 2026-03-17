@@ -239,28 +239,79 @@ export type Database = {
       }
       astra_command_center_state: {
         Row: {
+          active_bias: string | null
+          active_cosmic_window_count: number | null
+          active_trap_count: number | null
+          active_watchlist_count: number | null
+          command_summary: string | null
+          cosmic_climate: string | null
+          created_at: string | null
           id: string
           last_mode_key: string | null
           last_query: string | null
+          live_opportunity_count: number | null
+          market_climate: string | null
+          mode_key: string | null
           pinned_game_ids: string[] | null
+          summary_generated_at: string | null
+          top_live_opportunity_id: string | null
+          top_safe_play_id: string | null
+          top_trap_alert_id: string | null
+          top_upside_play_id: string | null
           updated_at: string | null
           user_id: string
+          weakest_leg_id: string | null
+          weakest_slip_id: string | null
         }
         Insert: {
+          active_bias?: string | null
+          active_cosmic_window_count?: number | null
+          active_trap_count?: number | null
+          active_watchlist_count?: number | null
+          command_summary?: string | null
+          cosmic_climate?: string | null
+          created_at?: string | null
           id?: string
           last_mode_key?: string | null
           last_query?: string | null
+          live_opportunity_count?: number | null
+          market_climate?: string | null
+          mode_key?: string | null
           pinned_game_ids?: string[] | null
+          summary_generated_at?: string | null
+          top_live_opportunity_id?: string | null
+          top_safe_play_id?: string | null
+          top_trap_alert_id?: string | null
+          top_upside_play_id?: string | null
           updated_at?: string | null
           user_id: string
+          weakest_leg_id?: string | null
+          weakest_slip_id?: string | null
         }
         Update: {
+          active_bias?: string | null
+          active_cosmic_window_count?: number | null
+          active_trap_count?: number | null
+          active_watchlist_count?: number | null
+          command_summary?: string | null
+          cosmic_climate?: string | null
+          created_at?: string | null
           id?: string
           last_mode_key?: string | null
           last_query?: string | null
+          live_opportunity_count?: number | null
+          market_climate?: string | null
+          mode_key?: string | null
           pinned_game_ids?: string[] | null
+          summary_generated_at?: string | null
+          top_live_opportunity_id?: string | null
+          top_safe_play_id?: string | null
+          top_trap_alert_id?: string | null
+          top_upside_play_id?: string | null
           updated_at?: string | null
           user_id?: string
+          weakest_leg_id?: string | null
+          weakest_slip_id?: string | null
         }
         Relationships: [
           {
@@ -274,34 +325,136 @@ export type Database = {
       }
       astra_operating_modes: {
         Row: {
+          accent_label: string | null
           color_accent: string | null
           created_at: string | null
           description: string | null
+          emphasize_cosmic_language: boolean | null
+          emphasize_quant_language: boolean | null
           icon_name: string | null
+          id: string | null
           is_active: boolean | null
+          lean_min_ev: number | null
+          lean_min_hit_prob: number | null
+          mode_description: string | null
           mode_key: string
           mode_name: string
+          pass_below_ev: number | null
+          playable_min_ev: number | null
+          playable_min_hit_prob: number | null
+          prioritize_hidden_value: boolean | null
+          prioritize_live_entries: boolean | null
+          prioritize_risk_reduction: boolean | null
+          prioritize_trap_detection: boolean | null
+          show_cosmic_panel: boolean | null
+          show_mode_specific_badges: boolean | null
+          show_opportunity_feed: boolean | null
+          show_trap_alerts: boolean | null
           sort_order: number | null
+          strong_yes_min_ev: number | null
+          strong_yes_min_hit_prob: number | null
+          tone_style: string | null
+          updated_at: string | null
+          weight_astro_signal: number | null
+          weight_correlation_risk: number | null
+          weight_cosmic_alignment: number | null
+          weight_ev: number | null
+          weight_game_momentum: number | null
+          weight_hit_probability: number | null
+          weight_minutes_security: number | null
+          weight_opportunity_score: number | null
+          weight_player_momentum: number | null
+          weight_projection: number | null
+          weight_trap_risk: number | null
+          weight_volatility: number | null
         }
         Insert: {
+          accent_label?: string | null
           color_accent?: string | null
           created_at?: string | null
           description?: string | null
+          emphasize_cosmic_language?: boolean | null
+          emphasize_quant_language?: boolean | null
           icon_name?: string | null
+          id?: string | null
           is_active?: boolean | null
+          lean_min_ev?: number | null
+          lean_min_hit_prob?: number | null
+          mode_description?: string | null
           mode_key: string
           mode_name: string
+          pass_below_ev?: number | null
+          playable_min_ev?: number | null
+          playable_min_hit_prob?: number | null
+          prioritize_hidden_value?: boolean | null
+          prioritize_live_entries?: boolean | null
+          prioritize_risk_reduction?: boolean | null
+          prioritize_trap_detection?: boolean | null
+          show_cosmic_panel?: boolean | null
+          show_mode_specific_badges?: boolean | null
+          show_opportunity_feed?: boolean | null
+          show_trap_alerts?: boolean | null
           sort_order?: number | null
+          strong_yes_min_ev?: number | null
+          strong_yes_min_hit_prob?: number | null
+          tone_style?: string | null
+          updated_at?: string | null
+          weight_astro_signal?: number | null
+          weight_correlation_risk?: number | null
+          weight_cosmic_alignment?: number | null
+          weight_ev?: number | null
+          weight_game_momentum?: number | null
+          weight_hit_probability?: number | null
+          weight_minutes_security?: number | null
+          weight_opportunity_score?: number | null
+          weight_player_momentum?: number | null
+          weight_projection?: number | null
+          weight_trap_risk?: number | null
+          weight_volatility?: number | null
         }
         Update: {
+          accent_label?: string | null
           color_accent?: string | null
           created_at?: string | null
           description?: string | null
+          emphasize_cosmic_language?: boolean | null
+          emphasize_quant_language?: boolean | null
           icon_name?: string | null
+          id?: string | null
           is_active?: boolean | null
+          lean_min_ev?: number | null
+          lean_min_hit_prob?: number | null
+          mode_description?: string | null
           mode_key?: string
           mode_name?: string
+          pass_below_ev?: number | null
+          playable_min_ev?: number | null
+          playable_min_hit_prob?: number | null
+          prioritize_hidden_value?: boolean | null
+          prioritize_live_entries?: boolean | null
+          prioritize_risk_reduction?: boolean | null
+          prioritize_trap_detection?: boolean | null
+          show_cosmic_panel?: boolean | null
+          show_mode_specific_badges?: boolean | null
+          show_opportunity_feed?: boolean | null
+          show_trap_alerts?: boolean | null
           sort_order?: number | null
+          strong_yes_min_ev?: number | null
+          strong_yes_min_hit_prob?: number | null
+          tone_style?: string | null
+          updated_at?: string | null
+          weight_astro_signal?: number | null
+          weight_correlation_risk?: number | null
+          weight_cosmic_alignment?: number | null
+          weight_ev?: number | null
+          weight_game_momentum?: number | null
+          weight_hit_probability?: number | null
+          weight_minutes_security?: number | null
+          weight_opportunity_score?: number | null
+          weight_player_momentum?: number | null
+          weight_projection?: number | null
+          weight_trap_risk?: number | null
+          weight_volatility?: number | null
         }
         Relationships: []
       }
@@ -3202,6 +3355,99 @@ export type Database = {
           },
         ]
       }
+      live_player_stats: {
+        Row: {
+          assists: number | null
+          blocks: number | null
+          fantasy_score: number | null
+          game_id: number | null
+          player_id: number | null
+          points: number | null
+          rebounds: number | null
+          steals: number | null
+          three_pa: number | null
+          three_pm: number | null
+          turnovers: number | null
+          two_pa: number | null
+          two_pm: number | null
+        }
+        Insert: {
+          assists?: number | null
+          blocks?: number | null
+          fantasy_score?: number | null
+          game_id?: number | null
+          player_id?: number | null
+          points?: number | null
+          rebounds?: number | null
+          steals?: number | null
+          three_pa?: number | null
+          three_pm?: number | null
+          turnovers?: number | null
+          two_pa?: number | null
+          two_pm?: number | null
+        }
+        Update: {
+          assists?: number | null
+          blocks?: number | null
+          fantasy_score?: number | null
+          game_id?: number | null
+          player_id?: number | null
+          points?: number | null
+          rebounds?: number | null
+          steals?: number | null
+          three_pa?: number | null
+          three_pm?: number | null
+          turnovers?: number | null
+          two_pa?: number | null
+          two_pm?: number | null
+        }
+        Relationships: []
+      }
+      live_player_tracking: {
+        Row: {
+          assists: number | null
+          blocks: number | null
+          fta: number | null
+          game_id: number | null
+          minutes_played: number | null
+          player_name: string | null
+          points: number | null
+          rebounds: number | null
+          steals: number | null
+          three_pa: number | null
+          turnovers: number | null
+          two_pa: number | null
+        }
+        Insert: {
+          assists?: number | null
+          blocks?: number | null
+          fta?: number | null
+          game_id?: number | null
+          minutes_played?: number | null
+          player_name?: string | null
+          points?: number | null
+          rebounds?: number | null
+          steals?: number | null
+          three_pa?: number | null
+          turnovers?: number | null
+          two_pa?: number | null
+        }
+        Update: {
+          assists?: number | null
+          blocks?: number | null
+          fta?: number | null
+          game_id?: number | null
+          minutes_played?: number | null
+          player_name?: string | null
+          points?: number | null
+          rebounds?: number | null
+          steals?: number | null
+          three_pa?: number | null
+          turnovers?: number | null
+          two_pa?: number | null
+        }
+        Relationships: []
+      }
       live_prop_state: {
         Row: {
           astro_modifier: number | null
@@ -5763,6 +6009,33 @@ export type Database = {
             referencedColumns: ["player_id"]
           },
         ]
+      }
+      play_by_play_raw: {
+        Row: {
+          clock: string | null
+          event_id: number | null
+          game_id: number | null
+          period: number | null
+          play_json: Json | null
+          player_name: string | null
+        }
+        Insert: {
+          clock?: string | null
+          event_id?: number | null
+          game_id?: number | null
+          period?: number | null
+          play_json?: Json | null
+          player_name?: string | null
+        }
+        Update: {
+          clock?: string | null
+          event_id?: number | null
+          game_id?: number | null
+          period?: number | null
+          play_json?: Json | null
+          player_name?: string | null
+        }
+        Relationships: []
       }
       player_boxscores_raw: {
         Row: {
@@ -9893,6 +10166,42 @@ export type Database = {
         }
         Relationships: []
       }
+      live_player_projections: {
+        Row: {
+          player_name: string | null
+          projected_assists: number | null
+          projected_points: number | null
+          projected_rebounds: number | null
+        }
+        Relationships: []
+      }
+      live_player_rates: {
+        Row: {
+          assists_per_min: number | null
+          player_name: string | null
+          points_per_min: number | null
+          rebounds_per_min: number | null
+          three_pa_per_min: number | null
+          two_pa_per_min: number | null
+        }
+        Insert: {
+          assists_per_min?: never
+          player_name?: string | null
+          points_per_min?: never
+          rebounds_per_min?: never
+          three_pa_per_min?: never
+          two_pa_per_min?: never
+        }
+        Update: {
+          assists_per_min?: never
+          player_name?: string | null
+          points_per_min?: never
+          rebounds_per_min?: never
+          three_pa_per_min?: never
+          two_pa_per_min?: never
+        }
+        Relationships: []
+      }
       live_player_stats_aggregated: {
         Row: {
           assists: number | null
@@ -10460,6 +10769,36 @@ export type Database = {
           },
         ]
       }
+      parsed_events: {
+        Row: {
+          clock: string | null
+          event_id: number | null
+          event_type: string | null
+          game_id: number | null
+          period: number | null
+          play_text: string | null
+          player_name: string | null
+        }
+        Insert: {
+          clock?: string | null
+          event_id?: number | null
+          event_type?: never
+          game_id?: number | null
+          period?: number | null
+          play_text?: never
+          player_name?: string | null
+        }
+        Update: {
+          clock?: string | null
+          event_id?: number | null
+          event_type?: never
+          game_id?: number | null
+          period?: number | null
+          play_text?: never
+          player_name?: string | null
+        }
+        Relationships: []
+      }
       pbp_event_participants: {
         Row: {
           clock: string | null
@@ -10865,6 +11204,23 @@ export type Database = {
           },
         ]
       }
+      player_event_stats: {
+        Row: {
+          assists: number | null
+          blocks: number | null
+          fta: number | null
+          game_id: number | null
+          period: number | null
+          player_name: string | null
+          points: number | null
+          rebounds: number | null
+          steals: number | null
+          three_pa: number | null
+          turnovers: number | null
+          two_pa: number | null
+        }
+        Relationships: []
+      }
       player_stats_by_window: {
         Row: {
           assists: number | null
@@ -11114,6 +11470,33 @@ export type Database = {
           spread_jump: number | null
           win_prob_a: number | null
           win_prob_jump: number | null
+        }
+        Relationships: []
+      }
+      v_astra_ritual_center: {
+        Row: {
+          active_bias: string | null
+          active_cosmic_window_count: number | null
+          active_trap_count: number | null
+          active_watchlist_count: number | null
+          command_summary: string | null
+          cosmic_climate: string | null
+          icon_name: string | null
+          live_opportunity_count: number | null
+          market_climate: string | null
+          mode_description: string | null
+          mode_key: string | null
+          mode_name: string | null
+          summary_generated_at: string | null
+          tone_style: string | null
+          top_live_opportunity_id: string | null
+          top_safe_play_id: string | null
+          top_trap_alert_id: string | null
+          top_upside_play_id: string | null
+          updated_at: string | null
+          user_id: string | null
+          weakest_leg_id: string | null
+          weakest_slip_id: string | null
         }
         Relationships: []
       }
