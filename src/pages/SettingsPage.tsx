@@ -166,6 +166,68 @@ const SettingsPage = () => {
       ),
     },
     {
+      key: "notifications",
+      icon: Bell,
+      title: "Notifications",
+      desc: "Alert categories and frequency",
+      content: (
+        <div className="space-y-3 pt-3">
+          <p className="text-[10px] text-muted-foreground leading-relaxed mb-2">
+            Choose which alerts you'd like to receive. All alerts respect your throttle setting to avoid overwhelming you.
+          </p>
+          {([
+            { key: "game_start" as const, label: "Game Start", desc: "When a tracked game tips off" },
+            { key: "score_changes" as const, label: "Score Changes", desc: "Major scoring runs and swings" },
+            { key: "lead_changes" as const, label: "Lead Changes", desc: "When the lead switches teams" },
+            { key: "tracked_prop_hit" as const, label: "Prop Hit", desc: "When a tracked prop crosses its line" },
+            { key: "tracked_prop_danger" as const, label: "Prop Danger", desc: "When a tracked prop is at risk" },
+            { key: "slip_updates" as const, label: "Slip Updates", desc: "Bet slip legs hitting or settling" },
+            { key: "live_opportunities" as const, label: "Live Opportunities", desc: "High-edge live plays detected" },
+            { key: "model_edge_alerts" as const, label: "Model Edge Alerts", desc: "When models detect unusual value" },
+          ]).map(item => (
+            <div key={item.key} className="flex items-center justify-between">
+              <div className="flex-1 min-w-0">
+                <span className="text-sm">{item.label}</span>
+                <p className="text-[10px] text-muted-foreground">{item.desc}</p>
+              </div>
+              <Switch
+                checked={notifPrefs[item.key]}
+                onCheckedChange={(v) => updateNotifPrefs.mutate({ [item.key]: v })}
+              />
+            </div>
+          ))}
+          <div className="border-t border-border/50 pt-3 mt-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <span className="text-sm flex items-center gap-1.5">
+                  <BellOff className="h-3.5 w-3.5 text-muted-foreground" />
+                  Quiet Mode
+                </span>
+                <p className="text-[10px] text-muted-foreground">Pause all notifications</p>
+              </div>
+              <Switch
+                checked={notifPrefs.quiet_mode}
+                onCheckedChange={(v) => updateNotifPrefs.mutate({ quiet_mode: v })}
+              />
+            </div>
+          </div>
+          <div className="space-y-1.5 pt-2">
+            <div className="flex justify-between text-xs">
+              <span>Throttle (min between alerts)</span>
+              <span className="text-primary font-medium">{notifPrefs.throttle_minutes} min</span>
+            </div>
+            <Slider
+              value={[notifPrefs.throttle_minutes]}
+              onValueChange={([v]) => updateNotifPrefs.mutate({ throttle_minutes: v })}
+              min={1}
+              max={30}
+              step={1}
+            />
+          </div>
+        </div>
+      ),
+    },
+    {
       key: "gambling",
       icon: Shield,
       title: "Responsible Gambling",
