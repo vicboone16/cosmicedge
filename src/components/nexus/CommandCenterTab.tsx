@@ -39,11 +39,13 @@ const QUICK_CHIPS = [
 
 export default function CommandCenterTab() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const { modes, activeMode, activeModeConfig, setMode } = useAstraMode();
   const { profile } = useBettingProfile();
   const [query, setQuery] = useState("");
   const [verdict, setVerdict] = useState<AstraVerdict | null>(null);
   const [isAsking, setIsAsking] = useState(false);
+  const [expandedMode, setExpandedMode] = useState(false);
 
   const askAstra = async () => {
     const text = query.trim();
