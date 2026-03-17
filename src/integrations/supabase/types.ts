@@ -243,21 +243,54 @@ export type Database = {
           active_cosmic_window_count: number | null
           active_trap_count: number | null
           active_watchlist_count: number | null
+          bonus_danger_away: boolean | null
+          bonus_danger_home: boolean | null
+          bonus_danger_team_id: string | null
+          color_accent: string | null
           command_summary: string | null
+          confidence: number | null
+          cosmic_boost: number | null
           cosmic_climate: string | null
           created_at: string | null
+          detail: string | null
+          empty_poss_away_last_n: number | null
+          empty_poss_home_last_n: number | null
+          empty_possessions_away: number | null
+          empty_possessions_home: number | null
+          ev_edge: number | null
+          expires_at: string | null
+          fg_drought_away_sec: number | null
+          fg_drought_home_sec: number | null
+          headline: string | null
+          hidden_value_score: number | null
           id: string
+          is_dismissed: boolean | null
+          is_live: boolean | null
           last_mode_key: string | null
           last_query: string | null
           live_opportunity_count: number | null
           market_climate: string | null
           mode_key: string | null
+          mode_relevance: number | null
+          off_reb_last_5min_away: number | null
+          off_reb_last_5min_home: number | null
+          opportunity_label: string | null
+          opportunity_score: number | null
+          oreb_away_period: number | null
+          oreb_home_period: number | null
+          oreb_pressure_team_id: string | null
           pinned_game_ids: string[] | null
+          reasoning: string | null
+          recommendation: string | null
+          second_chance_pressure_team_id: string | null
           summary_generated_at: string | null
+          timing_quality_score: number | null
           top_live_opportunity_id: string | null
           top_safe_play_id: string | null
           top_trap_alert_id: string | null
           top_upside_play_id: string | null
+          trap_risk_score: number | null
+          trap_score: number | null
           updated_at: string | null
           user_id: string
           weakest_leg_id: string | null
@@ -268,21 +301,54 @@ export type Database = {
           active_cosmic_window_count?: number | null
           active_trap_count?: number | null
           active_watchlist_count?: number | null
+          bonus_danger_away?: boolean | null
+          bonus_danger_home?: boolean | null
+          bonus_danger_team_id?: string | null
+          color_accent?: string | null
           command_summary?: string | null
+          confidence?: number | null
+          cosmic_boost?: number | null
           cosmic_climate?: string | null
           created_at?: string | null
+          detail?: string | null
+          empty_poss_away_last_n?: number | null
+          empty_poss_home_last_n?: number | null
+          empty_possessions_away?: number | null
+          empty_possessions_home?: number | null
+          ev_edge?: number | null
+          expires_at?: string | null
+          fg_drought_away_sec?: number | null
+          fg_drought_home_sec?: number | null
+          headline?: string | null
+          hidden_value_score?: number | null
           id?: string
+          is_dismissed?: boolean | null
+          is_live?: boolean | null
           last_mode_key?: string | null
           last_query?: string | null
           live_opportunity_count?: number | null
           market_climate?: string | null
           mode_key?: string | null
+          mode_relevance?: number | null
+          off_reb_last_5min_away?: number | null
+          off_reb_last_5min_home?: number | null
+          opportunity_label?: string | null
+          opportunity_score?: number | null
+          oreb_away_period?: number | null
+          oreb_home_period?: number | null
+          oreb_pressure_team_id?: string | null
           pinned_game_ids?: string[] | null
+          reasoning?: string | null
+          recommendation?: string | null
+          second_chance_pressure_team_id?: string | null
           summary_generated_at?: string | null
+          timing_quality_score?: number | null
           top_live_opportunity_id?: string | null
           top_safe_play_id?: string | null
           top_trap_alert_id?: string | null
           top_upside_play_id?: string | null
+          trap_risk_score?: number | null
+          trap_score?: number | null
           updated_at?: string | null
           user_id: string
           weakest_leg_id?: string | null
@@ -293,21 +359,54 @@ export type Database = {
           active_cosmic_window_count?: number | null
           active_trap_count?: number | null
           active_watchlist_count?: number | null
+          bonus_danger_away?: boolean | null
+          bonus_danger_home?: boolean | null
+          bonus_danger_team_id?: string | null
+          color_accent?: string | null
           command_summary?: string | null
+          confidence?: number | null
+          cosmic_boost?: number | null
           cosmic_climate?: string | null
           created_at?: string | null
+          detail?: string | null
+          empty_poss_away_last_n?: number | null
+          empty_poss_home_last_n?: number | null
+          empty_possessions_away?: number | null
+          empty_possessions_home?: number | null
+          ev_edge?: number | null
+          expires_at?: string | null
+          fg_drought_away_sec?: number | null
+          fg_drought_home_sec?: number | null
+          headline?: string | null
+          hidden_value_score?: number | null
           id?: string
+          is_dismissed?: boolean | null
+          is_live?: boolean | null
           last_mode_key?: string | null
           last_query?: string | null
           live_opportunity_count?: number | null
           market_climate?: string | null
           mode_key?: string | null
+          mode_relevance?: number | null
+          off_reb_last_5min_away?: number | null
+          off_reb_last_5min_home?: number | null
+          opportunity_label?: string | null
+          opportunity_score?: number | null
+          oreb_away_period?: number | null
+          oreb_home_period?: number | null
+          oreb_pressure_team_id?: string | null
           pinned_game_ids?: string[] | null
+          reasoning?: string | null
+          recommendation?: string | null
+          second_chance_pressure_team_id?: string | null
           summary_generated_at?: string | null
+          timing_quality_score?: number | null
           top_live_opportunity_id?: string | null
           top_safe_play_id?: string | null
           top_trap_alert_id?: string | null
           top_upside_play_id?: string | null
+          trap_risk_score?: number | null
+          trap_score?: number | null
           updated_at?: string | null
           user_id?: string
           weakest_leg_id?: string | null
@@ -3669,6 +3768,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      migration_guard: {
+        Row: {
+          applied_at: string | null
+          id: number
+          migration_name: string | null
+        }
+        Insert: {
+          applied_at?: string | null
+          id?: number
+          migration_name?: string | null
+        }
+        Update: {
+          applied_at?: string | null
+          id?: number
+          migration_name?: string | null
+        }
+        Relationships: []
       }
       model_backtest_results: {
         Row: {
@@ -11322,6 +11439,14 @@ export type Database = {
           },
         ]
       }
+      schema_drift_report: {
+        Row: {
+          column_name: unknown
+          data_type: string | null
+          table_name: unknown
+        }
+        Relationships: []
+      }
       tt_admin_dashboard: {
         Row: {
           best_bet_tag: string | null
@@ -13151,6 +13276,15 @@ export type Database = {
           },
         ]
       }
+      view_dependency_report: {
+        Row: {
+          dependent_schema: unknown
+          dependent_view: unknown
+          source_schema: unknown
+          source_table: unknown
+        }
+        Relationships: []
+      }
     }
     Functions: {
       aggregate_period_stats: {
@@ -13187,6 +13321,18 @@ export type Database = {
           p_zone_key?: string
         }
         Returns: string
+      }
+      ensure_column: {
+        Args: { p_column: string; p_table: string; p_type: string }
+        Returns: undefined
+      }
+      ensure_index: {
+        Args: { p_definition: string; p_index: string; p_table: string }
+        Returns: undefined
+      }
+      ensure_view: {
+        Args: { p_sql: string; p_view: string }
+        Returns: undefined
       }
       f_unaccent: { Args: { "": string }; Returns: string }
       format_seconds_mmss: { Args: { p_seconds: number }; Returns: string }
