@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import CommandCenterTab from "@/components/nexus/CommandCenterTab";
+import { GuidanceCard } from "@/components/ui/GuidanceCard";
 
 // ── Players Tab ──
 function PlayersTab() {
