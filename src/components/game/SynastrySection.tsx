@@ -156,18 +156,49 @@ export function SynastrySection({ awayPlayers, homePlayers, awayAbbr, homeAbbr }
   const harmonious = matchups.filter(m => m.aspect.nature === "harmonious").length;
   const challenging = matchups.filter(m => m.aspect.nature === "challenging").length;
 
+  const activePairs = viewMode === "matchup" ? matchups
+    : viewMode === "away_team" ? teamSynastry.away
+    : teamSynastry.home;
+
+  const harmonious = activePairs.filter(m => m.aspect.nature === "harmonious").length;
+  const challenging = activePairs.filter(m => m.aspect.nature === "challenging").length;
+
   return (
     <section>
       <h3 className="text-xs font-semibold text-primary uppercase tracking-widest mb-3 flex items-center gap-1.5">
         <Sparkles className="h-3.5 w-3.5" />
-        Synastry · Key Matchups
+        Synastry
       </h3>
+
+      {/* View mode toggle */}
+      <div className="flex gap-1 mb-3 overflow-x-auto no-scrollbar">
+        {([
+          { val: "matchup" as const, label: "Matchups" },
+          { val: "away_team" as const, label: `${awayAbbr} Chemistry` },
+          { val: "home_team" as const, label: `${homeAbbr} Chemistry` },
+        ]).map(t => (
+          <button
+            key={t.val}
+            onClick={() => setViewMode(t.val)}
+            className={cn(
+              "text-[10px] font-semibold px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors",
+              viewMode === t.val
+                ? "bg-primary/15 text-primary"
+                : "bg-secondary/50 text-muted-foreground hover:text-foreground"
+            )}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
 
       {/* Summary bar */}
       <div className="celestial-gradient rounded-xl p-3 mb-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold text-foreground">Aspect Breakdown</span>
+            <span className="text-xs font-semibold text-foreground">
+              {viewMode === "matchup" ? "Aspect Breakdown" : "Team Chemistry"}
+            </span>
           </div>
           <div className="flex items-center gap-3 text-[10px]">
             <span className="text-cosmic-green font-semibold">△ {harmonious} harmonious</span>
@@ -177,53 +208,56 @@ export function SynastrySection({ awayPlayers, homePlayers, awayAbbr, homeAbbr }
         <div className="h-1.5 bg-border rounded-full overflow-hidden mt-2 flex">
           <div
             className="h-full bg-cosmic-green rounded-l-full transition-all"
-            style={{ width: `${(harmonious / matchups.length) * 100}%` }}
+            style={{ width: `${activePairs.length > 0 ? (harmonious / activePairs.length) * 100 : 0}%` }}
           />
           <div
             className="h-full bg-cosmic-red rounded-r-full transition-all"
-            style={{ width: `${(challenging / matchups.length) * 100}%` }}
+            style={{ width: `${activePairs.length > 0 ? (challenging / activePairs.length) * 100 : 0}%` }}
           />
         </div>
       </div>
 
-      {/* Matchup cards */}
-      <div className="space-y-2">
-        {matchups.map((m, i) => (
-          <div key={i} className="cosmic-card rounded-xl p-3">
-            <div className="flex items-center justify-between">
-              {/* Away player */}
-              <div className="flex-1 text-left min-w-0">
-                <p className="text-[10px] font-medium text-foreground truncate">{m.away.name}</p>
-                <p className="text-[9px] text-muted-foreground">
-                  {SIGN_SYMBOLS[m.away.sign]} {m.away.sign} · {m.away.position || "—"}
-                </p>
+      {/* Matchup / Chemistry cards */}
+      {activePairs.length === 0 ? (
+        <p className="text-[9px] text-muted-foreground text-center py-4">
+          Not enough birth data available for this view.
+        </p>
+      ) : (
+        <div className="space-y-2">
+          {activePairs.map((m, i) => (
+            <div key={i} className="cosmic-card rounded-xl p-3">
+              <div className="flex items-center justify-between">
+                <div className="flex-1 text-left min-w-0">
+                  <p className="text-[10px] font-medium text-foreground truncate">{m.away.name}</p>
+                  <p className="text-[9px] text-muted-foreground">
+                    {SIGN_SYMBOLS[m.away.sign]} {m.away.sign} · {m.away.position || "—"}
+                  </p>
+                </div>
+                <div className="flex flex-col items-center px-3">
+                  <span className={cn("text-lg font-bold", m.aspect.color)}>
+                    {m.aspect.symbol}
+                  </span>
+                  <span className={cn("text-[9px] font-semibold", m.aspect.color)}>
+                    {m.aspect.label}
+                  </span>
+                </div>
+                <div className="flex-1 text-right min-w-0">
+                  <p className="text-[10px] font-medium text-foreground truncate">{m.home.name}</p>
+                  <p className="text-[9px] text-muted-foreground">
+                    {m.home.position || "—"} · {SIGN_SYMBOLS[m.home.sign]} {m.home.sign}
+                  </p>
+                </div>
               </div>
-
-              {/* Aspect indicator */}
-              <div className="flex flex-col items-center px-3">
-                <span className={cn("text-lg font-bold", m.aspect.color)}>
-                  {m.aspect.symbol}
-                </span>
-                <span className={cn("text-[9px] font-semibold", m.aspect.color)}>
-                  {m.aspect.label}
-                </span>
-              </div>
-
-              {/* Home player */}
-              <div className="flex-1 text-right min-w-0">
-                <p className="text-[10px] font-medium text-foreground truncate">{m.home.name}</p>
-                <p className="text-[9px] text-muted-foreground">
-                  {m.home.position || "—"} · {SIGN_SYMBOLS[m.home.sign]} {m.home.sign}
-                </p>
-              </div>
+              <p className="text-[9px] text-muted-foreground italic mt-2 leading-relaxed text-center">
+                ✦ {viewMode === "matchup" ? m.aspect.description : 
+                  m.aspect.nature === "harmonious" ? "These teammates share natural chemistry — expect fluid cooperation" :
+                  m.aspect.nature === "challenging" ? "Tension between these teammates may create competition for shots/touches" :
+                  "Neutral energy — neither boosting nor hindering each other"}
+              </p>
             </div>
-
-            <p className="text-[9px] text-muted-foreground italic mt-2 leading-relaxed text-center">
-              ✦ {m.aspect.description}
-            </p>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </section>
   );
 }

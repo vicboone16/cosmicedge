@@ -400,24 +400,33 @@ export function GameMatchupTab({
   const awayBench = awayLineup.filter(p => p.depth_order > 1);
   const hasLineups = homeLineup.length > 0 || awayLineup.length > 0;
 
-  const PlayerRow = ({ player }: { player: typeof homeLineup[number] }) => (
-    <button
-      onClick={() => {
-        if (player.player_id) navigate(`/player/${player.player_id}`);
-      }}
-      className="flex items-center gap-2 py-1.5 w-full text-left hover:bg-secondary/40 rounded-lg px-2 transition-colors"
-    >
-      <Avatar className="h-6 w-6 shrink-0">
-        <AvatarFallback className="text-[8px] bg-secondary">
-          {player.player_name?.slice(0, 2).toUpperCase()}
-        </AvatarFallback>
-      </Avatar>
-      <div className="min-w-0 flex-1">
-        <p className="text-xs font-medium text-foreground truncate">{player.player_name}</p>
-      </div>
-      <span className="text-[10px] text-muted-foreground font-mono shrink-0">{player.position}</span>
-    </button>
-  );
+  const PlayerRow = ({ player }: { player: typeof homeLineup[number] }) => {
+    const birthDate = player.player_id ? lineupBirthDates?.[player.player_id] : null;
+    const zodiac = birthDate ? getZodiacForDate(birthDate) : null;
+    return (
+      <button
+        onClick={() => {
+          if (player.player_id) navigate(`/player/${player.player_id}`);
+        }}
+        className="flex items-center gap-2 py-1.5 w-full text-left hover:bg-secondary/40 rounded-lg px-2 transition-colors"
+      >
+        <Avatar className="h-6 w-6 shrink-0">
+          <AvatarFallback className="text-[8px] bg-secondary">
+            {zodiac ? zodiac.symbol : player.player_name?.slice(0, 2).toUpperCase()}
+          </AvatarFallback>
+        </Avatar>
+        <div className="min-w-0 flex-1">
+          <p className="text-xs font-medium text-foreground truncate">
+            {player.player_name}
+            {zodiac && (
+              <span className="text-[9px] text-primary/70 ml-1">{zodiac.symbol}</span>
+            )}
+          </p>
+        </div>
+        <span className="text-[10px] text-muted-foreground font-mono shrink-0">{player.position}</span>
+      </button>
+    );
+  };
 
   return (
     <div className="space-y-4">

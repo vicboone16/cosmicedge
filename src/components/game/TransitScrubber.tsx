@@ -122,6 +122,63 @@ function computeNatalPositions(birthDate: string) {
   return computeTransitPositions(d);
 }
 
+// Mini-phrase component for transit insight
+function TransitInsightPhrase({
+  planetaryHour,
+  offsetMinutes,
+  aspects,
+  selectedPlayer,
+}: {
+  planetaryHour: ReturnType<typeof getPlanetaryHourAt>;
+  offsetMinutes: number;
+  aspects: ReturnType<typeof computeAspects>;
+  selectedPlayer: PlayerData | null;
+}) {
+  const phrase = useMemo(() => {
+    const harmonious = aspects.filter(a => a.nature === "harmonious");
+    const challenging = aspects.filter(a => a.nature === "challenging");
+    const exact = aspects.filter(a => a.exact);
+
+    if (selectedPlayer) {
+      if (harmonious.length > challenging.length) {
+        return `✦ ${selectedPlayer.name} has favorable transits — expect enhanced performance`;
+      } else if (challenging.length > harmonious.length) {
+        return `⚠ ${selectedPlayer.name} faces transit resistance — watch for inconsistency`;
+      }
+      return `◎ ${selectedPlayer.name}'s transits are neutral — standard output expected`;
+    }
+
+    if (exact.length > 0) {
+      const e = exact[0];
+      if (e.nature === "harmonious") return `✦ Exact ${e.aspect}: ${e.planet1}–${e.planet2} — scoring energy amplified`;
+      if (e.nature === "challenging") return `⚠ Exact ${e.aspect}: ${e.planet1}–${e.planet2} — tension and volatility rise`;
+      return `☌ Exact conjunction: ${e.planet1}–${e.planet2} — intense, unpredictable energy`;
+    }
+
+    if (!planetaryHour) return null;
+
+    const planet = planetaryHour.planet;
+    const phrases: Record<string, string> = {
+      Sun: "☉ Sun Hour — bold plays and high-scoring runs favored",
+      Moon: "☽ Moon Hour — emotional swings, crowd energy impacts momentum",
+      Mars: "♂ Mars Hour — aggressive defense, fast breaks, physicality",
+      Mercury: "☿ Mercury Hour — quick passing, turnovers possible, transition game",
+      Jupiter: "♃ Jupiter Hour — expansion, high totals, generous scoring",
+      Venus: "♀ Venus Hour — finesse shooting, smooth ball movement",
+      Saturn: "♄ Saturn Hour — discipline wins, grind-it-out, low scoring",
+    };
+    return phrases[planet] || null;
+  }, [planetaryHour, aspects, selectedPlayer, offsetMinutes]);
+
+  if (!phrase) return null;
+
+  return (
+    <div className="text-center py-1.5 px-3 rounded-lg bg-primary/5 border border-primary/10">
+      <p className="text-[10px] text-primary/80 font-medium leading-relaxed">{phrase}</p>
+    </div>
+  );
+}
+
 export function TransitScrubber({ startTime, venueLat, awayPlayers, homePlayers, awayAbbr, homeAbbr, selectedPlayer: controlledPlayer, onSelectPlayer }: Props) {
   const [offsetMinutes, setOffsetMinutes] = useState(0);
   const [chartView, setChartView] = useState<ChartView>("transit");

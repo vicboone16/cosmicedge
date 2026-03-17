@@ -88,6 +88,22 @@ function PlayerAstrocarto({ playerId, playerName, team, venueLat, venueLng }: {
     return { planet, angle, distance, isClose };
   };
 
+  // Generate transit implication text
+  const getLineImplication = (line: any) => {
+    const planet = (line.planet || line.name || "").toLowerCase();
+    const angle = (line.angle || line.type || "").toUpperCase();
+    const implications: Record<string, Record<string, string>> = {
+      sun: { MC: "Peak visibility — dominant performance likely", IC: "Internal drive — quiet efficiency", ASC: "Personal charisma elevated", DSC: "Opponent awareness heightened" },
+      moon: { MC: "Emotional peaks — crowd energy matters", IC: "Comfort at this venue", ASC: "Emotional sensitivity up", DSC: "Team chemistry flows" },
+      mars: { MC: "Aggressive energy peaks — physical play", IC: "Controlled intensity", ASC: "High motor, foul risk", DSC: "Confrontational matchups" },
+      jupiter: { MC: "Expansion — big scoring potential", IC: "Quiet growth, second-half surge", ASC: "Confidence boost", DSC: "Generous playmaking" },
+      saturn: { MC: "Discipline rewarded — defensive focus", IC: "Fatigue or restriction possible", ASC: "Pressure mounts", DSC: "Opponent plays conservatively" },
+      venus: { MC: "Finesse game elevated", IC: "Comfort and flow", ASC: "Smooth touch", DSC: "Team harmony" },
+      mercury: { MC: "Quick decisions, transition game", IC: "Overthinking possible", ASC: "Communication sharp", DSC: "Turnover risk from reads" },
+    };
+    return implications[planet]?.[angle] || null;
+  };
+
   return (
     <div className="cosmic-card rounded-lg p-2.5 space-y-1.5">
       <div className="flex items-center justify-between">
@@ -123,21 +139,28 @@ function PlayerAstrocarto({ playerId, playerName, team, venueLat, venueLng }: {
         </div>
       )}
 
-      {/* All lines */}
+      {/* Transit implications for crossing lines */}
       {Array.isArray(lines) && lines.length > 0 && (
-        <div className="flex flex-wrap gap-1">
+        <div className="space-y-1">
           {lines.slice(0, 4).map((line: any, i: number) => {
             const { planet, angle, distance, isClose } = formatLine(line, i);
+            const implication = getLineImplication(line);
             return (
-              <span
-                key={i}
-                className={cn(
-                  "text-[8px] px-1.5 py-0.5 rounded font-medium",
-                  isClose ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"
+              <div key={i}>
+                <div className="flex items-center gap-1">
+                  <span
+                    className={cn(
+                      "text-[8px] px-1.5 py-0.5 rounded font-medium",
+                      isClose ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"
+                    )}
+                  >
+                    {planet} {angle} {distance !== null ? `${distance.toFixed(1)}°` : ""}
+                  </span>
+                </div>
+                {implication && isClose && (
+                  <p className="text-[7px] text-primary/60 italic ml-1 mt-0.5">→ {implication}</p>
                 )}
-              >
-                {planet} {angle} {distance !== null ? `${distance.toFixed(1)}°` : ""}
-              </span>
+              </div>
             );
           })}
         </div>

@@ -941,6 +941,9 @@ const GameDetail = () => {
                   <Shield className="h-3.5 w-3.5" />
                   Depth Chart
                 </h3>
+                <p className="text-[9px] text-muted-foreground mb-3 leading-relaxed">
+                  Projected rotation order by position. Tap a player to view their profile. Zodiac signs are derived from birth data on file.
+                </p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {[{ abbr: game.away_abbr, depth: awayDepth }, { abbr: game.home_abbr, depth: homeDepth }].map(({ abbr, depth }) => {
                     const byPos = depth.reduce((acc, d) => {
@@ -954,11 +957,26 @@ const GameDetail = () => {
                           {Object.entries(byPos).slice(0, 6).map(([pos, entries]) => (
                             <div key={pos} className="cosmic-card rounded-lg p-2">
                               <p className="text-[9px] font-bold text-primary uppercase mb-1">{pos}</p>
-                              {entries.map((e, i) => (
-                                <p key={i} className={cn("text-[9px]", i === 0 ? "font-semibold text-foreground" : "text-muted-foreground")}>
-                                  {e.depth_order}. {e.player_name}
-                                </p>
-                              ))}
+                              {entries.map((e, i) => {
+                                // Look up zodiac from players array
+                                const matchedPlayer = players?.find(p => p.id === e.player_id);
+                                const zodiac = matchedPlayer?.birth_date ? getZodiacFromDateStr(matchedPlayer.birth_date) : null;
+                                return (
+                                  <button
+                                    key={i}
+                                    onClick={() => { if (e.player_id) navigate(`/player/${e.player_id}`); }}
+                                    className={cn(
+                                      "text-[9px] w-full text-left flex items-center gap-1 hover:bg-secondary/40 rounded px-1 py-0.5 transition-colors",
+                                      i === 0 ? "font-semibold text-foreground" : "text-muted-foreground"
+                                    )}
+                                  >
+                                    <span>{e.depth_order}. {e.player_name}</span>
+                                    {zodiac && (
+                                      <span className="text-[8px] text-primary/70 ml-auto">{zodiac.symbol} {zodiac.sign}</span>
+                                    )}
+                                  </button>
+                                );
+                              })}
                             </div>
                           ))}
                         </div>
