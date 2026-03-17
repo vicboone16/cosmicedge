@@ -415,6 +415,10 @@ export default function TrendsPage() {
       </div>
 
       <div className="px-4 py-3 space-y-3">
+        <GuidanceCard title="How Trends Work" dismissKey="trends_intro" variant="tip">
+          <p>Trends analyzes player props against recent game logs to find hit-rate streaks and edges. <DataSourceBadge source="provider" compact /> lines come from sportsbook feeds. <DataSourceBadge source="model" compact /> insights are computed from your stat history.</p>
+          <p className="mt-1">Use the <strong>Insights</strong> tab to see ranked edges, or <strong>Games</strong> to browse by matchup.</p>
+        </GuidanceCard>
         {gamesLoading ? (
           <div className="text-center py-12">
             <Flame className="h-6 w-6 text-primary mx-auto mb-2 animate-pulse" />
