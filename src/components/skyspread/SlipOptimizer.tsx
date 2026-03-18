@@ -4,6 +4,7 @@ import {
   Shield, Rocket, RefreshCw, Save, Loader2, AlertTriangle,
   ChevronDown, ChevronUp, Brain, Target, Activity, Info
 } from "lucide-react";
+import { stripMarkdownArtifacts } from "@/lib/display-labels";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -295,6 +296,15 @@ function ConfidenceDistribution({ legs }: { legs: LegScore[] }) {
     </div>
   );
 }
+/** Render AI text with bold support and markdown stripped */
+function renderCleanAiText(text: string) {
+  const cleaned = stripMarkdownArtifacts(text);
+  return cleaned.split(/\*\*(.*?)\*\*/g).map((part, i) =>
+    i % 2 === 1
+      ? <strong key={i} className="text-primary">{part}</strong>
+      : <span key={i}>{part}</span>
+  );
+}
 
 /* ─── AI Analysis Panel ─── */
 function AiAnalysisPanel({ analysis, loading, action }: { analysis: string | null; loading: boolean; action: string | null }) {
@@ -316,11 +326,7 @@ function AiAnalysisPanel({ analysis, loading, action }: { analysis: string | nul
       )}
       {analysis && (
         <div className="text-[10px] text-foreground leading-relaxed whitespace-pre-wrap prose-sm">
-          {analysis.split(/\*\*(.*?)\*\*/g).map((part, i) =>
-            i % 2 === 1
-              ? <strong key={i} className="text-primary">{part}</strong>
-              : <span key={i}>{part}</span>
-          )}
+          {renderCleanAiText(analysis)}
         </div>
       )}
     </div>

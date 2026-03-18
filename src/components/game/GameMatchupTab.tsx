@@ -288,21 +288,28 @@ export function GameMatchupTab({
     const pace = paceData?.find(p => p.team_abbr === abbr);
 
     // Sanity check: if pace data has ORTG > 150 or pace < 50, it's corrupt — ignore it
-    const paceIsValid = pace && Number(pace.off_rating) <= 150 && Number(pace.avg_pace) >= 50;
+    const paceIsValid = pace && Number(pace.off_rating) <= 150 && Number(pace.off_rating) >= 80 && Number(pace.avg_pace) >= 50;
+
+    // Sanity-bound helper: clamp values to reasonable NBA ranges
+    const clamp = (val: number | null, min: number, max: number) => {
+      if (val == null) return null;
+      if (val < min || val > max) return null; // treat as corrupt
+      return val;
+    };
 
     // Prioritize team_season_pace (manually curated) over computed stats
     return {
-      ppg: (paceIsValid && pace.avg_points != null ? Number(pace.avg_points) : null) ?? adv?.ppg ?? null,
-      ortg: (paceIsValid ? Number(pace.off_rating) : null) ?? adv?.ortg ?? null,
-      drtg: (paceIsValid ? Number(pace.def_rating) : null) ?? null,
-      pace: (paceIsValid ? Number(pace.avg_pace) : null) ?? adv?.pace ?? null,
-      ts: (pace?.ts_pct != null ? Number(pace.ts_pct) * 100 : null) ?? adv?.ts ?? null,
-      efg: (pace?.efg_pct != null ? Number(pace.efg_pct) * 100 : null) ?? adv?.efg ?? null,
-      offEfg: pace?.off_efg_pct != null ? Number(pace.off_efg_pct) : null,
-      defEfg: pace?.def_efg_pct != null ? Number(pace.def_efg_pct) : null,
-      tovPct: (pace?.tov_pct != null ? Number(pace.tov_pct) : null) ?? adv?.tovPct ?? null,
-      offTov: pace?.off_tov_pct != null ? Number(pace.off_tov_pct) : null,
-      defTov: pace?.def_tov_pct != null ? Number(pace.def_tov_pct) : null,
+      ppg: clamp(paceIsValid && pace.avg_points != null ? Number(pace.avg_points) : null, 70, 140) ?? clamp(adv?.ppg ?? null, 70, 140),
+      ortg: clamp(paceIsValid ? Number(pace.off_rating) : null, 80, 140) ?? clamp(adv?.ortg ?? null, 80, 140),
+      drtg: clamp(paceIsValid ? Number(pace.def_rating) : null, 80, 140) ?? null,
+      pace: clamp(paceIsValid ? Number(pace.avg_pace) : null, 85, 115) ?? clamp(adv?.pace ?? null, 85, 115),
+      ts: clamp(pace?.ts_pct != null ? Number(pace.ts_pct) * 100 : null, 40, 70) ?? clamp(adv?.ts ?? null, 40, 70),
+      efg: clamp(pace?.efg_pct != null ? Number(pace.efg_pct) * 100 : null, 35, 65) ?? clamp(adv?.efg ?? null, 35, 65),
+      offEfg: pace?.off_efg_pct != null ? clamp(Number(pace.off_efg_pct), 0.35, 0.65) : null,
+      defEfg: pace?.def_efg_pct != null ? clamp(Number(pace.def_efg_pct), 0.35, 0.65) : null,
+      tovPct: clamp(pace?.tov_pct != null ? Number(pace.tov_pct) : null, 5, 25) ?? clamp(adv?.tovPct ?? null, 5, 25),
+      offTov: pace?.off_tov_pct != null ? clamp(Number(pace.off_tov_pct), 5, 25) : null,
+      defTov: pace?.def_tov_pct != null ? clamp(Number(pace.def_tov_pct), 5, 25) : null,
       games: (paceIsValid ? pace.games_played : null) ?? adv?.games ?? 0,
     };
   };

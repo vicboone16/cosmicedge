@@ -106,7 +106,6 @@ export function SlipLegDetailDrawer({ leg, pick, onClose, isAdmin }: Props) {
           <p className="text-[10px] font-semibold text-muted-foreground">Match Status</p>
           <div className="flex items-center gap-2">
             <Badge variant="outline" className="text-[8px] capitalize">{pick.match_status?.replace(/_/g, " ") || "unknown"}</Badge>
-            {pick.game_id && <span className="text-[8px] text-muted-foreground truncate">Game: {pick.game_id.slice(0, 8)}…</span>}
           </div>
         </div>
 

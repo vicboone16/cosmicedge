@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import type { LegScore } from "@/lib/slip-optimizer-engine";
+import { stripMarkdownArtifacts } from "@/lib/display-labels";
 
 interface ReplacementCandidate {
   player_name: string;
@@ -200,7 +201,7 @@ export function SlipReplacementDrawer({ weakestLeg, aiSuggestions, loading, onRe
         <div className="p-3 rounded-xl bg-primary/5 border border-primary/20 space-y-1.5">
           <p className="text-[9px] font-semibold text-primary">AI Suggestions</p>
           <div className="text-[10px] text-foreground leading-relaxed whitespace-pre-wrap">
-            {aiSuggestions.split(/\*\*(.*?)\*\*/g).map((part, i) =>
+            {stripMarkdownArtifacts(aiSuggestions).split(/\*\*(.*?)\*\*/g).map((part, i) =>
               i % 2 === 1
                 ? <strong key={i} className="text-primary">{part}</strong>
                 : <span key={i}>{part}</span>

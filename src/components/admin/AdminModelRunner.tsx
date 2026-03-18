@@ -82,7 +82,8 @@ export default function AdminModelRunner() {
           }
         );
         const data = await resp.json();
-        updateResult(label, { status: "done", detail: `Processed`, data });
+        const detail = data?.inserted != null ? `${data.inserted} games processed` : (typeof data === 'object' ? JSON.stringify(data).slice(0, 120) : String(data));
+        updateResult(label, { status: "done", detail, data });
         refetchPredictions();
       } catch (e) {
         updateResult(label, { status: "error", detail: String(e) });
@@ -144,7 +145,7 @@ export default function AdminModelRunner() {
     try {
       const { data, error } = await supabase.rpc("np_persist_edgescore_v11", { minutes_back: 1440 });
       if (error) throw error;
-      const rowCount = typeof data === "number" ? data : (data as any)?.updated ?? (data as any)?.count ?? JSON.stringify(data);
+      const rowCount = typeof data === "number" ? data : typeof data === "object" ? JSON.stringify(data).slice(0, 80) : String(data ?? 0);
       updateResult(label, { status: "done", detail: `${rowCount} rows updated` });
     } catch (e) { updateResult(label, { status: "error", detail: String(e) }); }
   };

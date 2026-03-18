@@ -10,6 +10,7 @@ import { PlayerMomentumChip } from "@/components/game/PlayerMomentumChip";
 import { usePlayerMomentum } from "@/hooks/use-player-momentum";
 import { toast } from "@/hooks/use-toast";
 import { format } from "date-fns";
+import { displayStatName } from "@/lib/display-labels";
 
 /* ─── Settled display logic ─── */
 function getSettledDisplay(tp: any) {
@@ -468,7 +469,7 @@ function LivePropCard({ tp, gameData, liveState, onDelete }: { tp: any; gameData
         <div>
           <p className="text-xs font-semibold text-foreground">{tp.player_name}</p>
           <p className="text-[10px] text-muted-foreground capitalize">
-            {tp.direction} {tp.line} {tp.market_type}
+            {tp.direction} {tp.line} {displayStatName(tp.market_type || "")}
           </p>
         </div>
         <div className="flex items-center gap-1.5">
@@ -626,7 +627,7 @@ function PregamePropCard({ tp, gameData, onDelete }: { tp: any; gameData?: any; 
         <div>
           <p className="text-xs font-semibold text-foreground">{tp.player_name}</p>
           <p className="text-[10px] text-muted-foreground capitalize">
-            {tp.market_type} · {tp.direction} {tp.line}
+            {displayStatName(tp.market_type || "")} · {tp.direction} {tp.line}
           </p>
           {gameData && (
             <p className="text-[10px] text-muted-foreground mt-0.5">
@@ -661,7 +662,7 @@ function SettledPropCard({ tp, onDelete }: { tp: any; onDelete: () => void }) {
         <div>
           <p className="text-xs font-semibold text-foreground">{tp.player_name}</p>
           <p className="text-[10px] text-muted-foreground capitalize">
-            {tp.market_type} · {tp.direction} {tp.line}
+            {displayStatName(tp.market_type || "")} · {tp.direction} {tp.line}
           </p>
         </div>
         <div className="flex items-center gap-1.5">

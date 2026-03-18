@@ -10,6 +10,7 @@ import { SlipLiveTracker } from "@/components/skyspread/optimizer/SlipLiveTracke
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery } from "@tanstack/react-query";
+import { displayStatName, displayEntryType, displayBookName } from "@/lib/display-labels";
 
 const MATCH_BADGES: Record<string, { label: string; className: string }> = {
   exact_match: { label: "Matched", className: "bg-cosmic-green/15 text-cosmic-green" },
@@ -73,7 +74,7 @@ function PickRow({ pick, gameInfo, liveState }: { pick: any; gameInfo?: { away_a
               <span className="text-foreground/70 font-medium mr-1">{matchupLabel} ·</span>
             )}
             {periodLabel && <span className="text-primary font-semibold mr-1">{periodLabel}</span>}
-            {cleanStat} · {pick.direction} {Number(pick.line)}
+            {displayStatName(cleanStat)} · {pick.direction} {Number(pick.line)}
           </p>
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
@@ -284,8 +285,8 @@ function SlipCard({ slip, picks }: { slip: any; picks: any[] }) {
           )} />
           <div className="min-w-0">
             <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="text-xs font-semibold text-foreground capitalize">{slip.book}</span>
-              <span className="text-[10px] text-muted-foreground capitalize">· {slip.entry_type}</span>
+              <span className="text-xs font-semibold text-foreground capitalize">{displayBookName(slip.book)}</span>
+              <span className="text-[10px] text-muted-foreground capitalize">· {displayEntryType(slip.entry_type)}</span>
               <span className="text-[10px] text-muted-foreground">· {pickCount} picks</span>
               {matchupLabels.length > 0 && (
                 <span className="text-[9px] font-medium text-primary/80">
