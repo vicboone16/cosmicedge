@@ -469,10 +469,16 @@ export function PlayByPlayTab({ gameId, homeAbbr, awayAbbr, league, gameStatus }
             <div className="text-[9px] text-muted-foreground space-y-0.5 font-mono">
               <p><span className="text-foreground/70">Game ID:</span> {gameId}</p>
               <p><span className="text-foreground/70">League:</span> {league} | <span className="text-foreground/70">Status:</span> {gameStatus ?? "unknown"}</p>
-              <p><span className="text-foreground/70">BDL events (nba_pbp_events):</span> {bdlPbpEvents?.length ?? "loading…"} {bdlPbpLoading ? "⏳" : "✓"} <span className="text-muted-foreground/40">game_key={gameId}</span></p>
-              <p><span className="text-foreground/70">Cosmic key:</span> {gameKeyQuery.data ?? (gameKeyQuery.isLoading ? "resolving…" : "❌ not found")}</p>
-              <p><span className="text-foreground/70">Cosmic events (pbp_events):</span> {livePbpEvents ? (livePbpEvents as any[]).length : "N/A"} {livePbpLoading ? "⏳" : "✓"}</p>
-              <p><span className="text-foreground/70">Historical (nba_play_by_play_events):</span> {(nbaEvents as any[])?.length ?? "N/A"} {nbaLoading ? "⏳" : "✓"}</p>
+              {isNBA ? (
+                <>
+                  <p><span className="text-foreground/70">BDL events (nba_pbp_events):</span> {bdlPbpEvents?.length ?? "loading…"} {bdlPbpLoading ? "⏳" : "✓"} <span className="text-muted-foreground/40">game_key={gameId}</span></p>
+                  <p><span className="text-foreground/70">Cosmic key:</span> {gameKeyQuery.data ?? (gameKeyQuery.isLoading ? "resolving…" : "❌ not found")}</p>
+                  <p><span className="text-foreground/70">Cosmic events (pbp_events):</span> {livePbpEvents ? (livePbpEvents as any[]).length : "N/A"} {livePbpLoading ? "⏳" : "✓"}</p>
+                  <p><span className="text-foreground/70">Historical (nba_play_by_play_events):</span> {(nbaEvents as any[])?.length ?? "N/A"} {nbaLoading ? "⏳" : "✓"}</p>
+                </>
+              ) : (
+                <p><span className="text-foreground/70">Generic PBP (play_by_play):</span> {(genericEvents as any[])?.length ?? "loading…"} {genericLoading ? "⏳" : "✓"}</p>
+              )}
               <p><span className="text-foreground/70">Source selected:</span> {rawSource}</p>
               <p><span className="text-foreground/70">Normalized count:</span> {rawEvents.length}</p>
             </div>
@@ -482,9 +488,18 @@ export function PlayByPlayTab({ gameId, homeAbbr, awayAbbr, league, gameStatus }
             {isLiveGame && (
               <div className="text-[9px] text-cosmic-gold space-y-0.5">
                 <p>⚠ Game is live — check:</p>
-                <p className="pl-2">• nba-bdl-burst-loop running?</p>
-                <p className="pl-2">• BDL game_id → internal UUID mapping exists?</p>
-                <p className="pl-2">• pbp-watch-sync triggered?</p>
+                {isNBA ? (
+                  <>
+                    <p className="pl-2">• nba-bdl-burst-loop running?</p>
+                    <p className="pl-2">• BDL game_id → internal UUID mapping exists?</p>
+                    <p className="pl-2">• pbp-watch-sync triggered?</p>
+                  </>
+                ) : (
+                  <>
+                    <p className="pl-2">• BDL live sync running for {league}?</p>
+                    <p className="pl-2">• play_by_play records being inserted for game_id?</p>
+                  </>
+                )}
               </div>
             )}
           </div>
