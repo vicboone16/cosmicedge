@@ -4,6 +4,7 @@ import {
   Shield, Rocket, RefreshCw, Save, Loader2, AlertTriangle,
   ChevronDown, ChevronUp, Brain, Target, Activity, Info
 } from "lucide-react";
+import { stripMarkdownArtifacts } from "@/lib/display-labels";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
