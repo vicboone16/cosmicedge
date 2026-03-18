@@ -99,12 +99,16 @@ export default function SignalLabPage({ embedded = false }: { embedded?: boolean
     [filtered]
   );
 
-  const astroCards = useMemo(() =>
-    filtered
-      .filter(o => o.astro && typeof o.astro === "object" && Object.keys(o.astro).length > 0)
-      .slice(0, 30),
-    [filtered]
-  );
+  const astroCards = useMemo(() => {
+    // Show props that have explicit astro data, OR fall back to all props sorted by edge
+    // since every player has astrological context (natal chart, transits)
+    const withAstro = filtered.filter(o => o.astro && typeof o.astro === "object" && Object.keys(o.astro).length > 0);
+    if (withAstro.length >= 5) return withAstro.slice(0, 30);
+    // Fallback: show all props — every player has cosmic context
+    return filtered
+      .sort((a, b) => (b.edge_score_v11 ?? b.edge_score ?? 0) - (a.edge_score_v11 ?? a.edge_score ?? 0))
+      .slice(0, 30);
+  }, [filtered]);
 
   const liveCards = useMemo(() =>
     filtered

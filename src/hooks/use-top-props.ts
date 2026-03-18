@@ -86,6 +86,7 @@ export function useTopPropsToday(limit = 10) {
       const endOfDay = new Date(now);
       endOfDay.setHours(23, 59, 59, 999);
 
+      // Fetch props for today
       const { data } = await supabase
         .from("np_v_prop_overlay" as any)
         .select("*")
@@ -93,15 +94,21 @@ export function useTopPropsToday(limit = 10) {
         .lte("game_start_time", endOfDay.toISOString())
         .order("edge_score_v11", { ascending: false, nullsFirst: false } as any)
         .order("edge_score", { ascending: false })
-        .limit(limit);
-      const rows = (data || []) as unknown as TopProp[];
+        .limit(limit * 3); // over-fetch to allow filtering
+
+      const rows = (data || []) as unknown as (TopProp & { game_status?: string })[];
       const resolved = await resolveOverlayPlayerNames(rows);
-      // Filter: only show players whose team matches one of the game's teams
+
+      // Filter out props from finished games and wrong-team mappings
       return resolved.filter(p => {
-        if (!p.player_team || !p.home_abbr || !p.away_abbr) return true; // no data to filter on
+        // Exclude final/completed games
+        const status = (p as any).game_status?.toLowerCase?.() ?? "";
+        if (status === "final" || status === "final/ot" || status === "completed") return false;
+        // Team match check
+        if (!p.player_team || !p.home_abbr || !p.away_abbr) return true;
         const team = p.player_team.toUpperCase();
         return team === p.home_abbr.toUpperCase() || team === p.away_abbr.toUpperCase();
-      });
+      }).slice(0, limit);
     },
     staleTime: 60_000,
   });
