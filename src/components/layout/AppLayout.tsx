@@ -5,7 +5,7 @@ import { PropDrawerProvider } from "@/hooks/use-prop-drawer";
 import { useAuth } from "@/hooks/use-auth";
 import { useIsAdmin } from "@/hooks/use-admin";
 import { useMemo } from "react";
-import { User, LogIn, Moon, Settings, Users, LogOut, Shield, Sparkles, FlaskConical, Telescope, Calculator, BarChart3, HelpCircle } from "lucide-react";
+import { User, LogIn, Moon, Settings, Users, LogOut, Shield, Sparkles, FlaskConical, Telescope, Calculator, BarChart3, HelpCircle, MessageCircle } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -51,11 +51,53 @@ export function AppLayout() {
     enabled: !!user,
     refetchInterval: 30000,
   });
+
+  // Query unread message count
+  const { data: unreadMsgCount } = useQuery({
+    queryKey: ["unread-messages", user?.id],
+    queryFn: async () => {
+      if (!user) return 0;
+      const { data: memberships } = await supabase
+        .from("conversation_members")
+        .select("conversation_id, last_read_at")
+        .eq("user_id", user.id) as any;
+      if (!memberships || memberships.length === 0) return 0;
+      let unread = 0;
+      for (const m of memberships) {
+        const { count } = await supabase
+          .from("messages")
+          .select("*", { count: "exact", head: true })
+          .eq("conversation_id", m.conversation_id)
+          .neq("sender_id", user.id)
+          .gt("created_at", m.last_read_at || "1970-01-01") as any;
+        if (count && count > 0) unread++;
+      }
+      return unread;
+    },
+    enabled: !!user,
+    refetchInterval: 30000,
+  });
   return (
     <div className="min-h-screen bg-background star-field overflow-x-hidden">
       <CosmicBackground />
       {/* Top header with profile dropdown */}
-      <div className="fixed top-0 right-0 z-50 p-3 safe-area-top safe-area-right">
+      <div className="fixed top-0 right-0 z-50 p-3 safe-area-top safe-area-right flex items-center gap-2">
+        {/* Messages icon */}
+        {user && (
+          <button
+            onClick={() => navigate("/messages")}
+            className="relative h-10 w-10 rounded-full bg-secondary border border-border flex items-center justify-center hover:border-primary/30 transition-colors shadow-md"
+            aria-label="Messages"
+          >
+            <MessageCircle className="h-4 w-4 text-muted-foreground" />
+            {!!unreadMsgCount && unreadMsgCount > 0 && (
+              <span className="absolute -top-1 -right-1 h-4 min-w-[16px] px-1 rounded-full bg-primary text-primary-foreground text-[9px] font-bold flex items-center justify-center">
+                {unreadMsgCount > 9 ? "9+" : unreadMsgCount}
+              </span>
+            )}
+          </button>
+        )}
+        {/* Profile menu */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
@@ -86,6 +128,15 @@ export function AppLayout() {
                 <DropdownMenuItem onClick={() => navigate("/friends")} className="gap-2 cursor-pointer">
                   <Users className="h-4 w-4" />
                   Friends
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate("/messages")} className="gap-2 cursor-pointer">
+                  <MessageCircle className="h-4 w-4" />
+                  Messages
+                  {!!unreadMsgCount && unreadMsgCount > 0 && (
+                    <span className="ml-auto text-[9px] bg-primary text-primary-foreground px-1.5 py-0.5 rounded-full font-bold">
+                      {unreadMsgCount}
+                    </span>
+                  )}
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => navigate("/signal-lab")} className="gap-2 cursor-pointer">
