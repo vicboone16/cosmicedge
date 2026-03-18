@@ -1,14 +1,15 @@
 import { useState, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Compass, Search, User, Users, Flame, History as HistoryIcon, X, TrendingUp, Command } from "lucide-react";
+import { Compass, Search, User, Users, Flame, History as HistoryIcon, X, TrendingUp, Command, FlaskConical } from "lucide-react";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import CommandCenterTab from "@/components/nexus/CommandCenterTab";
 import { GuidanceCard } from "@/components/ui/GuidanceCard";
+import SignalLabPage from "./SignalLabPage";
 
 // ── Players Tab ──
 function PlayersTab() {
@@ -331,6 +332,9 @@ function TeamsTab() {
   );
 }
 
+// ── Signals Tab (Signal Lab embedded) ──
+function SignalsTab() { return <SignalLabPage embedded />; }
+
 // ── Trends Tab ──
 import TrendsPage from "./TrendsPage";
 function TrendsTab() { return <TrendsPage />; }
@@ -341,6 +345,9 @@ function HistoryTab() { return <HistoricalPage />; }
 
 // ── Main Nexus Page ──
 export default function NexusPage() {
+  const [searchParams] = useSearchParams();
+  const initialTab = searchParams.get("tab") === "signals" ? "signals" : "command";
+
   return (
     <div className="min-h-screen pb-24">
       <header className="sticky top-0 z-40 px-4 pt-12 pb-4 bg-background/80 backdrop-blur-xl border-b border-border/50">
@@ -348,19 +355,22 @@ export default function NexusPage() {
           <Compass className="h-5 w-5 text-primary" />
           Nexus
         </h1>
-        <p className="text-[10px] text-muted-foreground mt-0.5">Intelligence hub — command center, research & analysis</p>
+        <p className="text-[10px] text-muted-foreground mt-0.5">Intelligence hub — command center, signals & research</p>
       </header>
 
       <div className="px-4 pt-4">
         <GuidanceCard title="Nexus Intelligence Hub" dismissKey="nexus_intro" variant="onboarding">
-          <p>Your central research hub. The <strong>Command Center</strong> shows your Astra pulse, trap alerts, and top opportunities. Use <strong>Players</strong> and <strong>Teams</strong> for deep dives.</p>
-          <p className="mt-1"><strong>Trends</strong> analyzes prop hit rates, and <strong>History</strong> tracks past results.</p>
+          <p>Your central research hub. The <strong>Command Center</strong> shows your Astra pulse, trap alerts, and top opportunities. <strong>Signals</strong> surfaces streaks, momentum, and live edges.</p>
         </GuidanceCard>
-        <Tabs defaultValue="command" className="w-full">
-          <TabsList className="grid w-full grid-cols-5 mb-4">
+        <Tabs defaultValue={initialTab} className="w-full">
+          <TabsList className="grid w-full grid-cols-6 mb-4">
             <TabsTrigger value="command" className="text-xs gap-1">
               <Command className="h-3 w-3" />
               Command
+            </TabsTrigger>
+            <TabsTrigger value="signals" className="text-xs gap-1">
+              <FlaskConical className="h-3 w-3" />
+              Signals
             </TabsTrigger>
             <TabsTrigger value="players" className="text-xs gap-1">
               <User className="h-3 w-3" />
@@ -382,6 +392,9 @@ export default function NexusPage() {
 
           <TabsContent value="command">
             <CommandCenterTab />
+          </TabsContent>
+          <TabsContent value="signals">
+            <SignalsTab />
           </TabsContent>
           <TabsContent value="players">
             <PlayersTab />

@@ -25,7 +25,7 @@ const SIGNAL_TABS = [
 
 type SignalTab = typeof SIGNAL_TABS[number]["key"];
 
-export default function SignalLabPage() {
+export default function SignalLabPage({ embedded = false }: { embedded?: boolean }) {
   const { openProp } = usePropDrawer();
   const [activeTab, setActiveTab] = useState<SignalTab>("streaks");
   const [search, setSearch] = useState("");
@@ -133,46 +133,57 @@ export default function SignalLabPage() {
   const activeConfig = SIGNAL_TABS.find(t => t.key === activeTab)!;
 
   return (
-    <div className="min-h-screen pb-24">
-      <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-xl border-b border-border/50 px-4 pt-12 pb-3">
-        <div className="flex items-center gap-2 mb-1">
-          <FlaskConical className="h-5 w-5 text-primary" />
-          <div>
-            <h1 className="text-xl font-bold font-display tracking-tight">Signal Lab</h1>
-            <p className="text-[10px] text-muted-foreground">
-              {filtered.length} props analyzed · {cards.length} {activeConfig.label.toLowerCase()} detected
-            </p>
+    <div className={embedded ? "" : "min-h-screen pb-24"}>
+      {!embedded && (
+        <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-xl border-b border-border/50 px-4 pt-12 pb-3">
+          <div className="flex items-center gap-2 mb-1">
+            <FlaskConical className="h-5 w-5 text-primary" />
+            <div>
+              <h1 className="text-xl font-bold font-display tracking-tight">Signal Lab</h1>
+              <p className="text-[10px] text-muted-foreground">
+                {filtered.length} props analyzed · {cards.length} {activeConfig.label.toLowerCase()} detected
+              </p>
+            </div>
           </div>
-        </div>
+        </header>
+      )}
 
-        <div className="relative mt-2 mb-3">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-          <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search players or teams..." className="pl-8 h-8 text-xs" />
+      {embedded && (
+        <div className="flex items-center gap-2 mb-2">
+          <FlaskConical className="h-4 w-4 text-primary" />
+          <p className="text-[10px] text-muted-foreground">
+            {filtered.length} props analyzed · {cards.length} {activeConfig.label.toLowerCase()} detected
+          </p>
         </div>
+      )}
 
-        <div className="flex gap-1 overflow-x-auto no-scrollbar -mx-4 px-4">
-          {SIGNAL_TABS.map(t => {
-            const Icon = t.icon;
-            return (
-              <button
-                key={t.key}
-                onClick={() => setActiveTab(t.key)}
-                className={cn(
-                  "flex items-center gap-1 px-3 py-1.5 rounded-full text-[10px] font-semibold transition-colors whitespace-nowrap shrink-0",
-                  activeTab === t.key
-                    ? "bg-foreground text-background"
-                    : "bg-secondary text-muted-foreground hover:text-foreground"
-                )}
-              >
-                <Icon className="h-3 w-3" />
-                {t.label}
-              </button>
-            );
-          })}
-        </div>
-      </header>
+      <div className="relative mb-3">
+        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+        <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search players or teams..." className="pl-8 h-8 text-xs" />
+      </div>
 
-      <div className="px-4 py-4 space-y-3">
+      <div className="flex gap-1 overflow-x-auto no-scrollbar mb-3">
+        {SIGNAL_TABS.map(t => {
+          const Icon = t.icon;
+          return (
+            <button
+              key={t.key}
+              onClick={() => setActiveTab(t.key)}
+              className={cn(
+                "flex items-center gap-1 px-3 py-1.5 rounded-full text-[10px] font-semibold transition-colors whitespace-nowrap shrink-0",
+                activeTab === t.key
+                  ? "bg-foreground text-background"
+                  : "bg-secondary text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <Icon className="h-3 w-3" />
+              {t.label}
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="space-y-3">
         <GuidanceCard title="Signal Lab Guide" dismissKey="signal_lab_intro" variant="tip">
           <p>Signal Lab surfaces <DataSourceBadge source="model" compact /> edges from the prop overlay pipeline. Each tab filters by a different signal type — streaks, momentum, defensive matchups, and astro modifiers.</p>
           <p className="mt-1">Tap any card for full prop detail. Signals refresh every 60 seconds near game time.</p>
@@ -202,6 +213,8 @@ export default function SignalLabPage() {
     </div>
   );
 }
+
+// Re-export for embedded use
 
 /* ─── Signal category description banner ─── */
 function SignalDescription({ tab }: { tab: SignalTab }) {
