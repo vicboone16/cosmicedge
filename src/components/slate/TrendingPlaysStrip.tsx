@@ -13,7 +13,10 @@ export function TrendingPlaysStrip() {
         <Flame className="h-3.5 w-3.5 text-cosmic-gold" />
         Trending Plays
       </h2>
-      <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+      <div
+        className="flex gap-2 overflow-x-auto no-scrollbar pb-1"
+        style={{ touchAction: "pan-x", WebkitOverflowScrolling: "touch" }}
+      >
         {props.map(p => (
           <PropChip key={p.id} prop={p} size="compact" />
         ))}
