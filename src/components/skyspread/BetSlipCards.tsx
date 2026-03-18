@@ -10,6 +10,7 @@ import { SlipLiveTracker } from "@/components/skyspread/optimizer/SlipLiveTracke
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery } from "@tanstack/react-query";
+import { displayStatName, displayEntryType, displayBookName } from "@/lib/display-labels";
 
 const MATCH_BADGES: Record<string, { label: string; className: string }> = {
   exact_match: { label: "Matched", className: "bg-cosmic-green/15 text-cosmic-green" },
