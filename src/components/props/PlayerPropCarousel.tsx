@@ -81,6 +81,7 @@ export function PlayerPropCarousel({
 }: PlayerPropCarouselProps) {
   const [selectedProp, setSelectedProp] = useState<CarouselProp | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
+  const navigate = useNavigate();
 
   const sorted = sortProps(props);
 
