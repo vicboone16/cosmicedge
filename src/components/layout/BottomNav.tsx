@@ -5,7 +5,7 @@ import { useAuth } from "@/hooks/use-auth";
 
 const navItems = [
   { to: "/", icon: CalendarDays, label: "Slate", requiresAuth: false },
-  { to: "/celestial", icon: Compass, label: "Celestial", requiresAuth: true },
+  { to: "/transits", icon: Compass, label: "Celestial", requiresAuth: true },
   { to: "/nexus", icon: Command, label: "Nexus", requiresAuth: true },
   { to: "/props", icon: TrendingUp, label: "Props", requiresAuth: true },
   { to: "/skyspread", icon: Crosshair, label: "SkySpread", requiresAuth: true },
