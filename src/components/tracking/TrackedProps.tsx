@@ -10,6 +10,7 @@ import { PlayerMomentumChip } from "@/components/game/PlayerMomentumChip";
 import { usePlayerMomentum } from "@/hooks/use-player-momentum";
 import { toast } from "@/hooks/use-toast";
 import { format } from "date-fns";
+import { displayStatName } from "@/lib/display-labels";
 
 /* ─── Settled display logic ─── */
 function getSettledDisplay(tp: any) {
