@@ -214,6 +214,8 @@ export default function SignalLabPage({ embedded = false }: { embedded?: boolean
   );
 }
 
+// Re-export for embedded use
+
 /* ─── Signal category description banner ─── */
 function SignalDescription({ tab }: { tab: SignalTab }) {
   const descriptions: Record<SignalTab, { title: string; body: string; icon: typeof Flame }> = {
