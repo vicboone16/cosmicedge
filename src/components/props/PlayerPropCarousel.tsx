@@ -1,6 +1,7 @@
 import { useState, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
-import { Plus, TrendingUp, TrendingDown } from "lucide-react";
+import { Plus, TrendingUp, TrendingDown, Flame, Zap } from "lucide-react";
 import { getPropLabel, getEdgeTier, type TopProp } from "@/hooks/use-top-props";
 import { MiniPropDetail } from "@/components/props/MiniPropDetail";
 
