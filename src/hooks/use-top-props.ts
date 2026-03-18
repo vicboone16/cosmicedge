@@ -51,7 +51,7 @@ export function getEdgeTier(score: number): { label: string; className: string }
   return { label: "Watch", className: "bg-muted text-muted-foreground border-border" };
 }
 
-export function useTopPropsForGame(gameId: string | undefined, limit = 5) {
+export function useTopPropsForGame(gameId: string | undefined, limit = 5, isLive?: boolean) {
   return useQuery({
     queryKey: ["top-props-game", gameId, limit],
     queryFn: async () => {
@@ -72,7 +72,8 @@ export function useTopPropsForGame(gameId: string | undefined, limit = 5) {
       });
     },
     enabled: !!gameId,
-    staleTime: 60_000,
+    staleTime: isLive ? 30_000 : 60_000,
+    refetchInterval: isLive ? 60_000 : false,
   });
 }
 
