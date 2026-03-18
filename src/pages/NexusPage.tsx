@@ -332,6 +332,9 @@ function TeamsTab() {
   );
 }
 
+// ── Signals Tab (Signal Lab embedded) ──
+function SignalsTab() { return <SignalLabPage embedded />; }
+
 // ── Trends Tab ──
 import TrendsPage from "./TrendsPage";
 function TrendsTab() { return <TrendsPage />; }
