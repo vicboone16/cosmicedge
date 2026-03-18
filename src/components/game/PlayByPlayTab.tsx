@@ -432,22 +432,29 @@ export function PlayByPlayTab({ gameId, homeAbbr, awayAbbr, league, gameStatus }
   if (normalizedEvents.length === 0) {
     // Determine the exact reason PBP is empty for admin diagnostics
     const emptyReason = (() => {
-      if (!isNBA) return "Non-NBA league — PBP only supported for NBA currently";
       if (gameStatus === "scheduled") return "Game has not started yet — no PBP expected";
-      const bdlCount = bdlPbpEvents?.length ?? 0;
-      const cosmicCount = livePbpEvents ? (livePbpEvents as any[]).length : 0;
-      const histCount = (nbaEvents as any[])?.length ?? 0;
-      if (bdlCount === 0 && cosmicCount === 0 && histCount === 0) {
-        if (isLiveGame) return "Game is live but NO events in any source — BDL ingest may not have started or game_key mapping is missing";
-        return "No events found in any PBP source table (BDL, cosmic, historical)";
+      if (isNBA) {
+        const bdlCount = bdlPbpEvents?.length ?? 0;
+        const cosmicCount = livePbpEvents ? (livePbpEvents as any[]).length : 0;
+        const histCount = (nbaEvents as any[])?.length ?? 0;
+        if (bdlCount === 0 && cosmicCount === 0 && histCount === 0) {
+          if (isLiveGame) return "Game is live but NO events in any source — BDL ingest may not have started or game_key mapping is missing";
+          return "No events found in any PBP source table (BDL, cosmic, historical)";
+        }
+        return "Events exist but normalized to 0 — possible parsing/filtering issue";
       }
-      return "Events exist but normalized to 0 — possible parsing/filtering issue";
+      // Non-NBA: check generic table
+      const genCount = (genericEvents as any[])?.length ?? 0;
+      if (genCount === 0) {
+        if (isLiveGame) return `Game is live but no ${league} PBP events in play_by_play table — ingestion may not have started`;
+        return `No PBP data found in play_by_play table for this ${league} game`;
+      }
+      return "Events exist but normalized to 0 — possible parsing issue";
     })();
 
     // User-facing copy depends on game state
     const userMessage = (() => {
       if (gameStatus === "scheduled") return "Play-by-play begins once the game starts.";
-      if (!isNBA) return "Play-by-play is not yet available for this league.";
       if (isLiveGame) return "Live event feed is warming up — data should appear shortly.";
       if (isFinalGame) return "No play-by-play data was recorded for this game.";
       return "No play-by-play data available for this game.";
