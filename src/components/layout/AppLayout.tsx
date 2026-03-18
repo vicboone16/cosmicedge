@@ -129,6 +129,15 @@ export function AppLayout() {
                   <Users className="h-4 w-4" />
                   Friends
                 </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate("/messages")} className="gap-2 cursor-pointer">
+                  <MessageCircle className="h-4 w-4" />
+                  Messages
+                  {!!unreadMsgCount && unreadMsgCount > 0 && (
+                    <span className="ml-auto text-[9px] bg-primary text-primary-foreground px-1.5 py-0.5 rounded-full font-bold">
+                      {unreadMsgCount}
+                    </span>
+                  )}
+                </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => navigate("/signal-lab")} className="gap-2 cursor-pointer">
                   <FlaskConical className="h-4 w-4" />
