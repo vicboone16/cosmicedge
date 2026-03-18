@@ -13895,6 +13895,15 @@ export type Database = {
       }
     }
     Functions: {
+      _create_index_if_missing: {
+        Args: {
+          p_index_name: string
+          p_index_sql: string
+          p_table_name: string
+          p_table_schema: string
+        }
+        Returns: undefined
+      }
       aggregate_period_stats: {
         Args: { p_game_id?: string }
         Returns: undefined
