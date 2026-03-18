@@ -1,14 +1,15 @@
 import { useState, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Compass, Search, User, Users, Flame, History as HistoryIcon, X, TrendingUp, Command } from "lucide-react";
+import { Compass, Search, User, Users, Flame, History as HistoryIcon, X, TrendingUp, Command, FlaskConical } from "lucide-react";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import CommandCenterTab from "@/components/nexus/CommandCenterTab";
 import { GuidanceCard } from "@/components/ui/GuidanceCard";
+import SignalLabPage from "./SignalLabPage";
 
 // ── Players Tab ──
 function PlayersTab() {
