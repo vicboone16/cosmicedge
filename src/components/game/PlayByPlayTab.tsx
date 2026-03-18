@@ -65,18 +65,29 @@ function parseClockToSeconds(raw: string | null | undefined): number | null {
   return m * 60 + s;
 }
 
-/* ─── Format seconds to basketball clock display (M:SS) ─── */
-function formatClock(seconds: number | null, eventType?: string | null, periodNum?: number): string {
+/* ─── Format clock display — sport-aware ─── */
+function formatClock(seconds: number | null, eventType?: string | null, periodNum?: number, league?: string): string {
   if (seconds == null) return "";
 
   // Detect period-ending events
   const isPeriodEnd = eventType != null &&
-    /end.?(period|quarter|half)|period.?end|end_of/i.test(eventType);
+    /end.?(period|quarter|half|inning)|period.?end|end_of/i.test(eventType);
 
   if (isPeriodEnd) {
+    if (league === "NHL") {
+      if (periodNum != null && periodNum <= 3) return `End of P${periodNum}`;
+      return "End of OT";
+    }
+    if (league === "MLB") return `End of Inning ${periodNum ?? ""}`;
     if (periodNum === 2) return "Halftime";
     const label = periodNum != null && periodNum <= 4 ? `Q${periodNum}` : periodNum != null ? `OT${periodNum - 4}` : "Quarter";
     return `End of ${label}`;
+  }
+
+  // MLB uses outs not clock time — display differently
+  if (league === "MLB") {
+    if (seconds === 0) return "";
+    return `${seconds} out${seconds !== 1 ? "s" : ""}`;
   }
 
   // Sub-second or effectively zero → display 0:00
