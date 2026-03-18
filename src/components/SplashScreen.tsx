@@ -15,10 +15,10 @@ export default function SplashScreen({ onComplete }: { onComplete: () => void })
   }, []);
 
   useEffect(() => {
-    const t1 = setTimeout(() => advance(), 900);   // stars → logo
-    const t2 = setTimeout(() => advance(), 2800);  // logo → tagline
-    const t3 = setTimeout(() => advance(), 4600);  // tagline → exit
-    const t4 = setTimeout(() => onComplete(), 5600); // unmount
+    const t1 = setTimeout(() => advance(), 400);   // stars → logo
+    const t2 = setTimeout(() => advance(), 1400);  // logo → tagline
+    const t3 = setTimeout(() => advance(), 2200);  // tagline → exit
+    const t4 = setTimeout(() => onComplete(), 2800); // unmount
     return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); clearTimeout(t4); };
   }, [advance, onComplete]);
 
