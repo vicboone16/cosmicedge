@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { parsePbpEvent, deriveVisualState, type NormalizedPbpEvent } from "@/lib/pbp-event-parser";
+import { useIsAdmin } from "@/hooks/use-admin";
 import { WatchHeaderScorebar } from "./watch/WatchHeaderScorebar";
 import { LiveCourtCanvas } from "./watch/LiveCourtCanvas";
 import { LatestPlayCard } from "./watch/LatestPlayCard";

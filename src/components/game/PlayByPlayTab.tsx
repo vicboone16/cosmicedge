@@ -417,26 +417,46 @@ export function PlayByPlayTab({ gameId, homeAbbr, awayAbbr, league, gameStatus }
   }
 
   if (normalizedEvents.length === 0) {
+    // Determine the exact reason PBP is empty for admin diagnostics
+    const emptyReason = (() => {
+      if (!isNBA) return "Non-NBA league — PBP only supported for NBA currently";
+      if (gameStatus === "scheduled") return "Game has not started yet — no PBP expected";
+      const bdlCount = bdlPbpEvents?.length ?? 0;
+      const cosmicCount = livePbpEvents ? (livePbpEvents as any[]).length : 0;
+      const histCount = (nbaEvents as any[])?.length ?? 0;
+      if (bdlCount === 0 && cosmicCount === 0 && histCount === 0) {
+        if (isLiveGame) return "Game is live but NO events in any source — BDL ingest may not have started or game_key mapping is missing";
+        return "No events found in any PBP source table (BDL, cosmic, historical)";
+      }
+      return "Events exist but normalized to 0 — possible parsing/filtering issue";
+    })();
+
     return (
       <div className="text-center py-8 space-y-3">
         <p className="text-sm text-muted-foreground">No play-by-play data available for this game.</p>
         {isAdmin && (
-          <div className="mx-auto max-w-sm cosmic-card rounded-lg p-3 text-left space-y-1.5">
-            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Admin PBP Diagnostics</p>
+          <div className="mx-auto max-w-md cosmic-card rounded-lg p-3 text-left space-y-2">
+            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">🔍 Admin PBP Diagnostics</p>
             <div className="text-[9px] text-muted-foreground space-y-0.5 font-mono">
-              <p>Game ID: {gameId}</p>
-              <p>League: {league} | Status: {gameStatus ?? "unknown"}</p>
-              <p>BDL events: {bdlPbpEvents?.length ?? "loading…"} {bdlPbpLoading ? "⏳" : "✓"}</p>
-              <p>Cosmic key: {gameKeyQuery.data ?? (gameKeyQuery.isLoading ? "resolving…" : "not found")}</p>
-              <p>Cosmic events: {livePbpEvents ? (livePbpEvents as any[]).length : "N/A"} {livePbpLoading ? "⏳" : "✓"}</p>
-              <p>Historical events: {(nbaEvents as any[])?.length ?? "N/A"} {nbaLoading ? "⏳" : "✓"}</p>
-              <p>Source selected: {rawSource}</p>
-              <p>Raw events: {rawEvents.length}</p>
+              <p><span className="text-foreground/70">Game ID:</span> {gameId}</p>
+              <p><span className="text-foreground/70">League:</span> {league} | <span className="text-foreground/70">Status:</span> {gameStatus ?? "unknown"}</p>
+              <p><span className="text-foreground/70">BDL events (nba_pbp_events):</span> {bdlPbpEvents?.length ?? "loading…"} {bdlPbpLoading ? "⏳" : "✓"} <span className="text-muted-foreground/40">game_key={gameId}</span></p>
+              <p><span className="text-foreground/70">Cosmic key:</span> {gameKeyQuery.data ?? (gameKeyQuery.isLoading ? "resolving…" : "❌ not found")}</p>
+              <p><span className="text-foreground/70">Cosmic events (pbp_events):</span> {livePbpEvents ? (livePbpEvents as any[]).length : "N/A"} {livePbpLoading ? "⏳" : "✓"}</p>
+              <p><span className="text-foreground/70">Historical (nba_play_by_play_events):</span> {(nbaEvents as any[])?.length ?? "N/A"} {nbaLoading ? "⏳" : "✓"}</p>
+              <p><span className="text-foreground/70">Source selected:</span> {rawSource}</p>
+              <p><span className="text-foreground/70">Normalized count:</span> {rawEvents.length}</p>
+            </div>
+            <div className="border-t border-border/20 pt-1.5">
+              <p className="text-[9px] font-semibold text-destructive/80">⚡ Reason: {emptyReason}</p>
             </div>
             {isLiveGame && (
-              <p className="text-[9px] text-cosmic-gold">
-                ⚠ Game is live — BDL ingest may not have started or events may be delayed.
-              </p>
+              <div className="text-[9px] text-cosmic-gold space-y-0.5">
+                <p>⚠ Game is live — check:</p>
+                <p className="pl-2">• nba-bdl-burst-loop running?</p>
+                <p className="pl-2">• BDL game_id → internal UUID mapping exists?</p>
+                <p className="pl-2">• pbp-watch-sync triggered?</p>
+              </div>
             )}
           </div>
         )}
