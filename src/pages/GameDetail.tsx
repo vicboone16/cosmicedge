@@ -628,13 +628,13 @@ const GameDetail = () => {
 
       <div className="px-4 py-4 space-y-4">
 
-        {/* Momentum Banner — shown for live/in-progress and final games */}
-        {(game.status === "live" || game.status === "in_progress" || game.status === "final") && (
+        {/* Momentum Banner — only for live/in-progress games (not pregame, not final) */}
+        {(game.status === "live" || game.status === "in_progress") && (
           <GameMomentumBanner
             gameId={game.id}
             homeAbbr={game.home_abbr}
             awayAbbr={game.away_abbr}
-            isLive={game.status === "live" || game.status === "in_progress"}
+            isLive
           />
         )}
 
