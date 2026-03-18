@@ -296,6 +296,15 @@ function ConfidenceDistribution({ legs }: { legs: LegScore[] }) {
     </div>
   );
 }
+/** Render AI text with bold support and markdown stripped */
+function renderCleanAiText(text: string) {
+  const cleaned = stripMarkdownArtifacts(text);
+  return cleaned.split(/\*\*(.*?)\*\*/g).map((part, i) =>
+    i % 2 === 1
+      ? <strong key={i} className="text-primary">{part}</strong>
+      : <span key={i}>{part}</span>
+  );
+}
 
 /* ─── AI Analysis Panel ─── */
 function AiAnalysisPanel({ analysis, loading, action }: { analysis: string | null; loading: boolean; action: string | null }) {

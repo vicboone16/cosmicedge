@@ -37,7 +37,7 @@ export function SlipRebuildSuggestions({ analysis, loading, onRequest }: Props) 
             <RefreshCw className="h-3 w-3" /> What I'd Change Next Time
           </p>
           <div className="text-[10px] text-foreground leading-relaxed whitespace-pre-wrap">
-            {analysis.split(/\*\*(.*?)\*\*/g).map((part, i) =>
+            {stripMarkdownArtifacts(analysis).split(/\*\*(.*?)\*\*/g).map((part, i) =>
               i % 2 === 1
                 ? <strong key={i} className="text-cosmic-cyan">{part}</strong>
                 : <span key={i}>{part}</span>

@@ -201,7 +201,7 @@ export function SlipReplacementDrawer({ weakestLeg, aiSuggestions, loading, onRe
         <div className="p-3 rounded-xl bg-primary/5 border border-primary/20 space-y-1.5">
           <p className="text-[9px] font-semibold text-primary">AI Suggestions</p>
           <div className="text-[10px] text-foreground leading-relaxed whitespace-pre-wrap">
-            {aiSuggestions.split(/\*\*(.*?)\*\*/g).map((part, i) =>
+            {stripMarkdownArtifacts(aiSuggestions).split(/\*\*(.*?)\*\*/g).map((part, i) =>
               i % 2 === 1
                 ? <strong key={i} className="text-primary">{part}</strong>
                 : <span key={i}>{part}</span>
