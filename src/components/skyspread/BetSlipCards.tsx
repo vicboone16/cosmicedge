@@ -74,7 +74,7 @@ function PickRow({ pick, gameInfo, liveState }: { pick: any; gameInfo?: { away_a
               <span className="text-foreground/70 font-medium mr-1">{matchupLabel} ·</span>
             )}
             {periodLabel && <span className="text-primary font-semibold mr-1">{periodLabel}</span>}
-            {cleanStat} · {pick.direction} {Number(pick.line)}
+            {displayStatName(cleanStat)} · {pick.direction} {Number(pick.line)}
           </p>
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
