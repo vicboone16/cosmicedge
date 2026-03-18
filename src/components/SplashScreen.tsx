@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import cosmicLogo from "@/assets/cosmic-edge-logo.png";
+import cosmicLogo from "@/assets/cosmic-edge-logo.webp";
 
 export default function SplashScreen({ onComplete }: { onComplete: () => void }) {
   const [phase, setPhase] = useState<"stars" | "logo" | "tagline" | "exit">("stars");
