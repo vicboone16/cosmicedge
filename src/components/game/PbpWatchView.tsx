@@ -324,6 +324,22 @@ export function PbpWatchView({ gameId, homeAbbr, awayAbbr, league }: PbpWatchVie
         feedSource={feedSource}
         gameId={gameId}
       />
+
+      {/* Admin animation diagnostics */}
+      {isAdmin && (
+        <div className="cosmic-card rounded-lg p-3 text-left space-y-1.5">
+          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">🎬 Animation Runtime</p>
+          <div className="text-[9px] text-muted-foreground space-y-0.5 font-mono">
+            <p><span className="text-foreground/70">Animation:</span> <span className="text-cosmic-green">Active</span> ({normalizedEvents.length} events)</p>
+            <p><span className="text-foreground/70">Feed:</span> {feedSource}</p>
+            <p><span className="text-foreground/70">Visual queue:</span> {visualQueueCount ?? "N/A"} items</p>
+            <p><span className="text-foreground/70">Visual state row:</span> {visualState_db ? `✓ (${visualState_db.status ?? "—"}, provider: ${visualState_db.source_provider ?? "—"})` : "❌ missing"}</p>
+            {visualState_db?.updated_at && (
+              <p><span className="text-foreground/70">VS last updated:</span> {new Date(visualState_db.updated_at).toLocaleTimeString()}</p>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
