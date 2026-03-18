@@ -161,12 +161,14 @@ export function PlayByPlayTab({ gameId, homeAbbr, awayAbbr, league, gameStatus }
   const [mode, setMode] = useState<"read" | "watch">("read");
   const { isAdmin } = useIsAdmin();
   const isNBA = league === "NBA";
+  const isMLB = league === "MLB";
+  const isNHL = league === "NHL";
 
-  // Feature flag + gating: show Watch toggle for NBA games with PBP data
-  // Admin can always see it; all users can see it for live or final games
+  // Feature flag + gating: show Watch toggle for games with PBP data
   const ENABLE_PBP_WATCH_MODE = true;
   const isLiveGame = gameStatus === "live" || gameStatus === "in_progress";
   const isFinalGame = gameStatus === "final";
+  // Watch mode currently only for NBA; read mode for all leagues
   const showWatchToggle = isNBA && ENABLE_PBP_WATCH_MODE && (isAdmin || isLiveGame || isFinalGame);
 
   // ── Live score from game_state_snapshots (authoritative) ──
