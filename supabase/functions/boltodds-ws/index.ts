@@ -10,6 +10,7 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const BOLTODDS_KEY = Deno.env.get("BOLTODDS_API_KEY") ?? "";
 
+// BoltOdds requires EXACT sport/book names from their get_info endpoint
 const DEFAULT_FILTERS: Record<string, string[]> = {
   sports: ["MLB", "NHL"],
   sportsbooks: ["draftkings", "fanduel", "betmgm", "caesars"],
@@ -41,8 +42,32 @@ Deno.serve(async (req) => {
   let filters = { ...DEFAULT_FILTERS };
   try {
     const body = await req.json().catch(() => null);
-    if (body?.filters) filters = { ...DEFAULT_FILTERS, ...body.filters };
+    if (body?.filters) {
+      // Merge but normalize sport names
+      const incoming = body.filters;
+      if (incoming.sports) filters.sports = incoming.sports;
+      if (incoming.sportsbooks) filters.sportsbooks = incoming.sportsbooks;
+      if (incoming.markets) filters.markets = incoming.markets;
+    }
   } catch { /* use defaults */ }
+
+  // ── Step 0: Query get_info to discover available sports/books ──
+  let availableInfo: Record<string, unknown> | null = null;
+  try {
+    const infoResp = await fetch(`https://spro.agency/api/get_info?key=${BOLTODDS_KEY}`);
+    if (infoResp.ok) {
+      availableInfo = await infoResp.json();
+      console.log("[BoltOdds] Available info:", JSON.stringify(availableInfo));
+      await sb.from("bolt_socket_logs").insert({
+        message_type: "get_info_response",
+        payload: availableInfo,
+      });
+    } else {
+      console.warn("[BoltOdds] get_info failed:", infoResp.status);
+    }
+  } catch (e) {
+    console.warn("[BoltOdds] get_info fetch error:", e);
+  }
 
   await upsertConnectionStatus(sb, "connecting", filters);
 
@@ -72,7 +97,6 @@ Deno.serve(async (req) => {
     ws.onmessage = async (event) => {
       messageCount++;
       try {
-        // BoltOdds may send Blob or string — handle both
         let raw: string;
         if (typeof event.data === "string") {
           raw = event.data;
@@ -81,44 +105,68 @@ Deno.serve(async (req) => {
         } else {
           raw = String(event.data);
         }
-        let parsed = JSON.parse(raw);
+
+        let parsed: unknown;
+        try {
+          parsed = JSON.parse(raw);
+        } catch {
+          console.warn("[BoltOdds] Non-JSON message:", raw.slice(0, 200));
+          await sb.from("bolt_socket_logs").insert({
+            message_type: "non_json",
+            payload: { raw: raw.slice(0, 500) },
+          });
+          return;
+        }
+
         // BoltOdds may wrap messages in an array
         if (Array.isArray(parsed)) parsed = parsed[0];
         const data = parsed as Record<string, unknown>;
-        const action = String(data.action ?? "unknown");
+        const action = String(data.action ?? data.type ?? "unknown");
 
-        // Log messages (first 50, then sample)
-        if (messageCount <= 50 || messageCount % 100 === 0) {
+        // Log every message (first 100, then sample)
+        if (messageCount <= 100 || messageCount % 50 === 0) {
           await sb.from("bolt_socket_logs").insert({
             message_type: action,
-            sport: data.data?.sport ?? null,
-            payload: messageCount <= 20 ? data : { action, keys: Object.keys(data) },
+            sport: (data.data as Record<string, unknown>)?.sport ?? null,
+            payload: messageCount <= 30 ? data : { action, keys: Object.keys(data), msg_num: messageCount },
           });
         }
 
-        // Update last_message_at periodically
-        if (messageCount % 10 === 0) {
+        // Update last_message_at on every 5th message
+        if (messageCount % 5 === 0) {
           await upsertConnectionStatus(sb, "connected", filters);
         }
 
         switch (action) {
           case "socket_connected": {
-            console.log("[BoltOdds] Authenticated! Sending subscribe with filters:", JSON.stringify(filters));
+            console.log("[BoltOdds] Authenticated! Sending subscribe...");
             await upsertConnectionStatus(sb, "connected", filters);
-            // BoltOdds uses "action": "subscribe" with "filters" object
-            ws.send(JSON.stringify({
+
+            // Build subscription — only include keys that have values
+            const subscribePayload: Record<string, unknown> = {
               action: "subscribe",
-              filters: {
-                sports: filters.sports,
-                sportsbooks: filters.sportsbooks,
-                markets: filters.markets,
-              },
-            }));
+              filters: {} as Record<string, unknown>,
+            };
+            const f = subscribePayload.filters as Record<string, unknown>;
+            if (filters.sports?.length) f.sports = filters.sports;
+            if (filters.sportsbooks?.length) f.sportsbooks = filters.sportsbooks;
+            if (filters.markets?.length) f.markets = filters.markets;
+
+            const payloadStr = JSON.stringify(subscribePayload);
+            console.log("[BoltOdds] Subscribe payload:", payloadStr);
+
+            // Log the exact subscribe payload for debugging
+            await sb.from("bolt_socket_logs").insert({
+              message_type: "subscribe_sent",
+              payload: subscribePayload,
+            });
+
+            ws.send(payloadStr);
             break;
           }
 
           case "subscription_updated": {
-            console.log("[BoltOdds] Subscription confirmed:", data.message);
+            console.log("[BoltOdds] Subscription confirmed:", JSON.stringify(data));
             await logMsg(sb, "subscription_updated", data);
             break;
           }
@@ -151,13 +199,17 @@ Deno.serve(async (req) => {
           }
 
           case "error": {
-            console.error("[BoltOdds] Error:", data.message);
+            console.error("[BoltOdds] Error from server:", JSON.stringify(data));
             await logMsg(sb, "error", data);
             break;
           }
 
           default:
-            console.log(`[BoltOdds] Unknown action: ${action}`);
+            console.log(`[BoltOdds] Unhandled action: ${action}`, JSON.stringify(data).slice(0, 300));
+            await sb.from("bolt_socket_logs").insert({
+              message_type: action,
+              payload: data,
+            });
         }
       } catch (err) {
         console.error("[BoltOdds] Message processing error:", err);
@@ -170,7 +222,7 @@ Deno.serve(async (req) => {
     };
 
     ws.onclose = (event) => {
-      console.log(`[BoltOdds] WebSocket closed: ${event.code} ${event.reason}`);
+      console.log(`[BoltOdds] WebSocket closed: code=${event.code} reason=${event.reason}`);
       clearTimeout(timeout);
       upsertConnectionStatus(sb, "disconnected", filters);
       resolve(
@@ -196,14 +248,16 @@ async function upsertConnectionStatus(
   error?: string
 ) {
   const { data: existing } = await sb.from("bolt_connection_status").select("id").limit(1).single();
-  const row = {
+  const row: Record<string, unknown> = {
     status,
     subscription_filters: filters,
-    last_message_at: status === "connected" ? new Date().toISOString() : undefined,
-    last_connected_at: status === "connected" ? new Date().toISOString() : undefined,
-    last_error: error ?? null,
     updated_at: new Date().toISOString(),
+    last_error: error ?? null,
   };
+  if (status === "connected") {
+    row.last_message_at = new Date().toISOString();
+    row.last_connected_at = new Date().toISOString();
+  }
   if (existing?.id) {
     await sb.from("bolt_connection_status").update(row).eq("id", existing.id);
   } else {
@@ -211,26 +265,6 @@ async function upsertConnectionStatus(
   }
 }
 
-/**
- * Handle initial_state and game_update messages.
- * BoltOdds format:
- * {
- *   action: "initial_state" | "game_update",
- *   timestamp: "...",
- *   data: {
- *     sport: "MLB",
- *     sportsbook: "draftkings",
- *     game: "Team A vs Team B, 2025-07-23, 01",
- *     home_team: "Team A",
- *     away_team: "Team B",
- *     info: { id, game, when, link },
- *     outcomes: {
- *       "Team A Moneyline": { odds: "-150", outcome_name, outcome_line, outcome_over_under, outcome_target, link },
- *       ...
- *     }
- *   }
- * }
- */
 async function handleGameData(sb: ReturnType<typeof createClient>, msg: Record<string, unknown>) {
   const d = msg.data as Record<string, unknown> | undefined;
   if (!d) return;
@@ -264,10 +298,6 @@ async function handleGameData(sb: ReturnType<typeof createClient>, msg: Record<s
   await upsertOutcomes(sb, gameKey, sportsbook, outcomes);
 }
 
-/**
- * Outcomes are keyed by a composite name like "Team A Moneyline"
- * Each has: odds (string, can be None/""), outcome_name, outcome_line, outcome_over_under, outcome_target, link
- */
 async function upsertOutcomes(
   sb: ReturnType<typeof createClient>,
   gameKey: string,
@@ -278,10 +308,10 @@ async function upsertOutcomes(
     const outcomeName = String(o.outcome_name ?? "");
     const marketKey = outcomeName || outcomeKey;
     const oddsStr = o.odds;
-    const isSuspended = oddsStr === null || oddsStr === "" || oddsStr === "None";
+    const isSuspended = oddsStr === null || oddsStr === "" || oddsStr === "None" || oddsStr === undefined;
     const americanOdds = isSuspended ? null : parseInt(String(oddsStr), 10);
 
-    // Upsert market (group by game + market name)
+    // Upsert market
     const { data: mkt } = await sb.from("bolt_markets").upsert({
       bolt_game_id: gameKey,
       market_key: marketKey,
@@ -314,7 +344,6 @@ async function upsertOutcomes(
 }
 
 async function handleLineUpdate(sb: ReturnType<typeof createClient>, msg: Record<string, unknown>) {
-  // Same shape as game_update but only changed lines
   await handleGameData(sb, msg);
 }
 
