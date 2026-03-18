@@ -202,6 +202,7 @@ export function PbpWatchView({ gameId, homeAbbr, awayAbbr, league }: PbpWatchVie
       {/* Court visualizer */}
       <LiveCourtCanvas
         lastEvent={lastEvent}
+        recentEvents={normalizedEvents}
         possessionTeamId={visualState.possessionTeamId}
         homeTeamId={homeAbbr}
         awayTeamId={awayAbbr}
