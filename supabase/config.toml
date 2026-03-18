@@ -137,3 +137,6 @@ verify_jwt = false
 
 [functions.boltodds-ws]
 verify_jwt = false
+
+[functions.bolt-odds-bridge]
+verify_jwt = false
