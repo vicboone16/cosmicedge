@@ -99,12 +99,16 @@ export default function SignalLabPage({ embedded = false }: { embedded?: boolean
     [filtered]
   );
 
-  const astroCards = useMemo(() =>
-    filtered
-      .filter(o => o.astro && typeof o.astro === "object" && Object.keys(o.astro).length > 0)
-      .slice(0, 30),
-    [filtered]
-  );
+  const astroCards = useMemo(() => {
+    // Show props that have explicit astro data, OR fall back to all props sorted by edge
+    // since every player has astrological context (natal chart, transits)
+    const withAstro = filtered.filter(o => o.astro && typeof o.astro === "object" && Object.keys(o.astro).length > 0);
+    if (withAstro.length >= 5) return withAstro.slice(0, 30);
+    // Fallback: show all props — every player has cosmic context
+    return filtered
+      .sort((a, b) => (b.edge_score_v11 ?? b.edge_score ?? 0) - (a.edge_score_v11 ?? a.edge_score ?? 0))
+      .slice(0, 30);
+  }, [filtered]);
 
   const liveCards = useMemo(() =>
     filtered
@@ -258,8 +262,10 @@ function SignalCard({ overlay, tab, onTap }: { overlay: any; tab: SignalTab; onT
         return { text: `+${diff} over line`, className: "bg-cosmic-gold/10 text-cosmic-gold border-cosmic-gold/20" };
       case "defense":
         return { text: `σ ${overlay.sigma?.toFixed(1) ?? "—"}`, className: "bg-cosmic-cyan/10 text-cosmic-cyan border-cosmic-cyan/20" };
-      case "astro":
-        return { text: "✦ Astro Active", className: "bg-cosmic-lavender/10 text-cosmic-lavender border-cosmic-lavender/20" };
+      case "astro": {
+        const hasAstro = overlay.astro && typeof overlay.astro === "object" && Object.keys(overlay.astro).length > 0;
+        return { text: hasAstro ? "✦ Astro Active" : "✦ Cosmic Context", className: "bg-cosmic-lavender/10 text-cosmic-lavender border-cosmic-lavender/20" };
+      }
       case "live":
         return { text: `⚡ ${edgeScore.toFixed(0)} Edge`, className: "bg-cosmic-red/10 text-cosmic-red border-cosmic-red/20" };
     }
