@@ -431,9 +431,18 @@ export function PlayByPlayTab({ gameId, homeAbbr, awayAbbr, league, gameStatus }
       return "Events exist but normalized to 0 — possible parsing/filtering issue";
     })();
 
+    // User-facing copy depends on game state
+    const userMessage = (() => {
+      if (gameStatus === "scheduled") return "Play-by-play begins once the game starts.";
+      if (!isNBA) return "Play-by-play is not yet available for this league.";
+      if (isLiveGame) return "Live event feed is warming up — data should appear shortly.";
+      if (isFinalGame) return "No play-by-play data was recorded for this game.";
+      return "No play-by-play data available for this game.";
+    })();
+
     return (
       <div className="text-center py-8 space-y-3">
-        <p className="text-sm text-muted-foreground">No play-by-play data available for this game.</p>
+        <p className="text-sm text-muted-foreground">{userMessage}</p>
         {isAdmin && (
           <div className="mx-auto max-w-md cosmic-card rounded-lg p-3 text-left space-y-2">
             <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">🔍 Admin PBP Diagnostics</p>

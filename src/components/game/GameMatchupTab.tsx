@@ -448,16 +448,17 @@ export function GameMatchupTab({
         </div>
 
         {lineupsLoading ? (
-          <p className="text-xs text-muted-foreground text-center py-6">Loading lineups...</p>
+          <p className="text-xs text-muted-foreground text-center py-6">Loading lineups…</p>
         ) : !hasLineups ? (
           <div className="text-center py-6 space-y-2">
-            <p className="text-xs text-muted-foreground">No lineup data available yet.</p>
+            <p className="text-xs text-muted-foreground">Starting lineups are still being confirmed.</p>
+            <p className="text-[10px] text-muted-foreground/60">Lineups typically populate closer to game time.</p>
             <button
               onClick={handleFetchLineups}
               disabled={fetchingLineups}
               className="text-xs text-primary hover:underline"
             >
-              {fetchingLineups ? "Fetching..." : "Fetch lineups"}
+              {fetchingLineups ? "Fetching…" : "Refresh lineups"}
             </button>
           </div>
         ) : (

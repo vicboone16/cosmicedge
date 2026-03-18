@@ -638,22 +638,29 @@ const GameDetail = () => {
           />
         )}
 
-        {/* Admin Live Diagnostics */}
-        {isAdmin && (game.status === "live" || game.status === "in_progress") && (
+        {/* Admin Game Diagnostics — available for all states */}
+        {isAdmin && (
           <details className="cosmic-card rounded-lg p-3">
             <summary className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider cursor-pointer">
-              Admin: Live Game Diagnostics
+              Admin: Game Diagnostics
             </summary>
             <div className="mt-2 text-[9px] text-muted-foreground font-mono space-y-0.5">
               <p>Game ID: {game.id}</p>
               <p>External ID: {game.external_id ?? "none"}</p>
-              <p>Status: {game.status}</p>
+              <p>Status: <span className={cn(
+                "font-bold",
+                game.status === "live" || game.status === "in_progress" ? "text-cosmic-green" :
+                game.status === "final" ? "text-muted-foreground" : "text-cosmic-gold"
+              )}>{game.status ?? "unknown"}</span></p>
+              <p>Phase: {game.status === "live" || game.status === "in_progress" ? "LIVE" : game.status === "final" ? "FINAL" : "PREGAME"}</p>
               <p>League: {game.league}</p>
               <p>Teams: {game.away_abbr} @ {game.home_abbr}</p>
               <p>Score: {game.away_score ?? "?"} – {game.home_score ?? "?"}</p>
-              <p className="text-cosmic-gold">PBP source: nba_pbp_events (game_key = gameId, provider = balldontlie)</p>
-              <p>LiveStoryLayer: active (subtle mode)</p>
-              <p>Watch mode: available in Plays tab when PBP events exist</p>
+              <p>LiveStoryLayer: {game.status === "live" || game.status === "in_progress" ? "live mode" : game.status === "final" ? "final mode" : "pregame mode"}</p>
+              <p>Momentum banner: {game.status === "live" || game.status === "in_progress" ? "visible" : "hidden"}</p>
+              {(game.status === "live" || game.status === "in_progress") && (
+                <p className="text-cosmic-gold">PBP source: nba_pbp_events (game_key = gameId, provider = balldontlie)</p>
+              )}
             </div>
           </details>
         )}

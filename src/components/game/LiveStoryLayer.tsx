@@ -1,30 +1,76 @@
 import { cn } from "@/lib/utils";
 import { useGameMomentum, type MomentumLabel } from "@/hooks/use-game-momentum";
 
+type GamePhase = "pregame" | "live" | "final";
+
 interface LiveStoryLayerProps {
   gameId: string;
-  isLive: boolean;
+  gameStatus?: string;
+}
+
+function resolvePhase(status?: string): GamePhase {
+  if (!status || status === "scheduled") return "pregame";
+  if (status === "final") return "final";
+  if (status === "live" || status === "in_progress") return "live";
+  return "pregame";
 }
 
 /**
- * Subtle atmospheric background layer for live games.
- * Intentionally low opacity to preserve card/text readability.
+ * Atmospheric background layer with distinct treatments per game phase.
+ * - Pregame: calm starry ambience, no momentum reactivity
+ * - Live: subtle momentum-reactive blooms
+ * - Final: resolved, low-motion state
  */
-export function LiveStoryLayer({ gameId, isLive }: LiveStoryLayerProps) {
+export function LiveStoryLayer({ gameId, gameStatus }: LiveStoryLayerProps) {
+  const phase = resolvePhase(gameStatus);
+  const isLive = phase === "live";
   const momentum = useGameMomentum(gameId, isLive);
 
-  if (!isLive) return null;
+  // Pregame: calm cosmic, no heavy overlays
+  if (phase === "pregame") {
+    return (
+      <div
+        className="fixed inset-0 -z-[5] pointer-events-none overflow-hidden opacity-60"
+        aria-hidden
+      >
+        <div className="absolute inset-0 star-field opacity-20" />
+        <div className="absolute inset-0 star-field animate-twinkle-slow opacity-10" />
+        <div
+          className="absolute top-1/3 left-1/2 -translate-x-1/2 w-[300px] h-[300px] rounded-full blur-[100px]"
+          style={{ background: `hsl(var(--cosmic-glow) / 0.03)` }}
+        />
+      </div>
+    );
+  }
 
+  // Final: resolved, minimal motion
+  if (phase === "final") {
+    return (
+      <div
+        className="fixed inset-0 -z-[5] pointer-events-none overflow-hidden opacity-40"
+        aria-hidden
+      >
+        <div className="absolute inset-0 star-field opacity-15" />
+        <div
+          className="absolute top-1/4 left-1/3 w-[250px] h-[250px] rounded-full blur-[90px]"
+          style={{ background: `hsl(var(--muted) / 0.04)` }}
+        />
+        <div
+          className="absolute bottom-1/3 right-1/4 w-[200px] h-[200px] rounded-full blur-[80px]"
+          style={{ background: `hsl(var(--cosmic-cyan) / 0.02)` }}
+        />
+      </div>
+    );
+  }
+
+  // Live: momentum-reactive atmospheric layer
   const label = momentum?.momentumLabel ?? "Neutral";
   const intensity = getIntensity(label);
   const palette = getPalette(label);
 
   return (
     <div
-      className={cn(
-        "fixed inset-0 -z-[5] pointer-events-none overflow-hidden transition-opacity duration-[1600ms] ease-out",
-        isLive ? "opacity-100" : "opacity-0"
-      )}
+      className="fixed inset-0 -z-[5] pointer-events-none overflow-hidden transition-opacity duration-[1600ms] ease-out opacity-100"
       aria-hidden
     >
       {/* Keep base readable: no dark scrim, only light atmospheric tint */}
