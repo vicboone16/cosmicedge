@@ -1,5 +1,6 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { cn } from "@/lib/utils";
+import { motion, AnimatePresence } from "framer-motion";
 import type { NormalizedPbpEvent, ZoneKey, AnimationKey } from "@/lib/pbp-event-parser";
 
 interface LiveCourtCanvasProps {
@@ -46,29 +47,11 @@ const ANIMATION_COLORS: Partial<Record<NonNullable<AnimationKey>, string>> = {
   timeout_pause: "bg-muted-foreground/50",
 };
 
-const ANIMATION_BORDER_COLORS: Partial<Record<NonNullable<AnimationKey>, string>> = {
-  made_2_basic: "border-cosmic-green",
-  made_3_basic: "border-cosmic-green",
-  dunk_finish: "border-cosmic-green",
-  layup_finish: "border-cosmic-green",
-  free_throw_make: "border-cosmic-green",
-  miss_2_basic: "border-cosmic-red/60",
-  miss_3_basic: "border-cosmic-red/60",
-  free_throw_miss: "border-cosmic-red/60",
-  def_rebound_secure: "border-cosmic-cyan",
-  off_rebound_reset: "border-cosmic-gold",
-  turnover_flip: "border-cosmic-red",
-  steal_flip: "border-cosmic-cyan",
-  foul_whistle: "border-cosmic-gold/80",
-  timeout_pause: "border-muted-foreground/50",
-};
-
 interface CourtDot {
   id: string;
   event: NormalizedPbpEvent;
   pos: { x: number; y: number };
   color: string | null;
-  borderColor: string | null;
   isLatest: boolean;
   playerName: string | null;
   label: string;
@@ -78,20 +61,17 @@ interface CourtDot {
 export function LiveCourtCanvas({ lastEvent, recentEvents, possessionTeamId, homeTeamId, awayTeamId }: LiveCourtCanvasProps) {
   const [selectedDotId, setSelectedDotId] = useState<string | null>(null);
 
-  // Build unique player dots from recent events (last ~10 unique players)
   const dots = useMemo<CourtDot[]>(() => {
     const seen = new Map<string, CourtDot>();
-    const eventsToShow = recentEvents.slice(-30); // look at last 30 events
+    const eventsToShow = recentEvents.slice(-30);
 
     for (let i = eventsToShow.length - 1; i >= 0; i--) {
       const ev = eventsToShow[i];
       const playerKey = ev.primaryPlayerId || ev.sourceEventId;
       if (seen.has(playerKey) || seen.size >= 10) continue;
-      // Skip non-action events
       if (ev.eventType === "timeout" || ev.eventType === "period_start" || ev.eventType === "period_end" || ev.eventType === "substitution") continue;
 
       const zone = ev.zoneKey || "unknown";
-      // Add small jitter so dots in the same zone don't overlap
       const basePos = ZONE_POSITIONS[zone];
       const jitter = seen.size * 1.5;
       const pos = {
@@ -104,11 +84,10 @@ export function LiveCourtCanvas({ lastEvent, recentEvents, possessionTeamId, hom
       const opacity = Math.max(0.3, 1 - age * 0.08);
 
       seen.set(playerKey, {
-        id: ev.sourceEventId,
+        id: playerKey,
         event: ev,
         pos,
         color: ev.animationKey ? ANIMATION_COLORS[ev.animationKey] || "bg-primary" : "bg-primary/40",
-        borderColor: ev.animationKey ? ANIMATION_BORDER_COLORS[ev.animationKey] || "border-primary" : "border-primary/40",
         isLatest,
         playerName: ev.primaryPlayerId || null,
         label: ev.rawDescription?.slice(0, 60) || ev.eventType,
@@ -120,11 +99,6 @@ export function LiveCourtCanvas({ lastEvent, recentEvents, possessionTeamId, hom
   }, [recentEvents]);
 
   const possDirection = possessionTeamId === homeTeamId ? "→" : possessionTeamId === awayTeamId ? "←" : "";
-
-  const handleDotClick = (dotId: string) => {
-    setSelectedDotId(prev => prev === dotId ? null : dotId);
-  };
-
   const selectedDot = dots.find(d => d.id === selectedDotId);
 
   return (
@@ -155,69 +129,100 @@ export function LiveCourtCanvas({ lastEvent, recentEvents, possessionTeamId, hom
         <line x1="730" y1="170" x2="730" y2="330" stroke="hsl(var(--border))" strokeWidth="1" opacity="0.3" />
       </svg>
 
-      {/* Multiple player dots */}
-      {dots.map((dot) => (
-        <button
-          key={dot.id}
-          className={cn(
-            "absolute transform -translate-x-1/2 -translate-y-1/2 transition-all duration-500 ease-out cursor-pointer z-10 group",
-            "focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-          )}
-          style={{ left: `${dot.pos.x}%`, top: `${dot.pos.y}%`, opacity: dot.opacity }}
-          onClick={() => handleDotClick(dot.id)}
-          aria-label={dot.label}
-        >
-          {/* Pulse ring for latest scoring play */}
-          {dot.isLatest && dot.event.isScoringPlay && (
-            <div className={cn(
-              "absolute inset-0 rounded-full animate-ping",
-              dot.color,
-            )} style={{ width: 32, height: 32, margin: -8 }} />
-          )}
-          {/* Main marker */}
-          <div className={cn(
-            "rounded-full border-2 border-background shadow-lg",
-            dot.color,
-            dot.isLatest ? "w-5 h-5 scale-110" : "w-3.5 h-3.5",
-            dot.event.isScoringPlay && dot.isLatest && "scale-125"
-          )} />
-          {/* Team indicator ring */}
-          {dot.event.teamId && (
-            <div className={cn(
-              "absolute -bottom-1 -right-1 w-2 h-2 rounded-full border border-background",
-              dot.event.teamId === homeTeamId ? "bg-primary" : "bg-cosmic-cyan"
-            )} />
-          )}
-        </button>
-      ))}
+      {/* Animated player dots */}
+      <AnimatePresence>
+        {dots.map((dot) => (
+          <motion.button
+            key={dot.id}
+            layout
+            initial={{ left: `${dot.pos.x}%`, top: `${dot.pos.y}%`, scale: 0, opacity: 0 }}
+            animate={{
+              left: `${dot.pos.x}%`,
+              top: `${dot.pos.y}%`,
+              scale: 1,
+              opacity: dot.opacity,
+            }}
+            exit={{ scale: 0, opacity: 0 }}
+            transition={{
+              left: { type: "spring", stiffness: 120, damping: 18, mass: 0.8 },
+              top: { type: "spring", stiffness: 120, damping: 18, mass: 0.8 },
+              scale: { type: "spring", stiffness: 300, damping: 20 },
+              opacity: { duration: 0.3 },
+            }}
+            className={cn(
+              "absolute transform -translate-x-1/2 -translate-y-1/2 cursor-pointer z-10",
+              "focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            )}
+            onClick={() => setSelectedDotId(prev => prev === dot.id ? null : dot.id)}
+            aria-label={dot.label}
+          >
+            {/* Pulse ring for latest scoring play */}
+            {dot.isLatest && dot.event.isScoringPlay && (
+              <motion.div
+                className={cn("absolute inset-0 rounded-full", dot.color)}
+                style={{ width: 32, height: 32, margin: -8 }}
+                animate={{ scale: [1, 1.8, 1], opacity: [0.6, 0, 0.6] }}
+                transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
+              />
+            )}
+            {/* Main marker */}
+            <motion.div
+              className={cn(
+                "rounded-full border-2 border-background shadow-lg",
+                dot.color,
+                dot.isLatest ? "w-5 h-5" : "w-3.5 h-3.5",
+              )}
+              animate={dot.isLatest && dot.event.isScoringPlay
+                ? { scale: [1, 1.2, 1] }
+                : { scale: 1 }
+              }
+              transition={{ duration: 0.6, repeat: dot.isLatest ? Infinity : 0, repeatDelay: 1 }}
+            />
+            {/* Team indicator ring */}
+            {dot.event.teamId && (
+              <div className={cn(
+                "absolute -bottom-1 -right-1 w-2 h-2 rounded-full border border-background",
+                dot.event.teamId === homeTeamId ? "bg-primary" : "bg-cosmic-cyan"
+              )} />
+            )}
+          </motion.button>
+        ))}
+      </AnimatePresence>
 
       {/* Tooltip popup for selected dot */}
-      {selectedDot && (
-        <div
-          className="absolute z-20 pointer-events-none"
-          style={{
-            left: `${Math.min(Math.max(selectedDot.pos.x, 15), 85)}%`,
-            top: `${selectedDot.pos.y - 8}%`,
-            transform: "translateX(-50%)",
-          }}
-        >
-          <div className="bg-popover border border-border rounded-lg px-3 py-2 shadow-xl text-xs max-w-[200px] pointer-events-auto">
-            <div className="font-bold text-foreground truncate">
-              {selectedDot.event.primaryPlayerId || selectedDot.event.teamId || "Unknown"}
+      <AnimatePresence>
+        {selectedDot && (
+          <motion.div
+            key="tooltip"
+            initial={{ opacity: 0, y: 5 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 5 }}
+            transition={{ duration: 0.15 }}
+            className="absolute z-20 pointer-events-none"
+            style={{
+              left: `${Math.min(Math.max(selectedDot.pos.x, 15), 85)}%`,
+              top: `${selectedDot.pos.y - 8}%`,
+              transform: "translateX(-50%)",
+            }}
+          >
+            <div className="bg-popover border border-border rounded-lg px-3 py-2 shadow-xl text-xs max-w-[200px] pointer-events-auto">
+              <div className="font-bold text-foreground truncate">
+                {selectedDot.event.primaryPlayerId || selectedDot.event.teamId || "Unknown"}
+              </div>
+              <div className="text-muted-foreground mt-0.5 leading-tight">
+                {selectedDot.event.rawDescription?.slice(0, 80) || selectedDot.event.eventType}
+              </div>
+              <div className="flex items-center gap-1.5 mt-1 text-[10px] text-muted-foreground/70">
+                <span>Q{selectedDot.event.period}</span>
+                <span>{selectedDot.event.clockDisplay}</span>
+                {selectedDot.event.isScoringPlay && (
+                  <span className="text-cosmic-green font-bold">+{selectedDot.event.pointsScored}</span>
+                )}
+              </div>
             </div>
-            <div className="text-muted-foreground mt-0.5 leading-tight">
-              {selectedDot.event.rawDescription?.slice(0, 80) || selectedDot.event.eventType}
-            </div>
-            <div className="flex items-center gap-1.5 mt-1 text-[10px] text-muted-foreground/70">
-              <span>Q{selectedDot.event.period}</span>
-              <span>{selectedDot.event.clockDisplay}</span>
-              {selectedDot.event.isScoringPlay && (
-                <span className="text-cosmic-green font-bold">+{selectedDot.event.pointsScored}</span>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Possession indicator */}
       {possDirection && (
