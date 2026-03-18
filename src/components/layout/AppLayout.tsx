@@ -158,17 +158,19 @@ export function AppLayout() {
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
-      {/* Environment badge — always visible */}
-      <div className="fixed top-0 left-0 z-50 p-3 safe-area-top safe-area-left">
-        <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-mono font-bold border ${
-          isLive
-            ? "bg-emerald-950/80 text-emerald-400 border-emerald-700"
-            : "bg-red-950/80 text-red-400 border-red-700"
-        }`}>
-          {refLabel}
-          <span className="opacity-60">{envRef.slice(0, 6)}</span>
-        </span>
-      </div>
+      {/* Environment badge — admin only */}
+      {isAdmin && (
+        <div className="fixed top-0 left-0 z-50 p-3 safe-area-top safe-area-left">
+          <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-mono font-bold border ${
+            isLive
+              ? "bg-emerald-950/80 text-emerald-400 border-emerald-700"
+              : "bg-red-950/80 text-red-400 border-red-700"
+          }`}>
+            {refLabel}
+            <span className="opacity-60">{envRef.slice(0, 6)}</span>
+          </span>
+        </div>
+      )}
       <PropDrawerProvider>
         <main className="pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))] overflow-x-hidden">
           <Outlet />
