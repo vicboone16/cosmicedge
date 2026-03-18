@@ -65,18 +65,29 @@ function parseClockToSeconds(raw: string | null | undefined): number | null {
   return m * 60 + s;
 }
 
-/* ─── Format seconds to basketball clock display (M:SS) ─── */
-function formatClock(seconds: number | null, eventType?: string | null, periodNum?: number): string {
+/* ─── Format clock display — sport-aware ─── */
+function formatClock(seconds: number | null, eventType?: string | null, periodNum?: number, league?: string): string {
   if (seconds == null) return "";
 
   // Detect period-ending events
   const isPeriodEnd = eventType != null &&
-    /end.?(period|quarter|half)|period.?end|end_of/i.test(eventType);
+    /end.?(period|quarter|half|inning)|period.?end|end_of/i.test(eventType);
 
   if (isPeriodEnd) {
+    if (league === "NHL") {
+      if (periodNum != null && periodNum <= 3) return `End of P${periodNum}`;
+      return "End of OT";
+    }
+    if (league === "MLB") return `End of Inning ${periodNum ?? ""}`;
     if (periodNum === 2) return "Halftime";
     const label = periodNum != null && periodNum <= 4 ? `Q${periodNum}` : periodNum != null ? `OT${periodNum - 4}` : "Quarter";
     return `End of ${label}`;
+  }
+
+  // MLB uses outs not clock time — display differently
+  if (league === "MLB") {
+    if (seconds === 0) return "";
+    return `${seconds} out${seconds !== 1 ? "s" : ""}`;
   }
 
   // Sub-second or effectively zero → display 0:00
@@ -150,12 +161,14 @@ export function PlayByPlayTab({ gameId, homeAbbr, awayAbbr, league, gameStatus }
   const [mode, setMode] = useState<"read" | "watch">("read");
   const { isAdmin } = useIsAdmin();
   const isNBA = league === "NBA";
+  const isMLB = league === "MLB";
+  const isNHL = league === "NHL";
 
-  // Feature flag + gating: show Watch toggle for NBA games with PBP data
-  // Admin can always see it; all users can see it for live or final games
+  // Feature flag + gating: show Watch toggle for games with PBP data
   const ENABLE_PBP_WATCH_MODE = true;
   const isLiveGame = gameStatus === "live" || gameStatus === "in_progress";
   const isFinalGame = gameStatus === "final";
+  // Watch mode currently only for NBA; read mode for all leagues
   const showWatchToggle = isNBA && ENABLE_PBP_WATCH_MODE && (isAdmin || isLiveGame || isFinalGame);
 
   // ── Live score from game_state_snapshots (authoritative) ──
@@ -391,7 +404,7 @@ export function PlayByPlayTab({ gameId, homeAbbr, awayAbbr, league, gameStatus }
 
       const clockSeconds = parseClockToSeconds(clockRaw);
       const eventType = ev.event_type || ev.action_type || ev.EventType || null;
-      const clockDisplay = clockSeconds != null ? formatClock(clockSeconds, eventType, period) : (clockRaw || "");
+      const clockDisplay = clockSeconds != null ? formatClock(clockSeconds, eventType, period, league) : (clockRaw || "");
 
       // Compute WP if we have scores
       let wp: number | null = null;
@@ -419,22 +432,29 @@ export function PlayByPlayTab({ gameId, homeAbbr, awayAbbr, league, gameStatus }
   if (normalizedEvents.length === 0) {
     // Determine the exact reason PBP is empty for admin diagnostics
     const emptyReason = (() => {
-      if (!isNBA) return "Non-NBA league — PBP only supported for NBA currently";
       if (gameStatus === "scheduled") return "Game has not started yet — no PBP expected";
-      const bdlCount = bdlPbpEvents?.length ?? 0;
-      const cosmicCount = livePbpEvents ? (livePbpEvents as any[]).length : 0;
-      const histCount = (nbaEvents as any[])?.length ?? 0;
-      if (bdlCount === 0 && cosmicCount === 0 && histCount === 0) {
-        if (isLiveGame) return "Game is live but NO events in any source — BDL ingest may not have started or game_key mapping is missing";
-        return "No events found in any PBP source table (BDL, cosmic, historical)";
+      if (isNBA) {
+        const bdlCount = bdlPbpEvents?.length ?? 0;
+        const cosmicCount = livePbpEvents ? (livePbpEvents as any[]).length : 0;
+        const histCount = (nbaEvents as any[])?.length ?? 0;
+        if (bdlCount === 0 && cosmicCount === 0 && histCount === 0) {
+          if (isLiveGame) return "Game is live but NO events in any source — BDL ingest may not have started or game_key mapping is missing";
+          return "No events found in any PBP source table (BDL, cosmic, historical)";
+        }
+        return "Events exist but normalized to 0 — possible parsing/filtering issue";
       }
-      return "Events exist but normalized to 0 — possible parsing/filtering issue";
+      // Non-NBA: check generic table
+      const genCount = (genericEvents as any[])?.length ?? 0;
+      if (genCount === 0) {
+        if (isLiveGame) return `Game is live but no ${league} PBP events in play_by_play table — ingestion may not have started`;
+        return `No PBP data found in play_by_play table for this ${league} game`;
+      }
+      return "Events exist but normalized to 0 — possible parsing issue";
     })();
 
     // User-facing copy depends on game state
     const userMessage = (() => {
       if (gameStatus === "scheduled") return "Play-by-play begins once the game starts.";
-      if (!isNBA) return "Play-by-play is not yet available for this league.";
       if (isLiveGame) return "Live event feed is warming up — data should appear shortly.";
       if (isFinalGame) return "No play-by-play data was recorded for this game.";
       return "No play-by-play data available for this game.";
@@ -449,10 +469,16 @@ export function PlayByPlayTab({ gameId, homeAbbr, awayAbbr, league, gameStatus }
             <div className="text-[9px] text-muted-foreground space-y-0.5 font-mono">
               <p><span className="text-foreground/70">Game ID:</span> {gameId}</p>
               <p><span className="text-foreground/70">League:</span> {league} | <span className="text-foreground/70">Status:</span> {gameStatus ?? "unknown"}</p>
-              <p><span className="text-foreground/70">BDL events (nba_pbp_events):</span> {bdlPbpEvents?.length ?? "loading…"} {bdlPbpLoading ? "⏳" : "✓"} <span className="text-muted-foreground/40">game_key={gameId}</span></p>
-              <p><span className="text-foreground/70">Cosmic key:</span> {gameKeyQuery.data ?? (gameKeyQuery.isLoading ? "resolving…" : "❌ not found")}</p>
-              <p><span className="text-foreground/70">Cosmic events (pbp_events):</span> {livePbpEvents ? (livePbpEvents as any[]).length : "N/A"} {livePbpLoading ? "⏳" : "✓"}</p>
-              <p><span className="text-foreground/70">Historical (nba_play_by_play_events):</span> {(nbaEvents as any[])?.length ?? "N/A"} {nbaLoading ? "⏳" : "✓"}</p>
+              {isNBA ? (
+                <>
+                  <p><span className="text-foreground/70">BDL events (nba_pbp_events):</span> {bdlPbpEvents?.length ?? "loading…"} {bdlPbpLoading ? "⏳" : "✓"} <span className="text-muted-foreground/40">game_key={gameId}</span></p>
+                  <p><span className="text-foreground/70">Cosmic key:</span> {gameKeyQuery.data ?? (gameKeyQuery.isLoading ? "resolving…" : "❌ not found")}</p>
+                  <p><span className="text-foreground/70">Cosmic events (pbp_events):</span> {livePbpEvents ? (livePbpEvents as any[]).length : "N/A"} {livePbpLoading ? "⏳" : "✓"}</p>
+                  <p><span className="text-foreground/70">Historical (nba_play_by_play_events):</span> {(nbaEvents as any[])?.length ?? "N/A"} {nbaLoading ? "⏳" : "✓"}</p>
+                </>
+              ) : (
+                <p><span className="text-foreground/70">Generic PBP (play_by_play):</span> {(genericEvents as any[])?.length ?? "loading…"} {genericLoading ? "⏳" : "✓"}</p>
+              )}
               <p><span className="text-foreground/70">Source selected:</span> {rawSource}</p>
               <p><span className="text-foreground/70">Normalized count:</span> {rawEvents.length}</p>
             </div>
@@ -462,9 +488,18 @@ export function PlayByPlayTab({ gameId, homeAbbr, awayAbbr, league, gameStatus }
             {isLiveGame && (
               <div className="text-[9px] text-cosmic-gold space-y-0.5">
                 <p>⚠ Game is live — check:</p>
-                <p className="pl-2">• nba-bdl-burst-loop running?</p>
-                <p className="pl-2">• BDL game_id → internal UUID mapping exists?</p>
-                <p className="pl-2">• pbp-watch-sync triggered?</p>
+                {isNBA ? (
+                  <>
+                    <p className="pl-2">• nba-bdl-burst-loop running?</p>
+                    <p className="pl-2">• BDL game_id → internal UUID mapping exists?</p>
+                    <p className="pl-2">• pbp-watch-sync triggered?</p>
+                  </>
+                ) : (
+                  <>
+                    <p className="pl-2">• BDL live sync running for {league}?</p>
+                    <p className="pl-2">• play_by_play records being inserted for game_id?</p>
+                  </>
+                )}
               </div>
             )}
           </div>
