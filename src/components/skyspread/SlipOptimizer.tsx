@@ -316,11 +316,7 @@ function AiAnalysisPanel({ analysis, loading, action }: { analysis: string | nul
       )}
       {analysis && (
         <div className="text-[10px] text-foreground leading-relaxed whitespace-pre-wrap prose-sm">
-          {analysis.split(/\*\*(.*?)\*\*/g).map((part, i) =>
-            i % 2 === 1
-              ? <strong key={i} className="text-primary">{part}</strong>
-              : <span key={i}>{part}</span>
-          )}
+          {renderCleanAiText(analysis)}
         </div>
       )}
     </div>
