@@ -661,7 +661,7 @@ function SettledPropCard({ tp, onDelete }: { tp: any; onDelete: () => void }) {
         <div>
           <p className="text-xs font-semibold text-foreground">{tp.player_name}</p>
           <p className="text-[10px] text-muted-foreground capitalize">
-            {tp.market_type} · {tp.direction} {tp.line}
+            {displayStatName(tp.market_type || "")} · {tp.direction} {tp.line}
           </p>
         </div>
         <div className="flex items-center gap-1.5">
