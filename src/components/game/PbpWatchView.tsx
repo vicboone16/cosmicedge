@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { parsePbpEvent, deriveVisualState, type NormalizedPbpEvent } from "@/lib/pbp-event-parser";
+import { useIsAdmin } from "@/hooks/use-admin";
 import { WatchHeaderScorebar } from "./watch/WatchHeaderScorebar";
 import { LiveCourtCanvas } from "./watch/LiveCourtCanvas";
 import { LatestPlayCard } from "./watch/LatestPlayCard";
@@ -37,6 +38,7 @@ function parseClockSec(raw: string | null | undefined): number | null {
 }
 
 export function PbpWatchView({ gameId, homeAbbr, awayAbbr, league }: PbpWatchViewProps) {
+  const { isAdmin } = useIsAdmin();
   const momentum = useGameMomentum(gameId, true);
   // ── Live score snapshot ──
   const { data: liveSnapshot } = useQuery({
@@ -124,6 +126,34 @@ export function PbpWatchView({ gameId, homeAbbr, awayAbbr, league }: PbpWatchVie
     },
   });
 
+  // ── Admin: visual_event_queue + live_game_visual_state diagnostics ──
+  const { data: visualQueueCount } = useQuery({
+    queryKey: ["watch-visual-queue", gameId],
+    queryFn: async () => {
+      const { count } = await supabase
+        .from("visual_event_queue")
+        .select("id", { count: "exact", head: true })
+        .eq("game_id", gameId);
+      return count ?? 0;
+    },
+    enabled: isAdmin,
+    refetchInterval: 10_000,
+  });
+
+  const { data: visualState_db } = useQuery({
+    queryKey: ["watch-live-visual-db", gameId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("live_game_visual_state")
+        .select("status, source_provider, parser_version, sync_latency_ms, updated_at")
+        .eq("game_id", gameId)
+        .maybeSingle();
+      return data;
+    },
+    enabled: isAdmin,
+    refetchInterval: 10_000,
+  });
+
   // ── Choose best source & normalize ──
   const { normalizedEvents, feedSource } = useMemo(() => {
     let rawEvents: any[] = [];
@@ -181,6 +211,13 @@ export function PbpWatchView({ gameId, homeAbbr, awayAbbr, league }: PbpWatchVie
 
   const lastEvent = normalizedEvents.length > 0 ? normalizedEvents[normalizedEvents.length - 1] : null;
 
+  // Determine animation availability reason
+  const animationUnavailableReason = (() => {
+    if (feedSource === "none") return "No PBP feed source available (BDL/cosmic/historical all empty)";
+    if (normalizedEvents.length === 0) return "Feed source selected but 0 normalized events";
+    return null;
+  })();
+
   if (feedSource === "none" || normalizedEvents.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-12 space-y-3">
@@ -190,6 +227,31 @@ export function PbpWatchView({ gameId, homeAbbr, awayAbbr, league }: PbpWatchVie
           <p>BDL: {bdlEvents?.length ?? 0} events | Cosmic: {(livePbpEvents as any[])?.length ?? 0} | Historical: {historicalEvents?.length ?? 0}</p>
           <p>Game key: {gameKey ?? "unresolved"} | Source: {feedSource}</p>
         </div>
+        {isAdmin && (
+          <div className="mx-auto max-w-md cosmic-card rounded-lg p-3 text-left space-y-2 mt-2">
+            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">🎬 Admin Watch Mode Diagnostics</p>
+            <div className="text-[9px] text-muted-foreground space-y-0.5 font-mono">
+              <p><span className="text-foreground/70">Game ID:</span> {gameId}</p>
+              <p><span className="text-foreground/70">Animation:</span> <span className="text-destructive">Unavailable</span></p>
+              <p><span className="text-foreground/70">Reason:</span> {animationUnavailableReason}</p>
+              <p><span className="text-foreground/70">Visual queue items:</span> {visualQueueCount ?? "N/A"}</p>
+              <p><span className="text-foreground/70">Visual state row:</span> {visualState_db ? "✓ exists" : "❌ missing"}</p>
+              {visualState_db && (
+                <>
+                  <p><span className="text-foreground/70">VS status:</span> {visualState_db.status ?? "—"}</p>
+                  <p><span className="text-foreground/70">VS provider:</span> {visualState_db.source_provider ?? "—"}</p>
+                  <p><span className="text-foreground/70">VS updated:</span> {visualState_db.updated_at ?? "—"}</p>
+                </>
+              )}
+            </div>
+            <div className="border-t border-border/20 pt-1.5 text-[9px] text-cosmic-gold space-y-0.5">
+              <p>⚠ Check:</p>
+              <p className="pl-2">• Is pbp-watch-sync edge function running?</p>
+              <p className="pl-2">• Does nba_pbp_events have rows with game_key={gameId}?</p>
+              <p className="pl-2">• Is visual_event_queue being populated?</p>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -262,6 +324,22 @@ export function PbpWatchView({ gameId, homeAbbr, awayAbbr, league }: PbpWatchVie
         feedSource={feedSource}
         gameId={gameId}
       />
+
+      {/* Admin animation diagnostics */}
+      {isAdmin && (
+        <div className="cosmic-card rounded-lg p-3 text-left space-y-1.5">
+          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">🎬 Animation Runtime</p>
+          <div className="text-[9px] text-muted-foreground space-y-0.5 font-mono">
+            <p><span className="text-foreground/70">Animation:</span> <span className="text-cosmic-green">Active</span> ({normalizedEvents.length} events)</p>
+            <p><span className="text-foreground/70">Feed:</span> {feedSource}</p>
+            <p><span className="text-foreground/70">Visual queue:</span> {visualQueueCount ?? "N/A"} items</p>
+            <p><span className="text-foreground/70">Visual state row:</span> {visualState_db ? `✓ (${visualState_db.status ?? "—"}, provider: ${visualState_db.source_provider ?? "—"})` : "❌ missing"}</p>
+            {visualState_db?.updated_at && (
+              <p><span className="text-foreground/70">VS last updated:</span> {new Date(visualState_db.updated_at).toLocaleTimeString()}</p>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
