@@ -226,7 +226,12 @@ Engine assessment: ${JSON.stringify(assessment)}
 Player context: ${JSON.stringify(playerCtx?.season ?? {})}
 Recent games: ${JSON.stringify((playerCtx?.recent ?? []).slice(0, 3).map((g: any) => ({ pts: g.points, reb: g.rebounds, ast: g.assists, min: g.minutes })))}
 Game context: ${JSON.stringify(gameCtx?.game ? { home: gameCtx.game.home_abbr, away: gameCtx.game.away_abbr, status: gameCtx.game.status } : {})}
-Pace: ${JSON.stringify(gameCtx?.pace ?? {})}`;
+Pace: ${JSON.stringify(gameCtx?.pace ?? {})}
+
+CRITICAL RULES:
+- Only cite numbers that appear in the engine data above. Never invent statistics.
+- If net_rating is provided, use that exact value — do NOT calculate or estimate your own.
+- Be precise with all numbers. Round to 1 decimal place.`;
 
   const resp = await fetch(AI_GATEWAY, {
     method: "POST",
