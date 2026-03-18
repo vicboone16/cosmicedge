@@ -1,4 +1,5 @@
 import { RefreshCw, Loader2 } from "lucide-react";
+import { stripMarkdownArtifacts } from "@/lib/display-labels";
 
 interface Props {
   analysis: string | null;
