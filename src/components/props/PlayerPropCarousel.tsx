@@ -131,14 +131,26 @@ export function PlayerPropCarousel({
                 edgeScore >= 70 && "border-cosmic-green/30 shadow-[0_0_8px_-3px] shadow-cosmic-green/20"
               )}
             >
-              {/* Prop type + line */}
+              {/* Prop type + line + signal badges */}
               <div className="flex items-center justify-between">
                 <span className="text-[10px] font-bold text-muted-foreground uppercase">{propLabel}</span>
-                {tier && edgeScore >= 55 && (
-                  <span className={cn("text-[7px] font-bold px-1 py-0 rounded-full", tier.className)}>
-                    {edgeScore.toFixed(0)}
-                  </span>
-                )}
+                <div className="flex items-center gap-0.5">
+                  {prop.streak != null && prop.streak >= 3 && (
+                    <span className="text-[7px] font-bold px-1 py-0 rounded-full bg-cosmic-green/10 text-cosmic-green border border-cosmic-green/20 cursor-pointer" onClick={(e) => { e.stopPropagation(); navigate("/nexus?tab=signals"); }} title={`${prop.streak} game streak — View in Signals`}>
+                      <Flame className="h-2 w-2 inline" /> {prop.streak}
+                    </span>
+                  )}
+                  {tier && edgeScore >= 65 && (
+                    <span className="text-[7px] font-bold px-1 py-0 rounded-full bg-cosmic-red/10 text-cosmic-red border border-cosmic-red/20 cursor-pointer" onClick={(e) => { e.stopPropagation(); navigate("/nexus?tab=signals"); }} title="Live Edge — View in Signals">
+                      <Zap className="h-2 w-2 inline" />
+                    </span>
+                  )}
+                  {tier && edgeScore >= 55 && edgeScore < 65 && (
+                    <span className={cn("text-[7px] font-bold px-1 py-0 rounded-full", tier.className)}>
+                      {edgeScore.toFixed(0)}
+                    </span>
+                  )}
+                </div>
               </div>
 
               {/* Line value */}
