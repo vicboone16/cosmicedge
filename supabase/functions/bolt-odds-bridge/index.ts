@@ -139,35 +139,33 @@ Deno.serve(async (req) => {
       const homeSpread = findSide(spreadOutcomes, "home");
       const awaySpread = findSide(spreadOutcomes, "away");
 
-      // Write moneyline snapshot
+      // Write moneyline snapshot (odds_snapshots uses bookmaker, line, not source/sportsbook)
       if (homeML?.american_odds != null || awayML?.american_odds != null) {
-        await sb.from("odds_snapshots").upsert({
+        const book = homeML?.sportsbook || awayML?.sportsbook || "draftkings";
+        await sb.from("odds_snapshots").insert({
           game_id: game.id,
           market_type: "moneyline",
-          source: "boltodds",
-          sportsbook: homeML?.sportsbook || awayML?.sportsbook || "draftkings",
+          bookmaker: `boltodds_${book}`,
           home_price: homeML?.american_odds ?? null,
           away_price: awayML?.american_odds ?? null,
-          home_line: null,
-          away_line: null,
+          line: null,
           captured_at: new Date().toISOString(),
-        }, { onConflict: "game_id,market_type,source,sportsbook" });
+        });
         oddsWritten++;
       }
 
       // Write spread snapshot
       if (homeSpread?.american_odds != null) {
-        await sb.from("odds_snapshots").upsert({
+        const book = homeSpread?.sportsbook || "draftkings";
+        await sb.from("odds_snapshots").insert({
           game_id: game.id,
           market_type: "spread",
-          source: "boltodds",
-          sportsbook: homeSpread?.sportsbook || "draftkings",
+          bookmaker: `boltodds_${book}`,
           home_price: homeSpread?.american_odds ?? null,
           away_price: awaySpread?.american_odds ?? null,
-          home_line: homeSpread?.line ?? null,
-          away_line: awaySpread?.line ?? null,
+          line: homeSpread?.line ?? null,
           captured_at: new Date().toISOString(),
-        }, { onConflict: "game_id,market_type,source,sportsbook" });
+        });
         oddsWritten++;
       }
 
@@ -176,17 +174,16 @@ Deno.serve(async (req) => {
         const over = totalOutcomes.find((o: any) => /over/i.test(o.outcome_name || ""));
         const under = totalOutcomes.find((o: any) => /under/i.test(o.outcome_name || ""));
         if (over || under) {
-          await sb.from("odds_snapshots").upsert({
+          const book = (over || under)?.sportsbook || "draftkings";
+          await sb.from("odds_snapshots").insert({
             game_id: game.id,
             market_type: "total",
-            source: "boltodds",
-            sportsbook: (over || under)?.sportsbook || "draftkings",
+            bookmaker: `boltodds_${book}`,
             home_price: over?.american_odds ?? null,
             away_price: under?.american_odds ?? null,
-            home_line: over?.line ?? under?.line ?? null,
-            away_line: under?.line ?? over?.line ?? null,
+            line: over?.line ?? under?.line ?? null,
             captured_at: new Date().toISOString(),
-          }, { onConflict: "game_id,market_type,source,sportsbook" });
+          });
           oddsWritten++;
         }
       }
