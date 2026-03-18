@@ -262,8 +262,10 @@ function SignalCard({ overlay, tab, onTap }: { overlay: any; tab: SignalTab; onT
         return { text: `+${diff} over line`, className: "bg-cosmic-gold/10 text-cosmic-gold border-cosmic-gold/20" };
       case "defense":
         return { text: `σ ${overlay.sigma?.toFixed(1) ?? "—"}`, className: "bg-cosmic-cyan/10 text-cosmic-cyan border-cosmic-cyan/20" };
-      case "astro":
-        return { text: "✦ Astro Active", className: "bg-cosmic-lavender/10 text-cosmic-lavender border-cosmic-lavender/20" };
+      case "astro": {
+        const hasAstro = overlay.astro && typeof overlay.astro === "object" && Object.keys(overlay.astro).length > 0;
+        return { text: hasAstro ? "✦ Astro Active" : "✦ Cosmic Context", className: "bg-cosmic-lavender/10 text-cosmic-lavender border-cosmic-lavender/20" };
+      }
       case "live":
         return { text: `⚡ ${edgeScore.toFixed(0)} Edge`, className: "bg-cosmic-red/10 text-cosmic-red border-cosmic-red/20" };
     }
