@@ -81,7 +81,23 @@ export function AppLayout() {
     <div className="min-h-screen bg-background star-field overflow-x-hidden">
       <CosmicBackground />
       {/* Top header with profile dropdown */}
-      <div className="fixed top-0 right-0 z-50 p-3 safe-area-top safe-area-right">
+      <div className="fixed top-0 right-0 z-50 p-3 safe-area-top safe-area-right flex items-center gap-2">
+        {/* Messages icon */}
+        {user && (
+          <button
+            onClick={() => navigate("/messages")}
+            className="relative h-10 w-10 rounded-full bg-secondary border border-border flex items-center justify-center hover:border-primary/30 transition-colors shadow-md"
+            aria-label="Messages"
+          >
+            <MessageCircle className="h-4 w-4 text-muted-foreground" />
+            {!!unreadMsgCount && unreadMsgCount > 0 && (
+              <span className="absolute -top-1 -right-1 h-4 min-w-[16px] px-1 rounded-full bg-primary text-primary-foreground text-[9px] font-bold flex items-center justify-center">
+                {unreadMsgCount > 9 ? "9+" : unreadMsgCount}
+              </span>
+            )}
+          </button>
+        )}
+        {/* Profile menu */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
