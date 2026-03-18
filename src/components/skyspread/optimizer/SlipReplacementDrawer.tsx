@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import type { LegScore } from "@/lib/slip-optimizer-engine";
+import { stripMarkdownArtifacts } from "@/lib/display-labels";
 
 interface ReplacementCandidate {
   player_name: string;
