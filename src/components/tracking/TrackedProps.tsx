@@ -626,7 +626,7 @@ function PregamePropCard({ tp, gameData, onDelete }: { tp: any; gameData?: any; 
         <div>
           <p className="text-xs font-semibold text-foreground">{tp.player_name}</p>
           <p className="text-[10px] text-muted-foreground capitalize">
-            {tp.market_type} · {tp.direction} {tp.line}
+            {displayStatName(tp.market_type || "")} · {tp.direction} {tp.line}
           </p>
           {gameData && (
             <p className="text-[10px] text-muted-foreground mt-0.5">
