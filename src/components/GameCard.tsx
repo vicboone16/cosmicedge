@@ -271,7 +271,7 @@ export const GameCard = memo(function GameCard({ game }: { game: GameWithOdds })
       </div>
 
       {/* Quick Props Rail */}
-      <QuickPropsRail gameId={game.id} />
+      <QuickPropsRail gameId={game.id} isLive={isLive} />
     </button>
   );
 });
