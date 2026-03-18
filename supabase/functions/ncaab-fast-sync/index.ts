@@ -1,13 +1,14 @@
 /**
- * ncaab-fast-sync: Lightweight function that fetches today's NCAAB schedule
- * from API-Basketball and inserts directly into the games table.
- * Skips cosmic_games infrastructure to avoid timeouts.
+ * ncaab-fast-sync: Fetches today's (and optionally yesterday's) NCAAB schedule
+ * from API-Basketball and upserts into the games table.
+ * Also sweeps stale "live" games older than 5h → "final".
  */
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
 
 const API_BASKETBALL_BASE = "https://v1.basketball.api-sports.io";
 const NCAAB_LEAGUE_ID = 116;
+const STALE_HOURS = 5;
 
 function mapStatus(short: string): string {
   switch (short) {
@@ -34,6 +35,19 @@ function generateTeamAbbr(teamName: string): string {
   return words.map(w => w[0]).join("").toUpperCase().slice(0, 4);
 }
 
+async function fetchGamesForDate(apiKey: string, season: string, dateStr: string): Promise<any[]> {
+  const resp = await fetch(
+    `${API_BASKETBALL_BASE}/games?league=${NCAAB_LEAGUE_ID}&season=${season}&date=${dateStr}`,
+    { headers: { "x-apisports-key": apiKey } }
+  );
+  if (!resp.ok) {
+    console.warn(`[ncaab-fast-sync] API returned ${resp.status} for date ${dateStr}`);
+    return [];
+  }
+  const json = await resp.json();
+  return json.response || [];
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -43,28 +57,26 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
     const apiKey = Deno.env.get("API_BASKETBALL_KEY")!;
-    
+
     const now = new Date();
     const seasonYear = now.getMonth() >= 9 ? now.getFullYear() : now.getFullYear() - 1;
     const season = `${seasonYear}-${seasonYear + 1}`;
     const todayStr = now.toISOString().slice(0, 10);
 
-    // Fetch today's games
-    const resp = await fetch(
-      `${API_BASKETBALL_BASE}/games?league=${NCAAB_LEAGUE_ID}&season=${season}&date=${todayStr}`,
-      { headers: { "x-apisports-key": apiKey } }
-    );
+    // Also fetch yesterday to catch games that ended after nightly cron
+    const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    const yesterdayStr = yesterday.toISOString().slice(0, 10);
 
-    if (!resp.ok) {
-      return new Response(JSON.stringify({ error: `API returned ${resp.status}` }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    }
+    // Fetch today + yesterday in parallel
+    const [todayGames, yesterdayGames] = await Promise.all([
+      fetchGamesForDate(apiKey, season, todayStr),
+      fetchGamesForDate(apiKey, season, yesterdayStr),
+    ]);
 
-    const json = await resp.json();
-    const games = json.response || [];
-    
-    // Build batch insert
-    const rows = games.map((g: any) => ({
+    const allGames = [...todayGames, ...yesterdayGames];
+
+    // Build batch upsert rows
+    const rows = allGames.map((g: any) => ({
       external_id: `api-basketball-ncaab-${g.id}`,
       league: "NCAAB",
       home_team: g.teams?.home?.name || "Unknown",
@@ -79,14 +91,31 @@ Deno.serve(async (req) => {
       source: "api-basketball",
     }));
 
-    // Batch upsert
-    const { error } = await supabase.from("games").upsert(rows, { onConflict: "external_id" });
+    // Batch upsert (updates status + scores on conflict)
+    const { error: upsertErr } = await supabase
+      .from("games")
+      .upsert(rows, { onConflict: "external_id" });
+
+    // Stale-game sweep: mark any NCAAB game still "live" after 5h as "final"
+    const cutoff = new Date(now.getTime() - STALE_HOURS * 60 * 60 * 1000).toISOString();
+    const { data: swept, error: sweepErr } = await supabase
+      .from("games")
+      .update({ status: "final", updated_at: now.toISOString() })
+      .eq("league", "NCAAB")
+      .eq("status", "live")
+      .lt("start_time", cutoff)
+      .select("id");
+
+    const sweptCount = swept?.length ?? 0;
+    if (sweepErr) console.warn("[ncaab-fast-sync] sweep error:", sweepErr.message);
 
     return new Response(JSON.stringify({
-      success: !error,
-      games_found: games.length,
-      inserted: rows.length,
-      error: error?.message || null,
+      success: !upsertErr,
+      today_games: todayGames.length,
+      yesterday_games: yesterdayGames.length,
+      upserted: rows.length,
+      stale_swept: sweptCount,
+      error: upsertErr?.message || null,
       date: todayStr,
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
