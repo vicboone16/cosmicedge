@@ -10,7 +10,7 @@ interface Props {
 }
 
 export function QuickPropsRail({ gameId, isLive }: Props) {
-  const { data: props } = useTopPropsForGame(gameId, 5);
+  const { data: props } = useTopPropsForGame(gameId, 5, isLive);
 
   // Fetch live_prop_state for this game when live
   const playerIds = (props || []).map(p => p.player_id).filter(Boolean);
