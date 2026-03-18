@@ -38,6 +38,7 @@ function parseClockSec(raw: string | null | undefined): number | null {
 }
 
 export function PbpWatchView({ gameId, homeAbbr, awayAbbr, league }: PbpWatchViewProps) {
+  const { isAdmin } = useIsAdmin();
   const momentum = useGameMomentum(gameId, true);
   // ── Live score snapshot ──
   const { data: liveSnapshot } = useQuery({
