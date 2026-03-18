@@ -448,16 +448,17 @@ export function GameMatchupTab({
         </div>
 
         {lineupsLoading ? (
-          <p className="text-xs text-muted-foreground text-center py-6">Loading lineups...</p>
+          <p className="text-xs text-muted-foreground text-center py-6">Loading lineups…</p>
         ) : !hasLineups ? (
           <div className="text-center py-6 space-y-2">
-            <p className="text-xs text-muted-foreground">No lineup data available yet.</p>
+            <p className="text-xs text-muted-foreground">Starting lineups are still being confirmed.</p>
+            <p className="text-[10px] text-muted-foreground/60">Lineups typically populate closer to game time.</p>
             <button
               onClick={handleFetchLineups}
               disabled={fetchingLineups}
               className="text-xs text-primary hover:underline"
             >
-              {fetchingLineups ? "Fetching..." : "Fetch lineups"}
+              {fetchingLineups ? "Fetching…" : "Refresh lineups"}
             </button>
           </div>
         ) : (
@@ -465,12 +466,14 @@ export function GameMatchupTab({
             {/* Away Team */}
             <div className="p-3 space-y-2">
               <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider text-center">{awayAbbr}</p>
-              {awayStarters.length > 0 && (
+              {awayStarters.length > 0 ? (
                 <div>
                   <p className="text-[9px] text-primary font-semibold uppercase tracking-wider mb-1">Starters</p>
                   {awayStarters.map(p => <PlayerRow key={p.player_name + p.position} player={p} />)}
                 </div>
-              )}
+              ) : awayLineup.length === 0 ? (
+                <p className="text-[9px] text-muted-foreground text-center py-4">Roster data still loading for {awayAbbr}.</p>
+              ) : null}
               {awayBench.length > 0 && (
                 <div>
                   <p className="text-[9px] text-muted-foreground font-semibold uppercase tracking-wider mb-1 mt-2">Bench</p>
@@ -481,12 +484,14 @@ export function GameMatchupTab({
             {/* Home Team */}
             <div className="p-3 space-y-2">
               <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider text-center">{homeAbbr}</p>
-              {homeStarters.length > 0 && (
+              {homeStarters.length > 0 ? (
                 <div>
                   <p className="text-[9px] text-primary font-semibold uppercase tracking-wider mb-1">Starters</p>
                   {homeStarters.map(p => <PlayerRow key={p.player_name + p.position} player={p} />)}
                 </div>
-              )}
+              ) : homeLineup.length === 0 ? (
+                <p className="text-[9px] text-muted-foreground text-center py-4">Roster data still loading for {homeAbbr}.</p>
+              ) : null}
               {homeBench.length > 0 && (
                 <div>
                   <p className="text-[9px] text-muted-foreground font-semibold uppercase tracking-wider mb-1 mt-2">Bench</p>
