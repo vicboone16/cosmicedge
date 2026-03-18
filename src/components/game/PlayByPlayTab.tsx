@@ -404,7 +404,7 @@ export function PlayByPlayTab({ gameId, homeAbbr, awayAbbr, league, gameStatus }
 
       const clockSeconds = parseClockToSeconds(clockRaw);
       const eventType = ev.event_type || ev.action_type || ev.EventType || null;
-      const clockDisplay = clockSeconds != null ? formatClock(clockSeconds, eventType, period) : (clockRaw || "");
+      const clockDisplay = clockSeconds != null ? formatClock(clockSeconds, eventType, period, league) : (clockRaw || "");
 
       // Compute WP if we have scores
       let wp: number | null = null;
