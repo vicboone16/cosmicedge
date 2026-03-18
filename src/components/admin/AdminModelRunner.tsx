@@ -82,7 +82,8 @@ export default function AdminModelRunner() {
           }
         );
         const data = await resp.json();
-        updateResult(label, { status: "done", detail: `Processed`, data });
+        const detail = data?.inserted != null ? `${data.inserted} games processed` : (typeof data === 'object' ? JSON.stringify(data).slice(0, 120) : String(data));
+        updateResult(label, { status: "done", detail, data });
         refetchPredictions();
       } catch (e) {
         updateResult(label, { status: "error", detail: String(e) });
