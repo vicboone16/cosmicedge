@@ -44,6 +44,7 @@ export function GameMatchupTab({
   homeTeam,
   awayTeam,
   league = "NBA",
+  canonicalRoster,
 }: {
   gameId: string;
   homeAbbr: string;
@@ -51,6 +52,7 @@ export function GameMatchupTab({
   homeTeam: string;
   awayTeam: string;
   league?: string;
+  canonicalRoster?: GameRoster;
 }) {
   // Fetch standings
   const { data: standings } = useQuery({
