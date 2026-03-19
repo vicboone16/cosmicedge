@@ -643,6 +643,7 @@ Deno.serve(async (req) => {
     let modelPredictions: any[] = [];
     let glossaryTerms: any[] = [];
     let teamData: any[] = [];
+    let gameProjectionData: any[] = [];
 
     // Team data retrieval (for pace, ratings, etc.)
     const teamAbbrs = resolveTeamAbbrs(intent.entities?.team_abbr);
@@ -652,6 +653,71 @@ Deno.serve(async (req) => {
       debugLog.steps[debugLog.steps.length - 1].status = "done";
       debugLog.steps[debugLog.steps.length - 1].result = { teams: teamAbbrs, rows: teamData.length };
       debugLog.teamData = teamData;
+    }
+
+    // Game projection intent: fetch today's games + oracle predictions
+    if (intent.intent === "game_projection") {
+      debugLog.steps.push({ step: "game_projection_retrieval", status: "running" });
+      const today = new Date().toISOString().split("T")[0];
+      const tomorrow = new Date(Date.now() + 86400000).toISOString().split("T")[0];
+      const leagueFilter = intent.entities?.team_abbr ? undefined : "NBA";
+
+      let gamesQuery = sb.from("games").select("id, home_team, away_team, home_abbr, away_abbr, start_time, status, home_score, away_score, league")
+        .gte("start_time", today + "T00:00:00Z")
+        .lt("start_time", tomorrow + "T23:59:59Z")
+        .order("start_time", { ascending: true })
+        .limit(15);
+      if (leagueFilter) gamesQuery = gamesQuery.eq("league", leagueFilter);
+      if (teamAbbrs.length > 0) gamesQuery = gamesQuery.or(teamAbbrs.map(a => `home_abbr.eq.${a},away_abbr.eq.${a}`).join(","));
+
+      const { data: todayGames } = await gamesQuery;
+
+      if (todayGames?.length) {
+        const gameIds = todayGames.map((g: any) => g.id);
+        // Fetch oracle predictions
+        const { data: oraclePreds } = await sb.from("oracle_predictions").select("*").in("game_id", gameIds);
+        // Fetch pace features
+        const paceResults = await Promise.all(gameIds.slice(0, 8).map(async (gid: string) => {
+          const { data } = await sb.rpc("np_build_pace_features", { p_game_id: gid });
+          return { game_id: gid, pace: data?.[0] ?? null };
+        }));
+
+        for (const game of todayGames) {
+          const oracle = (oraclePreds || []).find((o: any) => o.game_id === game.id);
+          const paceInfo = paceResults.find(p => p.game_id === game.id);
+          gameProjectionData.push({
+            game_id: game.id,
+            matchup: `${game.away_abbr} @ ${game.home_abbr}`,
+            start_time: game.start_time,
+            status: game.status,
+            league: game.league,
+            home_score: game.home_score,
+            away_score: game.away_score,
+            oracle_home_win_prob: oracle?.home_win_prob ?? null,
+            oracle_predicted_total: oracle?.predicted_total ?? null,
+            oracle_home_spread: oracle?.home_spread ?? null,
+            pace: paceInfo?.pace ?? null,
+          });
+        }
+        debugLog.steps[debugLog.steps.length - 1].status = "done";
+        debugLog.steps[debugLog.steps.length - 1].result = { games: gameProjectionData.length };
+      } else {
+        debugLog.steps[debugLog.steps.length - 1].status = "partial";
+        debugLog.steps[debugLog.steps.length - 1].result = { games: 0, reason: "No games found for today" };
+      }
+
+      // If we have NO projection data at all, block with truthful failure
+      const hasAnyProjection = gameProjectionData.some((g: any) => g.oracle_home_win_prob != null || g.oracle_predicted_total != null || g.pace?.expected_possessions != null);
+      if (!hasAnyProjection && gameProjectionData.length === 0) {
+        const narrative = `⚠️ **No Games Found**\n\nThere are no scheduled games for today matching your query. Check back on a game day for projected scores.`;
+        return new Response(JSON.stringify({
+          success: false,
+          compute_blocked: true,
+          block_reason: "No games scheduled for today",
+          answer: narrative,
+          intent: intent.intent,
+        }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
     }
 
     if (player?.id) {
