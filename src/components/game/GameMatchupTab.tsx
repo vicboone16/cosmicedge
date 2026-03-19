@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
+import type { GameRoster } from "@/hooks/use-game-roster";
 import { Users, RefreshCw } from "lucide-react";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { useState, useMemo } from "react";
@@ -43,6 +44,7 @@ export function GameMatchupTab({
   homeTeam,
   awayTeam,
   league = "NBA",
+  canonicalRoster,
 }: {
   gameId: string;
   homeAbbr: string;
@@ -50,6 +52,7 @@ export function GameMatchupTab({
   homeTeam: string;
   awayTeam: string;
   league?: string;
+  canonicalRoster?: GameRoster;
 }) {
   // Fetch standings
   const { data: standings } = useQuery({
@@ -353,8 +356,8 @@ export function GameMatchupTab({
 
   const navigate = useNavigate();
 
-  // Fetch lineups from depth_charts
-  const { data: lineups, isLoading: lineupsLoading, refetch: refetchLineups } = useQuery({
+  // Use canonical roster if provided, otherwise fallback to direct depth_charts query
+  const { data: fallbackLineups, isLoading: fallbackLineupsLoading, refetch: refetchFallbackLineups } = useQuery({
     queryKey: ["game-lineups", homeAbbr, awayAbbr],
     queryFn: async () => {
       const { data } = await supabase
@@ -366,7 +369,25 @@ export function GameMatchupTab({
         .order("position", { ascending: true });
       return data || [];
     },
+    enabled: !canonicalRoster, // skip if canonical roster is provided
   });
+
+  // Convert canonical roster to lineup format
+  const lineups = useMemo(() => {
+    if (canonicalRoster) {
+      return [...canonicalRoster.away, ...canonicalRoster.home].map(p => ({
+        player_name: p.name,
+        team_abbr: p.team,
+        position: p.position,
+        depth_order: p.source === "players" ? 1 : 2,
+        player_id: p.id,
+        external_player_id: null as string | null,
+      }));
+    }
+    return fallbackLineups || [];
+  }, [canonicalRoster, fallbackLineups]);
+  const lineupsLoading = !canonicalRoster && fallbackLineupsLoading;
+  const refetchLineups = refetchFallbackLineups;
 
   // Fetch birth dates for lineup players to show zodiac signs
   const lineupPlayerIds = useMemo(() => (lineups || []).map(l => l.player_id).filter(Boolean) as string[], [lineups]);

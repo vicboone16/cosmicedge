@@ -832,17 +832,20 @@ Deno.serve(async (req) => {
       // For game_projection, inject projection data into context
       if (intent.intent === "game_projection" && gameProjectionData.length > 0) {
         const projLines = gameProjectionData.map((g: any) => {
+          const hasData = g.oracle_predicted_total != null || g.oracle_home_win_prob != null || g.oracle_mu_home != null;
+          if (!hasData) {
+            return `${g.matchup} (${g.status}) | ⚠ NO PROJECTION DATA — say "Projection models have not run for this game yet"`;
+          }
           const parts = [`${g.matchup} (${g.status})`];
-          if (g.oracle_predicted_total != null) parts.push(`Proj Total: ${g.oracle_predicted_total}`);
+          if (g.oracle_mu_home != null && g.oracle_mu_away != null) parts.push(`Proj Score: ${g.away_score != null ? `Current ${g.away_score}-${g.home_score} |` : ""} Model: ${Number(g.oracle_mu_away).toFixed(1)}-${Number(g.oracle_mu_home).toFixed(1)}`);
+          if (g.oracle_predicted_total != null) parts.push(`Proj Total: ${Number(g.oracle_predicted_total).toFixed(1)}`);
           if (g.oracle_home_win_prob != null) parts.push(`Home WP: ${(g.oracle_home_win_prob * 100).toFixed(1)}%`);
-          if (g.oracle_home_spread != null) parts.push(`Spread: ${g.oracle_home_spread > 0 ? "+" : ""}${g.oracle_home_spread}`);
+          if (g.oracle_home_spread != null) parts.push(`Spread: ${g.oracle_home_spread > 0 ? "+" : ""}${Number(g.oracle_home_spread).toFixed(1)}`);
           if (g.pace?.expected_possessions != null) parts.push(`Exp Poss: ${g.pace.expected_possessions}`);
-          if (g.home_score != null) parts.push(`Score: ${g.away_score}-${g.home_score}`);
+          if (g.home_score != null && g.status !== "scheduled") parts.push(`Live: ${g.away_score}-${g.home_score}`);
           return parts.join(" | ");
         }).join("\n");
-        // Inject as extra context for the narrative generator
-        const origContext = `GAME PROJECTIONS FOR TODAY:\n${projLines}\n\nIMPORTANT: Only cite the exact projection numbers provided above. If a game has no oracle prediction data, say exactly "No model projection available for this game" — do NOT output generic 0 or 50% values. Present each game separately.`;
-        // Temporarily augment the question with projection data
+        const origContext = `GAME PROJECTIONS FOR TODAY:\n${projLines}\n\nCRITICAL RULES:\n1. ONLY cite the exact numbers provided above.\n2. For any game marked "NO PROJECTION DATA", say exactly "Projection models have not run for this game yet" — do NOT invent scores or probabilities.\n3. NEVER output projected score 0, hit probability 50%, or EV 0 as placeholders.\n4. Present each game as a separate item with its matchup, projected score, win probability, and total.\n5. If a game has live scores, include them alongside the projections.`;
         narrative = await generateNarrative(
           lovableKey, question + "\n\n" + origContext, intent, formula, computeResult,
           variables, scorecardResult.data, player, glossaryTerms, teamData,
