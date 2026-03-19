@@ -146,7 +146,7 @@ const Results = () => {
                   </p>
                   <div className={cn("flex items-center gap-1", resultColor)}>
                     <ResultIcon className="h-3.5 w-3.5" />
-                    <span className="text-[10px] font-semibold uppercase">{bet.status}</span>
+                    <span className="text-[10px] font-semibold uppercase">{outcome}</span>
                   </div>
                 </div>
 
