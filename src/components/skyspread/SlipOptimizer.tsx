@@ -137,8 +137,8 @@ function SlipSummaryCard({ score, slip }: { score: SlipScore; slip: any }) {
         <StatPill label="EV" value={`${score.expectedValue >= 0 ? "+" : ""}${score.expectedValue.toFixed(2)}u`} />
       </div>
       <div className="grid grid-cols-3 gap-2">
-        <StatPill label="Avg Edge" value={`${score.avgEdge.toFixed(1)}%`} />
-        <StatPill label="Avg Vol" value={`${score.avgVolatility.toFixed(0)}%`} />
+        <StatPill label="Edge" value={`${score.avgEdge.toFixed(1)}%`} />
+        <StatPill label="Volatility" value={`${score.avgVolatility.toFixed(0)}%`} />
         <div className="text-center p-1.5 rounded-lg bg-secondary/40 flex items-center justify-center gap-1">
           <CorrelationBadge level={score.correlation.riskLevel} />
         </div>
