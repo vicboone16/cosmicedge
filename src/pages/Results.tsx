@@ -31,11 +31,12 @@ const Results = () => {
     queryKey: ["results-bets", user?.id],
     queryFn: async () => {
       if (!user) return [];
+      // Include both legacy statuses AND trigger-settled bets
       const { data, error } = await supabase
         .from("bets")
         .select("*")
         .eq("user_id", user.id)
-        .in("status", ["won", "lost", "push"])
+        .in("status", ["won", "lost", "push", "settled"])
         .order("settled_at", { ascending: false });
       if (error) throw error;
       return (data || []) as BetRow[];
