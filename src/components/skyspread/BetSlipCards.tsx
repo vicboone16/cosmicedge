@@ -537,7 +537,7 @@ export default function BetSlipCards() {
             <Zap className="h-3 w-3" /> Active ({activeSlips.length})
           </p>
           {activeSlips.map(slip => (
-            <SlipCard key={slip.id} slip={slip} picks={picksMap?.[slip.id] || []} />
+            <SlipCard key={slip.id} slip={slip} picks={picksMap?.[slip.id] || []} isAdmin={isAdmin} />
           ))}
         </div>
       )}
