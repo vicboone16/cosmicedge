@@ -60,6 +60,7 @@ const INTENT_TOOL = {
             "formula_compute",    // needs formula + data → compute
             "stat_lookup",        // needs live data only
             "model_output",       // needs scorecard/model prediction
+            "game_projection",    // projected score / totals for game(s)
             "glossary",           // documentation question
             "explanation",        // explain how something works
             "general_chat",       // general conversation
