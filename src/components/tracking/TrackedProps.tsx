@@ -11,6 +11,7 @@ import { usePlayerMomentum } from "@/hooks/use-player-momentum";
 import { toast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { displayStatName, cleanSourceLabel } from "@/lib/display-labels";
+import { ensureInternalPlayerId, isBdlId, batchResolvePlayerNames } from "@/lib/resolve-bdl-player";
 
 /* ─── Settled display logic ─── */
 function getSettledDisplay(tp: any) {
