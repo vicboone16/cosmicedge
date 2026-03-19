@@ -96,10 +96,6 @@ const STAT_DISPLAY: Record<string, string> = {
   earned_runs: "Earned Runs",
   pitcher_strikeouts: "Pitcher Ks",
   total_bases: "Total Bases",
-  
-  // Additional display normalization
-  fg_made: "FG Made",
-  "fg made": "FG Made",
 };
 
 /** Period labels */
