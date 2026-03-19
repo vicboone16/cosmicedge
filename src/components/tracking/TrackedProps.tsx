@@ -324,26 +324,26 @@ export function TrackedPropsWidget({ gameId, showHeader = true }: { gameId?: str
         let statValue: number | null = null;
 
         // Check if the player actually has a full-game stats row (proves they played)
-        const fullRow = byKey.get(`${tp.player_id}:${tp.game_id}:full`);
+        const fullRow = byKey.get(`${effectivePlayerId}:${tp.game_id}:full`);
         const playerActuallyPlayed = fullRow && (Number(fullRow.minutes) > 0 || Number(fullRow.points) > 0);
 
         if (["q1", "q2", "q3", "q4", "full"].includes(period)) {
-          const row = byKey.get(`${tp.player_id}:${tp.game_id}:${period}`);
+          const row = byKey.get(`${effectivePlayerId}:${tp.game_id}:${period}`);
           if (row) statValue = sumCols(row);
         } else if (period === "1h") {
-          const direct = byKey.get(`${tp.player_id}:${tp.game_id}:first_half`);
+          const direct = byKey.get(`${effectivePlayerId}:${tp.game_id}:first_half`);
           if (direct) statValue = sumCols(direct);
           else {
-            const q1 = byKey.get(`${tp.player_id}:${tp.game_id}:q1`);
-            const q2 = byKey.get(`${tp.player_id}:${tp.game_id}:q2`);
+            const q1 = byKey.get(`${effectivePlayerId}:${tp.game_id}:q1`);
+            const q2 = byKey.get(`${effectivePlayerId}:${tp.game_id}:q2`);
             if (q1 || q2) statValue = sumCols(q1) + sumCols(q2);
           }
         } else if (period === "2h") {
-          const direct = byKey.get(`${tp.player_id}:${tp.game_id}:second_half`);
+          const direct = byKey.get(`${effectivePlayerId}:${tp.game_id}:second_half`);
           if (direct) statValue = sumCols(direct);
           else {
-            const q3 = byKey.get(`${tp.player_id}:${tp.game_id}:q3`);
-            const q4 = byKey.get(`${tp.player_id}:${tp.game_id}:q4`);
+            const q3 = byKey.get(`${effectivePlayerId}:${tp.game_id}:q3`);
+            const q4 = byKey.get(`${effectivePlayerId}:${tp.game_id}:q4`);
             if (q3 || q4) statValue = sumCols(q3) + sumCols(q4);
           }
         }
