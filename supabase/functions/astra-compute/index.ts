@@ -687,7 +687,7 @@ Deno.serve(async (req) => {
         }));
 
         for (const game of todayGames) {
-          const oracle = (oraclePreds || []).find((o: any) => o.game_id === game.id);
+          const oracle = oraclePreds.find((o: any) => o.game_id === game.id);
           const paceInfo = paceResults.find(p => p.game_id === game.id);
           gameProjectionData.push({
             game_id: game.id,
@@ -697,9 +697,11 @@ Deno.serve(async (req) => {
             league: game.league,
             home_score: game.home_score,
             away_score: game.away_score,
-            oracle_home_win_prob: oracle?.home_win_prob ?? null,
-            oracle_predicted_total: oracle?.predicted_total ?? null,
-            oracle_home_spread: oracle?.home_spread ?? null,
+            oracle_home_win_prob: oracle?.p_home_win ?? oracle?.home_win_prob ?? null,
+            oracle_predicted_total: oracle?.mu_total ?? oracle?.predicted_total ?? null,
+            oracle_home_spread: oracle?.mu_spread_home ?? oracle?.home_spread ?? null,
+            oracle_mu_home: oracle?.mu_home ?? null,
+            oracle_mu_away: oracle?.mu_away ?? null,
             pace: paceInfo?.pace ?? null,
           });
         }
