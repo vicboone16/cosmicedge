@@ -109,16 +109,23 @@ export default function CommandCenterTab() {
     staleTime: 60_000,
   });
 
-  // Live games pulse
-  const { data: liveGamesCount } = useQuery({
-    queryKey: ["cc-live-count"],
+  // Live games pulse — fetch actual games
+  const { data: liveGames } = useQuery({
+    queryKey: ["cc-live-games"],
     queryFn: async () => {
-      const { count } = await supabase.from("games").select("id", { count: "exact", head: true }).in("status", ["live", "in_progress"]);
-      return count || 0;
+      const { data } = await supabase
+        .from("games")
+        .select("id, home_team, away_team, home_abbr, away_abbr, home_score, away_score, league, status")
+        .in("status", ["live", "in_progress"])
+        .order("start_time", { ascending: true })
+        .limit(20);
+      return data || [];
     },
     staleTime: 30_000,
     refetchInterval: 30_000,
   });
+  const liveGamesCount = liveGames?.length || 0;
+  const [pulseExpanded, setPulseExpanded] = useState(false);
 
   const filteredOpps = useMemo(() => {
     if (!opportunities) return [];
