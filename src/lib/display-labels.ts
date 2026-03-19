@@ -73,6 +73,33 @@ const STAT_DISPLAY: Record<string, string> = {
   flex_play: "Flex Play",
   parlay: "Parlay",
   straight: "Straight",
+  
+  // NHL stats
+  goals: "Goals",
+  shots_on_goal: "Shots on Goal",
+  saves: "Saves",
+  
+  // NFL stats  
+  passing_yards: "Passing Yards",
+  rushing_yards: "Rushing Yards",
+  receiving_yards: "Receiving Yards",
+  pass_completions: "Completions",
+  pass_attempts: "Pass Attempts",
+  interceptions: "Interceptions",
+  touchdowns: "Touchdowns",
+  
+  // MLB stats
+  hits: "Hits",
+  runs: "Runs",
+  rbis: "RBIs",
+  strikeouts: "Strikeouts",
+  earned_runs: "Earned Runs",
+  pitcher_strikeouts: "Pitcher Ks",
+  total_bases: "Total Bases",
+  
+  // Additional display normalization
+  fg_made: "FG Made",
+  "fg made": "FG Made",
 };
 
 /** Period labels */
