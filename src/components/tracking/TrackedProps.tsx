@@ -265,7 +265,36 @@ export function TrackedPropsWidget({ gameId, showHeader = true }: { gameId?: str
 
     (async () => {
       const uniqueGameIds = [...new Set(syncable.map(tp => tp.game_id))];
-      const uniquePlayerIds = [...new Set(syncable.map(tp => tp.player_id))];
+      let uniquePlayerIds = [...new Set(syncable.map(tp => tp.player_id))];
+
+      // Detect BDL numeric IDs and resolve them to internal UUIDs
+      const bdlIdPicks = syncable.filter(tp => isBdlId(tp.player_id));
+      const resolvedIdMap = new Map<string, string>(); // bdlId → internalId
+
+      if (bdlIdPicks.length > 0) {
+        // Batch resolve by player name
+        const nameMap = await batchResolvePlayerNames(
+          bdlIdPicks.map(tp => tp.player_name),
+          "NBA"
+        );
+
+        for (const tp of bdlIdPicks) {
+          const internalId = nameMap.get(tp.player_name);
+          if (internalId) {
+            resolvedIdMap.set(tp.player_id!, internalId);
+            // Also update the DB to fix the stored ID for future syncs
+            await supabase.from("tracked_props").update({ player_id: internalId } as any).eq("id", tp.id);
+          }
+        }
+
+        // Add resolved UUIDs to query set
+        uniquePlayerIds = [
+          ...new Set([
+            ...uniquePlayerIds.filter(id => !isBdlId(id)),
+            ...resolvedIdMap.values(),
+          ]),
+        ];
+      }
 
       const { data: statRows } = await supabase
         .from("player_game_stats")
