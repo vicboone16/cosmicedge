@@ -204,12 +204,12 @@ export default function CommandCenterTab() {
 
       {/* Dashboard Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <DashCard title="Astra Pulse" icon={Activity} onClick={() => navigate("/")}>
+        <DashCard title="Astra Pulse" icon={Activity} expandable expanded={pulseExpanded} onToggle={() => setPulseExpanded(!pulseExpanded)}>
           <div className="space-y-1">
             <div className="flex items-center gap-2">
-              <span className={cn("h-2 w-2 rounded-full", (liveGamesCount ?? 0) > 0 ? "bg-cosmic-green animate-pulse" : "bg-muted-foreground")} />
+              <span className={cn("h-2 w-2 rounded-full", liveGamesCount > 0 ? "bg-cosmic-green animate-pulse" : "bg-muted-foreground")} />
               <span className="text-[11px] text-foreground font-semibold">
-                {(liveGamesCount ?? 0) > 0 ? `${liveGamesCount} live game${liveGamesCount !== 1 ? "s" : ""} · Scanning` : "No live games — pregame analysis mode"}
+                {liveGamesCount > 0 ? `${liveGamesCount} live game${liveGamesCount !== 1 ? "s" : ""} · Scanning` : "No live games — pregame analysis mode"}
               </span>
             </div>
             {profile && (
@@ -219,6 +219,22 @@ export default function CommandCenterTab() {
             )}
             {filteredOpps.length > 0 && <p className="text-[10px] text-cosmic-green font-semibold">{filteredOpps.length} opportunit{filteredOpps.length === 1 ? "y" : "ies"} detected</p>}
           </div>
+          {pulseExpanded && liveGames && liveGames.length > 0 && (
+            <div className="mt-2 pt-2 border-t border-border/30 space-y-1.5">
+              {liveGames.map((g: any) => (
+                <button key={g.id} onClick={() => navigate(`/game/${g.id}`)} className="w-full flex items-center justify-between px-2 py-1.5 rounded-lg bg-secondary/40 hover:bg-secondary/70 transition-colors text-left">
+                  <div className="flex items-center gap-2">
+                    <span className="h-1.5 w-1.5 rounded-full bg-cosmic-green animate-pulse" />
+                    <span className="text-[10px] font-medium text-foreground">{g.away_abbr} @ {g.home_abbr}</span>
+                    <span className="text-[9px] text-muted-foreground">{g.league}</span>
+                  </div>
+                  <span className="text-[11px] font-bold tabular-nums text-foreground">
+                    {g.away_score ?? 0} - {g.home_score ?? 0}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
         </DashCard>
 
         <DashCard title="Best Opportunities" icon={Target} onClick={() => navigate("/props")}>
