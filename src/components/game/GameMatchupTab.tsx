@@ -336,6 +336,7 @@ export function GameMatchupTab({
     { label: "PPG", home: homeStats.ppg?.toFixed(1), away: awayStats.ppg?.toFixed(1) },
     { label: "ORTG", home: homeStats.ortg?.toFixed(1), away: awayStats.ortg?.toFixed(1) },
     { label: "DRTG", home: homeStats.drtg?.toFixed(1), away: awayStats.drtg?.toFixed(1), lower: true },
+    { label: "NET RTG", home: homeStats.netRtg?.toFixed(1), away: awayStats.netRtg?.toFixed(1) },
     { label: "PACE", home: homeStats.pace?.toFixed(1), away: awayStats.pace?.toFixed(1) },
     { label: "TS%", home: homeStats.ts?.toFixed(1), away: awayStats.ts?.toFixed(1) },
     { label: "EFG%", home: homeStats.efg?.toFixed(1), away: awayStats.efg?.toFixed(1) },

@@ -804,10 +804,31 @@ Deno.serve(async (req) => {
         `**Variables available:** ${Object.keys(variables).length}`;
     } else {
       debugLog.steps.push({ step: "narrative_generation", status: "running" });
-      narrative = await generateNarrative(
-        lovableKey, question, intent, formula, computeResult,
-        variables, scorecardResult.data, player, glossaryTerms, teamData,
-      );
+
+      // For game_projection, inject projection data into context
+      if (intent.intent === "game_projection" && gameProjectionData.length > 0) {
+        const projLines = gameProjectionData.map((g: any) => {
+          const parts = [`${g.matchup} (${g.status})`];
+          if (g.oracle_predicted_total != null) parts.push(`Proj Total: ${g.oracle_predicted_total}`);
+          if (g.oracle_home_win_prob != null) parts.push(`Home WP: ${(g.oracle_home_win_prob * 100).toFixed(1)}%`);
+          if (g.oracle_home_spread != null) parts.push(`Spread: ${g.oracle_home_spread > 0 ? "+" : ""}${g.oracle_home_spread}`);
+          if (g.pace?.expected_possessions != null) parts.push(`Exp Poss: ${g.pace.expected_possessions}`);
+          if (g.home_score != null) parts.push(`Score: ${g.away_score}-${g.home_score}`);
+          return parts.join(" | ");
+        }).join("\n");
+        // Inject as extra context for the narrative generator
+        const origContext = `GAME PROJECTIONS FOR TODAY:\n${projLines}\n\nIMPORTANT: Only cite the exact projection numbers provided above. If a game has no oracle prediction data, say exactly "No model projection available for this game" — do NOT output generic 0 or 50% values. Present each game separately.`;
+        // Temporarily augment the question with projection data
+        narrative = await generateNarrative(
+          lovableKey, question + "\n\n" + origContext, intent, formula, computeResult,
+          variables, scorecardResult.data, player, glossaryTerms, teamData,
+        );
+      } else {
+        narrative = await generateNarrative(
+          lovableKey, question, intent, formula, computeResult,
+          variables, scorecardResult.data, player, glossaryTerms, teamData,
+        );
+      }
       debugLog.steps[debugLog.steps.length - 1].status = "done";
     }
 

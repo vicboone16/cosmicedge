@@ -168,15 +168,18 @@ function SlipSummaryCard({ score, slip }: { score: SlipScore; slip: any }) {
         </div>
       )}
 
-      {/* Risk flags */}
+      {/* Risk flags — limit to 2 most important */}
       {score.riskFlags.length > 0 && (
-        <div className="space-y-1">
-          {score.riskFlags.map((flag, i) => (
+        <div className="space-y-0.5">
+          {score.riskFlags.slice(0, 2).map((flag, i) => (
             <div key={i} className="flex items-center gap-1.5 text-[9px] text-cosmic-gold">
               <AlertTriangle className="h-2.5 w-2.5 shrink-0" />
               <span>{flag}</span>
             </div>
           ))}
+          {score.riskFlags.length > 2 && (
+            <p className="text-[8px] text-muted-foreground ml-4">+{score.riskFlags.length - 2} more</p>
+          )}
         </div>
       )}
     </div>

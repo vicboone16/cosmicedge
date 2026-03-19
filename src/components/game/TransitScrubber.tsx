@@ -437,11 +437,11 @@ export function TransitScrubber({ startTime, venueLat, awayPlayers, homePlayers,
 
             {expandedView && (
               <div className="grid grid-cols-2 gap-2">
-                {/* Away team */}
+                {/* Away team — filter to only players whose team matches awayAbbr */}
                 <div>
                   <p className="text-[9px] font-semibold text-muted-foreground uppercase mb-1">{awayAbbr}</p>
                   <div className="space-y-1">
-                    {awayPlayers?.slice(0, 8).map((p) => (
+                    {(awayPlayers || []).filter(p => !p.team || p.team === awayAbbr).slice(0, 8).map((p) => (
                       <button
                         key={p.id}
                         onClick={() => setSelectedPlayer(selectedPlayer?.id === p.id ? null : p)}
@@ -460,13 +460,16 @@ export function TransitScrubber({ startTime, venueLat, awayPlayers, homePlayers,
                         )}
                       </button>
                     ))}
+                    {(awayPlayers || []).filter(p => !p.team || p.team === awayAbbr).length === 0 && (
+                      <p className="text-[8px] text-muted-foreground italic py-2">No players loaded</p>
+                    )}
                   </div>
                 </div>
-                {/* Home team */}
+                {/* Home team — filter to only players whose team matches homeAbbr */}
                 <div>
                   <p className="text-[9px] font-semibold text-muted-foreground uppercase mb-1">{homeAbbr}</p>
                   <div className="space-y-1">
-                    {homePlayers?.slice(0, 8).map((p) => (
+                    {(homePlayers || []).filter(p => !p.team || p.team === homeAbbr).slice(0, 8).map((p) => (
                       <button
                         key={p.id}
                         onClick={() => setSelectedPlayer(selectedPlayer?.id === p.id ? null : p)}
@@ -485,6 +488,9 @@ export function TransitScrubber({ startTime, venueLat, awayPlayers, homePlayers,
                         )}
                       </button>
                     ))}
+                    {(homePlayers || []).filter(p => !p.team || p.team === homeAbbr).length === 0 && (
+                      <p className="text-[8px] text-muted-foreground italic py-2">No players loaded</p>
+                    )}
                   </div>
                 </div>
               </div>

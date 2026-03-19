@@ -166,10 +166,20 @@ export function cleanSourceLabel(text: string): string {
 export function stripMarkdownArtifacts(text: string): string {
   if (!text) return text;
   return text
-    // Remove heading markers
+    // Remove heading markers (###, ####, etc.)
     .replace(/^#{1,6}\s+/gm, "")
     // Remove bracket artifacts like [Full Game]
     .replace(/\[([^\]]+)\]/g, "$1")
+    // Remove markdown bullet points (-, *, •) at start of lines — convert to clean text
+    .replace(/^\s*[-*•]\s+/gm, "· ")
+    // Remove numbered list markers (1. 2. etc.)
+    .replace(/^\s*\d+\.\s+/gm, "")
+    // Remove horizontal rules
+    .replace(/^---+$/gm, "")
+    // Remove backtick code markers
+    .replace(/`([^`]+)`/g, "$1")
+    // Remove > blockquote markers
+    .replace(/^\s*>\s?/gm, "")
     // Clean up excessive newlines
     .replace(/\n{3,}/g, "\n\n")
     .trim();
