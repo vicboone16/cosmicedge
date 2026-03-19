@@ -60,6 +60,7 @@ const INTENT_TOOL = {
             "formula_compute",    // needs formula + data → compute
             "stat_lookup",        // needs live data only
             "model_output",       // needs scorecard/model prediction
+            "game_projection",    // projected score / totals for game(s)
             "glossary",           // documentation question
             "explanation",        // explain how something works
             "general_chat",       // general conversation
@@ -99,6 +100,7 @@ Known formula slugs: edge_score, logistic_prob, momentum_multiplier, pie, per, p
 If the user asks for a specific computed value (PIE, edge score, momentum, projection, etc.), use formula_compute.
 If asking for raw stats (points per game, recent stats), use stat_lookup.
 If asking for model outputs (scorecard, prediction, edge), use model_output.
+If asking for projected scores, predicted totals, or game-level projections for one or more games, use game_projection.
 If asking what something means/is, use glossary or explanation.`,
         },
         { role: "user", content: question },
@@ -641,6 +643,7 @@ Deno.serve(async (req) => {
     let modelPredictions: any[] = [];
     let glossaryTerms: any[] = [];
     let teamData: any[] = [];
+    let gameProjectionData: any[] = [];
 
     // Team data retrieval (for pace, ratings, etc.)
     const teamAbbrs = resolveTeamAbbrs(intent.entities?.team_abbr);
@@ -650,6 +653,71 @@ Deno.serve(async (req) => {
       debugLog.steps[debugLog.steps.length - 1].status = "done";
       debugLog.steps[debugLog.steps.length - 1].result = { teams: teamAbbrs, rows: teamData.length };
       debugLog.teamData = teamData;
+    }
+
+    // Game projection intent: fetch today's games + oracle predictions
+    if (intent.intent === "game_projection") {
+      debugLog.steps.push({ step: "game_projection_retrieval", status: "running" });
+      const today = new Date().toISOString().split("T")[0];
+      const tomorrow = new Date(Date.now() + 86400000).toISOString().split("T")[0];
+      const leagueFilter = intent.entities?.team_abbr ? undefined : "NBA";
+
+      let gamesQuery = sb.from("games").select("id, home_team, away_team, home_abbr, away_abbr, start_time, status, home_score, away_score, league")
+        .gte("start_time", today + "T00:00:00Z")
+        .lt("start_time", tomorrow + "T23:59:59Z")
+        .order("start_time", { ascending: true })
+        .limit(15);
+      if (leagueFilter) gamesQuery = gamesQuery.eq("league", leagueFilter);
+      if (teamAbbrs.length > 0) gamesQuery = gamesQuery.or(teamAbbrs.map(a => `home_abbr.eq.${a},away_abbr.eq.${a}`).join(","));
+
+      const { data: todayGames } = await gamesQuery;
+
+      if (todayGames?.length) {
+        const gameIds = todayGames.map((g: any) => g.id);
+        // Fetch oracle predictions
+        const { data: oraclePreds } = await sb.from("oracle_predictions").select("*").in("game_id", gameIds);
+        // Fetch pace features
+        const paceResults = await Promise.all(gameIds.slice(0, 8).map(async (gid: string) => {
+          const { data } = await sb.rpc("np_build_pace_features", { p_game_id: gid });
+          return { game_id: gid, pace: data?.[0] ?? null };
+        }));
+
+        for (const game of todayGames) {
+          const oracle = (oraclePreds || []).find((o: any) => o.game_id === game.id);
+          const paceInfo = paceResults.find(p => p.game_id === game.id);
+          gameProjectionData.push({
+            game_id: game.id,
+            matchup: `${game.away_abbr} @ ${game.home_abbr}`,
+            start_time: game.start_time,
+            status: game.status,
+            league: game.league,
+            home_score: game.home_score,
+            away_score: game.away_score,
+            oracle_home_win_prob: oracle?.home_win_prob ?? null,
+            oracle_predicted_total: oracle?.predicted_total ?? null,
+            oracle_home_spread: oracle?.home_spread ?? null,
+            pace: paceInfo?.pace ?? null,
+          });
+        }
+        debugLog.steps[debugLog.steps.length - 1].status = "done";
+        debugLog.steps[debugLog.steps.length - 1].result = { games: gameProjectionData.length };
+      } else {
+        debugLog.steps[debugLog.steps.length - 1].status = "partial";
+        debugLog.steps[debugLog.steps.length - 1].result = { games: 0, reason: "No games found for today" };
+      }
+
+      // If we have NO projection data at all, block with truthful failure
+      const hasAnyProjection = gameProjectionData.some((g: any) => g.oracle_home_win_prob != null || g.oracle_predicted_total != null || g.pace?.expected_possessions != null);
+      if (!hasAnyProjection && gameProjectionData.length === 0) {
+        const narrative = `⚠️ **No Games Found**\n\nThere are no scheduled games for today matching your query. Check back on a game day for projected scores.`;
+        return new Response(JSON.stringify({
+          success: false,
+          compute_blocked: true,
+          block_reason: "No games scheduled for today",
+          answer: narrative,
+          intent: intent.intent,
+        }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
     }
 
     if (player?.id) {
@@ -736,10 +804,31 @@ Deno.serve(async (req) => {
         `**Variables available:** ${Object.keys(variables).length}`;
     } else {
       debugLog.steps.push({ step: "narrative_generation", status: "running" });
-      narrative = await generateNarrative(
-        lovableKey, question, intent, formula, computeResult,
-        variables, scorecardResult.data, player, glossaryTerms, teamData,
-      );
+
+      // For game_projection, inject projection data into context
+      if (intent.intent === "game_projection" && gameProjectionData.length > 0) {
+        const projLines = gameProjectionData.map((g: any) => {
+          const parts = [`${g.matchup} (${g.status})`];
+          if (g.oracle_predicted_total != null) parts.push(`Proj Total: ${g.oracle_predicted_total}`);
+          if (g.oracle_home_win_prob != null) parts.push(`Home WP: ${(g.oracle_home_win_prob * 100).toFixed(1)}%`);
+          if (g.oracle_home_spread != null) parts.push(`Spread: ${g.oracle_home_spread > 0 ? "+" : ""}${g.oracle_home_spread}`);
+          if (g.pace?.expected_possessions != null) parts.push(`Exp Poss: ${g.pace.expected_possessions}`);
+          if (g.home_score != null) parts.push(`Score: ${g.away_score}-${g.home_score}`);
+          return parts.join(" | ");
+        }).join("\n");
+        // Inject as extra context for the narrative generator
+        const origContext = `GAME PROJECTIONS FOR TODAY:\n${projLines}\n\nIMPORTANT: Only cite the exact projection numbers provided above. If a game has no oracle prediction data, say exactly "No model projection available for this game" — do NOT output generic 0 or 50% values. Present each game separately.`;
+        // Temporarily augment the question with projection data
+        narrative = await generateNarrative(
+          lovableKey, question + "\n\n" + origContext, intent, formula, computeResult,
+          variables, scorecardResult.data, player, glossaryTerms, teamData,
+        );
+      } else {
+        narrative = await generateNarrative(
+          lovableKey, question, intent, formula, computeResult,
+          variables, scorecardResult.data, player, glossaryTerms, teamData,
+        );
+      }
       debugLog.steps[debugLog.steps.length - 1].status = "done";
     }
 

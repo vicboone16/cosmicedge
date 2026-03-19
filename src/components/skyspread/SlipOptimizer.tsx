@@ -87,14 +87,14 @@ function EvGradeBadge({ grade }: { grade: string }) {
 
 /* ─── Correlation Badge ─── */
 function CorrelationBadge({ level }: { level: string }) {
-  const cfg: Record<string, { className: string }> = {
-    low: { className: "text-cosmic-green border-cosmic-green/30" },
-    moderate: { className: "text-cosmic-gold border-cosmic-gold/30" },
-    high: { className: "text-cosmic-red border-cosmic-red/30" },
-    extreme: { className: "text-cosmic-red border-cosmic-red/50" },
+  const cfg: Record<string, { className: string; label: string }> = {
+    low: { className: "text-cosmic-green border-cosmic-green/30", label: "Low" },
+    moderate: { className: "text-cosmic-gold border-cosmic-gold/30", label: "Moderate" },
+    high: { className: "text-cosmic-red border-cosmic-red/30", label: "High" },
+    extreme: { className: "text-cosmic-red border-cosmic-red/50", label: "Extreme" },
   };
   const c = cfg[level] || cfg.low;
-  return <Badge variant="outline" className={cn("text-[8px] capitalize", c.className)}>{level} Corr</Badge>;
+  return <Badge variant="outline" className={cn("text-[8px]", c.className)}>{c.label} Correlation</Badge>;
 }
 
 /* ─── Slip Summary Card ─── */
@@ -137,8 +137,8 @@ function SlipSummaryCard({ score, slip }: { score: SlipScore; slip: any }) {
         <StatPill label="EV" value={`${score.expectedValue >= 0 ? "+" : ""}${score.expectedValue.toFixed(2)}u`} />
       </div>
       <div className="grid grid-cols-3 gap-2">
-        <StatPill label="Avg Edge" value={`${score.avgEdge.toFixed(1)}%`} />
-        <StatPill label="Avg Vol" value={`${score.avgVolatility.toFixed(0)}%`} />
+        <StatPill label="Edge" value={`${score.avgEdge.toFixed(1)}%`} />
+        <StatPill label="Volatility" value={`${score.avgVolatility.toFixed(0)}%`} />
         <div className="text-center p-1.5 rounded-lg bg-secondary/40 flex items-center justify-center gap-1">
           <CorrelationBadge level={score.correlation.riskLevel} />
         </div>
@@ -160,27 +160,26 @@ function SlipSummaryCard({ score, slip }: { score: SlipScore; slip: any }) {
         </div>
       )}
 
-      {/* Correlation notes */}
+      {/* Correlation notes — show only most important one */}
       {score.correlation.notes.length > 0 && score.correlation.riskLevel !== "low" && (
-        <div className="space-y-0.5">
-          {score.correlation.notes.map((note, i) => (
-            <div key={i} className="flex items-center gap-1.5 text-[9px] text-cosmic-gold">
-              <AlertTriangle className="h-2.5 w-2.5 shrink-0" />
-              <span>{note}</span>
-            </div>
-          ))}
+        <div className="flex items-center gap-1.5 text-[9px] text-cosmic-gold">
+          <AlertTriangle className="h-2.5 w-2.5 shrink-0" />
+          <span>{score.correlation.notes[0]}</span>
         </div>
       )}
 
-      {/* Risk flags */}
+      {/* Risk flags — limit to 2 most important */}
       {score.riskFlags.length > 0 && (
-        <div className="space-y-1">
-          {score.riskFlags.map((flag, i) => (
+        <div className="space-y-0.5">
+          {score.riskFlags.slice(0, 2).map((flag, i) => (
             <div key={i} className="flex items-center gap-1.5 text-[9px] text-cosmic-gold">
               <AlertTriangle className="h-2.5 w-2.5 shrink-0" />
               <span>{flag}</span>
             </div>
           ))}
+          {score.riskFlags.length > 2 && (
+            <p className="text-[8px] text-muted-foreground ml-4">+{score.riskFlags.length - 2} more</p>
+          )}
         </div>
       )}
     </div>

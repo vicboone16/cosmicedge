@@ -290,18 +290,31 @@ export function GameMatchupTab({
     // Sanity check: if pace data has ORTG > 150 or pace < 50, it's corrupt — ignore it
     const paceIsValid = pace && Number(pace.off_rating) <= 150 && Number(pace.off_rating) >= 80 && Number(pace.avg_pace) >= 50;
 
-    // Sanity-bound helper: clamp values to reasonable NBA ranges
+    // Sanity-bound helper: reject values outside realistic NBA ranges (returns null if corrupt)
     const clamp = (val: number | null, min: number, max: number) => {
-      if (val == null) return null;
+      if (val == null || typeof val !== "number" || isNaN(val)) return null;
       if (val < min || val > max) return null; // treat as corrupt
       return val;
     };
 
+    // Net rating should also be clamped
+    const netRtg = (ortg: number | null, drtg: number | null) => {
+      if (ortg == null || drtg == null) return null;
+      const net = ortg - drtg;
+      // NBA net ratings should be between -25 and +25
+      if (net < -25 || net > 25) return null;
+      return net;
+    };
+
+    const ortgVal = clamp(paceIsValid ? Number(pace.off_rating) : null, 80, 140) ?? clamp(adv?.ortg ?? null, 80, 140);
+    const drtgVal = clamp(paceIsValid ? Number(pace.def_rating) : null, 80, 140) ?? null;
+
     // Prioritize team_season_pace (manually curated) over computed stats
     return {
       ppg: clamp(paceIsValid && pace.avg_points != null ? Number(pace.avg_points) : null, 70, 140) ?? clamp(adv?.ppg ?? null, 70, 140),
-      ortg: clamp(paceIsValid ? Number(pace.off_rating) : null, 80, 140) ?? clamp(adv?.ortg ?? null, 80, 140),
-      drtg: clamp(paceIsValid ? Number(pace.def_rating) : null, 80, 140) ?? null,
+      ortg: ortgVal,
+      drtg: drtgVal,
+      netRtg: paceIsValid && pace.net_rating != null ? clamp(Number(pace.net_rating), -25, 25) : netRtg(ortgVal, drtgVal),
       pace: clamp(paceIsValid ? Number(pace.avg_pace) : null, 85, 115) ?? clamp(adv?.pace ?? null, 85, 115),
       ts: clamp(pace?.ts_pct != null ? Number(pace.ts_pct) * 100 : null, 40, 70) ?? clamp(adv?.ts ?? null, 40, 70),
       efg: clamp(pace?.efg_pct != null ? Number(pace.efg_pct) * 100 : null, 35, 65) ?? clamp(adv?.efg ?? null, 35, 65),
@@ -323,6 +336,7 @@ export function GameMatchupTab({
     { label: "PPG", home: homeStats.ppg?.toFixed(1), away: awayStats.ppg?.toFixed(1) },
     { label: "ORTG", home: homeStats.ortg?.toFixed(1), away: awayStats.ortg?.toFixed(1) },
     { label: "DRTG", home: homeStats.drtg?.toFixed(1), away: awayStats.drtg?.toFixed(1), lower: true },
+    { label: "NET RTG", home: homeStats.netRtg?.toFixed(1), away: awayStats.netRtg?.toFixed(1) },
     { label: "PACE", home: homeStats.pace?.toFixed(1), away: awayStats.pace?.toFixed(1) },
     { label: "TS%", home: homeStats.ts?.toFixed(1), away: awayStats.ts?.toFixed(1) },
     { label: "EFG%", home: homeStats.efg?.toFixed(1), away: awayStats.efg?.toFixed(1) },
