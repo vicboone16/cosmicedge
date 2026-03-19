@@ -114,10 +114,12 @@ export function TrackPropButton({
   const createMutation = useMutation({
     mutationFn: async () => {
       if (!user) throw new Error("Not logged in");
+      // Resolve BDL numeric player_id to internal UUID before storing
+      const resolvedPlayerId = await ensureInternalPlayerId(playerId, playerName);
       const { error } = await supabase.from("tracked_props").insert({
         user_id: user.id,
         game_id: gameId,
-        player_id: playerId || null,
+        player_id: resolvedPlayerId || playerId || null,
         player_name: playerName,
         market_type: marketType,
         line,
