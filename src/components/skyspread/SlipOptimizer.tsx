@@ -87,14 +87,14 @@ function EvGradeBadge({ grade }: { grade: string }) {
 
 /* ─── Correlation Badge ─── */
 function CorrelationBadge({ level }: { level: string }) {
-  const cfg: Record<string, { className: string }> = {
-    low: { className: "text-cosmic-green border-cosmic-green/30" },
-    moderate: { className: "text-cosmic-gold border-cosmic-gold/30" },
-    high: { className: "text-cosmic-red border-cosmic-red/30" },
-    extreme: { className: "text-cosmic-red border-cosmic-red/50" },
+  const cfg: Record<string, { className: string; label: string }> = {
+    low: { className: "text-cosmic-green border-cosmic-green/30", label: "Low" },
+    moderate: { className: "text-cosmic-gold border-cosmic-gold/30", label: "Moderate" },
+    high: { className: "text-cosmic-red border-cosmic-red/30", label: "High" },
+    extreme: { className: "text-cosmic-red border-cosmic-red/50", label: "Extreme" },
   };
   const c = cfg[level] || cfg.low;
-  return <Badge variant="outline" className={cn("text-[8px] capitalize", c.className)}>{level} Corr</Badge>;
+  return <Badge variant="outline" className={cn("text-[8px]", c.className)}>{c.label} Correlation</Badge>;
 }
 
 /* ─── Slip Summary Card ─── */
