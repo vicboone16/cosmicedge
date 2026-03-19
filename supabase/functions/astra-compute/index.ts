@@ -100,6 +100,7 @@ Known formula slugs: edge_score, logistic_prob, momentum_multiplier, pie, per, p
 If the user asks for a specific computed value (PIE, edge score, momentum, projection, etc.), use formula_compute.
 If asking for raw stats (points per game, recent stats), use stat_lookup.
 If asking for model outputs (scorecard, prediction, edge), use model_output.
+If asking for projected scores, predicted totals, or game-level projections for one or more games, use game_projection.
 If asking what something means/is, use glossary or explanation.`,
         },
         { role: "user", content: question },
