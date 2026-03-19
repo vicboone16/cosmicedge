@@ -80,10 +80,13 @@ export const GameCard = memo(function GameCard({ game }: { game: GameWithOdds })
   }, [navigate, game.id]);
 
   return (
-    <button
+    <div
+      role="button"
+      tabIndex={0}
       onClick={handleGameClick}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") handleGameClick(); }}
       className={cn(
-        "w-full text-left cosmic-card rounded-xl p-4 transition-all duration-200 hover:border-primary/30 hover:cosmic-glow active:scale-[0.98]",
+        "w-full text-left cosmic-card rounded-xl p-4 transition-all duration-200 hover:border-primary/30 hover:cosmic-glow active:scale-[0.98] cursor-pointer",
         isLive && "border-l-2 border-l-cosmic-green"
       )}
     >
