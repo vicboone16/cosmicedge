@@ -503,7 +503,7 @@ function SlipCard({ slip, picks, isAdmin }: { slip: any; picks: any[]; isAdmin?:
 
 export default function BetSlipCards() {
   const { slips, picksMap, isLoading } = useBetSlips();
-
+  const { isAdmin } = useIsAdmin();
   if (isLoading) {
     return (
       <div className="space-y-3">
