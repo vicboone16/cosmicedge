@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Trash2, ChevronDown, ChevronUp, Zap, AlertTriangle, CheckCircle, Clock, XCircle, Share2, Copy, RefreshCw } from "lucide-react";
+import { Trash2, ChevronDown, ChevronUp, Zap, AlertTriangle, CheckCircle, Clock, XCircle, Share2, Copy, RefreshCw, Edit3, Save } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { useBetSlips } from "@/hooks/use-bet-slips";
@@ -9,8 +9,9 @@ import { SlipIntentSelector, SlipOptimizerPanel, INTENT_CONFIG, type SlipIntent 
 import { SlipLiveTracker } from "@/components/skyspread/optimizer/SlipLiveTracker";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { displayStatName, displayEntryType, displayBookName } from "@/lib/display-labels";
+import { useIsAdmin } from "@/hooks/use-admin";
 
 const MATCH_BADGES: Record<string, { label: string; className: string }> = {
   exact_match: { label: "Matched", className: "bg-cosmic-green/15 text-cosmic-green" },
