@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
+import { useGameRoster } from "@/hooks/use-game-roster";
 import { useIsAdmin } from "@/hooks/use-admin";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Star, MapPin, Orbit, Moon, Zap, Users, ChevronDown, ChevronUp, TrendingUp, TrendingDown, Lightbulb, Swords, Flame, AlertTriangle, Shield, ListOrdered, TableProperties } from "lucide-react";
