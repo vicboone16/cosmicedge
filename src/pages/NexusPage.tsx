@@ -346,7 +346,7 @@ function HistoryTab() { return <HistoricalPage />; }
 // ── Main Nexus Page ──
 export default function NexusPage() {
   const [searchParams] = useSearchParams();
-  const initialTab = searchParams.get("tab") === "signals" ? "signals" : "command";
+  const initialTab = searchParams.get("tab") === "command" ? "command" : "signals";
 
   return (
     <div className="min-h-screen pb-24">
