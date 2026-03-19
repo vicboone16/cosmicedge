@@ -82,7 +82,15 @@ export default function AdminModelRunner() {
           }
         );
         const data = await resp.json();
-        const detail = data?.inserted != null ? `${data.inserted} games processed` : (typeof data === 'object' ? JSON.stringify(data).slice(0, 120) : String(data));
+        const detail = data?.inserted != null
+          ? `${data.inserted} games processed`
+          : data?.error
+            ? `Error: ${String(data.error).slice(0, 100)}`
+            : data?.message
+              ? String(data.message).slice(0, 120)
+              : typeof data === 'object'
+                ? `Completed (${Object.keys(data).join(", ")})`
+                : String(data);
         updateResult(label, { status: "done", detail, data });
         refetchPredictions();
       } catch (e) {
