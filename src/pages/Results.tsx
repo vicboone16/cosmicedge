@@ -125,7 +125,7 @@ const Results = () => {
         {/* Bet history */}
         {isLoading && <p className="text-sm text-muted-foreground text-center py-8">Loading results...</p>}
 
-        {!isLoading && (!bets || bets.length === 0) && (
+        {!isLoading && settledBets.length === 0 && (
           <div className="text-center py-12">
             <Trophy className="h-6 w-6 text-muted-foreground/30 mx-auto mb-2" />
             <p className="text-sm text-muted-foreground">No settled bets yet</p>
@@ -133,9 +133,10 @@ const Results = () => {
         )}
 
         <div className="space-y-2">
-          {bets?.map(bet => {
-            const ResultIcon = RESULT_ICONS[bet.status || "push"] || MinusCircle;
-            const resultColor = RESULT_COLORS[bet.status || "push"] || "text-muted-foreground";
+          {settledBets.map(bet => {
+            const outcome = getOutcome(bet) || "push";
+            const ResultIcon = RESULT_ICONS[outcome] || MinusCircle;
+            const resultColor = RESULT_COLORS[outcome] || "text-muted-foreground";
 
             return (
               <div key={bet.id} className="cosmic-card rounded-xl p-3">
