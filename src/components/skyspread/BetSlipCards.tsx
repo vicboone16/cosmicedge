@@ -103,6 +103,7 @@ function PickRow({ pick, gameInfo, liveState, isAdmin }: { pick: any; gameInfo?:
       if (editLiveValue === "") updates.live_value = null;
       else if (newLive != null && !isNaN(newLive)) updates.live_value = newLive;
       if (editResult && editResult !== pick.result) updates.result = editResult || null;
+      if (editGameId && editGameId !== pick.game_id) updates.game_id = editGameId || null;
       updates.updated_at = new Date().toISOString();
 
       const { error } = await supabase.from("bet_slip_picks").update(updates).eq("id", pick.id);
