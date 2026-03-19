@@ -413,21 +413,13 @@ const GameDetail = () => {
       return (status === "live" || status === "in_progress") ? 30_000 : false;
     },
   });
-  const { data: players } = useQuery({
-    queryKey: ["game-players", game?.home_abbr, game?.away_abbr, game?.league],
-    queryFn: async () => {
-      if (!game) return [];
-      const { data } = await supabase
-        .from("players")
-        .select("id, name, position, team, birth_date, league, headshot_url")
-        .in("team", [game.home_abbr, game.away_abbr])
-        .eq("league", game.league)
-        .eq("status", "active")
-        .limit(50);
-      return data || [];
-    },
-    enabled: !!game,
-  });
+  // Canonical roster hook — merges players + depth_charts, prevents cross-team leakage
+  const { data: gameRoster } = useGameRoster(game?.home_abbr, game?.away_abbr, game?.league);
+  // Legacy compat: flatten into players array for existing consumers
+  const players = useMemo(() => {
+    if (!gameRoster) return [];
+    return [...gameRoster.away, ...gameRoster.home];
+  }, [gameRoster]);
 
   // Fetch injuries for both teams
   const { data: injuries } = useQuery({
