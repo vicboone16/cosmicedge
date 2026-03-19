@@ -900,6 +900,7 @@ const GameDetail = () => {
               homeTeam={game.home_team}
               awayTeam={game.away_team}
               league={game.league}
+              canonicalRoster={gameRoster ?? undefined}
             />
 
             {/* Injury Report */}

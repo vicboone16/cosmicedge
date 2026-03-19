@@ -106,8 +106,8 @@ const Analytics = () => {
   buckets.forEach(({ min, max, label }) => {
     const inBucket = settled.filter(b => (b.confidence ?? 50) >= min && (b.confidence ?? 50) < max);
     if (inBucket.length >= 1) {
-      const wins = inBucket.filter(b => b.status === "won").length;
-      const decisions = inBucket.filter(b => b.status !== "push").length;
+      const wins = inBucket.filter(b => getOutcome(b) === "won").length;
+      const decisions = inBucket.filter(b => getOutcome(b) !== "push").length;
       calibrationData.push({
         bucket: label,
         predicted: Math.round((min + max) / 2),
