@@ -5,6 +5,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { cn } from "@/lib/utils";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, CartesianGrid } from "recharts";
 import type { Tables } from "@/integrations/supabase/types";
+import { getOutcome, americanToDecimal, filterSettled } from "@/lib/betting-math";
 
 type BetRow = Tables<"bets">;
 
@@ -37,18 +38,7 @@ const Analytics = () => {
     );
   }
 
-  // Canonical outcome helper — consistent with Results, BankrollTab, UserProfilePage
-  const getOutcome = (b: BetRow): "won" | "lost" | "push" | null => {
-    if (b.status === "won" || b.status === "lost" || b.status === "push") return b.status as any;
-    if (b.status === "settled") {
-      if (b.result === "win") return "won";
-      if (b.result === "loss") return "lost";
-      if (b.result === "push") return "push";
-    }
-    return null;
-  };
-
-  const settled = bets?.filter(b => getOutcome(b) !== null) || [];
+  const settled = filterSettled(bets || []);
   const won = settled.filter(b => getOutcome(b) === "won").length;
   const lost = settled.filter(b => getOutcome(b) === "lost").length;
   const pushed = settled.filter(b => getOutcome(b) === "push").length;
@@ -77,11 +67,7 @@ const Analytics = () => {
     { name: "Push", value: pushed },
   ].filter(d => d.value > 0);
 
-  // Cumulative ROI over time — canonical formula
-  function americanToDecimal(odds: number): number {
-    if (odds > 0) return odds / 100 + 1;
-    return 100 / Math.abs(odds) + 1;
-  }
+  // Cumulative ROI over time — using shared canonical helpers
   const roiData: { bet: number; roi: number }[] = [];
   let cumStaked = 0;
   let cumReturn = 0;
