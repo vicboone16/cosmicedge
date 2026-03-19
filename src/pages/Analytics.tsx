@@ -37,20 +37,32 @@ const Analytics = () => {
     );
   }
 
-  const settled = bets?.filter(b => ["won", "lost", "push"].includes(b.status || "")) || [];
-  const won = settled.filter(b => b.status === "won").length;
-  const lost = settled.filter(b => b.status === "lost").length;
-  const pushed = settled.filter(b => b.status === "push").length;
+  // Canonical outcome helper — consistent with Results, BankrollTab, UserProfilePage
+  const getOutcome = (b: BetRow): "won" | "lost" | "push" | null => {
+    if (b.status === "won" || b.status === "lost" || b.status === "push") return b.status as any;
+    if (b.status === "settled") {
+      if (b.result === "win") return "won";
+      if (b.result === "loss") return "lost";
+      if (b.result === "push") return "push";
+    }
+    return null;
+  };
+
+  const settled = bets?.filter(b => getOutcome(b) !== null) || [];
+  const won = settled.filter(b => getOutcome(b) === "won").length;
+  const lost = settled.filter(b => getOutcome(b) === "lost").length;
+  const pushed = settled.filter(b => getOutcome(b) === "push").length;
   const totalSettled = won + lost + pushed;
 
   // Win rate by market type
   const marketStats: Record<string, { won: number; lost: number; total: number }> = {};
   settled.forEach(b => {
     const key = b.market_type || "other";
+    const outcome = getOutcome(b);
     if (!marketStats[key]) marketStats[key] = { won: 0, lost: 0, total: 0 };
     marketStats[key].total++;
-    if (b.status === "won") marketStats[key].won++;
-    if (b.status === "lost") marketStats[key].lost++;
+    if (outcome === "won") marketStats[key].won++;
+    if (outcome === "lost") marketStats[key].lost++;
   });
   const marketChartData = Object.entries(marketStats).map(([name, s]) => ({
     name: name.length > 8 ? name.slice(0, 8) + "…" : name,
@@ -65,15 +77,20 @@ const Analytics = () => {
     { name: "Push", value: pushed },
   ].filter(d => d.value > 0);
 
-  // Cumulative ROI over time
+  // Cumulative ROI over time — canonical formula
+  function americanToDecimal(odds: number): number {
+    if (odds > 0) return odds / 100 + 1;
+    return 100 / Math.abs(odds) + 1;
+  }
   const roiData: { bet: number; roi: number }[] = [];
   let cumStaked = 0;
   let cumReturn = 0;
   settled.forEach((b, i) => {
     const stake = b.stake_amount ?? b.stake ?? 1;
+    const outcome = getOutcome(b);
     cumStaked += stake;
-    if (b.status === "won") cumReturn += b.payout ?? stake * 2;
-    else if (b.status === "push") cumReturn += stake;
+    if (outcome === "won") cumReturn += b.payout ?? stake * americanToDecimal(b.odds);
+    else if (outcome === "push") cumReturn += stake;
     roiData.push({ bet: i + 1, roi: cumStaked > 0 ? Math.round(((cumReturn - cumStaked) / cumStaked) * 100) : 0 });
   });
 
