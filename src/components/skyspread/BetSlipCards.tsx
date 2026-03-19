@@ -253,7 +253,7 @@ function PickRow({ pick, gameInfo, liveState, isAdmin }: { pick: any; gameInfo?:
   );
 }
 
-function SlipCard({ slip, picks }: { slip: any; picks: any[] }) {
+function SlipCard({ slip, picks, isAdmin }: { slip: any; picks: any[]; isAdmin?: boolean }) {
   const [expanded, setExpanded] = useState(false);
   const [viewTab, setViewTab] = useState<"entry" | "live" | "optimizer">("entry");
   const { deleteSlip, syncToTraxLedger } = useBetSlips();
