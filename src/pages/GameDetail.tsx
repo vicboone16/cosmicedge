@@ -436,22 +436,18 @@ const GameDetail = () => {
     enabled: !!game,
   });
 
-  // Fetch depth charts for both teams
-  const { data: depthCharts } = useQuery({
-    queryKey: ["game-depth-charts", game?.home_abbr, game?.away_abbr, game?.league],
-    queryFn: async () => {
-      if (!game) return [];
-      const { data } = await supabase
-        .from("depth_charts")
-        .select("player_name, team_abbr, position, depth_order, player_id")
-        .eq("league", game.league)
-        .in("team_abbr", [game.home_abbr, game.away_abbr])
-        .order("position")
-        .order("depth_order");
-      return data || [];
-    },
-    enabled: !!game,
-  });
+   // Depth charts derived from canonical roster — no separate query needed
+  const depthCharts = useMemo(() => {
+    if (!gameRoster) return [];
+    // Combine away + home roster entries into depth-chart-like shape for legacy consumers
+    return [...gameRoster.away, ...gameRoster.home].map(p => ({
+      player_name: p.name,
+      team_abbr: p.team,
+      position: p.position,
+      depth_order: p.source === "players" ? 1 : 2,
+      player_id: p.id,
+    }));
+  }, [gameRoster]);
 
 
   if (isLoading) {
