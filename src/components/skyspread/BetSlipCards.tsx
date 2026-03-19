@@ -42,7 +42,14 @@ const parsePeriodStat = (statType: string): { period: string | null; cleanStat: 
   return { period: null, cleanStat: statType };
 };
 
-function PickRow({ pick, gameInfo, liveState }: { pick: any; gameInfo?: { away_abbr: string; home_abbr: string; status?: string } | null; liveState?: any }) {
+function PickRow({ pick, gameInfo, liveState, isAdmin }: { pick: any; gameInfo?: { away_abbr: string; home_abbr: string; status?: string } | null; liveState?: any; isAdmin?: boolean }) {
+  const [editing, setEditing] = useState(false);
+  const [editLine, setEditLine] = useState<string>(String(pick.line ?? ""));
+  const [editLiveValue, setEditLiveValue] = useState<string>(String(pick.live_value ?? ""));
+  const [editResult, setEditResult] = useState<string>(pick.result || "");
+  const [saving, setSaving] = useState(false);
+  const queryClient = useQueryClient();
+
   const progress = pick.line > 0 && pick.live_value != null
     ? Math.min((Number(pick.live_value) / Number(pick.line)) * 100, 150)
     : 0;
@@ -65,6 +72,30 @@ function PickRow({ pick, gameInfo, liveState }: { pick: any; gameInfo?: { away_a
     statusLabel === "danger" ? "text-cosmic-red" :
     statusLabel === "coinflip" ? "text-cosmic-gold" : null;
 
+  const handleAdminSave = async () => {
+    setSaving(true);
+    try {
+      const updates: Record<string, any> = {};
+      const newLine = parseFloat(editLine);
+      const newLive = editLiveValue === "" ? null : parseFloat(editLiveValue);
+      if (!isNaN(newLine)) updates.line = newLine;
+      if (editLiveValue === "") updates.live_value = null;
+      else if (newLive != null && !isNaN(newLive)) updates.live_value = newLive;
+      if (editResult && editResult !== pick.result) updates.result = editResult || null;
+      updates.updated_at = new Date().toISOString();
+
+      const { error } = await supabase.from("bet_slip_picks").update(updates).eq("id", pick.id);
+      if (error) throw error;
+      toast({ title: "Pick updated" });
+      setEditing(false);
+      queryClient.invalidateQueries({ queryKey: ["bet-slips"] });
+    } catch (e: any) {
+      toast({ title: "Update failed", description: e.message, variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <div className="py-2 border-b border-border/30 last:border-b-0">
       <div className="flex items-center justify-between">
@@ -79,6 +110,15 @@ function PickRow({ pick, gameInfo, liveState }: { pick: any; gameInfo?: { away_a
           </p>
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
+          {isAdmin && !editing && (
+            <button
+              onClick={(e) => { e.stopPropagation(); setEditing(true); }}
+              className="text-muted-foreground hover:text-primary transition-colors p-0.5"
+              title="Admin edit"
+            >
+              <Edit3 className="h-3 w-3" />
+            </button>
+          )}
           {statusLabel && statusColor && (
             <span className={cn("text-[8px] font-bold uppercase", statusColor)}>
               {statusLabel.replace("_", " ")}
@@ -94,6 +134,64 @@ function PickRow({ pick, gameInfo, liveState }: { pick: any; gameInfo?: { away_a
           )}
         </div>
       </div>
+
+      {/* Admin inline edit panel */}
+      {editing && isAdmin && (
+        <div className="mt-2 p-2 rounded-lg bg-secondary/40 border border-border/50 space-y-2" onClick={e => e.stopPropagation()}>
+          <div className="grid grid-cols-3 gap-2">
+            <div>
+              <label className="text-[8px] text-muted-foreground uppercase font-semibold">Line</label>
+              <input
+                type="number"
+                step="0.5"
+                value={editLine}
+                onChange={e => setEditLine(e.target.value)}
+                className="w-full bg-background border border-border rounded px-2 py-1 text-xs tabular-nums"
+              />
+            </div>
+            <div>
+              <label className="text-[8px] text-muted-foreground uppercase font-semibold">Live Value</label>
+              <input
+                type="number"
+                step="1"
+                value={editLiveValue}
+                onChange={e => setEditLiveValue(e.target.value)}
+                className="w-full bg-background border border-border rounded px-2 py-1 text-xs tabular-nums"
+                placeholder="—"
+              />
+            </div>
+            <div>
+              <label className="text-[8px] text-muted-foreground uppercase font-semibold">Result</label>
+              <select
+                value={editResult}
+                onChange={e => setEditResult(e.target.value)}
+                className="w-full bg-background border border-border rounded px-2 py-1 text-xs"
+              >
+                <option value="">Pending</option>
+                <option value="win">Win</option>
+                <option value="loss">Loss</option>
+                <option value="push">Push</option>
+              </select>
+            </div>
+          </div>
+          <div className="flex gap-2 justify-end">
+            <button
+              onClick={() => setEditing(false)}
+              className="text-[10px] text-muted-foreground hover:text-foreground px-2 py-1"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleAdminSave}
+              disabled={saving}
+              className="flex items-center gap-1 text-[10px] text-primary font-semibold hover:text-primary/80 px-2 py-1 bg-primary/10 rounded"
+            >
+              <Save className="h-3 w-3" />
+              {saving ? "Saving…" : "Save"}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Intelligence strip (Phase 4) */}
       {(hitProb != null || edge != null || projection != null) && (
