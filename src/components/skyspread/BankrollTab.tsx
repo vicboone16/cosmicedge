@@ -5,16 +5,12 @@ import { cn } from "@/lib/utils";
 import { TrendingUp, TrendingDown, Trophy, Target, Zap, Star, Users, DollarSign, Check } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import type { Tables } from "@/integrations/supabase/types";
+import { americanToDecimal, getOutcome as getOutcomeShared } from "@/lib/betting-math";
 
 type BetRow = Tables<"bets">;
 
 interface BankrollTabProps {
   userId: string;
-}
-
-function americanToDecimal(odds: number): number {
-  if (odds > 0) return odds / 100 + 1;
-  return 100 / Math.abs(odds) + 1;
 }
 
 interface BankrollStats {
@@ -35,20 +31,11 @@ interface BankrollStats {
 
 export function computeStats(bets: BetRow[]): BankrollStats {
   // Support both legacy status values ("won"/"lost"/"push") and trigger-settled ("settled" with result field)
-  const settled = bets.filter(b => {
-    if (b.status === "won" || b.status === "lost" || b.status === "push") return true;
-    if (b.status === "settled" && (b.result === "win" || b.result === "loss" || b.result === "push")) return true;
-    return false;
-  });
+  const settled = bets.filter(b => getOutcomeShared(b) !== null);
 
-  // Normalize to a consistent win/loss/push for calculation
+  // Use shared canonical outcome resolver
   const getOutcome = (b: BetRow): "won" | "lost" | "push" => {
-    if (b.status === "settled") {
-      if (b.result === "win") return "won";
-      if (b.result === "loss") return "lost";
-      return "push";
-    }
-    return b.status as "won" | "lost" | "push";
+    return getOutcomeShared(b) || "push";
   };
   let totalStaked = 0;
   let totalReturned = 0;
