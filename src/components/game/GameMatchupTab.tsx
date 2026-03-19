@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import type { GameRoster } from "@/hooks/use-game-roster";
+import { expandTeamAbbrForQuery } from "@/lib/team-abbr-normalize";
 import { Users, RefreshCw } from "lucide-react";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { useState, useMemo } from "react";
