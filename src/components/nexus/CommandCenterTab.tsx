@@ -350,13 +350,20 @@ export default function CommandCenterTab() {
   );
 }
 
-function DashCard({ title, icon: Icon, dimmed, onClick, children }: { title: string; icon: any; dimmed?: boolean; onClick?: () => void; children: React.ReactNode }) {
+function DashCard({ title, icon: Icon, dimmed, onClick, expandable, expanded, onToggle, children }: { title: string; icon: any; dimmed?: boolean; onClick?: () => void; expandable?: boolean; expanded?: boolean; onToggle?: () => void; children: React.ReactNode }) {
+  const handleClick = expandable ? onToggle : onClick;
   return (
-    <div onClick={onClick} className={cn("rounded-xl border border-border/30 bg-card/50 backdrop-blur-sm p-4 space-y-2 transition-all", dimmed && "opacity-50", onClick && "cursor-pointer hover:border-primary/30 hover:bg-card/70 active:scale-[0.99]")}>
-      <div className="flex items-center gap-2">
-        <Icon className="w-4 h-4 text-primary" />
-        <span className="text-xs font-bold uppercase tracking-wider text-foreground">{title}</span>
-        {onClick && <ArrowRight className="w-3 h-3 text-muted-foreground/40 ml-auto" />}
+    <div onClick={handleClick} className={cn("rounded-xl border border-border/30 bg-card/50 backdrop-blur-sm p-4 space-y-2 transition-all", dimmed && "opacity-50", handleClick && "cursor-pointer hover:border-primary/30 hover:bg-card/70 active:scale-[0.99]")}>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Icon className="h-4 w-4 text-primary" />
+          <h3 className="text-xs font-bold uppercase tracking-wider text-foreground">{title}</h3>
+        </div>
+        {expandable ? (
+          expanded ? <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+        ) : onClick ? (
+          <ArrowRight className="h-3.5 w-3.5 text-muted-foreground" />
+        ) : null}
       </div>
       {children}
     </div>
