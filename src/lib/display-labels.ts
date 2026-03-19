@@ -195,8 +195,8 @@ export function stripMarkdownArtifacts(text: string): string {
   return text
     // Remove heading markers (###, ####, etc.)
     .replace(/^#{1,6}\s+/gm, "")
-    // Remove bracket artifacts like [Full Game]
-    .replace(/\[([^\]]+)\]/g, "$1")
+    // Remove bracket artifacts like [Full Game] but preserve links
+    .replace(/\[([^\]]+)\](?!\()/g, "$1")
     // Remove markdown bullet points (-, *, •) at start of lines — convert to clean text
     .replace(/^\s*[-*•]\s+/gm, "· ")
     // Remove numbered list markers (1. 2. etc.)
@@ -207,8 +207,14 @@ export function stripMarkdownArtifacts(text: string): string {
     .replace(/`([^`]+)`/g, "$1")
     // Remove > blockquote markers
     .replace(/^\s*>\s?/gm, "")
+    // Remove raw slip UUIDs
+    .replace(/\[slip:[a-f0-9-]+\]/gi, "")
+    // Remove raw UUID strings
+    .replace(/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/gi, "")
     // Clean up excessive newlines
     .replace(/\n{3,}/g, "\n\n")
+    // Clean double spaces
+    .replace(/\s{2,}/g, " ")
     .trim();
 }
 

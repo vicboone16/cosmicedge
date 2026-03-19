@@ -604,7 +604,7 @@ function LivePropCard({ tp, gameData, liveState, onDelete }: { tp: any; gameData
         )}
       </div>
 
-      {tp.notes && <p className="text-[10px] text-muted-foreground italic">{tp.notes}</p>}
+      {tp.notes && <p className="text-[10px] text-muted-foreground italic">{cleanSourceLabel(tp.notes)}</p>}
     </div>
   );
 }

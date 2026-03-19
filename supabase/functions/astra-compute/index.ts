@@ -713,8 +713,8 @@ Deno.serve(async (req) => {
       }
 
       // If we have NO projection data at all, block with truthful failure
-      const hasAnyProjection = gameProjectionData.some((g: any) => g.oracle_home_win_prob != null || g.oracle_predicted_total != null || g.pace?.expected_possessions != null);
-      if (!hasAnyProjection && gameProjectionData.length === 0) {
+      const hasAnyProjection = gameProjectionData.some((g: any) => g.oracle_home_win_prob != null || g.oracle_predicted_total != null || g.oracle_mu_home != null || g.pace?.expected_possessions != null);
+      if (gameProjectionData.length === 0) {
         const narrative = `⚠️ **No Games Found**\n\nThere are no scheduled games for today matching your query. Check back on a game day for projected scores.`;
         return new Response(JSON.stringify({
           success: false,
@@ -722,6 +722,18 @@ Deno.serve(async (req) => {
           block_reason: "No games scheduled for today",
           answer: narrative,
           intent: intent.intent,
+        }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      if (!hasAnyProjection) {
+        const matchups = gameProjectionData.map((g: any) => g.matchup).join(", ");
+        const narrative = `⚠️ **Projection Data Unavailable**\n\nFound ${gameProjectionData.length} game(s) today (${matchups}), but projection models have not run yet for these games. Run Oracle ML from the Model Runner to generate projections, then ask again.`;
+        return new Response(JSON.stringify({
+          success: false,
+          compute_blocked: true,
+          block_reason: "Projection models not yet run for today's games",
+          answer: narrative,
+          intent: intent.intent,
+          games_found: gameProjectionData.length,
         }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
     }
