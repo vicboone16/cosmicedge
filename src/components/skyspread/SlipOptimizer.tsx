@@ -160,15 +160,11 @@ function SlipSummaryCard({ score, slip }: { score: SlipScore; slip: any }) {
         </div>
       )}
 
-      {/* Correlation notes */}
+      {/* Correlation notes — show only most important one */}
       {score.correlation.notes.length > 0 && score.correlation.riskLevel !== "low" && (
-        <div className="space-y-0.5">
-          {score.correlation.notes.map((note, i) => (
-            <div key={i} className="flex items-center gap-1.5 text-[9px] text-cosmic-gold">
-              <AlertTriangle className="h-2.5 w-2.5 shrink-0" />
-              <span>{note}</span>
-            </div>
-          ))}
+        <div className="flex items-center gap-1.5 text-[9px] text-cosmic-gold">
+          <AlertTriangle className="h-2.5 w-2.5 shrink-0" />
+          <span>{score.correlation.notes[0]}</span>
         </div>
       )}
 
