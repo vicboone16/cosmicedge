@@ -214,7 +214,7 @@ export function PropChip({ prop, size = "compact", liveContext, onClick }: PropC
             </span>
           </div>
         )}
-      </button>
+      </div>
     );
   }
 
