@@ -159,7 +159,7 @@ const Results = () => {
 
                 <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
                   {bet.stake_amount && <span>Staked: {bet.stake_amount} {bet.stake_unit}</span>}
-                  {bet.payout != null && bet.status === "won" && (
+                  {bet.payout != null && outcome === "won" && (
                     <span className="text-cosmic-green font-semibold">Payout: +{bet.payout}</span>
                   )}
                   {bet.settled_at && <span>Settled: {format(new Date(bet.settled_at), "MMM d")}</span>}
