@@ -217,10 +217,7 @@ const UserProfilePage = () => {
   );
 };
 
-function americanToDecimal(odds: number): number {
-  if (odds > 0) return odds / 100 + 1;
-  return 100 / Math.abs(odds) + 1;
-}
+import { computePerformance } from "@/lib/betting-math";
 
 function BettingStats({ userId }: { userId: string }) {
   const [stats, setStats] = useState({ total: 0, wins: 0, losses: 0, pushes: 0, roi: 0 });
@@ -234,37 +231,8 @@ function BettingStats({ userId }: { userId: string }) {
       .order("created_at", { ascending: false })
       .then(({ data: bets }) => {
         if (!bets) return;
-        // Consistent with BankrollTab: support both legacy status and settled+result
-        const settled = bets.filter(b => {
-          if (b.status === "won" || b.status === "lost" || b.status === "push") return true;
-          if (b.status === "settled" && (b.result === "win" || b.result === "loss" || b.result === "push")) return true;
-          return false;
-        });
-        const getOutcome = (b: any): "won" | "lost" | "push" => {
-          if (b.status === "settled") {
-            if (b.result === "win") return "won";
-            if (b.result === "loss") return "lost";
-            return "push";
-          }
-          return b.status;
-        };
-        let totalStaked = 0, totalReturned = 0, wins = 0, losses = 0, pushes = 0;
-        for (const bet of settled) {
-          const stk = bet.stake_amount || bet.stake || 0;
-          totalStaked += stk;
-          const outcome = getOutcome(bet);
-          if (outcome === "won") {
-            wins++;
-            totalReturned += bet.payout ? bet.payout : stk * americanToDecimal(bet.odds);
-          } else if (outcome === "lost") {
-            losses++;
-          } else {
-            pushes++;
-            totalReturned += stk;
-          }
-        }
-        const roi = totalStaked > 0 ? ((totalReturned - totalStaked) / totalStaked) * 100 : 0;
-        setStats({ total: settled.length, wins, losses, pushes, roi });
+        const perf = computePerformance(bets);
+        setStats({ total: perf.total, wins: perf.wins, losses: perf.losses, pushes: perf.pushes, roi: perf.roi });
         setRecentBets(bets.slice(0, 5));
       });
   }, [userId]);
