@@ -674,8 +674,12 @@ Deno.serve(async (req) => {
 
       if (todayGames?.length) {
         const gameIds = todayGames.map((g: any) => g.id);
-        // Fetch oracle predictions
-        const { data: oraclePreds } = await sb.from("oracle_predictions").select("*").in("game_id", gameIds);
+        // Fetch oracle predictions from both legacy and new tables
+        const [{ data: gamePreds }, { data: cePreds }] = await Promise.all([
+          sb.from("game_predictions").select("*").in("game_id", gameIds).order("run_ts", { ascending: false }),
+          sb.from("ce_game_predictions").select("*").in("game_id", gameIds).order("run_ts", { ascending: false }),
+        ]);
+        const oraclePreds = [...(cePreds || []), ...(gamePreds || [])];
         // Fetch pace features
         const paceResults = await Promise.all(gameIds.slice(0, 8).map(async (gid: string) => {
           const { data } = await sb.rpc("np_build_pace_features", { p_game_id: gid });
