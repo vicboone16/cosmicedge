@@ -196,6 +196,23 @@ function PickRow({ pick, gameInfo, liveState, isAdmin }: { pick: any; gameInfo?:
               </select>
             </div>
           </div>
+          {/* Game ID re-link */}
+          <div>
+            <label className="text-[8px] text-muted-foreground uppercase font-semibold">Link to Game</label>
+            <select
+              value={editGameId}
+              onChange={e => setEditGameId(e.target.value)}
+              className="w-full bg-background border border-border rounded px-2 py-1 text-xs"
+            >
+              <option value="">— No game —</option>
+              {(todayGames || []).map((g: any) => (
+                <option key={g.id} value={g.id}>
+                  {g.away_abbr} @ {g.home_abbr} ({g.league} · {g.status})
+                </option>
+              ))}
+            </select>
+            {pick.game_id && <p className="text-[7px] text-muted-foreground mt-0.5 truncate">ID: {pick.game_id}</p>}
+          </div>
           <div className="flex gap-2 justify-end">
             <button
               onClick={() => setEditing(false)}
