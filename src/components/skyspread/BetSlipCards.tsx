@@ -47,8 +47,29 @@ function PickRow({ pick, gameInfo, liveState, isAdmin }: { pick: any; gameInfo?:
   const [editLine, setEditLine] = useState<string>(String(pick.line ?? ""));
   const [editLiveValue, setEditLiveValue] = useState<string>(String(pick.live_value ?? ""));
   const [editResult, setEditResult] = useState<string>(pick.result || "");
+  const [editGameId, setEditGameId] = useState<string>(pick.game_id || "");
   const [saving, setSaving] = useState(false);
   const queryClient = useQueryClient();
+
+  // Fetch today's games for admin game re-link dropdown
+  const { data: todayGames } = useQuery({
+    queryKey: ["admin-relink-games"],
+    queryFn: async () => {
+      const now = new Date();
+      const dayStart = new Date(now.getTime() - 36 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      const dayEnd = new Date(now.getTime() + 36 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      const { data } = await supabase
+        .from("games")
+        .select("id, home_abbr, away_abbr, league, start_time, status")
+        .gte("start_time", `${dayStart}T00:00:00Z`)
+        .lte("start_time", `${dayEnd}T23:59:59Z`)
+        .order("start_time", { ascending: true })
+        .limit(100);
+      return data || [];
+    },
+    enabled: !!isAdmin && editing,
+    staleTime: 60_000,
+  });
 
   const progress = pick.line > 0 && pick.live_value != null
     ? Math.min((Number(pick.live_value) / Number(pick.line)) * 100, 150)
