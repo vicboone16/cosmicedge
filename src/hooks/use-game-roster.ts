@@ -2,9 +2,11 @@
  * Canonical game roster hook.
  * Merges players table + depth_charts for complete team rosters.
  * Ensures no cross-team leakage and handles partial data gracefully.
+ * Uses expandTeamAbbrForQuery to catch stale abbreviations in DB.
  */
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { expandTeamAbbrForQuery, normalizeTeamAbbr } from "@/lib/team-abbr-normalize";
 
 export interface RosterPlayer {
   id: string;
@@ -36,19 +38,22 @@ export function useGameRoster(
     queryFn: async (): Promise<GameRoster | null> => {
       if (!homeAbbr || !awayAbbr || !league) return null;
 
+      // Expand abbreviations to catch stale DB entries (e.g. GS → GSW, PHO → PHX)
+      const expandedAbbrs = expandTeamAbbrForQuery([homeAbbr, awayAbbr], league);
+
       // Fetch from both sources in parallel
       const [playersRes, depthRes] = await Promise.all([
         supabase
           .from("players")
           .select("id, name, position, team, birth_date, league, headshot_url")
-          .in("team", [homeAbbr, awayAbbr])
+          .in("team", expandedAbbrs)
           .eq("league", league)
           .eq("status", "active")
-          .limit(60),
+          .limit(80),
         supabase
           .from("depth_charts")
           .select("player_id, player_name, team_abbr, position, depth_order")
-          .in("team_abbr", [homeAbbr, awayAbbr])
+          .in("team_abbr", expandedAbbrs)
           .eq("league", league)
           .order("depth_order", { ascending: true }),
       ]);
@@ -57,9 +62,15 @@ export function useGameRoster(
       const depthCharts = depthRes.data || [];
 
       // Build canonical roster: start with players table, fill gaps from depth_charts
-      const buildTeam = (abbr: string): RosterPlayer[] => {
-        const teamPlayers = players.filter(p => p.team === abbr);
-        const teamDepth = depthCharts.filter(d => d.team_abbr === abbr);
+      // Normalize all team abbreviations to canonical form for correct assignment
+      const buildTeam = (canonicalAbbr: string): RosterPlayer[] => {
+        // Match players whose normalized team matches the canonical abbr
+        const teamPlayers = players.filter(
+          p => normalizeTeamAbbr(p.team, league) === canonicalAbbr
+        );
+        const teamDepth = depthCharts.filter(
+          d => normalizeTeamAbbr(d.team_abbr, league) === canonicalAbbr
+        );
 
         // Index players by name (lowercase) for dedup
         const seen = new Set<string>();
@@ -74,7 +85,7 @@ export function useGameRoster(
             id: p.id,
             name: p.name,
             position: p.position,
-            team: abbr,
+            team: canonicalAbbr, // Always use canonical abbr
             birth_date: p.birth_date,
             league: p.league,
             headshot_url: p.headshot_url,
@@ -92,7 +103,7 @@ export function useGameRoster(
               id: d.player_id || `dc-${key}`,
               name: d.player_name,
               position: d.position,
-              team: abbr,
+              team: canonicalAbbr,
               birth_date: null,
               league,
               headshot_url: null,
