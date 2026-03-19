@@ -33,7 +33,7 @@ interface BankrollStats {
   byMarket: Record<string, { bets: number; staked: number; returned: number; roi: number; wins: number; losses: number }>;
 }
 
-function computeStats(bets: BetRow[]): BankrollStats {
+export function computeStats(bets: BetRow[]): BankrollStats {
   // Support both legacy status values ("won"/"lost"/"push") and trigger-settled ("settled" with result field)
   const settled = bets.filter(b => {
     if (b.status === "won" || b.status === "lost" || b.status === "push") return true;

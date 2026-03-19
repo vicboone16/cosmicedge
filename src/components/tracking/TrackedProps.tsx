@@ -10,7 +10,7 @@ import { PlayerMomentumChip } from "@/components/game/PlayerMomentumChip";
 import { usePlayerMomentum } from "@/hooks/use-player-momentum";
 import { toast } from "@/hooks/use-toast";
 import { format } from "date-fns";
-import { displayStatName } from "@/lib/display-labels";
+import { displayStatName, cleanSourceLabel } from "@/lib/display-labels";
 
 /* ─── Settled display logic ─── */
 function getSettledDisplay(tp: any) {
@@ -467,7 +467,7 @@ function LivePropCard({ tp, gameData, liveState, onDelete }: { tp: any; gameData
       {/* Header row */}
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-xs font-semibold text-foreground">{tp.player_name}</p>
+          <p className="text-xs font-semibold text-foreground">{cleanSourceLabel(tp.player_name)}</p>
           <p className="text-[10px] text-muted-foreground capitalize">
             {tp.direction} {tp.line} {displayStatName(tp.market_type || "")}
           </p>
@@ -604,7 +604,7 @@ function LivePropCard({ tp, gameData, liveState, onDelete }: { tp: any; gameData
         )}
       </div>
 
-      {tp.notes && <p className="text-[10px] text-muted-foreground italic">{tp.notes}</p>}
+      {tp.notes && <p className="text-[10px] text-muted-foreground italic">{cleanSourceLabel(tp.notes)}</p>}
     </div>
   );
 }
@@ -625,7 +625,7 @@ function PregamePropCard({ tp, gameData, onDelete }: { tp: any; gameData?: any; 
     <div className="cosmic-card rounded-xl p-3">
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-xs font-semibold text-foreground">{tp.player_name}</p>
+          <p className="text-xs font-semibold text-foreground">{cleanSourceLabel(tp.player_name)}</p>
           <p className="text-[10px] text-muted-foreground capitalize">
             {displayStatName(tp.market_type || "")} · {tp.direction} {tp.line}
           </p>
@@ -660,7 +660,7 @@ function SettledPropCard({ tp, onDelete }: { tp: any; onDelete: () => void }) {
     <div className="cosmic-card rounded-xl p-3 opacity-80">
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-xs font-semibold text-foreground">{tp.player_name}</p>
+          <p className="text-xs font-semibold text-foreground">{cleanSourceLabel(tp.player_name)}</p>
           <p className="text-[10px] text-muted-foreground capitalize">
             {displayStatName(tp.market_type || "")} · {tp.direction} {tp.line}
           </p>

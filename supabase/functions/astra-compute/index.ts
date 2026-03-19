@@ -674,8 +674,12 @@ Deno.serve(async (req) => {
 
       if (todayGames?.length) {
         const gameIds = todayGames.map((g: any) => g.id);
-        // Fetch oracle predictions
-        const { data: oraclePreds } = await sb.from("oracle_predictions").select("*").in("game_id", gameIds);
+        // Fetch oracle predictions from both legacy and new tables
+        const [{ data: gamePreds }, { data: cePreds }] = await Promise.all([
+          sb.from("game_predictions").select("*").in("game_id", gameIds).order("run_ts", { ascending: false }),
+          sb.from("ce_game_predictions").select("*").in("game_id", gameIds).order("run_ts", { ascending: false }),
+        ]);
+        const oraclePreds = [...(cePreds || []), ...(gamePreds || [])];
         // Fetch pace features
         const paceResults = await Promise.all(gameIds.slice(0, 8).map(async (gid: string) => {
           const { data } = await sb.rpc("np_build_pace_features", { p_game_id: gid });
@@ -683,7 +687,7 @@ Deno.serve(async (req) => {
         }));
 
         for (const game of todayGames) {
-          const oracle = (oraclePreds || []).find((o: any) => o.game_id === game.id);
+          const oracle = oraclePreds.find((o: any) => o.game_id === game.id);
           const paceInfo = paceResults.find(p => p.game_id === game.id);
           gameProjectionData.push({
             game_id: game.id,
@@ -693,9 +697,11 @@ Deno.serve(async (req) => {
             league: game.league,
             home_score: game.home_score,
             away_score: game.away_score,
-            oracle_home_win_prob: oracle?.home_win_prob ?? null,
-            oracle_predicted_total: oracle?.predicted_total ?? null,
-            oracle_home_spread: oracle?.home_spread ?? null,
+            oracle_home_win_prob: oracle?.p_home_win ?? oracle?.home_win_prob ?? null,
+            oracle_predicted_total: oracle?.mu_total ?? oracle?.predicted_total ?? null,
+            oracle_home_spread: oracle?.mu_spread_home ?? oracle?.home_spread ?? null,
+            oracle_mu_home: oracle?.mu_home ?? null,
+            oracle_mu_away: oracle?.mu_away ?? null,
             pace: paceInfo?.pace ?? null,
           });
         }
@@ -707,8 +713,8 @@ Deno.serve(async (req) => {
       }
 
       // If we have NO projection data at all, block with truthful failure
-      const hasAnyProjection = gameProjectionData.some((g: any) => g.oracle_home_win_prob != null || g.oracle_predicted_total != null || g.pace?.expected_possessions != null);
-      if (!hasAnyProjection && gameProjectionData.length === 0) {
+      const hasAnyProjection = gameProjectionData.some((g: any) => g.oracle_home_win_prob != null || g.oracle_predicted_total != null || g.oracle_mu_home != null || g.pace?.expected_possessions != null);
+      if (gameProjectionData.length === 0) {
         const narrative = `⚠️ **No Games Found**\n\nThere are no scheduled games for today matching your query. Check back on a game day for projected scores.`;
         return new Response(JSON.stringify({
           success: false,
@@ -716,6 +722,18 @@ Deno.serve(async (req) => {
           block_reason: "No games scheduled for today",
           answer: narrative,
           intent: intent.intent,
+        }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      if (!hasAnyProjection) {
+        const matchups = gameProjectionData.map((g: any) => g.matchup).join(", ");
+        const narrative = `⚠️ **Projection Data Unavailable**\n\nFound ${gameProjectionData.length} game(s) today (${matchups}), but projection models have not run yet for these games. Run Oracle ML from the Model Runner to generate projections, then ask again.`;
+        return new Response(JSON.stringify({
+          success: false,
+          compute_blocked: true,
+          block_reason: "Projection models not yet run for today's games",
+          answer: narrative,
+          intent: intent.intent,
+          games_found: gameProjectionData.length,
         }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
     }

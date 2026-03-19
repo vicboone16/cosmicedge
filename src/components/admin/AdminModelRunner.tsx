@@ -82,7 +82,15 @@ export default function AdminModelRunner() {
           }
         );
         const data = await resp.json();
-        const detail = data?.inserted != null ? `${data.inserted} games processed` : (typeof data === 'object' ? JSON.stringify(data).slice(0, 120) : String(data));
+        const detail = data?.inserted != null
+          ? `${data.inserted} games processed`
+          : data?.error
+            ? `Error: ${String(data.error).slice(0, 100)}`
+            : data?.message
+              ? String(data.message).slice(0, 120)
+              : typeof data === 'object'
+                ? `Completed (${Object.keys(data).join(", ")})`
+                : String(data);
         updateResult(label, { status: "done", detail, data });
         refetchPredictions();
       } catch (e) {
@@ -276,12 +284,18 @@ export default function AdminModelRunner() {
             <button onClick={() => setResults([])} className="text-[9px] text-muted-foreground hover:text-foreground">Clear</button>
           </div>
           {results.map((r, i) => (
-            <div key={i} className="flex items-center gap-2 text-xs">
-              {r.status === "running" && <Loader2 className="h-3 w-3 animate-spin text-primary" />}
-              {r.status === "done" && <span className="h-3 w-3 rounded-full bg-cosmic-green inline-block shrink-0" />}
-              {r.status === "error" && <span className="h-3 w-3 rounded-full bg-destructive inline-block shrink-0" />}
-              <span className="font-medium text-foreground">{r.label}</span>
-              {r.detail && <span className="text-muted-foreground">— {r.detail}</span>}
+            <div key={i} className="flex items-start gap-2 text-xs py-1">
+              <div className="mt-0.5 shrink-0">
+                {r.status === "running" && <Loader2 className="h-3 w-3 animate-spin text-primary" />}
+                {r.status === "done" && <span className="h-3 w-3 rounded-full bg-cosmic-green inline-block" />}
+                {r.status === "error" && <span className="h-3 w-3 rounded-full bg-destructive inline-block" />}
+              </div>
+              <div className="min-w-0">
+                <span className="font-medium text-foreground">{r.label}</span>
+                {r.status === "done" && <Badge variant="outline" className="text-[7px] ml-1.5 text-cosmic-green border-cosmic-green/30">Success</Badge>}
+                {r.status === "error" && <Badge variant="outline" className="text-[7px] ml-1.5 text-destructive border-destructive/30">Failed</Badge>}
+                {r.detail && <p className="text-[10px] text-muted-foreground mt-0.5 break-words">{r.detail}</p>}
+              </div>
             </div>
           ))}
         </div>
