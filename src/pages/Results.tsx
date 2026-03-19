@@ -31,11 +31,12 @@ const Results = () => {
     queryKey: ["results-bets", user?.id],
     queryFn: async () => {
       if (!user) return [];
+      // Include both legacy statuses AND trigger-settled bets
       const { data, error } = await supabase
         .from("bets")
         .select("*")
         .eq("user_id", user.id)
-        .in("status", ["won", "lost", "push"])
+        .in("status", ["won", "lost", "push", "settled"])
         .order("settled_at", { ascending: false });
       if (error) throw error;
       return (data || []) as BetRow[];
@@ -43,20 +44,33 @@ const Results = () => {
     enabled: !!user,
   });
 
-  const won = bets?.filter(b => b.status === "won").length || 0;
-  const lost = bets?.filter(b => b.status === "lost").length || 0;
-  const pushed = bets?.filter(b => b.status === "push").length || 0;
+  // Normalize outcome: support both legacy status and trigger-settled bets
+  const getOutcome = (b: BetRow): "won" | "lost" | "push" | null => {
+    if (b.status === "won" || b.status === "lost" || b.status === "push") return b.status as any;
+    if (b.status === "settled") {
+      if (b.result === "win") return "won";
+      if (b.result === "loss") return "lost";
+      if (b.result === "push") return "push";
+    }
+    return null;
+  };
+
+  const settledBets = bets?.filter(b => getOutcome(b) !== null) || [];
+  const won = settledBets.filter(b => getOutcome(b) === "won").length;
+  const lost = settledBets.filter(b => getOutcome(b) === "lost").length;
+  const pushed = settledBets.filter(b => getOutcome(b) === "push").length;
   const total = won + lost + pushed;
   const winRate = total > 0 ? ((won / (won + lost)) * 100).toFixed(1) : "—";
 
-  // ROI calculation
-  const totalStaked = bets?.reduce((sum, b) => sum + (b.stake_amount ?? b.stake ?? 0), 0) || 0;
-  const totalReturned = bets?.reduce((sum, b) => {
+  // ROI calculation — canonical formula: (totalReturned - totalStaked) / totalStaked * 100
+  const totalStaked = settledBets.reduce((sum, b) => sum + (b.stake_amount ?? b.stake ?? 0), 0);
+  const totalReturned = settledBets.reduce((sum, b) => {
     const stake = b.stake_amount ?? b.stake ?? 0;
-    if (b.status === "won") return sum + (b.payout ?? stake * americanToDecimal(b.odds));
-    if (b.status === "push") return sum + stake;
+    const outcome = getOutcome(b);
+    if (outcome === "won") return sum + (b.payout ?? stake * americanToDecimal(b.odds));
+    if (outcome === "push") return sum + stake;
     return sum;
-  }, 0) || 0;
+  }, 0);
   const roi = totalStaked > 0 ? (((totalReturned - totalStaked) / totalStaked) * 100).toFixed(1) : "—";
 
   if (!user) {
@@ -111,7 +125,7 @@ const Results = () => {
         {/* Bet history */}
         {isLoading && <p className="text-sm text-muted-foreground text-center py-8">Loading results...</p>}
 
-        {!isLoading && (!bets || bets.length === 0) && (
+        {!isLoading && settledBets.length === 0 && (
           <div className="text-center py-12">
             <Trophy className="h-6 w-6 text-muted-foreground/30 mx-auto mb-2" />
             <p className="text-sm text-muted-foreground">No settled bets yet</p>
@@ -119,9 +133,10 @@ const Results = () => {
         )}
 
         <div className="space-y-2">
-          {bets?.map(bet => {
-            const ResultIcon = RESULT_ICONS[bet.status || "push"] || MinusCircle;
-            const resultColor = RESULT_COLORS[bet.status || "push"] || "text-muted-foreground";
+          {settledBets.map(bet => {
+            const outcome = getOutcome(bet) || "push";
+            const ResultIcon = RESULT_ICONS[outcome] || MinusCircle;
+            const resultColor = RESULT_COLORS[outcome] || "text-muted-foreground";
 
             return (
               <div key={bet.id} className="cosmic-card rounded-xl p-3">
@@ -131,7 +146,7 @@ const Results = () => {
                   </p>
                   <div className={cn("flex items-center gap-1", resultColor)}>
                     <ResultIcon className="h-3.5 w-3.5" />
-                    <span className="text-[10px] font-semibold uppercase">{bet.status}</span>
+                    <span className="text-[10px] font-semibold uppercase">{outcome}</span>
                   </div>
                 </div>
 
@@ -144,7 +159,7 @@ const Results = () => {
 
                 <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
                   {bet.stake_amount && <span>Staked: {bet.stake_amount} {bet.stake_unit}</span>}
-                  {bet.payout != null && bet.status === "won" && (
+                  {bet.payout != null && outcome === "won" && (
                     <span className="text-cosmic-green font-semibold">Payout: +{bet.payout}</span>
                   )}
                   {bet.settled_at && <span>Settled: {format(new Date(bet.settled_at), "MMM d")}</span>}

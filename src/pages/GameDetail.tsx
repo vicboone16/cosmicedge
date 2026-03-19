@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
+import { useGameRoster } from "@/hooks/use-game-roster";
 import { useIsAdmin } from "@/hooks/use-admin";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Star, MapPin, Orbit, Moon, Zap, Users, ChevronDown, ChevronUp, TrendingUp, TrendingDown, Lightbulb, Swords, Flame, AlertTriangle, Shield, ListOrdered, TableProperties } from "lucide-react";
@@ -412,21 +413,13 @@ const GameDetail = () => {
       return (status === "live" || status === "in_progress") ? 30_000 : false;
     },
   });
-  const { data: players } = useQuery({
-    queryKey: ["game-players", game?.home_abbr, game?.away_abbr, game?.league],
-    queryFn: async () => {
-      if (!game) return [];
-      const { data } = await supabase
-        .from("players")
-        .select("id, name, position, team, birth_date, league, headshot_url")
-        .in("team", [game.home_abbr, game.away_abbr])
-        .eq("league", game.league)
-        .eq("status", "active")
-        .limit(50);
-      return data || [];
-    },
-    enabled: !!game,
-  });
+  // Canonical roster hook — merges players + depth_charts, prevents cross-team leakage
+  const { data: gameRoster } = useGameRoster(game?.home_abbr, game?.away_abbr, game?.league);
+  // Legacy compat: flatten into players array for existing consumers
+  const players = useMemo(() => {
+    if (!gameRoster) return [];
+    return [...gameRoster.away, ...gameRoster.home];
+  }, [gameRoster]);
 
   // Fetch injuries for both teams
   const { data: injuries } = useQuery({
@@ -485,9 +478,9 @@ const GameDetail = () => {
   const elementCompat = awayZodiac && homeZodiac ? getElementCompatibility(awayZodiac.element, homeZodiac.element) : null;
   const gameStartPH = getPlanetaryHourAt(new Date(game.start_time), game.venue_lat ?? 40.7);
 
-  // Group players by team
-  const awayPlayers = players?.filter(p => p.team === game.away_abbr) || [];
-  const homePlayers = players?.filter(p => p.team === game.home_abbr) || [];
+  // Group players by team — already team-correct from canonical roster hook
+  const awayPlayers = gameRoster?.away || [];
+  const homePlayers = gameRoster?.home || [];
 
   // Build injury lookup by player name
   const injuryMap = new Map<string, { status: string | null; notes: string | null }>();
