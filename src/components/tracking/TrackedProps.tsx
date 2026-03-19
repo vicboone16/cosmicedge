@@ -311,6 +311,10 @@ export function TrackedPropsWidget({ gameId, showHeader = true }: { gameId?: str
 
       const updates: Array<{ id: string; payload: Record<string, any> }> = [];
       for (const tp of syncable) {
+        // Use resolved internal UUID if original was a BDL numeric ID
+        const effectivePlayerId = (tp.player_id && resolvedIdMap.has(tp.player_id))
+          ? resolvedIdMap.get(tp.player_id)!
+          : tp.player_id;
         const gameStatus = String(gamesMap?.[tp.game_id]?.status || "").toLowerCase();
         const { period, market } = parseTrackedPeriodAndMarket(tp.market_type || "");
         const columns = TRACKED_STAT_MAP[market] || TRACKED_STAT_MAP[market.replace(/^player_/, "")];
