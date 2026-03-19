@@ -258,11 +258,12 @@ export default function BankrollTab({ userId }: BankrollTabProps) {
 
       if (!sharingIds.length) return [];
 
+      // Include both legacy and trigger-settled statuses
       const { data: allBets } = await supabase
         .from("bets")
-        .select("user_id, status, odds, stake_amount, stake")
+        .select("user_id, status, result, odds, stake_amount, stake, payout, settled_at, created_at, sport, market_type")
         .in("user_id", sharingIds)
-        .in("status", ["won", "lost", "push"]);
+        .in("status", ["won", "lost", "push", "settled"]);
 
       // Group by user
       const userBets: Record<string, BetRow[]> = {};

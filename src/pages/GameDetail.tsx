@@ -478,9 +478,9 @@ const GameDetail = () => {
   const elementCompat = awayZodiac && homeZodiac ? getElementCompatibility(awayZodiac.element, homeZodiac.element) : null;
   const gameStartPH = getPlanetaryHourAt(new Date(game.start_time), game.venue_lat ?? 40.7);
 
-  // Group players by team
-  const awayPlayers = players?.filter(p => p.team === game.away_abbr) || [];
-  const homePlayers = players?.filter(p => p.team === game.home_abbr) || [];
+  // Group players by team — already team-correct from canonical roster hook
+  const awayPlayers = gameRoster?.away || [];
+  const homePlayers = gameRoster?.home || [];
 
   // Build injury lookup by player name
   const injuryMap = new Map<string, { status: string | null; notes: string | null }>();

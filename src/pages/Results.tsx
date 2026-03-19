@@ -44,20 +44,33 @@ const Results = () => {
     enabled: !!user,
   });
 
-  const won = bets?.filter(b => b.status === "won").length || 0;
-  const lost = bets?.filter(b => b.status === "lost").length || 0;
-  const pushed = bets?.filter(b => b.status === "push").length || 0;
+  // Normalize outcome: support both legacy status and trigger-settled bets
+  const getOutcome = (b: BetRow): "won" | "lost" | "push" | null => {
+    if (b.status === "won" || b.status === "lost" || b.status === "push") return b.status as any;
+    if (b.status === "settled") {
+      if (b.result === "win") return "won";
+      if (b.result === "loss") return "lost";
+      if (b.result === "push") return "push";
+    }
+    return null;
+  };
+
+  const settledBets = bets?.filter(b => getOutcome(b) !== null) || [];
+  const won = settledBets.filter(b => getOutcome(b) === "won").length;
+  const lost = settledBets.filter(b => getOutcome(b) === "lost").length;
+  const pushed = settledBets.filter(b => getOutcome(b) === "push").length;
   const total = won + lost + pushed;
   const winRate = total > 0 ? ((won / (won + lost)) * 100).toFixed(1) : "—";
 
-  // ROI calculation
-  const totalStaked = bets?.reduce((sum, b) => sum + (b.stake_amount ?? b.stake ?? 0), 0) || 0;
-  const totalReturned = bets?.reduce((sum, b) => {
+  // ROI calculation — canonical formula: (totalReturned - totalStaked) / totalStaked * 100
+  const totalStaked = settledBets.reduce((sum, b) => sum + (b.stake_amount ?? b.stake ?? 0), 0);
+  const totalReturned = settledBets.reduce((sum, b) => {
     const stake = b.stake_amount ?? b.stake ?? 0;
-    if (b.status === "won") return sum + (b.payout ?? stake * americanToDecimal(b.odds));
-    if (b.status === "push") return sum + stake;
+    const outcome = getOutcome(b);
+    if (outcome === "won") return sum + (b.payout ?? stake * americanToDecimal(b.odds));
+    if (outcome === "push") return sum + stake;
     return sum;
-  }, 0) || 0;
+  }, 0);
   const roi = totalStaked > 0 ? (((totalReturned - totalStaked) / totalStaked) * 100).toFixed(1) : "—";
 
   if (!user) {
