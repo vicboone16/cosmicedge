@@ -680,11 +680,17 @@ Deno.serve(async (req) => {
           sb.from("ce_game_predictions").select("*").in("game_id", gameIds).order("run_ts", { ascending: false }),
         ]);
         const oraclePreds = [...(cePreds || []), ...(gamePreds || [])];
-        // Fetch pace features
-        const paceResults = await Promise.all(gameIds.slice(0, 8).map(async (gid: string) => {
-          const { data } = await sb.rpc("np_build_pace_features", { p_game_id: gid });
-          return { game_id: gid, pace: data?.[0] ?? null };
-        }));
+        // Fetch pace features (safe — RPC may not exist)
+        let paceResults: { game_id: string; pace: any }[] = [];
+        try {
+          paceResults = await Promise.all(gameIds.slice(0, 8).map(async (gid: string) => {
+            try {
+              const { data, error } = await sb.rpc("np_build_pace_features", { p_game_id: gid });
+              if (error) return { game_id: gid, pace: null };
+              return { game_id: gid, pace: data?.[0] ?? null };
+            } catch { return { game_id: gid, pace: null }; }
+          }));
+        } catch { /* RPC doesn't exist — continue without pace */ }
 
         for (const game of todayGames) {
           const oracle = oraclePreds.find((o: any) => o.game_id === game.id);
