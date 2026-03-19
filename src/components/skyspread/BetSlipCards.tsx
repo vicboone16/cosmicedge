@@ -548,7 +548,7 @@ export default function BetSlipCards() {
             Settled ({settledSlips.length})
           </p>
           {settledSlips.map(slip => (
-            <SlipCard key={slip.id} slip={slip} picks={picksMap?.[slip.id] || []} />
+            <SlipCard key={slip.id} slip={slip} picks={picksMap?.[slip.id] || []} isAdmin={isAdmin} />
           ))}
         </div>
       )}
