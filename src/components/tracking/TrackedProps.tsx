@@ -467,7 +467,7 @@ function LivePropCard({ tp, gameData, liveState, onDelete }: { tp: any; gameData
       {/* Header row */}
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-xs font-semibold text-foreground">{tp.player_name}</p>
+          <p className="text-xs font-semibold text-foreground">{cleanSourceLabel(tp.player_name)}</p>
           <p className="text-[10px] text-muted-foreground capitalize">
             {tp.direction} {tp.line} {displayStatName(tp.market_type || "")}
           </p>
