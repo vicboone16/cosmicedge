@@ -41,8 +41,9 @@ const Results = () => {
 
   const perf = computePerformance(bets || []);
   const settledBets = bets?.filter(b => getOutcome(b) !== null) || [];
-  const { wins: won, losses: lost, pushes: pushed, total, roi: roiNum, winRate } = perf;
+  const { wins: won, losses: lost, pushes: pushed, total, roi: roiNum, winRate: winRateNum } = perf;
   const roi = total > 0 ? roiNum.toFixed(1) : "—";
+  const winRate = total > 0 ? winRateNum.toFixed(1) : "—";
 
   if (!user) {
     return (
