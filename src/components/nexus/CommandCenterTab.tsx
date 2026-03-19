@@ -109,16 +109,23 @@ export default function CommandCenterTab() {
     staleTime: 60_000,
   });
 
-  // Live games pulse
-  const { data: liveGamesCount } = useQuery({
-    queryKey: ["cc-live-count"],
+  // Live games pulse — fetch actual games
+  const { data: liveGames } = useQuery({
+    queryKey: ["cc-live-games"],
     queryFn: async () => {
-      const { count } = await supabase.from("games").select("id", { count: "exact", head: true }).in("status", ["live", "in_progress"]);
-      return count || 0;
+      const { data } = await supabase
+        .from("games")
+        .select("id, home_team, away_team, home_abbr, away_abbr, home_score, away_score, league, status")
+        .in("status", ["live", "in_progress"])
+        .order("start_time", { ascending: true })
+        .limit(20);
+      return data || [];
     },
     staleTime: 30_000,
     refetchInterval: 30_000,
   });
+  const liveGamesCount = liveGames?.length || 0;
+  const [pulseExpanded, setPulseExpanded] = useState(false);
 
   const filteredOpps = useMemo(() => {
     if (!opportunities) return [];
@@ -197,12 +204,12 @@ export default function CommandCenterTab() {
 
       {/* Dashboard Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <DashCard title="Astra Pulse" icon={Activity} onClick={() => navigate("/")}>
+        <DashCard title="Astra Pulse" icon={Activity} expandable expanded={pulseExpanded} onToggle={() => setPulseExpanded(!pulseExpanded)}>
           <div className="space-y-1">
             <div className="flex items-center gap-2">
-              <span className={cn("h-2 w-2 rounded-full", (liveGamesCount ?? 0) > 0 ? "bg-cosmic-green animate-pulse" : "bg-muted-foreground")} />
+              <span className={cn("h-2 w-2 rounded-full", liveGamesCount > 0 ? "bg-cosmic-green animate-pulse" : "bg-muted-foreground")} />
               <span className="text-[11px] text-foreground font-semibold">
-                {(liveGamesCount ?? 0) > 0 ? `${liveGamesCount} live game${liveGamesCount !== 1 ? "s" : ""} · Scanning` : "No live games — pregame analysis mode"}
+                {liveGamesCount > 0 ? `${liveGamesCount} live game${liveGamesCount !== 1 ? "s" : ""} · Scanning` : "No live games — pregame analysis mode"}
               </span>
             </div>
             {profile && (
@@ -212,6 +219,22 @@ export default function CommandCenterTab() {
             )}
             {filteredOpps.length > 0 && <p className="text-[10px] text-cosmic-green font-semibold">{filteredOpps.length} opportunit{filteredOpps.length === 1 ? "y" : "ies"} detected</p>}
           </div>
+          {pulseExpanded && liveGames && liveGames.length > 0 && (
+            <div className="mt-2 pt-2 border-t border-border/30 space-y-1.5">
+              {liveGames.map((g: any) => (
+                <button key={g.id} onClick={() => navigate(`/game/${g.id}`)} className="w-full flex items-center justify-between px-2 py-1.5 rounded-lg bg-secondary/40 hover:bg-secondary/70 transition-colors text-left">
+                  <div className="flex items-center gap-2">
+                    <span className="h-1.5 w-1.5 rounded-full bg-cosmic-green animate-pulse" />
+                    <span className="text-[10px] font-medium text-foreground">{g.away_abbr} @ {g.home_abbr}</span>
+                    <span className="text-[9px] text-muted-foreground">{g.league}</span>
+                  </div>
+                  <span className="text-[11px] font-bold tabular-nums text-foreground">
+                    {g.away_score ?? 0} - {g.home_score ?? 0}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
         </DashCard>
 
         <DashCard title="Best Opportunities" icon={Target} onClick={() => navigate("/props")}>
@@ -327,13 +350,20 @@ export default function CommandCenterTab() {
   );
 }
 
-function DashCard({ title, icon: Icon, dimmed, onClick, children }: { title: string; icon: any; dimmed?: boolean; onClick?: () => void; children: React.ReactNode }) {
+function DashCard({ title, icon: Icon, dimmed, onClick, expandable, expanded, onToggle, children }: { title: string; icon: any; dimmed?: boolean; onClick?: () => void; expandable?: boolean; expanded?: boolean; onToggle?: () => void; children: React.ReactNode }) {
+  const handleClick = expandable ? onToggle : onClick;
   return (
-    <div onClick={onClick} className={cn("rounded-xl border border-border/30 bg-card/50 backdrop-blur-sm p-4 space-y-2 transition-all", dimmed && "opacity-50", onClick && "cursor-pointer hover:border-primary/30 hover:bg-card/70 active:scale-[0.99]")}>
-      <div className="flex items-center gap-2">
-        <Icon className="w-4 h-4 text-primary" />
-        <span className="text-xs font-bold uppercase tracking-wider text-foreground">{title}</span>
-        {onClick && <ArrowRight className="w-3 h-3 text-muted-foreground/40 ml-auto" />}
+    <div onClick={handleClick} className={cn("rounded-xl border border-border/30 bg-card/50 backdrop-blur-sm p-4 space-y-2 transition-all", dimmed && "opacity-50", handleClick && "cursor-pointer hover:border-primary/30 hover:bg-card/70 active:scale-[0.99]")}>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Icon className="h-4 w-4 text-primary" />
+          <h3 className="text-xs font-bold uppercase tracking-wider text-foreground">{title}</h3>
+        </div>
+        {expandable ? (
+          expanded ? <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+        ) : onClick ? (
+          <ArrowRight className="h-3.5 w-3.5 text-muted-foreground" />
+        ) : null}
       </div>
       {children}
     </div>

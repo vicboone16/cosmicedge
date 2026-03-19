@@ -47,8 +47,29 @@ function PickRow({ pick, gameInfo, liveState, isAdmin }: { pick: any; gameInfo?:
   const [editLine, setEditLine] = useState<string>(String(pick.line ?? ""));
   const [editLiveValue, setEditLiveValue] = useState<string>(String(pick.live_value ?? ""));
   const [editResult, setEditResult] = useState<string>(pick.result || "");
+  const [editGameId, setEditGameId] = useState<string>(pick.game_id || "");
   const [saving, setSaving] = useState(false);
   const queryClient = useQueryClient();
+
+  // Fetch today's games for admin game re-link dropdown
+  const { data: todayGames } = useQuery({
+    queryKey: ["admin-relink-games"],
+    queryFn: async () => {
+      const now = new Date();
+      const dayStart = new Date(now.getTime() - 36 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      const dayEnd = new Date(now.getTime() + 36 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      const { data } = await supabase
+        .from("games")
+        .select("id, home_abbr, away_abbr, league, start_time, status")
+        .gte("start_time", `${dayStart}T00:00:00Z`)
+        .lte("start_time", `${dayEnd}T23:59:59Z`)
+        .order("start_time", { ascending: true })
+        .limit(100);
+      return data || [];
+    },
+    enabled: !!isAdmin && editing,
+    staleTime: 60_000,
+  });
 
   const progress = pick.line > 0 && pick.live_value != null
     ? Math.min((Number(pick.live_value) / Number(pick.line)) * 100, 150)
@@ -82,6 +103,7 @@ function PickRow({ pick, gameInfo, liveState, isAdmin }: { pick: any; gameInfo?:
       if (editLiveValue === "") updates.live_value = null;
       else if (newLive != null && !isNaN(newLive)) updates.live_value = newLive;
       if (editResult && editResult !== pick.result) updates.result = editResult || null;
+      if (editGameId && editGameId !== pick.game_id) updates.game_id = editGameId || null;
       updates.updated_at = new Date().toISOString();
 
       const { error } = await supabase.from("bet_slip_picks").update(updates).eq("id", pick.id);
@@ -173,6 +195,23 @@ function PickRow({ pick, gameInfo, liveState, isAdmin }: { pick: any; gameInfo?:
                 <option value="push">Push</option>
               </select>
             </div>
+          </div>
+          {/* Game ID re-link */}
+          <div>
+            <label className="text-[8px] text-muted-foreground uppercase font-semibold">Link to Game</label>
+            <select
+              value={editGameId}
+              onChange={e => setEditGameId(e.target.value)}
+              className="w-full bg-background border border-border rounded px-2 py-1 text-xs"
+            >
+              <option value="">— No game —</option>
+              {(todayGames || []).map((g: any) => (
+                <option key={g.id} value={g.id}>
+                  {g.away_abbr} @ {g.home_abbr} ({g.league} · {g.status})
+                </option>
+              ))}
+            </select>
+            {pick.game_id && <p className="text-[7px] text-muted-foreground mt-0.5 truncate">ID: {pick.game_id}</p>}
           </div>
           <div className="flex gap-2 justify-end">
             <button

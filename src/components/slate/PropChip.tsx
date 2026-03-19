@@ -85,9 +85,12 @@ export function PropChip({ prop, size = "compact", liveContext, onClick }: PropC
 
   if (size === "compact") {
     return (
-      <button
+      <div
+        role="button"
+        tabIndex={0}
         onClick={handleClick}
-        className="shrink-0 cosmic-card rounded-xl p-2.5 w-[160px] space-y-1 text-left hover:border-primary/30 transition-colors"
+        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") handleClick(); }}
+        className="shrink-0 cosmic-card rounded-xl p-2.5 w-[160px] space-y-1 text-left hover:border-primary/30 transition-colors cursor-pointer"
       >
         {/* Header: name + edge score */}
         <div className="flex items-center justify-between">
@@ -211,7 +214,7 @@ export function PropChip({ prop, size = "compact", liveContext, onClick }: PropC
             </span>
           </div>
         )}
-      </button>
+      </div>
     );
   }
 

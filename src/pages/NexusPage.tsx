@@ -346,7 +346,7 @@ function HistoryTab() { return <HistoricalPage />; }
 // ── Main Nexus Page ──
 export default function NexusPage() {
   const [searchParams] = useSearchParams();
-  const initialTab = searchParams.get("tab") === "signals" ? "signals" : "command";
+  const initialTab = searchParams.get("tab") === "command" ? "command" : "signals";
 
   return (
     <div className="min-h-screen pb-24">
@@ -364,13 +364,13 @@ export default function NexusPage() {
         </GuidanceCard>
         <Tabs defaultValue={initialTab} className="w-full">
           <TabsList className="grid w-full grid-cols-6 mb-4">
-            <TabsTrigger value="command" className="text-xs gap-1">
-              <Command className="h-3 w-3" />
-              Command
-            </TabsTrigger>
             <TabsTrigger value="signals" className="text-xs gap-1">
               <FlaskConical className="h-3 w-3" />
               Signals
+            </TabsTrigger>
+            <TabsTrigger value="command" className="text-xs gap-1">
+              <Command className="h-3 w-3" />
+              Command
             </TabsTrigger>
             <TabsTrigger value="players" className="text-xs gap-1">
               <User className="h-3 w-3" />
@@ -390,11 +390,11 @@ export default function NexusPage() {
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="command">
-            <CommandCenterTab />
-          </TabsContent>
           <TabsContent value="signals">
             <SignalsTab />
+          </TabsContent>
+          <TabsContent value="command">
+            <CommandCenterTab />
           </TabsContent>
           <TabsContent value="players">
             <PlayersTab />
