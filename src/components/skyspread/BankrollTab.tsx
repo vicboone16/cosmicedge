@@ -118,7 +118,7 @@ export function computeStats(bets: BetRow[]): BankrollStats {
     totalStaked,
     totalReturned,
     roi: totalStaked > 0 ? ((totalReturned - totalStaked) / totalStaked) * 100 : 0,
-    winRate: settled.length > 0 ? (wins / settled.length) * 100 : 0,
+    winRate: (wins + losses) > 0 ? (wins / (wins + losses)) * 100 : 0,
     wins,
     losses,
     pushes,

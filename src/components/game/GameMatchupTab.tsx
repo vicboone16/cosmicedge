@@ -361,10 +361,11 @@ export function GameMatchupTab({
   const { data: fallbackLineups, isLoading: fallbackLineupsLoading, refetch: refetchFallbackLineups } = useQuery({
     queryKey: ["game-lineups", homeAbbr, awayAbbr],
     queryFn: async () => {
+      const expandedAbbrs = expandTeamAbbrForQuery([homeAbbr, awayAbbr], league);
       const { data } = await supabase
         .from("depth_charts")
         .select("player_name, team_abbr, position, depth_order, player_id, external_player_id")
-        .in("team_abbr", [homeAbbr, awayAbbr])
+        .in("team_abbr", expandedAbbrs)
         .eq("league", league)
         .order("depth_order", { ascending: true })
         .order("position", { ascending: true });
