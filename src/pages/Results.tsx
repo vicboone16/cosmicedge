@@ -5,11 +5,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import type { Tables } from "@/integrations/supabase/types";
-
-function americanToDecimal(odds: number): number {
-  if (odds > 0) return odds / 100 + 1;
-  return 100 / Math.abs(odds) + 1;
-}
+import { getOutcome, computePerformance } from "@/lib/betting-math";
 
 type BetRow = Tables<"bets">;
 
@@ -31,7 +27,6 @@ const Results = () => {
     queryKey: ["results-bets", user?.id],
     queryFn: async () => {
       if (!user) return [];
-      // Include both legacy statuses AND trigger-settled bets
       const { data, error } = await supabase
         .from("bets")
         .select("*")
@@ -44,34 +39,11 @@ const Results = () => {
     enabled: !!user,
   });
 
-  // Normalize outcome: support both legacy status and trigger-settled bets
-  const getOutcome = (b: BetRow): "won" | "lost" | "push" | null => {
-    if (b.status === "won" || b.status === "lost" || b.status === "push") return b.status as any;
-    if (b.status === "settled") {
-      if (b.result === "win") return "won";
-      if (b.result === "loss") return "lost";
-      if (b.result === "push") return "push";
-    }
-    return null;
-  };
-
+  const perf = computePerformance(bets || []);
   const settledBets = bets?.filter(b => getOutcome(b) !== null) || [];
-  const won = settledBets.filter(b => getOutcome(b) === "won").length;
-  const lost = settledBets.filter(b => getOutcome(b) === "lost").length;
-  const pushed = settledBets.filter(b => getOutcome(b) === "push").length;
-  const total = won + lost + pushed;
-  const winRate = total > 0 ? ((won / (won + lost)) * 100).toFixed(1) : "—";
-
-  // ROI calculation — canonical formula: (totalReturned - totalStaked) / totalStaked * 100
-  const totalStaked = settledBets.reduce((sum, b) => sum + (b.stake_amount ?? b.stake ?? 0), 0);
-  const totalReturned = settledBets.reduce((sum, b) => {
-    const stake = b.stake_amount ?? b.stake ?? 0;
-    const outcome = getOutcome(b);
-    if (outcome === "won") return sum + (b.payout ?? stake * americanToDecimal(b.odds));
-    if (outcome === "push") return sum + stake;
-    return sum;
-  }, 0);
-  const roi = totalStaked > 0 ? (((totalReturned - totalStaked) / totalStaked) * 100).toFixed(1) : "—";
+  const { wins: won, losses: lost, pushes: pushed, total, roi: roiNum, winRate: winRateNum } = perf;
+  const roi = total > 0 ? roiNum.toFixed(1) : "—";
+  const winRate = total > 0 ? winRateNum.toFixed(1) : "—";
 
   if (!user) {
     return (
