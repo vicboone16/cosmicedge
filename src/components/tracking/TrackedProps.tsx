@@ -11,6 +11,7 @@ import { usePlayerMomentum } from "@/hooks/use-player-momentum";
 import { toast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { displayStatName, cleanSourceLabel } from "@/lib/display-labels";
+import { ensureInternalPlayerId, isBdlId, batchResolvePlayerNames } from "@/lib/resolve-bdl-player";
 
 /* ─── Settled display logic ─── */
 function getSettledDisplay(tp: any) {
@@ -113,10 +114,12 @@ export function TrackPropButton({
   const createMutation = useMutation({
     mutationFn: async () => {
       if (!user) throw new Error("Not logged in");
+      // Resolve BDL numeric player_id to internal UUID before storing
+      const resolvedPlayerId = await ensureInternalPlayerId(playerId, playerName);
       const { error } = await supabase.from("tracked_props").insert({
         user_id: user.id,
         game_id: gameId,
-        player_id: playerId || null,
+        player_id: resolvedPlayerId || playerId || null,
         player_name: playerName,
         market_type: marketType,
         line,
@@ -262,7 +265,36 @@ export function TrackedPropsWidget({ gameId, showHeader = true }: { gameId?: str
 
     (async () => {
       const uniqueGameIds = [...new Set(syncable.map(tp => tp.game_id))];
-      const uniquePlayerIds = [...new Set(syncable.map(tp => tp.player_id))];
+      let uniquePlayerIds = [...new Set(syncable.map(tp => tp.player_id))];
+
+      // Detect BDL numeric IDs and resolve them to internal UUIDs
+      const bdlIdPicks = syncable.filter(tp => isBdlId(tp.player_id));
+      const resolvedIdMap = new Map<string, string>(); // bdlId → internalId
+
+      if (bdlIdPicks.length > 0) {
+        // Batch resolve by player name
+        const nameMap = await batchResolvePlayerNames(
+          bdlIdPicks.map(tp => tp.player_name),
+          "NBA"
+        );
+
+        for (const tp of bdlIdPicks) {
+          const internalId = nameMap.get(tp.player_name);
+          if (internalId) {
+            resolvedIdMap.set(tp.player_id!, internalId);
+            // Also update the DB to fix the stored ID for future syncs
+            await supabase.from("tracked_props").update({ player_id: internalId } as any).eq("id", tp.id);
+          }
+        }
+
+        // Add resolved UUIDs to query set
+        uniquePlayerIds = [
+          ...new Set([
+            ...uniquePlayerIds.filter(id => !isBdlId(id)),
+            ...resolvedIdMap.values(),
+          ]),
+        ];
+      }
 
       const { data: statRows } = await supabase
         .from("player_game_stats")
@@ -279,6 +311,10 @@ export function TrackedPropsWidget({ gameId, showHeader = true }: { gameId?: str
 
       const updates: Array<{ id: string; payload: Record<string, any> }> = [];
       for (const tp of syncable) {
+        // Use resolved internal UUID if original was a BDL numeric ID
+        const effectivePlayerId = (tp.player_id && resolvedIdMap.has(tp.player_id))
+          ? resolvedIdMap.get(tp.player_id)!
+          : tp.player_id;
         const gameStatus = String(gamesMap?.[tp.game_id]?.status || "").toLowerCase();
         const { period, market } = parseTrackedPeriodAndMarket(tp.market_type || "");
         const columns = TRACKED_STAT_MAP[market] || TRACKED_STAT_MAP[market.replace(/^player_/, "")];
@@ -288,26 +324,26 @@ export function TrackedPropsWidget({ gameId, showHeader = true }: { gameId?: str
         let statValue: number | null = null;
 
         // Check if the player actually has a full-game stats row (proves they played)
-        const fullRow = byKey.get(`${tp.player_id}:${tp.game_id}:full`);
+        const fullRow = byKey.get(`${effectivePlayerId}:${tp.game_id}:full`);
         const playerActuallyPlayed = fullRow && (Number(fullRow.minutes) > 0 || Number(fullRow.points) > 0);
 
         if (["q1", "q2", "q3", "q4", "full"].includes(period)) {
-          const row = byKey.get(`${tp.player_id}:${tp.game_id}:${period}`);
+          const row = byKey.get(`${effectivePlayerId}:${tp.game_id}:${period}`);
           if (row) statValue = sumCols(row);
         } else if (period === "1h") {
-          const direct = byKey.get(`${tp.player_id}:${tp.game_id}:first_half`);
+          const direct = byKey.get(`${effectivePlayerId}:${tp.game_id}:first_half`);
           if (direct) statValue = sumCols(direct);
           else {
-            const q1 = byKey.get(`${tp.player_id}:${tp.game_id}:q1`);
-            const q2 = byKey.get(`${tp.player_id}:${tp.game_id}:q2`);
+            const q1 = byKey.get(`${effectivePlayerId}:${tp.game_id}:q1`);
+            const q2 = byKey.get(`${effectivePlayerId}:${tp.game_id}:q2`);
             if (q1 || q2) statValue = sumCols(q1) + sumCols(q2);
           }
         } else if (period === "2h") {
-          const direct = byKey.get(`${tp.player_id}:${tp.game_id}:second_half`);
+          const direct = byKey.get(`${effectivePlayerId}:${tp.game_id}:second_half`);
           if (direct) statValue = sumCols(direct);
           else {
-            const q3 = byKey.get(`${tp.player_id}:${tp.game_id}:q3`);
-            const q4 = byKey.get(`${tp.player_id}:${tp.game_id}:q4`);
+            const q3 = byKey.get(`${effectivePlayerId}:${tp.game_id}:q3`);
+            const q4 = byKey.get(`${effectivePlayerId}:${tp.game_id}:q4`);
             if (q3 || q4) statValue = sumCols(q3) + sumCols(q4);
           }
         }
