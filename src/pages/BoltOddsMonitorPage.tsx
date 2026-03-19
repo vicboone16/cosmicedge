@@ -14,6 +14,7 @@ import { format } from "date-fns";
 export default function BoltOddsMonitorPage() {
   const { isAdmin, isLoading: adminLoading } = useIsAdmin();
   const qc = useQueryClient();
+  const [showAdmin, setShowAdmin] = useState(false);
   const [sportsFilter, setSportsFilter] = useState("MLB,NHL");
   const [booksFilter, setBooksFilter] = useState("draftkings,fanduel,betmgm,caesars");
   const [marketsFilter, setMarketsFilter] = useState("Moneyline,Spread,Total");
