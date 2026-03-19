@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Trash2, ChevronDown, ChevronUp, Zap, AlertTriangle, CheckCircle, Clock, XCircle, Share2, Copy, RefreshCw } from "lucide-react";
+import { Trash2, ChevronDown, ChevronUp, Zap, AlertTriangle, CheckCircle, Clock, XCircle, Share2, Copy, RefreshCw, Edit3, Save } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { useBetSlips } from "@/hooks/use-bet-slips";
@@ -9,8 +9,9 @@ import { SlipIntentSelector, SlipOptimizerPanel, INTENT_CONFIG, type SlipIntent 
 import { SlipLiveTracker } from "@/components/skyspread/optimizer/SlipLiveTracker";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { displayStatName, displayEntryType, displayBookName } from "@/lib/display-labels";
+import { useIsAdmin } from "@/hooks/use-admin";
 
 const MATCH_BADGES: Record<string, { label: string; className: string }> = {
   exact_match: { label: "Matched", className: "bg-cosmic-green/15 text-cosmic-green" },
@@ -41,7 +42,14 @@ const parsePeriodStat = (statType: string): { period: string | null; cleanStat: 
   return { period: null, cleanStat: statType };
 };
 
-function PickRow({ pick, gameInfo, liveState }: { pick: any; gameInfo?: { away_abbr: string; home_abbr: string; status?: string } | null; liveState?: any }) {
+function PickRow({ pick, gameInfo, liveState, isAdmin }: { pick: any; gameInfo?: { away_abbr: string; home_abbr: string; status?: string } | null; liveState?: any; isAdmin?: boolean }) {
+  const [editing, setEditing] = useState(false);
+  const [editLine, setEditLine] = useState<string>(String(pick.line ?? ""));
+  const [editLiveValue, setEditLiveValue] = useState<string>(String(pick.live_value ?? ""));
+  const [editResult, setEditResult] = useState<string>(pick.result || "");
+  const [saving, setSaving] = useState(false);
+  const queryClient = useQueryClient();
+
   const progress = pick.line > 0 && pick.live_value != null
     ? Math.min((Number(pick.live_value) / Number(pick.line)) * 100, 150)
     : 0;
@@ -64,6 +72,30 @@ function PickRow({ pick, gameInfo, liveState }: { pick: any; gameInfo?: { away_a
     statusLabel === "danger" ? "text-cosmic-red" :
     statusLabel === "coinflip" ? "text-cosmic-gold" : null;
 
+  const handleAdminSave = async () => {
+    setSaving(true);
+    try {
+      const updates: Record<string, any> = {};
+      const newLine = parseFloat(editLine);
+      const newLive = editLiveValue === "" ? null : parseFloat(editLiveValue);
+      if (!isNaN(newLine)) updates.line = newLine;
+      if (editLiveValue === "") updates.live_value = null;
+      else if (newLive != null && !isNaN(newLive)) updates.live_value = newLive;
+      if (editResult && editResult !== pick.result) updates.result = editResult || null;
+      updates.updated_at = new Date().toISOString();
+
+      const { error } = await supabase.from("bet_slip_picks").update(updates).eq("id", pick.id);
+      if (error) throw error;
+      toast({ title: "Pick updated" });
+      setEditing(false);
+      queryClient.invalidateQueries({ queryKey: ["bet-slips"] });
+    } catch (e: any) {
+      toast({ title: "Update failed", description: e.message, variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <div className="py-2 border-b border-border/30 last:border-b-0">
       <div className="flex items-center justify-between">
@@ -78,6 +110,15 @@ function PickRow({ pick, gameInfo, liveState }: { pick: any; gameInfo?: { away_a
           </p>
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
+          {isAdmin && !editing && (
+            <button
+              onClick={(e) => { e.stopPropagation(); setEditing(true); }}
+              className="text-muted-foreground hover:text-primary transition-colors p-0.5"
+              title="Admin edit"
+            >
+              <Edit3 className="h-3 w-3" />
+            </button>
+          )}
           {statusLabel && statusColor && (
             <span className={cn("text-[8px] font-bold uppercase", statusColor)}>
               {statusLabel.replace("_", " ")}
@@ -93,6 +134,64 @@ function PickRow({ pick, gameInfo, liveState }: { pick: any; gameInfo?: { away_a
           )}
         </div>
       </div>
+
+      {/* Admin inline edit panel */}
+      {editing && isAdmin && (
+        <div className="mt-2 p-2 rounded-lg bg-secondary/40 border border-border/50 space-y-2" onClick={e => e.stopPropagation()}>
+          <div className="grid grid-cols-3 gap-2">
+            <div>
+              <label className="text-[8px] text-muted-foreground uppercase font-semibold">Line</label>
+              <input
+                type="number"
+                step="0.5"
+                value={editLine}
+                onChange={e => setEditLine(e.target.value)}
+                className="w-full bg-background border border-border rounded px-2 py-1 text-xs tabular-nums"
+              />
+            </div>
+            <div>
+              <label className="text-[8px] text-muted-foreground uppercase font-semibold">Live Value</label>
+              <input
+                type="number"
+                step="1"
+                value={editLiveValue}
+                onChange={e => setEditLiveValue(e.target.value)}
+                className="w-full bg-background border border-border rounded px-2 py-1 text-xs tabular-nums"
+                placeholder="—"
+              />
+            </div>
+            <div>
+              <label className="text-[8px] text-muted-foreground uppercase font-semibold">Result</label>
+              <select
+                value={editResult}
+                onChange={e => setEditResult(e.target.value)}
+                className="w-full bg-background border border-border rounded px-2 py-1 text-xs"
+              >
+                <option value="">Pending</option>
+                <option value="win">Win</option>
+                <option value="loss">Loss</option>
+                <option value="push">Push</option>
+              </select>
+            </div>
+          </div>
+          <div className="flex gap-2 justify-end">
+            <button
+              onClick={() => setEditing(false)}
+              className="text-[10px] text-muted-foreground hover:text-foreground px-2 py-1"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleAdminSave}
+              disabled={saving}
+              className="flex items-center gap-1 text-[10px] text-primary font-semibold hover:text-primary/80 px-2 py-1 bg-primary/10 rounded"
+            >
+              <Save className="h-3 w-3" />
+              {saving ? "Saving…" : "Save"}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Intelligence strip (Phase 4) */}
       {(hitProb != null || edge != null || projection != null) && (
@@ -154,7 +253,7 @@ function PickRow({ pick, gameInfo, liveState }: { pick: any; gameInfo?: { away_a
   );
 }
 
-function SlipCard({ slip, picks }: { slip: any; picks: any[] }) {
+function SlipCard({ slip, picks, isAdmin }: { slip: any; picks: any[]; isAdmin?: boolean }) {
   const [expanded, setExpanded] = useState(false);
   const [viewTab, setViewTab] = useState<"entry" | "live" | "optimizer">("entry");
   const { deleteSlip, syncToTraxLedger } = useBetSlips();
@@ -338,7 +437,7 @@ function SlipCard({ slip, picks }: { slip: any; picks: any[] }) {
           {viewTab === "entry" && (
             <div>
               {picks?.map((pick: any) => (
-                <PickRow key={pick.id} pick={pick} gameInfo={pick.game_id ? gamesMap?.[pick.game_id] : null} liveState={getLiveStateForPick(pick)} />
+                <PickRow key={pick.id} pick={pick} gameInfo={pick.game_id ? gamesMap?.[pick.game_id] : null} liveState={getLiveStateForPick(pick)} isAdmin={isAdmin} />
               ))}
             </div>
           )}
@@ -404,7 +503,7 @@ function SlipCard({ slip, picks }: { slip: any; picks: any[] }) {
 
 export default function BetSlipCards() {
   const { slips, picksMap, isLoading } = useBetSlips();
-
+  const { isAdmin } = useIsAdmin();
   if (isLoading) {
     return (
       <div className="space-y-3">
@@ -438,7 +537,7 @@ export default function BetSlipCards() {
             <Zap className="h-3 w-3" /> Active ({activeSlips.length})
           </p>
           {activeSlips.map(slip => (
-            <SlipCard key={slip.id} slip={slip} picks={picksMap?.[slip.id] || []} />
+            <SlipCard key={slip.id} slip={slip} picks={picksMap?.[slip.id] || []} isAdmin={isAdmin} />
           ))}
         </div>
       )}
@@ -449,7 +548,7 @@ export default function BetSlipCards() {
             Settled ({settledSlips.length})
           </p>
           {settledSlips.map(slip => (
-            <SlipCard key={slip.id} slip={slip} picks={picksMap?.[slip.id] || []} />
+            <SlipCard key={slip.id} slip={slip} picks={picksMap?.[slip.id] || []} isAdmin={isAdmin} />
           ))}
         </div>
       )}
