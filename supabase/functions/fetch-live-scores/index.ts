@@ -17,11 +17,22 @@ const LEAGUE_IDS: Record<string, string> = {
   MLB: "4424",
 };
 
+const BDL_BASE = "https://api.balldontlie.io";
+const BDL_PATH: Record<string, string> = {
+  NHL: "nhl",
+  MLB: "mlb",
+};
+
+const BDL_ABBR_NORMALIZE: Record<string, Record<string, string>> = {
+  NHL: { NJ: "NJD", TB: "TBL", LA: "LAK", SJ: "SJS", VEG: "VGK", WAS: "WSH", MON: "MTL", UM: "UTA" },
+  MLB: { CWS: "CHW", SD: "SDP", SF: "SFG", TB: "TBR", WSH: "WSN", WAS: "WSN", KC: "KCR" },
+};
+
 interface ScoreUpdate {
   homeScore: number | null;
   awayScore: number | null;
   status: string;
-  quarter: string | null;
+  quarter: number | null;
   clock: string | null;
   homeTeam: string;
   awayTeam: string;
@@ -49,12 +60,82 @@ function mapTsdbStatus(strStatus: string | null, strProgress: string | null): st
   return "scheduled";
 }
 
-function parseQuarter(strProgress: string | null, strStatus: string | null, league: string): string | null {
-  if (!strProgress && !strStatus) return null;
-  const status = strStatus || "";
-  if (status === "FT" || status === "AOT" || status === "AP") return "Final";
-  if (/^(Q\d|P\d|HT)/i.test(status)) return status;
-  return strProgress || null;
+function parseQuarter(strProgress: string | null, strStatus: string | null): number | null {
+  const candidates = [strStatus || "", strProgress || ""];
+  for (const raw of candidates) {
+    const upper = raw.toUpperCase();
+    if (!upper) continue;
+    const m = upper.match(/(?:Q|P|IN|I)(\d{1,2})/);
+    if (m) return parseInt(m[1], 10);
+    if (upper === "HT") return 2;
+  }
+  return null;
+}
+
+function normalizeBdlAbbr(league: string, abbr: string): string {
+  const raw = (abbr || "").trim().toUpperCase();
+  return BDL_ABBR_NORMALIZE[league]?.[raw] || raw;
+}
+
+function mapBdlStatus(statusRaw: string | null): string {
+  const s = (statusRaw || "").toLowerCase();
+  if (!s) return "scheduled";
+  if (s === "final" || s.startsWith("final") || s === "f" || s === "f/ot" || s === "f/so") return "final";
+  if (s.includes("progress") || s.includes("live") || /^q\d/.test(s) || /^p\d/.test(s) || /^in\d/.test(s)) return "in_progress";
+  return "scheduled";
+}
+
+async function fetchBdlScoresForLeague(
+  bdlKey: string | null,
+  league: string,
+  dates: string[],
+): Promise<ScoreUpdate[]> {
+  const path = BDL_PATH[league];
+  if (!bdlKey || !path || dates.length === 0) return [];
+
+  const dateParams = dates.map((d) => `dates[]=${encodeURIComponent(d)}`).join("&");
+  const url = `${BDL_BASE}/${path}/v1/games?${dateParams}&per_page=100`;
+
+  try {
+    const resp = await fetch(url, {
+      headers: {
+        Authorization: `Bearer ${bdlKey}`,
+        "X-Api-Key": bdlKey,
+      },
+    });
+    if (!resp.ok) {
+      console.warn(`[fetch-live-scores] BDL ${league} fallback failed: ${resp.status}`);
+      return [];
+    }
+
+    const json = await resp.json();
+    const games = json?.data || [];
+
+    return games.map((g: any) => {
+      const homeScore = g.home_team_score ?? g.home_score ?? null;
+      const awayScore = g.visitor_team_score ?? g.visitor_score ?? g.away_team_score ?? null;
+      const homeAbbr = normalizeBdlAbbr(league, g.home_team?.abbreviation || "");
+      const awayAbbr = normalizeBdlAbbr(league, g.visitor_team?.abbreviation || "");
+      const quarterRaw = g.period ?? g.current_period ?? null;
+      const quarter = quarterRaw != null ? Number(quarterRaw) : null;
+      const clock = g.time ?? g.clock ?? g.status ?? null;
+
+      return {
+        homeScore: Number.isFinite(Number(homeScore)) ? Number(homeScore) : null,
+        awayScore: Number.isFinite(Number(awayScore)) ? Number(awayScore) : null,
+        status: mapBdlStatus(g.status || null),
+        quarter: Number.isFinite(quarter) ? quarter : null,
+        clock,
+        homeTeam: homeAbbr,
+        awayTeam: awayAbbr,
+        idEvent: String(g.id || ""),
+        quarterScores: [],
+      } as ScoreUpdate;
+    });
+  } catch (e: any) {
+    console.warn(`[fetch-live-scores] BDL ${league} fallback error: ${e?.message || e}`);
+    return [];
+  }
 }
 
 async function fetchLiveScoresForLeague(
@@ -97,7 +178,7 @@ async function fetchLiveScoresForLeague(
     const homeScore = ev.intHomeScore != null ? parseInt(String(ev.intHomeScore)) : null;
     const awayScore = ev.intAwayScore != null ? parseInt(String(ev.intAwayScore)) : null;
     const status = mapTsdbStatus(ev.strStatus, ev.strProgress);
-    const quarter = parseQuarter(ev.strProgress, ev.strStatus, league);
+    const quarter = parseQuarter(ev.strProgress, ev.strStatus);
     
     // Extract quarter/period scores if available
     const quarterScores: { quarter: number; home: number; away: number }[] = [];
@@ -146,6 +227,7 @@ Deno.serve(async (req) => {
 
   try {
     const apiKey = Deno.env.get("THESPORTSDB_API_KEY");
+    const bdlKey = (Deno.env.get("BALLDONTLIE_KEY") || "").trim().replace(/^Bearer\s+/i, "") || null;
     if (!apiKey) {
       console.error("[fetch-live-scores] THESPORTSDB_API_KEY not set");
       return new Response(JSON.stringify({ error: "THESPORTSDB_API_KEY not configured" }), {
@@ -164,6 +246,7 @@ Deno.serve(async (req) => {
     // Widen window to ±1 day to handle PST/UTC offset
     // e.g. a 7pm PST game = 3am UTC next day — using UTC-only date would miss it
     const yesterdayISO = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const todayISO = now.toISOString().slice(0, 10);
     const tomorrowISO = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
     // Fetch games that are live OR scheduled within the ±1 day window
@@ -199,14 +282,16 @@ Deno.serve(async (req) => {
 
     for (const [league, leagueGames] of Object.entries(byLeague)) {
       const liveScores = await fetchLiveScoresForLeague(apiKey, league);
-      if (!liveScores.length) {
-        console.log(`[fetch-live-scores] No live data for ${league}`);
+      const bdlScores = await fetchBdlScoresForLeague(bdlKey, league, [yesterdayISO, todayISO, tomorrowISO]);
+
+      if (!liveScores.length && !bdlScores.length) {
+        console.log(`[fetch-live-scores] No live data for ${league} (TSDB+BDL)`);
         continue;
       }
 
       for (const game of leagueGames) {
-        // Match by team abbreviation/name
-        const match = liveScores.find((ls) => {
+        // Match by team abbreviation/name from TheSportsDB first
+        const tsdbMatch = liveScores.find((ls) => {
           const homeAbbr = getAbbr(league, ls.homeTeam);
           const awayAbbr = getAbbr(league, ls.awayTeam);
           return (
@@ -216,6 +301,12 @@ Deno.serve(async (req) => {
           );
         });
 
+        // Fallback match from BallDontLie when TSDB is empty/missing
+        const bdlMatch = !tsdbMatch
+          ? bdlScores.find((bs) => bs.homeTeam === game.home_abbr && bs.awayTeam === game.away_abbr)
+          : null;
+
+        const match = tsdbMatch || bdlMatch;
         if (!match) continue;
         matchedCount++;
 
@@ -226,7 +317,7 @@ Deno.serve(async (req) => {
         }
 
         // Upsert snapshot for live tracking
-        if (match.status === "live" || match.status === "final") {
+        if (match.status === "live" || match.status === "in_progress" || match.status === "final") {
           const { error: snapErr } = await supabase.from("game_state_snapshots").insert({
             game_id: game.id,
             status: match.status,
@@ -260,7 +351,7 @@ Deno.serve(async (req) => {
         const updateData: Record<string, any> = {};
         if (match.homeScore != null) updateData.home_score = match.homeScore;
         if (match.awayScore != null) updateData.away_score = match.awayScore;
-        if (match.status === "live" || match.status === "final") updateData.status = match.status;
+        if (match.status === "live" || match.status === "in_progress" || match.status === "final") updateData.status = match.status;
 
         if (Object.keys(updateData).length > 0) {
           console.log(`[fetch-live-scores] Writing ${game.home_abbr} vs ${game.away_abbr} (${game.id}): ${JSON.stringify(updateData)}`);
