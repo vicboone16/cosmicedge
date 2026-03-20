@@ -105,6 +105,30 @@ Deno.serve(async (req) => {
       const game = matchedGames[0];
       matched++;
 
+      // Correct start_time from BoltOdds if it differs significantly (>30 min)
+      if (bg.start_time && game.status === "scheduled") {
+        // BoltOdds has correct ET-based times; update if our DB is off
+        // We don't have the full game record here, so do a targeted update
+      }
+
+      // Flip status to live if start_time has passed and game is still scheduled
+      const boltStart = bg.start_time ? new Date(bg.start_time) : null;
+      const now = new Date();
+      if (boltStart && boltStart < now && game.status === "scheduled") {
+        await sb.from("games").update({
+          status: "live",
+          start_time: bg.start_time, // also fix start_time from BoltOdds
+          updated_at: now.toISOString(),
+        }).eq("id", game.id);
+        console.log(`[bolt-bridge] Flipped ${awayAbbr}@${homeAbbr} → live (start_time: ${bg.start_time})`);
+      } else if (boltStart && game.status === "scheduled") {
+        // Update start_time from BoltOdds even if not yet live
+        await sb.from("games").update({
+          start_time: bg.start_time,
+          updated_at: now.toISOString(),
+        }).eq("id", game.id);
+      }
+
       // Store bolt_game_id → game mapping in bolt_games.raw_data for reference
       await sb.from("bolt_games").update({
         raw_data: { ...((bg.raw_data as Record<string, unknown>) || {}), matched_game_id: game.id },
