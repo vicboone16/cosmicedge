@@ -351,7 +351,7 @@ Deno.serve(async (req) => {
         const updateData: Record<string, any> = {};
         if (match.homeScore != null) updateData.home_score = match.homeScore;
         if (match.awayScore != null) updateData.away_score = match.awayScore;
-        if (match.status === "live" || match.status === "final") updateData.status = match.status;
+        if (match.status === "live" || match.status === "in_progress" || match.status === "final") updateData.status = match.status;
 
         if (Object.keys(updateData).length > 0) {
           console.log(`[fetch-live-scores] Writing ${game.home_abbr} vs ${game.away_abbr} (${game.id}): ${JSON.stringify(updateData)}`);
