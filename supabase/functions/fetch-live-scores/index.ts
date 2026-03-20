@@ -72,6 +72,72 @@ function parseQuarter(strProgress: string | null, strStatus: string | null): num
   return null;
 }
 
+function normalizeBdlAbbr(league: string, abbr: string): string {
+  const raw = (abbr || "").trim().toUpperCase();
+  return BDL_ABBR_NORMALIZE[league]?.[raw] || raw;
+}
+
+function mapBdlStatus(statusRaw: string | null): string {
+  const s = (statusRaw || "").toLowerCase();
+  if (!s) return "scheduled";
+  if (s === "final" || s.startsWith("final") || s === "f" || s === "f/ot" || s === "f/so") return "final";
+  if (s.includes("progress") || s.includes("live") || /^q\d/.test(s) || /^p\d/.test(s) || /^in\d/.test(s)) return "in_progress";
+  return "scheduled";
+}
+
+async function fetchBdlScoresForLeague(
+  bdlKey: string | null,
+  league: string,
+  dates: string[],
+): Promise<ScoreUpdate[]> {
+  const path = BDL_PATH[league];
+  if (!bdlKey || !path || dates.length === 0) return [];
+
+  const dateParams = dates.map((d) => `dates[]=${encodeURIComponent(d)}`).join("&");
+  const url = `${BDL_BASE}/${path}/v1/games?${dateParams}&per_page=100`;
+
+  try {
+    const resp = await fetch(url, {
+      headers: {
+        Authorization: `Bearer ${bdlKey}`,
+        "X-Api-Key": bdlKey,
+      },
+    });
+    if (!resp.ok) {
+      console.warn(`[fetch-live-scores] BDL ${league} fallback failed: ${resp.status}`);
+      return [];
+    }
+
+    const json = await resp.json();
+    const games = json?.data || [];
+
+    return games.map((g: any) => {
+      const homeScore = g.home_team_score ?? g.home_score ?? null;
+      const awayScore = g.visitor_team_score ?? g.visitor_score ?? g.away_team_score ?? null;
+      const homeTeam = g.home_team?.full_name || g.home_team?.name || "";
+      const awayTeam = g.visitor_team?.full_name || g.visitor_team?.name || "";
+      const quarterRaw = g.period ?? g.current_period ?? null;
+      const quarter = quarterRaw != null ? Number(quarterRaw) : null;
+      const clock = g.time ?? g.clock ?? g.status || null;
+
+      return {
+        homeScore: Number.isFinite(Number(homeScore)) ? Number(homeScore) : null,
+        awayScore: Number.isFinite(Number(awayScore)) ? Number(awayScore) : null,
+        status: mapBdlStatus(g.status || null),
+        quarter: Number.isFinite(quarter) ? quarter : null,
+        clock,
+        homeTeam,
+        awayTeam,
+        idEvent: String(g.id || ""),
+        quarterScores: [],
+      } as ScoreUpdate;
+    });
+  } catch (e: any) {
+    console.warn(`[fetch-live-scores] BDL ${league} fallback error: ${e?.message || e}`);
+    return [];
+  }
+}
+
 async function fetchLiveScoresForLeague(
   apiKey: string,
   league: string,
