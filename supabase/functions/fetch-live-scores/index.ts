@@ -17,11 +17,22 @@ const LEAGUE_IDS: Record<string, string> = {
   MLB: "4424",
 };
 
+const BDL_BASE = "https://api.balldontlie.io";
+const BDL_PATH: Record<string, string> = {
+  NHL: "nhl",
+  MLB: "mlb",
+};
+
+const BDL_ABBR_NORMALIZE: Record<string, Record<string, string>> = {
+  NHL: { NJ: "NJD", TB: "TBL", LA: "LAK", SJ: "SJS", VEG: "VGK", WAS: "WSH", MON: "MTL", UM: "UTA" },
+  MLB: { CWS: "CHW", SD: "SDP", SF: "SFG", TB: "TBR", WSH: "WSN", WAS: "WSN", KC: "KCR" },
+};
+
 interface ScoreUpdate {
   homeScore: number | null;
   awayScore: number | null;
   status: string;
-  quarter: string | null;
+  quarter: number | null;
   clock: string | null;
   homeTeam: string;
   awayTeam: string;
