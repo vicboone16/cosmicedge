@@ -246,6 +246,7 @@ Deno.serve(async (req) => {
     // Widen window to ±1 day to handle PST/UTC offset
     // e.g. a 7pm PST game = 3am UTC next day — using UTC-only date would miss it
     const yesterdayISO = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const todayISO = now.toISOString().slice(0, 10);
     const tomorrowISO = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
     // Fetch games that are live OR scheduled within the ±1 day window
