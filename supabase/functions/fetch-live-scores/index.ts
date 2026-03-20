@@ -303,11 +303,7 @@ Deno.serve(async (req) => {
 
         // Fallback match from BallDontLie when TSDB is empty/missing
         const bdlMatch = !tsdbMatch
-          ? bdlScores.find((bs) => {
-              const homeAbbr = normalizeBdlAbbr(league, bs.homeTeam.split(" ").pop() || "");
-              const awayAbbr = normalizeBdlAbbr(league, bs.awayTeam.split(" ").pop() || "");
-              return homeAbbr === game.home_abbr && awayAbbr === game.away_abbr;
-            })
+          ? bdlScores.find((bs) => bs.homeTeam === game.home_abbr && bs.awayTeam === game.away_abbr)
           : null;
 
         const match = tsdbMatch || bdlMatch;
