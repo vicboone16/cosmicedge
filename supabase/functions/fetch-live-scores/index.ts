@@ -317,7 +317,7 @@ Deno.serve(async (req) => {
         }
 
         // Upsert snapshot for live tracking
-        if (match.status === "live" || match.status === "final") {
+        if (match.status === "live" || match.status === "in_progress" || match.status === "final") {
           const { error: snapErr } = await supabase.from("game_state_snapshots").insert({
             game_id: game.id,
             status: match.status,
