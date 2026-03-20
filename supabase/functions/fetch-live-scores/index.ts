@@ -138,40 +138,39 @@ async function fetchBdlScoresForLeague(
   }
 }
 
-async function fetchLiveScoresForLeague(
+/** Fetch TSDB events-by-day — returns ALL games for a date including finished ones */
+async function fetchTsdbEventsByDay(
   apiKey: string,
   league: string,
+  dateISO: string,
 ): Promise<ScoreUpdate[]> {
-  const sport = SPORT_MAP[league];
-  if (!sport) return [];
-  
-  const url = `https://www.thesportsdb.com/api/v2/json/livescore/${sport}`;
-  console.log(`[fetch-live-scores] Fetching ${league} from ${url}`);
-  
-  const resp = await fetch(url, {
-    headers: { "X-API-KEY": apiKey },
-  });
-  
-  if (!resp.ok) {
-    const body = await resp.text();
-    console.error(`[fetch-live-scores] API error ${resp.status}: ${body.slice(0, 200)}`);
-    return [];
-  }
-  
-  const data = await resp.json();
-  // TheSportsDB v2 uses "livescore" (singular) as the key, not "livescores"
-  const events = data?.livescore || data?.livescores?.events || data?.events || [];
-  
-  if (!Array.isArray(events)) {
-    console.log(`[fetch-live-scores] No events array for ${league}, keys: ${Object.keys(data).join(",")}, type: ${typeof events}`);
-    return [];
-  }
-  
-  console.log(`[fetch-live-scores] ${league}: ${events.length} total events from API`);
-  
   const leagueId = LEAGUE_IDS[league];
-  const results: ScoreUpdate[] = [];
+  if (!leagueId) return [];
   
+  // TSDB v2 endpoint: eventsday.php?d=YYYY-MM-DD&l=LEAGUE_ID
+  const url = `https://www.thesportsdb.com/api/v2/json/schedule/${leagueId}?d=${dateISO}`;
+  console.log(`[fetch-live-scores] Fetching ${league} day schedule from ${url}`);
+  
+  try {
+    const resp = await fetch(url, { headers: { "X-API-KEY": apiKey } });
+    if (!resp.ok) {
+      console.warn(`[fetch-live-scores] TSDB day schedule ${league} ${resp.status}`);
+      return [];
+    }
+    const data = await resp.json();
+    const events = data?.schedule || data?.events || [];
+    if (!Array.isArray(events)) return [];
+
+    console.log(`[fetch-live-scores] ${league} day schedule: ${events.length} events for ${dateISO}`);
+    return parseTsdbEvents(events, leagueId);
+  } catch (e: any) {
+    console.warn(`[fetch-live-scores] TSDB day error ${league}: ${e?.message}`);
+    return [];
+  }
+}
+
+function parseTsdbEvents(events: any[], leagueId: string): ScoreUpdate[] {
+  const results: ScoreUpdate[] = [];
   for (const ev of events) {
     if (ev.idLeague && String(ev.idLeague) !== leagueId) continue;
     
@@ -180,7 +179,6 @@ async function fetchLiveScoresForLeague(
     const status = mapTsdbStatus(ev.strStatus, ev.strProgress);
     const quarter = parseQuarter(ev.strProgress, ev.strStatus);
     
-    // Extract quarter/period scores if available
     const quarterScores: { quarter: number; home: number; away: number }[] = [];
     for (let q = 1; q <= 8; q++) {
       const hKey = `intHomeScore${q}`;
@@ -206,14 +204,56 @@ async function fetchLiveScoresForLeague(
       quarterScores,
     });
   }
+  return results;
+}
+
+async function fetchLiveScoresForLeague(
+  apiKey: string,
+  league: string,
+  dateISO: string,
+): Promise<ScoreUpdate[]> {
+  const sport = SPORT_MAP[league];
+  if (!sport) return [];
   
-  console.log(`[fetch-live-scores] ${league}: ${results.length} matching league events`);
-  if (results.length > 0) {
-    const sample = results[0];
+  // 1. Try livescore endpoint (currently-live games)
+  const url = `https://www.thesportsdb.com/api/v2/json/livescore/${sport}`;
+  console.log(`[fetch-live-scores] Fetching ${league} from ${url}`);
+  
+  let liveResults: ScoreUpdate[] = [];
+  try {
+    const resp = await fetch(url, { headers: { "X-API-KEY": apiKey } });
+    if (resp.ok) {
+      const data = await resp.json();
+      const events = data?.livescore || data?.livescores?.events || data?.events || [];
+      if (Array.isArray(events)) {
+        console.log(`[fetch-live-scores] ${league}: ${events.length} live events`);
+        liveResults = parseTsdbEvents(events, LEAGUE_IDS[league] || "");
+      }
+    } else {
+      console.warn(`[fetch-live-scores] TSDB livescore ${league} error: ${resp.status}`);
+    }
+  } catch (e: any) {
+    console.warn(`[fetch-live-scores] TSDB livescore fetch error: ${e?.message}`);
+  }
+
+  // 2. Also fetch day schedule for finished games not in livescore feed
+  const dayResults = await fetchTsdbEventsByDay(apiKey, league, dateISO);
+  
+  // 3. Merge: prefer live data, add day-schedule entries not already present
+  const seenIds = new Set(liveResults.map(r => r.idEvent));
+  for (const dr of dayResults) {
+    if (!seenIds.has(dr.idEvent)) {
+      liveResults.push(dr);
+    }
+  }
+  
+  console.log(`[fetch-live-scores] ${league}: ${liveResults.length} total (live+day) events`);
+  if (liveResults.length > 0) {
+    const sample = liveResults[0];
     console.log(`[fetch-live-scores] Sample: ${sample.homeTeam} ${sample.homeScore} vs ${sample.awayTeam} ${sample.awayScore} (${sample.status})`);
   }
   
-  return results;
+  return liveResults;
 }
 
 /* ══════════════════════════════════════════════════════════
