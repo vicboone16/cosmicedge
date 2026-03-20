@@ -147,35 +147,29 @@ async function fetchTsdbEventsByDay(
   const leagueId = LEAGUE_IDS[league];
   if (!leagueId) return [];
   
-  // TSDB v2 uses X-API-KEY header; try the eventsday endpoint
-  // v2 format: /api/v2/json/eventsday/{leagueId}?d=YYYY-MM-DD
-  const urls = [
-    `https://www.thesportsdb.com/api/v2/json/eventsday/${leagueId}?d=${dateISO}`,
-    `https://www.thesportsdb.com/api/v2/json/eventsday?l=${leagueId}&d=${dateISO}`,
-  ];
+  // TSDB v1 eventsday endpoint (works with premium key in URL path)
+  const url = `https://www.thesportsdb.com/api/v1/json/${apiKey}/eventsday.php?d=${dateISO}&l=${leagueId}`;
+  console.log(`[fetch-live-scores] Fetching ${league} day schedule from v1 eventsday`);
   
-  for (const url of urls) {
-    console.log(`[fetch-live-scores] Trying ${league} day schedule: ${url}`);
-    try {
-      const resp = await fetch(url, { headers: { "X-API-KEY": apiKey } });
-      if (!resp.ok) {
-        console.warn(`[fetch-live-scores] TSDB day ${league} ${resp.status} for ${url}`);
-        continue;
-      }
-      const data = await resp.json();
-      const events = data?.schedule || data?.events || data?.event || [];
-      if (!Array.isArray(events) || events.length === 0) {
-        console.log(`[fetch-live-scores] No events in response, keys: ${Object.keys(data).join(",")}`);
-        continue;
-      }
-
-      console.log(`[fetch-live-scores] ${league} day schedule: ${events.length} events for ${dateISO}`);
-      return parseTsdbEvents(events, leagueId);
-    } catch (e: any) {
-      console.warn(`[fetch-live-scores] TSDB day error ${league}: ${e?.message}`);
+  try {
+    const resp = await fetch(url);
+    if (!resp.ok) {
+      console.warn(`[fetch-live-scores] TSDB eventsday ${league} ${resp.status}`);
+      return [];
     }
+    const data = await resp.json();
+    const events = data?.events || [];
+    if (!Array.isArray(events) || events.length === 0) {
+      console.log(`[fetch-live-scores] No events from eventsday for ${league} ${dateISO}`);
+      return [];
+    }
+
+    console.log(`[fetch-live-scores] ${league} eventsday: ${events.length} events for ${dateISO}`);
+    return parseTsdbEvents(events, leagueId);
+  } catch (e: any) {
+    console.warn(`[fetch-live-scores] TSDB eventsday error ${league}: ${e?.message}`);
+    return [];
   }
-  return [];
 }
 
 function parseTsdbEvents(events: any[], leagueId: string): ScoreUpdate[] {
