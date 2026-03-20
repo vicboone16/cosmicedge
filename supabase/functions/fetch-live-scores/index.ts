@@ -227,6 +227,7 @@ Deno.serve(async (req) => {
 
   try {
     const apiKey = Deno.env.get("THESPORTSDB_API_KEY");
+    const bdlKey = (Deno.env.get("BALLDONTLIE_KEY") || "").trim().replace(/^Bearer\s+/i, "") || null;
     if (!apiKey) {
       console.error("[fetch-live-scores] THESPORTSDB_API_KEY not set");
       return new Response(JSON.stringify({ error: "THESPORTSDB_API_KEY not configured" }), {
