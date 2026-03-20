@@ -60,12 +60,16 @@ function mapTsdbStatus(strStatus: string | null, strProgress: string | null): st
   return "scheduled";
 }
 
-function parseQuarter(strProgress: string | null, strStatus: string | null, league: string): string | null {
-  if (!strProgress && !strStatus) return null;
-  const status = strStatus || "";
-  if (status === "FT" || status === "AOT" || status === "AP") return "Final";
-  if (/^(Q\d|P\d|HT)/i.test(status)) return status;
-  return strProgress || null;
+function parseQuarter(strProgress: string | null, strStatus: string | null): number | null {
+  const candidates = [strStatus || "", strProgress || ""];
+  for (const raw of candidates) {
+    const upper = raw.toUpperCase();
+    if (!upper) continue;
+    const m = upper.match(/(?:Q|P|IN|I)(\d{1,2})/);
+    if (m) return parseInt(m[1], 10);
+    if (upper === "HT") return 2;
+  }
+  return null;
 }
 
 async function fetchLiveScoresForLeague(
