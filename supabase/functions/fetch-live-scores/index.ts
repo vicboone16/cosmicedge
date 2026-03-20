@@ -114,8 +114,8 @@ async function fetchBdlScoresForLeague(
     return games.map((g: any) => {
       const homeScore = g.home_team_score ?? g.home_score ?? null;
       const awayScore = g.visitor_team_score ?? g.visitor_score ?? g.away_team_score ?? null;
-      const homeTeam = g.home_team?.full_name || g.home_team?.name || "";
-      const awayTeam = g.visitor_team?.full_name || g.visitor_team?.name || "";
+      const homeAbbr = normalizeBdlAbbr(league, g.home_team?.abbreviation || "");
+      const awayAbbr = normalizeBdlAbbr(league, g.visitor_team?.abbreviation || "");
       const quarterRaw = g.period ?? g.current_period ?? null;
       const quarter = quarterRaw != null ? Number(quarterRaw) : null;
       const clock = g.time ?? g.clock ?? g.status || null;
@@ -126,8 +126,8 @@ async function fetchBdlScoresForLeague(
         status: mapBdlStatus(g.status || null),
         quarter: Number.isFinite(quarter) ? quarter : null,
         clock,
-        homeTeam,
-        awayTeam,
+        homeTeam: homeAbbr,
+        awayTeam: awayAbbr,
         idEvent: String(g.id || ""),
         quarterScores: [],
       } as ScoreUpdate;
