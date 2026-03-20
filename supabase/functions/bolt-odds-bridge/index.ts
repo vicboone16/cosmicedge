@@ -10,17 +10,17 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
  */
 
 const TEAM_NORMALIZE: Record<string, string> = {
-  // MLB
+  // MLB — use abbreviations matching the games table
   "Arizona Diamondbacks": "ARI", "Atlanta Braves": "ATL", "Baltimore Orioles": "BAL",
-  "Boston Red Sox": "BOS", "Chicago Cubs": "CHC", "Chicago White Sox": "CWS",
+  "Boston Red Sox": "BOS", "Chicago Cubs": "CHC", "Chicago White Sox": "CHW",
   "Cincinnati Reds": "CIN", "Cleveland Guardians": "CLE", "Colorado Rockies": "COL",
-  "Detroit Tigers": "DET", "Houston Astros": "HOU", "Kansas City Royals": "KC",
+  "Detroit Tigers": "DET", "Houston Astros": "HOU", "Kansas City Royals": "KCR",
   "Los Angeles Angels": "LAA", "Los Angeles Dodgers": "LAD", "Miami Marlins": "MIA",
   "Milwaukee Brewers": "MIL", "Minnesota Twins": "MIN", "New York Mets": "NYM",
   "New York Yankees": "NYY", "Oakland Athletics": "OAK", "Philadelphia Phillies": "PHI",
-  "Pittsburgh Pirates": "PIT", "San Diego Padres": "SD", "San Francisco Giants": "SF",
-  "Seattle Mariners": "SEA", "St. Louis Cardinals": "STL", "Tampa Bay Rays": "TB",
-  "Texas Rangers": "TEX", "Toronto Blue Jays": "TOR", "Washington Nationals": "WSH",
+  "Pittsburgh Pirates": "PIT", "San Diego Padres": "SDP", "San Francisco Giants": "SFG",
+  "Seattle Mariners": "SEA", "St. Louis Cardinals": "STL", "Tampa Bay Rays": "TBR",
+  "Texas Rangers": "TEX", "Toronto Blue Jays": "TOR", "Washington Nationals": "WSN",
   // NHL
   "Anaheim Ducks": "ANA", "Boston Bruins": "BOS", "Buffalo Sabres": "BUF",
   "Calgary Flames": "CGY", "Carolina Hurricanes": "CAR", "Chicago Blackhawks": "CHI",
@@ -86,19 +86,48 @@ Deno.serve(async (req) => {
       }
       if (!gameDate || !homeAbbr || !awayAbbr) continue;
 
+      // Use a ±1 day window to handle PST/UTC date boundary issues
+      const dateObj = new Date(gameDate + "T12:00:00Z");
+      const dayBefore = new Date(dateObj.getTime() - 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+      const dayAfter = new Date(dateObj.getTime() + 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+
       // Match to internal game
       const { data: matchedGames } = await sb.from("games")
         .select("id, status, home_abbr, away_abbr")
         .eq("league", league)
         .eq("home_abbr", homeAbbr)
         .eq("away_abbr", awayAbbr)
-        .gte("start_time", `${gameDate}T00:00:00Z`)
-        .lte("start_time", `${gameDate}T23:59:59Z`)
+        .gte("start_time", `${dayBefore}T00:00:00Z`)
+        .lte("start_time", `${dayAfter}T23:59:59Z`)
         .limit(1);
 
       if (!matchedGames?.length) continue;
       const game = matchedGames[0];
       matched++;
+
+      // Correct start_time from BoltOdds if it differs significantly (>30 min)
+      if (bg.start_time && game.status === "scheduled") {
+        // BoltOdds has correct ET-based times; update if our DB is off
+        // We don't have the full game record here, so do a targeted update
+      }
+
+      // Flip status to live if start_time has passed and game is still scheduled
+      const boltStart = bg.start_time ? new Date(bg.start_time) : null;
+      const now = new Date();
+      if (boltStart && boltStart < now && game.status === "scheduled") {
+        await sb.from("games").update({
+          status: "live",
+          start_time: bg.start_time, // also fix start_time from BoltOdds
+          updated_at: now.toISOString(),
+        }).eq("id", game.id);
+        console.log(`[bolt-bridge] Flipped ${awayAbbr}@${homeAbbr} → live (start_time: ${bg.start_time})`);
+      } else if (boltStart && game.status === "scheduled") {
+        // Update start_time from BoltOdds even if not yet live
+        await sb.from("games").update({
+          start_time: bg.start_time,
+          updated_at: now.toISOString(),
+        }).eq("id", game.id);
+      }
 
       // Store bolt_game_id → game mapping in bolt_games.raw_data for reference
       await sb.from("bolt_games").update({
