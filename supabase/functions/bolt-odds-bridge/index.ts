@@ -86,14 +86,19 @@ Deno.serve(async (req) => {
       }
       if (!gameDate || !homeAbbr || !awayAbbr) continue;
 
+      // Use a ±1 day window to handle PST/UTC date boundary issues
+      const dateObj = new Date(gameDate + "T12:00:00Z");
+      const dayBefore = new Date(dateObj.getTime() - 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+      const dayAfter = new Date(dateObj.getTime() + 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+
       // Match to internal game
       const { data: matchedGames } = await sb.from("games")
         .select("id, status, home_abbr, away_abbr")
         .eq("league", league)
         .eq("home_abbr", homeAbbr)
         .eq("away_abbr", awayAbbr)
-        .gte("start_time", `${gameDate}T00:00:00Z`)
-        .lte("start_time", `${gameDate}T23:59:59Z`)
+        .gte("start_time", `${dayBefore}T00:00:00Z`)
+        .lte("start_time", `${dayAfter}T23:59:59Z`)
         .limit(1);
 
       if (!matchedGames?.length) continue;
