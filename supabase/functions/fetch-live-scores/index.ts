@@ -178,7 +178,7 @@ async function fetchLiveScoresForLeague(
     const homeScore = ev.intHomeScore != null ? parseInt(String(ev.intHomeScore)) : null;
     const awayScore = ev.intAwayScore != null ? parseInt(String(ev.intAwayScore)) : null;
     const status = mapTsdbStatus(ev.strStatus, ev.strProgress);
-    const quarter = parseQuarter(ev.strProgress, ev.strStatus, league);
+    const quarter = parseQuarter(ev.strProgress, ev.strStatus);
     
     // Extract quarter/period scores if available
     const quarterScores: { quarter: number; home: number; away: number }[] = [];
