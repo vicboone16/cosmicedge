@@ -118,7 +118,7 @@ async function fetchBdlScoresForLeague(
       const awayAbbr = normalizeBdlAbbr(league, g.visitor_team?.abbreviation || "");
       const quarterRaw = g.period ?? g.current_period ?? null;
       const quarter = quarterRaw != null ? Number(quarterRaw) : null;
-      const clock = g.time ?? g.clock ?? g.status || null;
+      const clock = g.time ?? g.clock ?? g.status ?? null;
 
       return {
         homeScore: Number.isFinite(Number(homeScore)) ? Number(homeScore) : null,
