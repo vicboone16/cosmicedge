@@ -239,14 +239,17 @@ async function fetchLiveScoresForLeague(
     console.warn(`[fetch-live-scores] TSDB livescore fetch error: ${e?.message}`);
   }
 
-  // 2. Also fetch day schedule for finished games not in livescore feed
-  const dayResults = await fetchTsdbEventsByDay(apiKey, league, dateISO);
-  
-  // 3. Merge: prefer live data, add day-schedule entries not already present
+  // 2. Also fetch day schedule for finished games — try today AND yesterday
+  //    (NHL 7pm PST on 3/19 = 3/20 UTC, so we need both dates)
   const seenIds = new Set(liveResults.map(r => r.idEvent));
-  for (const dr of dayResults) {
-    if (!seenIds.has(dr.idEvent)) {
-      liveResults.push(dr);
+  const yesterdayDate = new Date(new Date(dateISO).getTime() - 86400000).toISOString().slice(0, 10);
+  for (const d of [dateISO, yesterdayDate]) {
+    const dayResults = await fetchTsdbEventsByDay(apiKey, league, d);
+    for (const dr of dayResults) {
+      if (!seenIds.has(dr.idEvent)) {
+        seenIds.add(dr.idEvent);
+        liveResults.push(dr);
+      }
     }
   }
   
