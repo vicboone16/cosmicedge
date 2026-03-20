@@ -321,7 +321,7 @@ Deno.serve(async (req) => {
     const errors: string[] = [];
 
     for (const [league, leagueGames] of Object.entries(byLeague)) {
-      const liveScores = await fetchLiveScoresForLeague(apiKey, league);
+      const liveScores = await fetchLiveScoresForLeague(apiKey, league, todayISO);
       const bdlScores = await fetchBdlScoresForLeague(bdlKey, league, [yesterdayISO, todayISO, tomorrowISO]);
 
       if (!liveScores.length && !bdlScores.length) {
