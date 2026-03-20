@@ -282,14 +282,16 @@ Deno.serve(async (req) => {
 
     for (const [league, leagueGames] of Object.entries(byLeague)) {
       const liveScores = await fetchLiveScoresForLeague(apiKey, league);
-      if (!liveScores.length) {
-        console.log(`[fetch-live-scores] No live data for ${league}`);
+      const bdlScores = await fetchBdlScoresForLeague(bdlKey, league, [yesterdayISO, todayISO, tomorrowISO]);
+
+      if (!liveScores.length && !bdlScores.length) {
+        console.log(`[fetch-live-scores] No live data for ${league} (TSDB+BDL)`);
         continue;
       }
 
       for (const game of leagueGames) {
-        // Match by team abbreviation/name
-        const match = liveScores.find((ls) => {
+        // Match by team abbreviation/name from TheSportsDB first
+        const tsdbMatch = liveScores.find((ls) => {
           const homeAbbr = getAbbr(league, ls.homeTeam);
           const awayAbbr = getAbbr(league, ls.awayTeam);
           return (
@@ -299,6 +301,16 @@ Deno.serve(async (req) => {
           );
         });
 
+        // Fallback match from BallDontLie when TSDB is empty/missing
+        const bdlMatch = !tsdbMatch
+          ? bdlScores.find((bs) => {
+              const homeAbbr = normalizeBdlAbbr(league, bs.homeTeam.split(" ").pop() || "");
+              const awayAbbr = normalizeBdlAbbr(league, bs.awayTeam.split(" ").pop() || "");
+              return homeAbbr === game.home_abbr && awayAbbr === game.away_abbr;
+            })
+          : null;
+
+        const match = tsdbMatch || bdlMatch;
         if (!match) continue;
         matchedCount++;
 
