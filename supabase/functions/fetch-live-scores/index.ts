@@ -318,12 +318,18 @@ Deno.serve(async (req) => {
 
         // Upsert snapshot for live tracking
         if (match.status === "live" || match.status === "in_progress" || match.status === "final") {
+          // quarter column is integer — parse safely from clock string like "IN7"
+          let snapQuarter = match.quarter;
+          if (snapQuarter == null && match.clock) {
+            const qm = match.clock.match(/(?:Q|P|IN|I|H)(\d{1,2})/i);
+            if (qm) snapQuarter = parseInt(qm[1], 10);
+          }
           const { error: snapErr } = await supabase.from("game_state_snapshots").insert({
             game_id: game.id,
             status: match.status,
             home_score: match.homeScore,
             away_score: match.awayScore,
-            quarter: match.quarter,
+            quarter: Number.isFinite(snapQuarter) ? snapQuarter : null,
             clock: match.clock,
           });
           if (snapErr) {
