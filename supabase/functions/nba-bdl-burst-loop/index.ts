@@ -70,14 +70,18 @@ Deno.serve(async (req) => {
   const startMs = Date.now();
 
   // ── Pre-seed cosmic_games for today ──
+  // Use PST-aware window: yesterday 4am UTC → tomorrow 8am UTC covers all PST evening games
   try {
-    const today = new Date().toISOString().split("T")[0];
+    const now = new Date();
+    const yesterdayUTC = new Date(now.getTime() - 12 * 60 * 60 * 1000).toISOString().split("T")[0];
+    const tomorrowUTC = new Date(now.getTime() + 12 * 60 * 60 * 1000).toISOString().split("T")[0];
+    const today = yesterdayUTC; // for cosmic_games key
     const { data: todayGames } = await sb
       .from("games")
       .select("id, home_abbr, away_abbr, start_time, status")
       .eq("league", "NBA")
-      .gte("start_time", today + "T00:00:00Z")
-      .lte("start_time", today + "T23:59:59Z");
+      .gte("start_time", yesterdayUTC + "T04:00:00Z")
+      .lte("start_time", tomorrowUTC + "T07:59:59Z");
 
     if (todayGames?.length) {
       for (const g of todayGames) {
