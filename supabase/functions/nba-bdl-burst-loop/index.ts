@@ -165,8 +165,8 @@ Deno.serve(async (req) => {
   async function resolveBdlGame(g: any): Promise<string | null> {
     if (gameKeyMap.has(g.id)) return gameKeyMap.get(g.id)!;
 
-    const homeAbbr = g.home_team?.abbreviation ?? "";
-    const awayAbbr = g.visitor_team?.abbreviation ?? "";
+    const homeAbbr = normalizeAbbr("NBA", g.home_team?.abbreviation ?? "");
+    const awayAbbr = normalizeAbbr("NBA", g.visitor_team?.abbreviation ?? "");
     const gameDate = g.date ? g.date.split("T")[0] : new Date().toISOString().split("T")[0];
     const d = new Date(gameDate + "T00:00:00Z");
     const dayBefore = new Date(d.getTime() - 86400000).toISOString().split("T")[0];
