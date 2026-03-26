@@ -1,6 +1,7 @@
 import { corsHeaders } from "../_shared/cors.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { computeProjection, getStatStdDev, type PropContext } from "../_shared/prop-projection.ts";
+import { normalizeAbbr } from "../_shared/team-mappings.ts";
 
 /**
  * NBA BDL Burst Loop — Scores, Odds, PBP
@@ -164,8 +165,8 @@ Deno.serve(async (req) => {
   async function resolveBdlGame(g: any): Promise<string | null> {
     if (gameKeyMap.has(g.id)) return gameKeyMap.get(g.id)!;
 
-    const homeAbbr = g.home_team?.abbreviation ?? "";
-    const awayAbbr = g.visitor_team?.abbreviation ?? "";
+    const homeAbbr = normalizeAbbr("NBA", g.home_team?.abbreviation ?? "");
+    const awayAbbr = normalizeAbbr("NBA", g.visitor_team?.abbreviation ?? "");
     const gameDate = g.date ? g.date.split("T")[0] : new Date().toISOString().split("T")[0];
     const d = new Date(gameDate + "T00:00:00Z");
     const dayBefore = new Date(d.getTime() - 86400000).toISOString().split("T")[0];
@@ -269,8 +270,8 @@ Deno.serve(async (req) => {
 
       // 2. Process each game — scores, quarters, snapshots, player stats
       for (const g of games) {
-        const homeAbbr = g.home_team?.abbreviation ?? "";
-        const awayAbbr = g.visitor_team?.abbreviation ?? "";
+        const homeAbbr = normalizeAbbr("NBA", g.home_team?.abbreviation ?? "");
+        const awayAbbr = normalizeAbbr("NBA", g.visitor_team?.abbreviation ?? "");
 
         // Resolve on-the-fly if a new game appeared mid-loop (rare)
         const gameKey = gameKeyMap.has(g.id)

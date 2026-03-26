@@ -1,6 +1,6 @@
 import { corsHeaders } from "../_shared/cors.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { CANONICAL } from "../_shared/team-mappings.ts";
+import { CANONICAL, normalizeAbbr } from "../_shared/team-mappings.ts";
 
 const BDL_BASE = "https://api.balldontlie.io/v1";
 
@@ -129,7 +129,7 @@ Deno.serve(async (req) => {
           bdl_id: String(p.id),
           first_name: p.first_name || null,
           last_name: p.last_name || null,
-          team: p.team?.abbreviation || null,
+          team: p.team?.abbreviation ? normalizeAbbr("NBA", p.team.abbreviation) : null,
           fetched_at: new Date().toISOString(),
         }));
 
@@ -161,8 +161,7 @@ Deno.serve(async (req) => {
         const name = [c.first_name, c.last_name].filter(Boolean).join(" ").trim().toLowerCase();
         if (!name || !c.team) continue;
         // Normalize team abbreviation
-        let teamAbbr = c.team;
-        // Cross-check with canonical (BDL uses standard abbreviations)
+        const teamAbbr = normalizeAbbr("NBA", c.team);
         bdlTeamMap.set(name, teamAbbr);
       }
 

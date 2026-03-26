@@ -1,5 +1,6 @@
 import { corsHeaders } from "../_shared/cors.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { normalizeAbbr } from "../_shared/team-mappings.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -59,7 +60,8 @@ Deno.serve(async (req) => {
             const name = [p.first_name, p.last_name].filter(Boolean).join(" ") || p.name || "";
             if (!name) continue;
 
-            const teamAbbr = p.team?.abbreviation ?? p.teamAbbr ?? "";
+            const rawAbbr = p.team?.abbreviation ?? p.teamAbbr ?? "";
+            const teamAbbr = rawAbbr ? normalizeAbbr("NBA", rawAbbr) : "";
             const position = p.position ?? "";
             const league = "NBA";
 
