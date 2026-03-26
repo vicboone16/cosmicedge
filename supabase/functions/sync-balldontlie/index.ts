@@ -1,5 +1,6 @@
 import { corsHeaders } from "../_shared/cors.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { normalizeAbbr } from "../_shared/team-mappings.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
