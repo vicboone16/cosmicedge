@@ -12,6 +12,7 @@ interface GameStatsTabProps {
   homeScore: number | null;
   awayScore: number | null;
   league: string;
+  status?: string;
 }
 
 /**
@@ -168,7 +169,8 @@ function aggregateBdlPbp(events: any[]) {
   return Array.from(playerMap.values()).sort((a, b) => b.points - a.points);
 }
 
-export function GameStatsTab({ gameId, homeAbbr, awayAbbr, homeTeam, awayTeam, homeScore, awayScore, league }: GameStatsTabProps) {
+export function GameStatsTab({ gameId, homeAbbr, awayAbbr, homeTeam, awayTeam, homeScore, awayScore, league, status }: GameStatsTabProps) {
+  const isLive = status === "live";
   const [subTab, setSubTab] = useState<"game" | "home" | "away">("game");
 
   // Fetch quarter/period scores
@@ -182,9 +184,10 @@ export function GameStatsTab({ gameId, homeAbbr, awayAbbr, homeTeam, awayTeam, h
         .order("quarter", { ascending: true });
       return data || [];
     },
+    refetchInterval: isLive ? 10000 : false,
   });
 
-  // Fetch player game stats
+  // Fetch player game stats (written by burst loop during live games)
   const { data: playerStats } = useQuery({
     queryKey: ["game-player-stats", gameId],
     queryFn: async () => {
@@ -196,6 +199,7 @@ export function GameStatsTab({ gameId, homeAbbr, awayAbbr, homeTeam, awayTeam, h
         .order("points", { ascending: false });
       return data || [];
     },
+    refetchInterval: isLive ? 10000 : false,
   });
 
   // Fallback 1: BDL nba_pbp_events (keyed by game UUID)

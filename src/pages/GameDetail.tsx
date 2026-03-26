@@ -1096,6 +1096,7 @@ const GameDetail = () => {
             homeScore={game.home_score ?? null}
             awayScore={game.away_score ?? null}
             league={game.league}
+            status={game.status}
           />
         )}
       </div>
