@@ -270,8 +270,8 @@ Deno.serve(async (req) => {
 
       // 2. Process each game — scores, quarters, snapshots, player stats
       for (const g of games) {
-        const homeAbbr = g.home_team?.abbreviation ?? "";
-        const awayAbbr = g.visitor_team?.abbreviation ?? "";
+        const homeAbbr = normalizeAbbr("NBA", g.home_team?.abbreviation ?? "");
+        const awayAbbr = normalizeAbbr("NBA", g.visitor_team?.abbreviation ?? "");
 
         // Resolve on-the-fly if a new game appeared mid-loop (rare)
         const gameKey = gameKeyMap.has(g.id)

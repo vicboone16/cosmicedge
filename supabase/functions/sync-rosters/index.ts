@@ -161,8 +161,7 @@ Deno.serve(async (req) => {
         const name = [c.first_name, c.last_name].filter(Boolean).join(" ").trim().toLowerCase();
         if (!name || !c.team) continue;
         // Normalize team abbreviation
-        let teamAbbr = c.team;
-        // Cross-check with canonical (BDL uses standard abbreviations)
+        const teamAbbr = normalizeAbbr("NBA", c.team);
         bdlTeamMap.set(name, teamAbbr);
       }
 
