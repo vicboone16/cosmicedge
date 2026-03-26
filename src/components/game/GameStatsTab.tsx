@@ -184,9 +184,10 @@ export function GameStatsTab({ gameId, homeAbbr, awayAbbr, homeTeam, awayTeam, h
         .order("quarter", { ascending: true });
       return data || [];
     },
+    refetchInterval: isLive ? 10000 : false,
   });
 
-  // Fetch player game stats
+  // Fetch player game stats (written by burst loop during live games)
   const { data: playerStats } = useQuery({
     queryKey: ["game-player-stats", gameId],
     queryFn: async () => {
@@ -198,6 +199,7 @@ export function GameStatsTab({ gameId, homeAbbr, awayAbbr, homeTeam, awayTeam, h
         .order("points", { ascending: false });
       return data || [];
     },
+    refetchInterval: isLive ? 10000 : false,
   });
 
   // Fallback 1: BDL nba_pbp_events (keyed by game UUID)
