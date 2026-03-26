@@ -1,6 +1,7 @@
 import { corsHeaders } from "../_shared/cors.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { computeProjection, getStatStdDev, type PropContext } from "../_shared/prop-projection.ts";
+import { normalizeAbbr } from "../_shared/team-mappings.ts";
 
 /**
  * NBA BDL Burst Loop — Scores, Odds, PBP
