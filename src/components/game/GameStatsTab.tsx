@@ -12,6 +12,7 @@ interface GameStatsTabProps {
   homeScore: number | null;
   awayScore: number | null;
   league: string;
+  status?: string;
 }
 
 /**

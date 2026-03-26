@@ -372,6 +372,10 @@ Deno.serve(async (req) => {
               fg_made: p.fgm ?? 0, fg_attempted: p.fga ?? 0,
               three_made: p.fg3m ?? 0, three_attempted: p.fg3a ?? 0,
               ft_made: p.ftm ?? 0, ft_attempted: p.fta ?? 0,
+              personal_fouls: p.pf ?? 0,
+              off_rebounds: p.oreb ?? 0, def_rebounds: p.dreb ?? 0,
+              plus_minus: p.plus_minus ?? null,
+              starter: p.starter != null ? p.starter : null,
             }, { onConflict: "player_id,game_id,period" });
           }
         }
