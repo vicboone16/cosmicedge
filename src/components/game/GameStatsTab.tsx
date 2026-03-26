@@ -169,7 +169,8 @@ function aggregateBdlPbp(events: any[]) {
   return Array.from(playerMap.values()).sort((a, b) => b.points - a.points);
 }
 
-export function GameStatsTab({ gameId, homeAbbr, awayAbbr, homeTeam, awayTeam, homeScore, awayScore, league }: GameStatsTabProps) {
+export function GameStatsTab({ gameId, homeAbbr, awayAbbr, homeTeam, awayTeam, homeScore, awayScore, league, status }: GameStatsTabProps) {
+  const isLive = status === "live";
   const [subTab, setSubTab] = useState<"game" | "home" | "away">("game");
 
   // Fetch quarter/period scores
