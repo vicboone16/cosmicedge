@@ -121,6 +121,7 @@ const App = () => {
                   <Route path="/analytics" element={<RequireAuth><Analytics /></RequireAuth>} />
                   <Route path="/settings" element={<RequireAuth><SettingsPage /></RequireAuth>} />
                   <Route path="/calendar" element={<Navigate to="/transits" replace />} />
+                  <Route path="/celestial" element={<Navigate to="/transits" replace />} />
                   <Route path="/skyspread" element={<RequireAuth><SkySpreadPage /></RequireAuth>} />
                   <Route path="/live-board" element={<Navigate to="/skyspread" replace />} />
                   <Route path="/trends" element={<RequireAuth><TrendsPage /></RequireAuth>} />

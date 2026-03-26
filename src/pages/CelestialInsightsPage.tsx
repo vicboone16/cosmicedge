@@ -1,7 +1,8 @@
-import { Star, Moon } from "lucide-react";
+import { Star, Moon, Sparkles } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import TransitsContent from "@/components/celestial/TransitsContent";
 import CosmicCalendarContent from "@/components/celestial/CosmicCalendarContent";
+import PersonalCosmicContent from "@/components/celestial/PersonalCosmicContent";
 
 const CelestialInsightsPage = () => {
   return (
@@ -17,6 +18,10 @@ const CelestialInsightsPage = () => {
               <Star className="h-3.5 w-3.5" />
               Daily Transits
             </TabsTrigger>
+            <TabsTrigger value="personal" className="flex-1 gap-1.5">
+              <Sparkles className="h-3.5 w-3.5" />
+              Personal Cosmic
+            </TabsTrigger>
             <TabsTrigger value="calendar" className="flex-1 gap-1.5">
               <Moon className="h-3.5 w-3.5" />
               Cosmic Calendar
@@ -26,6 +31,9 @@ const CelestialInsightsPage = () => {
           <div className="-mx-4 border-t-0">
             <TabsContent value="transits" className="mt-0">
               <TransitsContent />
+            </TabsContent>
+            <TabsContent value="personal" className="mt-0">
+              <PersonalCosmicContent />
             </TabsContent>
             <TabsContent value="calendar" className="mt-0">
               <CosmicCalendarContent />
