@@ -129,7 +129,7 @@ Deno.serve(async (req) => {
           bdl_id: String(p.id),
           first_name: p.first_name || null,
           last_name: p.last_name || null,
-          team: p.team?.abbreviation || null,
+          team: p.team?.abbreviation ? normalizeAbbr("NBA", p.team.abbreviation) : null,
           fetched_at: new Date().toISOString(),
         }));
 
