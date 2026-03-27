@@ -217,13 +217,38 @@ export default function CommandCenterTab() {
 
       {/* ═══ TODAY'S TOP PLAYS ═══ */}
       <section className="space-y-3 relative z-10">
-        <h3 className="text-xs font-bold uppercase tracking-wider text-[#6b4c9a] flex items-center gap-2">
-          <Target className="w-4 h-4 text-[#d4a853]" /> Today's Top Plays
-          <span className="text-[9px] font-normal text-muted-foreground ml-auto">{MODE_META[activeMode]?.emoji} {MODE_META[activeMode]?.label} mode</span>
-        </h3>
+        <div className="flex items-center gap-2">
+          <h3 className="text-xs font-bold uppercase tracking-wider text-[#6b4c9a] flex items-center gap-2">
+            <Target className="w-4 h-4 text-[#d4a853]" /> Today's Top Plays
+          </h3>
+          {/* Tier legend tooltip */}
+          <TooltipProvider delayDuration={200}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button className="flex items-center gap-0.5 text-[9px] text-muted-foreground hover:text-foreground transition-colors">
+                  <span className="h-3.5 w-3.5 rounded-full border border-muted-foreground/40 flex items-center justify-center text-[8px] font-bold">i</span>
+                  <span className="hidden sm:inline">Tiers</span>
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="max-w-[280px] p-3 space-y-1.5">
+                <p className="text-xs font-bold mb-1">Confidence Tiers</p>
+                {TIER_EXPLANATIONS.map(t => (
+                  <div key={t.tier} className="flex items-start gap-2">
+                    <Badge className={cn("text-[8px] px-1.5 py-0 h-4 font-extrabold border shrink-0", TIER_STYLES[t.tier].bg, TIER_STYLES[t.tier].text, TIER_STYLES[t.tier].border)}>
+                      {t.tier}
+                    </Badge>
+                    <span className="text-[10px] text-muted-foreground">{t.desc}</span>
+                  </div>
+                ))}
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          <span className="text-[9px] font-normal text-muted-foreground ml-auto">{MODE_META[effectiveMode]?.emoji} {MODE_META[effectiveMode]?.label} mode</span>
+        </div>
         <div className="space-y-2">
           {filteredPlays.map((play) => {
             const tierStyle = TIER_STYLES[play.tier];
+            const edge = ((play.predicted - play.line) / play.line * 100).toFixed(1);
             return (
               <div
                 key={play.id}
@@ -249,6 +274,9 @@ export default function CommandCenterTab() {
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
+                    <span className={cn("text-[10px] font-bold tabular-nums", Number(edge) > 5 ? "text-emerald-600" : Number(edge) > 2 ? "text-amber-500" : "text-muted-foreground")}>
+                      +{edge}%
+                    </span>
                     <span className="text-[10px] text-[#7c5dac] font-bold tabular-nums">{play.confidence}%</span>
                     <ArrowRight className="w-3.5 h-3.5 text-[#d4a853]" />
                   </div>
