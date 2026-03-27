@@ -196,7 +196,7 @@ function EntitySearch({ navigate }: { navigate: (path: string) => void }) {
   );
 }
 
-type PropsTab = "explore" | "markets";
+type PropsTab = "explore" | "markets" | "montecarlo";
 
 export default function PlayerPropsPage() {
   const navigate = useNavigate();
