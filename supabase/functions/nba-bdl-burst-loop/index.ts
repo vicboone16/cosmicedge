@@ -437,8 +437,12 @@ Deno.serve(async (req) => {
               const vendor = o.vendor || o.bookmaker || "unknown";
               const now = new Date().toISOString();
 
-              // v2 flat format detection (has moneyline_home_odds or spread_home_line)
-              if (o.moneyline_home_odds != null || o.spread_home_line != null || o.total_over_odds != null) {
+              // v2 flat format detection (supports both *_line and *_value payload variants)
+              const spreadHome = o.spread_home_line ?? o.spread_home_value ?? null;
+              const spreadAway = o.spread_away_line ?? o.spread_away_value ?? null;
+              const totalLine = o.total_line ?? o.total_value ?? null;
+
+              if (o.moneyline_home_odds != null || spreadHome != null || totalLine != null || o.total_over_odds != null) {
                 if (o.moneyline_home_odds != null || o.moneyline_away_odds != null) {
                   await sb.from("nba_game_odds").upsert({
                     game_key: gk, provider: "balldontlie", vendor, market: "moneyline",
@@ -450,11 +454,12 @@ Deno.serve(async (req) => {
                   }, { onConflict: "game_key,provider,vendor,market" });
                   totals.odds++;
                 }
-                if (o.spread_home_line != null) {
+
+                if (spreadHome != null) {
                   await sb.from("nba_game_odds").upsert({
                     game_key: gk, provider: "balldontlie", vendor, market: "spread",
-                    home_line: o.spread_home_line ?? null,
-                    away_line: o.spread_away_line ?? (o.spread_home_line ? -o.spread_home_line : null),
+                    home_line: spreadHome,
+                    away_line: spreadAway ?? (spreadHome ? -spreadHome : null),
                     home_odds: o.spread_home_odds ?? null,
                     away_odds: o.spread_away_odds ?? null,
                     total: null, over_odds: null, under_odds: null,
@@ -462,10 +467,11 @@ Deno.serve(async (req) => {
                   }, { onConflict: "game_key,provider,vendor,market" });
                   totals.odds++;
                 }
-                if (o.total_over_odds != null || o.total_line != null) {
+
+                if (o.total_over_odds != null || totalLine != null) {
                   await sb.from("nba_game_odds").upsert({
                     game_key: gk, provider: "balldontlie", vendor, market: "total",
-                    total: o.total_line ?? null,
+                    total: totalLine,
                     over_odds: o.total_over_odds ?? null,
                     under_odds: o.total_under_odds ?? null,
                     home_line: null, away_line: null,
