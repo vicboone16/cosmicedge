@@ -252,8 +252,17 @@ export default function CommandCenterTab() {
             return (
               <div
                 key={play.id}
-                className={cn(glassCard, "p-4 space-y-2 hover:border-[#d4a853]/40 transition-all cursor-pointer", tierStyle.glow)}
-                onClick={() => navigate("/predictions")}
+                className={cn(
+                  glassCard, "p-4 space-y-2 hover:border-[#d4a853]/40 transition-all cursor-pointer", tierStyle.glow,
+                  selectedPlayId === play.id && "ring-2 ring-[#d4a853]/60 border-[#d4a853]/50 bg-[#f5e6c8]/20"
+                )}
+                onClick={() => {
+                  if (selectedPlayId === play.id) {
+                    navigate("/predictions");
+                  } else {
+                    setSelectedPlayId(play.id);
+                  }
+                }}
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
