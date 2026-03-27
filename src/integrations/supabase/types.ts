@@ -2865,6 +2865,30 @@ export type Database = {
           },
         ]
       }
+      external_feed_health: {
+        Row: {
+          feed_name: string
+          last_error_text: string | null
+          last_record_count: number | null
+          last_success_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          feed_name: string
+          last_error_text?: string | null
+          last_record_count?: number | null
+          last_success_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          feed_name?: string
+          last_error_text?: string | null
+          last_record_count?: number | null
+          last_success_at?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       fantasy_scoring_rules: {
         Row: {
           assists_weight: number
@@ -7933,11 +7957,138 @@ export type Database = {
           },
         ]
       }
+      prizepicks_ingestion_log: {
+        Row: {
+          created_at: string
+          error_text: string | null
+          feed_name: string | null
+          id: number
+          inserted_raw_count: number
+          payload: Json
+          payload_date_local: string | null
+          payload_timezone: string | null
+          received_record_count: number
+          source: string
+          status: string
+          upserted_current_count: number
+        }
+        Insert: {
+          created_at?: string
+          error_text?: string | null
+          feed_name?: string | null
+          id?: number
+          inserted_raw_count?: number
+          payload?: Json
+          payload_date_local?: string | null
+          payload_timezone?: string | null
+          received_record_count?: number
+          source?: string
+          status?: string
+          upserted_current_count?: number
+        }
+        Update: {
+          created_at?: string
+          error_text?: string | null
+          feed_name?: string | null
+          id?: number
+          inserted_raw_count?: number
+          payload?: Json
+          payload_date_local?: string | null
+          payload_timezone?: string | null
+          received_record_count?: number
+          source?: string
+          status?: string
+          upserted_current_count?: number
+        }
+        Relationships: []
+      }
+      prizepicks_props_current: {
+        Row: {
+          board_time: string | null
+          created_at: string
+          fetched_at_local: string | null
+          fetched_minute: string | null
+          game_id: string | null
+          id: number
+          is_promo: boolean
+          league: string
+          line_score: number | null
+          market_type: string
+          matchup: string | null
+          odds_type: string | null
+          payload_date_local: string | null
+          payload_timezone: string | null
+          player_name: string
+          position: string | null
+          projection_id: string
+          raw_row: Json
+          source: string
+          start_time_local: string | null
+          start_time_utc: string | null
+          stat_type: string
+          team: string | null
+          updated_at: string
+        }
+        Insert: {
+          board_time?: string | null
+          created_at?: string
+          fetched_at_local?: string | null
+          fetched_minute?: string | null
+          game_id?: string | null
+          id?: number
+          is_promo?: boolean
+          league: string
+          line_score?: number | null
+          market_type: string
+          matchup?: string | null
+          odds_type?: string | null
+          payload_date_local?: string | null
+          payload_timezone?: string | null
+          player_name: string
+          position?: string | null
+          projection_id: string
+          raw_row?: Json
+          source?: string
+          start_time_local?: string | null
+          start_time_utc?: string | null
+          stat_type: string
+          team?: string | null
+          updated_at?: string
+        }
+        Update: {
+          board_time?: string | null
+          created_at?: string
+          fetched_at_local?: string | null
+          fetched_minute?: string | null
+          game_id?: string | null
+          id?: number
+          is_promo?: boolean
+          league?: string
+          line_score?: number | null
+          market_type?: string
+          matchup?: string | null
+          odds_type?: string | null
+          payload_date_local?: string | null
+          payload_timezone?: string | null
+          player_name?: string
+          position?: string | null
+          projection_id?: string
+          raw_row?: Json
+          source?: string
+          start_time_local?: string | null
+          start_time_utc?: string | null
+          stat_type?: string
+          team?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       prizepicks_props_raw: {
         Row: {
           board_time: string | null
           created_at: string
           fetched_at_local: string | null
+          fetched_minute: string | null
           game_id: string | null
           id: number
           is_promo: boolean
@@ -7963,6 +8114,7 @@ export type Database = {
           board_time?: string | null
           created_at?: string
           fetched_at_local?: string | null
+          fetched_minute?: string | null
           game_id?: string | null
           id?: number
           is_promo?: boolean
@@ -7988,6 +8140,7 @@ export type Database = {
           board_time?: string | null
           created_at?: string
           fetched_at_local?: string | null
+          fetched_minute?: string | null
           game_id?: string | null
           id?: number
           is_promo?: boolean
@@ -13985,7 +14138,209 @@ export type Database = {
         }
         Relationships: []
       }
-      v_prizepicks_nba_pra_today: {
+      v_prizepicks_ingestion_recent: {
+        Row: {
+          created_at: string | null
+          error_text: string | null
+          feed_name: string | null
+          id: number | null
+          inserted_raw_count: number | null
+          payload_date_local: string | null
+          payload_timezone: string | null
+          received_record_count: number | null
+          source: string | null
+          status: string | null
+          upserted_current_count: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          error_text?: string | null
+          feed_name?: string | null
+          id?: number | null
+          inserted_raw_count?: number | null
+          payload_date_local?: string | null
+          payload_timezone?: string | null
+          received_record_count?: number | null
+          source?: string | null
+          status?: string | null
+          upserted_current_count?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          error_text?: string | null
+          feed_name?: string | null
+          id?: number | null
+          inserted_raw_count?: number | null
+          payload_date_local?: string | null
+          payload_timezone?: string | null
+          received_record_count?: number | null
+          source?: string | null
+          status?: string | null
+          upserted_current_count?: number | null
+        }
+        Relationships: []
+      }
+      v_prizepicks_nba_pra_current: {
+        Row: {
+          board_time: string | null
+          fetched_at_local: string | null
+          fetched_minute: string | null
+          game_id: string | null
+          is_promo: boolean | null
+          line_score: number | null
+          matchup: string | null
+          player_name: string | null
+          position: string | null
+          projection_id: string | null
+          start_time_local: string | null
+          start_time_utc: string | null
+          stat_type: string | null
+          team: string | null
+        }
+        Insert: {
+          board_time?: string | null
+          fetched_at_local?: string | null
+          fetched_minute?: string | null
+          game_id?: string | null
+          is_promo?: boolean | null
+          line_score?: number | null
+          matchup?: string | null
+          player_name?: string | null
+          position?: string | null
+          projection_id?: string | null
+          start_time_local?: string | null
+          start_time_utc?: string | null
+          stat_type?: string | null
+          team?: string | null
+        }
+        Update: {
+          board_time?: string | null
+          fetched_at_local?: string | null
+          fetched_minute?: string | null
+          game_id?: string | null
+          is_promo?: boolean | null
+          line_score?: number | null
+          matchup?: string | null
+          player_name?: string | null
+          position?: string | null
+          projection_id?: string | null
+          start_time_local?: string | null
+          start_time_utc?: string | null
+          stat_type?: string | null
+          team?: string | null
+        }
+        Relationships: []
+      }
+      v_prizepicks_nba_pra_current_nonpromo: {
+        Row: {
+          board_time: string | null
+          fetched_at_local: string | null
+          fetched_minute: string | null
+          game_id: string | null
+          is_promo: boolean | null
+          line_score: number | null
+          matchup: string | null
+          player_name: string | null
+          position: string | null
+          projection_id: string | null
+          start_time_local: string | null
+          start_time_utc: string | null
+          stat_type: string | null
+          team: string | null
+        }
+        Insert: {
+          board_time?: string | null
+          fetched_at_local?: string | null
+          fetched_minute?: string | null
+          game_id?: string | null
+          is_promo?: boolean | null
+          line_score?: number | null
+          matchup?: string | null
+          player_name?: string | null
+          position?: string | null
+          projection_id?: string | null
+          start_time_local?: string | null
+          start_time_utc?: string | null
+          stat_type?: string | null
+          team?: string | null
+        }
+        Update: {
+          board_time?: string | null
+          fetched_at_local?: string | null
+          fetched_minute?: string | null
+          game_id?: string | null
+          is_promo?: boolean | null
+          line_score?: number | null
+          matchup?: string | null
+          player_name?: string | null
+          position?: string | null
+          projection_id?: string | null
+          start_time_local?: string | null
+          start_time_utc?: string | null
+          stat_type?: string | null
+          team?: string | null
+        }
+        Relationships: []
+      }
+      v_prizepicks_nba_pra_grouped: {
+        Row: {
+          game_key: string | null
+          matchup: string | null
+          prop_count: number | null
+          props: Json | null
+          start_time_local: string | null
+        }
+        Relationships: []
+      }
+      v_prizepicks_nba_pra_today_la: {
+        Row: {
+          board_time: string | null
+          fetched_at_local: string | null
+          game_id: string | null
+          is_promo: boolean | null
+          line_score: number | null
+          matchup: string | null
+          player_name: string | null
+          position: string | null
+          projection_id: string | null
+          start_time_local: string | null
+          start_time_utc: string | null
+          stat_type: string | null
+          team: string | null
+        }
+        Insert: {
+          board_time?: string | null
+          fetched_at_local?: string | null
+          game_id?: string | null
+          is_promo?: boolean | null
+          line_score?: number | null
+          matchup?: string | null
+          player_name?: string | null
+          position?: string | null
+          projection_id?: string | null
+          start_time_local?: string | null
+          start_time_utc?: string | null
+          stat_type?: string | null
+          team?: string | null
+        }
+        Update: {
+          board_time?: string | null
+          fetched_at_local?: string | null
+          game_id?: string | null
+          is_promo?: boolean | null
+          line_score?: number | null
+          matchup?: string | null
+          player_name?: string | null
+          position?: string | null
+          projection_id?: string | null
+          start_time_local?: string | null
+          start_time_utc?: string | null
+          stat_type?: string | null
+          team?: string | null
+        }
+        Relationships: []
+      }
+      v_prizepicks_nba_pra_today_la_nonpromo: {
         Row: {
           board_time: string | null
           fetched_at_local: string | null
@@ -14027,16 +14382,6 @@ export type Database = {
           start_time_utc?: string | null
           stat_type?: string | null
           team?: string | null
-        }
-        Relationships: []
-      }
-      v_prizepicks_nba_pra_today_grouped: {
-        Row: {
-          game_key: string | null
-          matchup: string | null
-          prop_count: number | null
-          props: Json | null
-          start_time_local: string | null
         }
         Relationships: []
       }
@@ -14214,6 +14559,10 @@ export type Database = {
           object_type: string
         }[]
       }
+      cleanup_prizepicks_raw: {
+        Args: { p_keep_days?: number }
+        Returns: number
+      }
       cleanup_visual_event_queue: { Args: never; Returns: undefined }
       compute_live_readiness: { Args: { p_game_id: string }; Returns: Json }
       consume_visual_event: { Args: { p_queue_id: string }; Returns: undefined }
@@ -14331,9 +14680,9 @@ export type Database = {
         }
         Returns: boolean
       }
-      ingest_prizepicks_props_raw: {
+      ingest_prizepicks_props_bundle: {
         Args: { p_payload: Json }
-        Returns: number
+        Returns: Json
       }
       is_conversation_member: {
         Args: { _conversation_id: string; _user_id: string }

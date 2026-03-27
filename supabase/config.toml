@@ -140,3 +140,6 @@ verify_jwt = false
 
 [functions.bolt-odds-bridge]
 verify_jwt = false
+
+[functions.prizepicks-nba-pra]
+verify_jwt = false
