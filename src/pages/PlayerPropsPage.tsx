@@ -394,6 +394,16 @@ export default function PlayerPropsPage() {
             Explore
           </button>
           <button
+            onClick={() => setActiveTab("montecarlo")}
+            className={cn(
+              "flex-1 flex items-center justify-center gap-1.5 py-2 rounded-full text-xs font-semibold transition-colors",
+              activeTab === "montecarlo" ? "bg-foreground text-background" : "text-muted-foreground"
+            )}
+          >
+            <Dices className="h-3.5 w-3.5" />
+            Simulator
+          </button>
+          <button
             onClick={() => setActiveTab("markets")}
             className={cn(
               "flex-1 flex items-center justify-center gap-1.5 py-2 rounded-full text-xs font-semibold transition-colors",
@@ -401,7 +411,7 @@ export default function PlayerPropsPage() {
             )}
           >
             <TableProperties className="h-3.5 w-3.5" />
-            Prediction Picks
+            Picks
           </button>
         </div>
 
