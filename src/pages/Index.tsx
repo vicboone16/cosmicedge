@@ -13,6 +13,7 @@ import { TrendingPlaysStrip } from "@/components/slate/TrendingPlaysStrip";
 import { LiveNowStrip } from "@/components/slate/LiveNowStrip";
 import { LiveRadarPill } from "@/components/slate/LiveRadarPill";
 import { GuidanceCard } from "@/components/ui/GuidanceCard";
+import { TwinklingStars } from "@/components/slate/TwinklingStars";
 
 const Index = () => {
   const [selectedLeague, setSelectedLeague] = useState<League | "ALL">("ALL");
