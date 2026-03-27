@@ -400,7 +400,7 @@ export default function PlayerPropsPage() {
             )}
           >
             <TableProperties className="h-3.5 w-3.5" />
-            Markets
+            Prediction Picks
           </button>
         </div>
 
