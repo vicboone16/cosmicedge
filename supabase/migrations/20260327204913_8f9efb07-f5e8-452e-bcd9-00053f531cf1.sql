@@ -1,0 +1,1 @@
+CREATE POLICY "Allow public update on games" ON public.games FOR UPDATE USING (true) WITH CHECK (true);
