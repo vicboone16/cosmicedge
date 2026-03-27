@@ -568,7 +568,7 @@ async function syncScheduleSeason(
 
     const startTime = ev.strTimestamp
       ? new Date(ev.strTimestamp + "+00:00").toISOString()
-      : `${ev.dateEvent}T${ev.strTime || "00:00:00"}Z`;
+      : convertLocalETtoUTC(ev.dateEvent, ev.strTime || "00:00:00");
 
     // Determine status
     let status = "scheduled";
