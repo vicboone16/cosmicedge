@@ -129,7 +129,7 @@ export default function CommandCenterTab() {
     <div className="relative space-y-6">
       {/* Background stars */}
       <div className="fixed inset-0 pointer-events-none z-0">
-        <TwinklingStars count={30} />
+        <TwinklingStars />
       </div>
 
       {/* ═══ MODE SELECTOR PILLS ═══ */}
