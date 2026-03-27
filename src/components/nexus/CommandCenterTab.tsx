@@ -154,7 +154,7 @@ export default function CommandCenterTab() {
           {(Object.keys(MODE_META) as string[]).map((key) => {
             const meta = MODE_META[key];
             const Icon = meta.icon;
-            const isActive = key === activeMode;
+            const isActive = key === effectiveMode;
             const dbMode = modes.find(m => m.mode_key === key);
             return (
               <Tooltip key={key}>
