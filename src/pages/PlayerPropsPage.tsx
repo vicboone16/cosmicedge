@@ -3,11 +3,12 @@ import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { TrendingUp, TrendingDown, RefreshCw, ArrowUpDown, Search, ChevronLeft, ChevronRight, ToggleLeft, ToggleRight, Flame, Users, User, X, Plus, Sparkles, TableProperties } from "lucide-react";
+import { TrendingUp, TrendingDown, RefreshCw, ArrowUpDown, Search, ChevronLeft, ChevronRight, ToggleLeft, ToggleRight, Flame, Users, User, X, Plus, Sparkles, TableProperties, Dices } from "lucide-react";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { format, addDays, isToday } from "date-fns";
 import { Input } from "@/components/ui/input";
 import { PropsExploreTab } from "@/components/props/PropsExploreTab";
+import { MonteCarloSimTab } from "@/components/props/MonteCarloSimTab";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
@@ -195,7 +196,7 @@ function EntitySearch({ navigate }: { navigate: (path: string) => void }) {
   );
 }
 
-type PropsTab = "explore" | "markets";
+type PropsTab = "explore" | "markets" | "montecarlo";
 
 export default function PlayerPropsPage() {
   const navigate = useNavigate();
@@ -393,6 +394,16 @@ export default function PlayerPropsPage() {
             Explore
           </button>
           <button
+            onClick={() => setActiveTab("montecarlo")}
+            className={cn(
+              "flex-1 flex items-center justify-center gap-1.5 py-2 rounded-full text-xs font-semibold transition-colors",
+              activeTab === "montecarlo" ? "bg-foreground text-background" : "text-muted-foreground"
+            )}
+          >
+            <Dices className="h-3.5 w-3.5" />
+            Simulator
+          </button>
+          <button
             onClick={() => setActiveTab("markets")}
             className={cn(
               "flex-1 flex items-center justify-center gap-1.5 py-2 rounded-full text-xs font-semibold transition-colors",
@@ -400,7 +411,7 @@ export default function PlayerPropsPage() {
             )}
           >
             <TableProperties className="h-3.5 w-3.5" />
-            Prediction Picks
+            Picks
           </button>
         </div>
 
@@ -540,6 +551,8 @@ export default function PlayerPropsPage() {
 
       {activeTab === "explore" ? (
         <PropsExploreTab />
+      ) : activeTab === "montecarlo" ? (
+        <MonteCarloSimTab selectedDate={selectedDate} />
       ) : (
       <div className="px-4 py-4">
         {view === "odds" ? (
