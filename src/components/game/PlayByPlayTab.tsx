@@ -344,7 +344,7 @@ export function PlayByPlayTab({ gameId, homeAbbr, awayAbbr, league, gameStatus }
   const normalizedEvents: NormalizedEvent[] = useMemo(() => {
     const names = nameMap || new Map<string, string>();
 
-    return rawEvents.map((ev: any, i: number) => {
+    const mapped = rawEvents.map((ev: any, i: number) => {
       let period: number;
       let clockRaw: string | null;
       let team: string | null;
@@ -415,7 +415,9 @@ export function PlayByPlayTab({ gameId, homeAbbr, awayAbbr, league, gameStatus }
       }
 
       return { key, period, clockSeconds, clockDisplay, team, player, description: desc, homeScore, awayScore, wp };
-    }).sort((a, b) => {
+    });
+
+    const sorted = mapped.sort((a, b) => {
       // Sort by period ASC, then by clockSeconds DESC (more time remaining = earlier in period)
       if (a.period !== b.period) return a.period - b.period;
       const ca = a.clockSeconds ?? -1;
@@ -423,6 +425,27 @@ export function PlayByPlayTab({ gameId, homeAbbr, awayAbbr, league, gameStatus }
       // Higher clock = earlier in the period
       return cb - ca;
     });
+
+    // ── Fix running scores: carry forward last known score so non-scoring
+    //    events don't show null/stale values that cause out-of-order display ──
+    let lastHome: number | null = null;
+    let lastAway: number | null = null;
+    for (const ev of sorted) {
+      if (ev.homeScore != null && ev.awayScore != null) {
+        // Only accept scores that are monotonically non-decreasing
+        if (lastHome == null || (ev.homeScore >= lastHome && ev.awayScore >= lastAway!)) {
+          lastHome = ev.homeScore;
+          lastAway = ev.awayScore;
+        }
+      }
+      // Apply the best-known running score to every event
+      if (lastHome != null) {
+        ev.homeScore = lastHome;
+        ev.awayScore = lastAway;
+      }
+    }
+
+    return sorted;
   }, [rawEvents, rawSource, nameMap, league]);
 
   if (isLoading) {
