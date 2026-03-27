@@ -141,7 +141,7 @@ export const GameCard = memo(function GameCard({ game }: { game: GameWithOdds })
             >
               {game.away_abbr}
             </span>
-            <span className={cn("text-sm font-medium", isFinal && (game.away_score ?? 0) > (game.home_score ?? 0) && "text-foreground", isFinal && (game.away_score ?? 0) <= (game.home_score ?? 0) && "text-muted-foreground")}>
+            <span className={cn("text-sm font-medium truncate max-w-[120px] sm:max-w-none", isFinal && (game.away_score ?? 0) > (game.home_score ?? 0) && "text-foreground", isFinal && (game.away_score ?? 0) <= (game.home_score ?? 0) && "text-muted-foreground")}>
               {game.away_team}
             </span>
           </div>
@@ -165,7 +165,7 @@ export const GameCard = memo(function GameCard({ game }: { game: GameWithOdds })
             >
               {game.home_abbr}
             </span>
-            <span className={cn("text-sm font-medium", isFinal && (game.home_score ?? 0) > (game.away_score ?? 0) && "text-foreground", isFinal && (game.home_score ?? 0) <= (game.away_score ?? 0) && "text-muted-foreground")}>
+            <span className={cn("text-sm font-medium truncate max-w-[120px] sm:max-w-none", isFinal && (game.home_score ?? 0) > (game.away_score ?? 0) && "text-foreground", isFinal && (game.home_score ?? 0) <= (game.away_score ?? 0) && "text-muted-foreground")}>
               {game.home_team}
             </span>
           </div>
@@ -266,7 +266,7 @@ export const GameCard = memo(function GameCard({ game }: { game: GameWithOdds })
           <div className="w-px h-6 bg-border/50" />
           <div className="flex-1 text-center">
             <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Venue</span>
-            <p className="text-[10px] font-medium text-foreground truncate">
+            <p className="text-[10px] font-medium text-foreground truncate max-w-[80px] sm:max-w-none">
               {game.venue || "TBD"}
             </p>
           </div>

@@ -15,8 +15,60 @@ import HistoricalPage from "./HistoricalPage";
 import { TrendCard, type TrendInsight } from "@/components/trends/TrendCard";
 import { getMarketShort } from "@/lib/market-catalog";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
 
 const glassCard = "backdrop-blur-xl bg-[#e8dff5]/40 border border-[#c4b0e0]/40 shadow-lg rounded-xl";
+
+// ── Grouped Player Insight Card ──
+function PlayerInsightGroup({ playerName, insights }: { playerName: string; insights: TrendInsight[] }) {
+  const navigate = useNavigate();
+  const initial = playerName.charAt(0).toUpperCase();
+
+  if (insights.length === 1) {
+    return <TrendCard insight={insights[0]} />;
+  }
+
+  return (
+    <div className={cn(glassCard, "p-4 space-y-3")}>
+      {/* Player header */}
+      <div className="flex items-center gap-3">
+        <div className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center text-lg font-bold text-muted-foreground shrink-0">
+          {initial}
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold text-foreground truncate">{playerName}</p>
+          <p className="text-[10px] text-muted-foreground">{insights.length} insights</p>
+        </div>
+      </div>
+      {/* Accordion of insights */}
+      <Accordion type="single" collapsible className="space-y-0">
+        {insights.map((insight) => {
+          const propLabel = getMarketShort(insight.marketKey || "");
+          const dirLabel = insight.direction === "over" ? "Over" : "Under";
+          return (
+            <AccordionItem key={insight.id} value={insight.id} className="border-b-0">
+              <AccordionTrigger className="py-2 hover:no-underline">
+                <div className="flex items-center gap-2 text-left min-w-0">
+                  <span className={cn(
+                    "text-[10px] font-bold px-1.5 py-0.5 rounded",
+                    insight.direction === "over" ? "bg-cosmic-green/15 text-cosmic-green" : "bg-destructive/15 text-destructive"
+                  )}>
+                    {dirLabel}
+                  </span>
+                  <span className="text-xs font-medium text-foreground truncate">{insight.line} {propLabel}</span>
+                  <span className="text-[10px] text-cosmic-green font-semibold ml-auto shrink-0">{insight.hitRate.toFixed(0)}%</span>
+                </div>
+              </AccordionTrigger>
+              <AccordionContent className="pb-2">
+                <TrendCard insight={insight} />
+              </AccordionContent>
+            </AccordionItem>
+          );
+        })}
+      </Accordion>
+    </div>
+  );
+}
 
 // ── Players Tab (now with Player Insights from Trends) ──
 function PlayersTab() {
@@ -228,16 +280,24 @@ function PlayersTab() {
         </div>
       ) : (
         <>
-          {/* Player Insights section */}
+          {/* Player Insights — grouped by player */}
           {playerInsights && playerInsights.length > 0 && (
             <div className="space-y-2">
               <h3 className="text-xs font-semibold uppercase tracking-widest text-[#6b4c9a] flex items-center gap-1.5">
                 <TrendingUp className="h-3.5 w-3.5 text-[#a78bda]" /> Player Insights
               </h3>
               <div className="space-y-2">
-                {playerInsights.slice(0, 5).map(insight => (
-                  <TrendCard key={insight.id} insight={insight} />
-                ))}
+                {(() => {
+                  const grouped = new Map<string, typeof playerInsights>();
+                  for (const insight of playerInsights.slice(0, 10)) {
+                    const key = insight.playerName;
+                    if (!grouped.has(key)) grouped.set(key, []);
+                    grouped.get(key)!.push(insight);
+                  }
+                  return Array.from(grouped.entries()).map(([playerName, insights]) => (
+                    <PlayerInsightGroup key={playerName} playerName={playerName} insights={insights} />
+                  ));
+                })()}
               </div>
             </div>
           )}

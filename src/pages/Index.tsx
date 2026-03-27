@@ -54,7 +54,7 @@ const Index = () => {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 mb-1">
               <Star className="h-5 w-5 text-primary" />
-              <h1 className="text-xl font-bold font-display tracking-tight">Cosmic Edge</h1>
+              <h1 className="text-lg sm:text-xl font-bold font-display tracking-tight">Cosmic Edge</h1>
             </div>
             <button
               onClick={handleRefresh}
