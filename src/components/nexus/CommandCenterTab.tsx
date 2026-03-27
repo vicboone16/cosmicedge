@@ -343,7 +343,7 @@ export default function CommandCenterTab() {
           </DashboardCard>
 
           {/* Trap Watch */}
-          <DashboardCard title="Trap Watch" icon={AlertTriangle} accent="danger">
+          <DashboardCard title="Trap Watch" icon={AlertTriangle} accent="danger" onClick={() => navigate("/astra")}>
             <div className="space-y-1.5">
               {MOCK_TRAP_ALERTS.map(trap => (
                 <div key={trap.id} className="space-y-0.5">
