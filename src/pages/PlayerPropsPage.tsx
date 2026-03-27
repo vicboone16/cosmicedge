@@ -711,6 +711,7 @@ export default function PlayerPropsPage() {
                         })}
                       </TableBody>
                     </Table>
+                    </div>
                   </div>
                 )}
               </>
