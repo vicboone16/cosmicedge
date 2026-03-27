@@ -343,7 +343,7 @@ export default function CommandCenterTab() {
           </DashboardCard>
 
           {/* Trap Watch */}
-          <DashboardCard title="Trap Watch" icon={AlertTriangle} accent="danger">
+          <DashboardCard title="Trap Watch" icon={AlertTriangle} accent="danger" onClick={() => navigate("/astra")}>
             <div className="space-y-1.5">
               {MOCK_TRAP_ALERTS.map(trap => (
                 <div key={trap.id} className="space-y-0.5">
@@ -358,7 +358,7 @@ export default function CommandCenterTab() {
           </DashboardCard>
 
           {/* Slip Health */}
-          <DashboardCard title="Slip Health" icon={BarChart3} accent="neutral">
+          <DashboardCard title="Slip Health" icon={BarChart3} accent="neutral" onClick={() => navigate("/skyspread")}>
             <div className="space-y-1.5">
               {MOCK_SLIP_HEALTH.map(s => (
                 <div key={s.stat} className="flex items-center gap-2">
@@ -379,7 +379,7 @@ export default function CommandCenterTab() {
           </DashboardCard>
 
           {/* Opportunity Feed */}
-          <DashboardCard title="Opportunities" icon={Zap} accent="gold">
+          <DashboardCard title="Opportunities" icon={Zap} accent="gold" onClick={() => navigate("/predictions")}>
             <div className="space-y-1.5">
               {MOCK_OPPORTUNITIES.map(opp => (
                 <div key={opp.id} className="flex items-center justify-between">
@@ -448,6 +448,7 @@ function DashboardCard({
   expandable,
   expanded,
   onToggle,
+  onClick,
   children,
 }: {
   title: string;
@@ -456,6 +457,7 @@ function DashboardCard({
   expandable?: boolean;
   expanded?: boolean;
   onToggle?: () => void;
+  onClick?: () => void;
   children: React.ReactNode;
 }) {
   const accentColor = {
@@ -474,8 +476,8 @@ function DashboardCard({
 
   return (
     <div
-      onClick={expandable ? onToggle : undefined}
-      className={cn(glassCard, "p-3 space-y-2 transition-all", borderHover, expandable && "cursor-pointer")}
+      onClick={expandable ? onToggle : onClick}
+      className={cn(glassCard, "p-3 space-y-2 transition-all", borderHover, (expandable || onClick) && "cursor-pointer")}
     >
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1.5">
