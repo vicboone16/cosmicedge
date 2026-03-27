@@ -22,6 +22,7 @@ const glassCard = "backdrop-blur-xl bg-[#e8dff5]/40 border border-[#c4b0e0]/40 s
 const goldGlass = "backdrop-blur-xl bg-gradient-to-br from-[#f5e6c8]/50 to-[#e8d5a8]/30 border border-[#d4b978]/40 shadow-lg rounded-xl";
 
 const MODE_META: Record<string, { icon: any; emoji: string; label: string; desc: string }> = {
+  pra_sniper: { icon: Target, emoji: "🏆", label: "PRA Sniper", desc: "Only PRA (Points + Rebounds + Assists) predictions. Highest-confidence PRA bets." },
   sniper: { icon: Crosshair, emoji: "🎯", label: "Sniper", desc: "Only S+A tier combo stats (PRA, Pts+Reb). Highest precision picks." },
   cosmic: { icon: Sparkles, emoji: "🔮", label: "Cosmic", desc: "Picks ranked by cosmic alignment strength." },
   hedge: { icon: Shield, emoji: "🛡️", label: "Hedge", desc: "Safest plays with lowest variance." },
