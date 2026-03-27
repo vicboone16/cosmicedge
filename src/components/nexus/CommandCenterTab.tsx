@@ -130,8 +130,7 @@ export default function CommandCenterTab() {
   const liveGamesCount = liveGames?.length || 0;
 
   // Filter mock plays by mode
-  // Default to pra_sniper if no user preference set
-  const effectiveMode = activeMode === "cosmic" && !user ? "pra_sniper" : activeMode;
+  const effectiveMode = activeMode;
 
   const filteredPlays = useMemo(() => {
     if (effectiveMode === "pra_sniper") return MOCK_TOP_PLAYS.filter(p => p.stat === "PRA");
