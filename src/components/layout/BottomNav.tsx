@@ -7,7 +7,7 @@ const navItems = [
   { to: "/", icon: CalendarDays, label: "Slate", requiresAuth: false },
   { to: "/transits", icon: Compass, label: "Celestial", requiresAuth: true },
   { to: "/nexus", icon: Command, label: "Nexus", requiresAuth: true },
-  { to: "/props", icon: TrendingUp, label: "Props", requiresAuth: true },
+  { to: "/predictions", icon: TrendingUp, label: "Predictions", requiresAuth: true },
   { to: "/skyspread", icon: Crosshair, label: "SkySpread", requiresAuth: true },
   { to: "/astra", icon: Sparkles, label: "Astra AI", requiresAuth: true },
 ];
