@@ -126,7 +126,8 @@ const App = () => {
                   <Route path="/live-board" element={<Navigate to="/skyspread" replace />} />
                   <Route path="/trends" element={<RequireAuth><TrendsPage /></RequireAuth>} />
                   <Route path="/signal-lab" element={<Navigate to="/nexus?tab=signals" replace />} />
-                  <Route path="/props" element={<RequireAuth><PlayerPropsPage /></RequireAuth>} />
+                  <Route path="/predictions" element={<RequireAuth><PlayerPropsPage /></RequireAuth>} />
+                  <Route path="/props" element={<Navigate to="/predictions" replace />} />
                   <Route path="/historical" element={<Navigate to="/nexus" replace />} />
                   <Route path="/nexus" element={<RequireAuth><NexusPage /></RequireAuth>} />
                   <Route path="/clv" element={<RequireAuth><CLVCalculatorPage /></RequireAuth>} />
