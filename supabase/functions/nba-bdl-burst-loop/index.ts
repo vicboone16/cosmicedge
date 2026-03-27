@@ -31,6 +31,21 @@ function parseClockToSeconds(clock: string | null | undefined): number | null {
   return mins * 60 + Math.floor(secs);
 }
 
+function deriveGameStatus(g: any): "scheduled" | "live" | "final" {
+  const statusText = String(g?.status ?? g?.game_status ?? "").toLowerCase();
+  const periodNum = Number(g?.period ?? 0);
+  const homeScore = Number(g?.home_team_score ?? 0);
+  const awayScore = Number(g?.visitor_team_score ?? 0);
+
+  const isFinal = statusText.includes("final");
+  const isLiveByText = /(live|in progress|halftime|quarter|q[1-4]|ot)/.test(statusText);
+  const isLiveByData = periodNum > 0 || homeScore > 0 || awayScore > 0;
+
+  if (isFinal) return "final";
+  if (isLiveByText || isLiveByData) return "live";
+  return "scheduled";
+}
+
 function getProjectRef(): string {
   try {
     return new URL(Deno.env.get("SUPABASE_URL") ?? "").hostname.split(".")[0];
@@ -283,7 +298,10 @@ Deno.serve(async (req) => {
         // Update scores (realtime push via publication)
         const homeScore = g.home_team_score ?? null;
         const awayScore = g.visitor_team_score ?? null;
-        const status = g.status === "Final" ? "final" : g.period > 0 ? "live" : "scheduled";
+        const status = deriveGameStatus(g);
+
+        // Ignore provider pregame rows so we don't overwrite active game data with 0-0 snapshots.
+        if (status === "scheduled") continue;
 
         // ── Freeze pregame odds at tipoff ──
         // On first tick where game becomes live, snapshot current odds into pregame_odds
@@ -419,8 +437,12 @@ Deno.serve(async (req) => {
               const vendor = o.vendor || o.bookmaker || "unknown";
               const now = new Date().toISOString();
 
-              // v2 flat format detection (has moneyline_home_odds or spread_home_line)
-              if (o.moneyline_home_odds != null || o.spread_home_line != null || o.total_over_odds != null) {
+              // v2 flat format detection (supports both *_line and *_value payload variants)
+              const spreadHome = o.spread_home_line ?? o.spread_home_value ?? null;
+              const spreadAway = o.spread_away_line ?? o.spread_away_value ?? null;
+              const totalLine = o.total_line ?? o.total_value ?? null;
+
+              if (o.moneyline_home_odds != null || spreadHome != null || totalLine != null || o.total_over_odds != null) {
                 if (o.moneyline_home_odds != null || o.moneyline_away_odds != null) {
                   await sb.from("nba_game_odds").upsert({
                     game_key: gk, provider: "balldontlie", vendor, market: "moneyline",
@@ -432,11 +454,12 @@ Deno.serve(async (req) => {
                   }, { onConflict: "game_key,provider,vendor,market" });
                   totals.odds++;
                 }
-                if (o.spread_home_line != null) {
+
+                if (spreadHome != null) {
                   await sb.from("nba_game_odds").upsert({
                     game_key: gk, provider: "balldontlie", vendor, market: "spread",
-                    home_line: o.spread_home_line ?? null,
-                    away_line: o.spread_away_line ?? (o.spread_home_line ? -o.spread_home_line : null),
+                    home_line: spreadHome,
+                    away_line: spreadAway ?? (spreadHome ? -spreadHome : null),
                     home_odds: o.spread_home_odds ?? null,
                     away_odds: o.spread_away_odds ?? null,
                     total: null, over_odds: null, under_odds: null,
@@ -444,10 +467,11 @@ Deno.serve(async (req) => {
                   }, { onConflict: "game_key,provider,vendor,market" });
                   totals.odds++;
                 }
-                if (o.total_over_odds != null || o.total_line != null) {
+
+                if (o.total_over_odds != null || totalLine != null) {
                   await sb.from("nba_game_odds").upsert({
                     game_key: gk, provider: "balldontlie", vendor, market: "total",
-                    total: o.total_line ?? null,
+                    total: totalLine,
                     over_odds: o.total_over_odds ?? null,
                     under_odds: o.total_under_odds ?? null,
                     home_line: null, away_line: null,
