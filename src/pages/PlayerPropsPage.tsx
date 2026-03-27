@@ -581,19 +581,23 @@ export default function PlayerPropsPage() {
               /* ── Player Props Table ── */
               <>
                 {isLoading ? (
-                  <div className="cosmic-card rounded-xl p-8 text-center">
-                    <p className="text-xs text-muted-foreground">Loading props...</p>
+                  <div className="cosmic-card rounded-xl p-8 text-center space-y-3">
+                    <div className="h-6 w-6 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
+                    <p className="text-sm font-medium text-foreground">Predictions generating...</p>
+                    <p className="text-xs text-muted-foreground max-w-xs mx-auto">
+                      Our engines are computing model outputs for today's games. This may take a moment.
+                    </p>
                   </div>
                 ) : filtered.length === 0 ? (
                   <div className="cosmic-card rounded-xl p-8 text-center space-y-3">
-                    <TrendingUp className="h-8 w-8 text-muted-foreground/30 mx-auto" />
+                    <div className="h-6 w-6 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
                     <p className="text-sm font-medium text-foreground">
-                      {gameIds.length === 0 ? "No games found for this date" : "Player props haven't populated yet"}
+                      {gameIds.length === 0 ? "No games found for this date" : "Predictions generating..."}
                     </p>
                     <p className="text-xs text-muted-foreground max-w-xs mx-auto">
                       {gameIds.length === 0
                         ? "Try selecting a different date or league — games may not be scheduled yet."
-                        : "Props typically populate closer to game time. Tap \"Refresh\" to check, or check back later."}
+                        : "Model predictions are being computed. Props populate closer to game time — check back shortly."}
                     </p>
                     {gameIds.length > 0 && (
                       <button onClick={handleRefreshAll} disabled={isFetching} className="text-xs text-primary hover:underline">
@@ -602,7 +606,12 @@ export default function PlayerPropsPage() {
                     )}
                   </div>
                 ) : (
-                  <div className="cosmic-card rounded-xl overflow-x-auto">
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between px-1">
+                      <p className="text-[10px] text-muted-foreground">{filtered.length} predictions</p>
+                      <span className="text-[9px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-semibold">Powered by Nebula Engine</span>
+                    </div>
+                    <div className="cosmic-card rounded-xl overflow-x-auto">
                     <Table>
                       <TableHeader>
                         <TableRow className="hover:bg-transparent">
@@ -702,6 +711,7 @@ export default function PlayerPropsPage() {
                         })}
                       </TableBody>
                     </Table>
+                    </div>
                   </div>
                 )}
               </>

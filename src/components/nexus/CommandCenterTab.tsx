@@ -22,6 +22,7 @@ const glassCard = "backdrop-blur-xl bg-[#e8dff5]/40 border border-[#c4b0e0]/40 s
 const goldGlass = "backdrop-blur-xl bg-gradient-to-br from-[#f5e6c8]/50 to-[#e8d5a8]/30 border border-[#d4b978]/40 shadow-lg rounded-xl";
 
 const MODE_META: Record<string, { icon: any; emoji: string; label: string; desc: string }> = {
+  pra_sniper: { icon: Target, emoji: "🏆", label: "PRA Sniper", desc: "Only PRA (Points + Rebounds + Assists) predictions. Highest-confidence PRA bets." },
   sniper: { icon: Crosshair, emoji: "🎯", label: "Sniper", desc: "Only S+A tier combo stats (PRA, Pts+Reb). Highest precision picks." },
   cosmic: { icon: Sparkles, emoji: "🔮", label: "Cosmic", desc: "Picks ranked by cosmic alignment strength." },
   hedge: { icon: Shield, emoji: "🛡️", label: "Hedge", desc: "Safest plays with lowest variance." },
@@ -41,10 +42,13 @@ const QUICK_CHIPS = [
 /* ─── Mock Data for Predictions ─── */
 const MOCK_TOP_PLAYS = [
   { id: "1", player: "Luka Dončić", team: "DAL", stat: "PRA", tier: "S" as const, predicted: 48.5, line: 44.5, confidence: 92 },
-  { id: "2", player: "Jayson Tatum", team: "BOS", stat: "Pts+Reb", tier: "S" as const, predicted: 37.2, line: 33.5, confidence: 88 },
-  { id: "3", player: "Nikola Jokić", team: "DEN", stat: "Assists", tier: "A" as const, predicted: 9.8, line: 8.5, confidence: 82 },
-  { id: "4", player: "Anthony Edwards", team: "MIN", stat: "Points", tier: "A" as const, predicted: 28.4, line: 25.5, confidence: 78 },
-  { id: "5", player: "Tyrese Haliburton", team: "IND", stat: "Pts+Ast", tier: "B" as const, predicted: 31.5, line: 29.5, confidence: 71 },
+  { id: "2", player: "Jayson Tatum", team: "BOS", stat: "PRA", tier: "S" as const, predicted: 42.8, line: 39.5, confidence: 90 },
+  { id: "3", player: "Nikola Jokić", team: "DEN", stat: "PRA", tier: "S" as const, predicted: 52.1, line: 48.5, confidence: 88 },
+  { id: "4", player: "Shai Gilgeous-Alexander", team: "OKC", stat: "PRA", tier: "A" as const, predicted: 40.2, line: 37.5, confidence: 85 },
+  { id: "5", player: "Anthony Edwards", team: "MIN", stat: "Points", tier: "A" as const, predicted: 28.4, line: 25.5, confidence: 78 },
+  { id: "6", player: "Tyrese Haliburton", team: "IND", stat: "Pts+Ast", tier: "B" as const, predicted: 31.5, line: 29.5, confidence: 71 },
+  { id: "7", player: "Jaylen Brown", team: "BOS", stat: "Pts+Reb", tier: "B" as const, predicted: 29.8, line: 27.5, confidence: 68 },
+  { id: "8", player: "Domantas Sabonis", team: "SAC", stat: "Rebounds", tier: "A" as const, predicted: 13.2, line: 11.5, confidence: 81 },
 ];
 
 const MOCK_TRAP_ALERTS = [
@@ -69,7 +73,15 @@ const TIER_STYLES: Record<string, { bg: string; text: string; border: string; gl
   S: { bg: "bg-gradient-to-r from-amber-400/90 to-yellow-500/90", text: "text-amber-950", border: "border-amber-400/60", glow: "shadow-amber-400/30" },
   A: { bg: "bg-gradient-to-r from-slate-300/90 to-slate-400/80", text: "text-slate-800", border: "border-slate-400/60", glow: "shadow-slate-300/20" },
   B: { bg: "bg-gradient-to-r from-amber-700/80 to-orange-800/70", text: "text-amber-100", border: "border-amber-700/50", glow: "shadow-amber-700/20" },
+  C: { bg: "bg-gradient-to-r from-zinc-400/70 to-zinc-500/60", text: "text-zinc-900", border: "border-zinc-400/40", glow: "shadow-zinc-400/10" },
 };
+
+const TIER_EXPLANATIONS = [
+  { tier: "S", label: "S-Tier: Elite", desc: "90%+ model agreement, best ROI historically" },
+  { tier: "A", label: "A-Tier: Strong", desc: "80-89% confidence, high-value pick" },
+  { tier: "B", label: "B-Tier: Solid", desc: "70-79% confidence, good value play" },
+  { tier: "C", label: "C-Tier: Moderate", desc: "60-69% confidence, moderate edge" },
+];
 
 export default function CommandCenterTab() {
   const { user } = useAuth();
@@ -118,12 +130,15 @@ export default function CommandCenterTab() {
   const liveGamesCount = liveGames?.length || 0;
 
   // Filter mock plays by mode
+  const effectiveMode = activeMode;
+
   const filteredPlays = useMemo(() => {
-    if (activeMode === "sniper") return MOCK_TOP_PLAYS.filter(p => p.tier === "S" || p.tier === "A");
-    if (activeMode === "hedge") return [...MOCK_TOP_PLAYS].sort((a, b) => b.confidence - a.confidence).slice(0, 3);
-    if (activeMode === "shadow") return [...MOCK_TOP_PLAYS].reverse().slice(0, 4);
+    if (effectiveMode === "pra_sniper") return MOCK_TOP_PLAYS.filter(p => p.stat === "PRA");
+    if (effectiveMode === "sniper") return MOCK_TOP_PLAYS.filter(p => p.tier === "S" || p.tier === "A");
+    if (effectiveMode === "hedge") return [...MOCK_TOP_PLAYS].sort((a, b) => b.confidence - a.confidence).slice(0, 3);
+    if (effectiveMode === "shadow") return [...MOCK_TOP_PLAYS].reverse().slice(0, 4);
     return MOCK_TOP_PLAYS;
-  }, [activeMode]);
+  }, [effectiveMode]);
 
   return (
     <div className="relative space-y-6">
@@ -138,7 +153,7 @@ export default function CommandCenterTab() {
           {(Object.keys(MODE_META) as string[]).map((key) => {
             const meta = MODE_META[key];
             const Icon = meta.icon;
-            const isActive = key === activeMode;
+            const isActive = key === effectiveMode;
             const dbMode = modes.find(m => m.mode_key === key);
             return (
               <Tooltip key={key}>
@@ -201,13 +216,38 @@ export default function CommandCenterTab() {
 
       {/* ═══ TODAY'S TOP PLAYS ═══ */}
       <section className="space-y-3 relative z-10">
-        <h3 className="text-xs font-bold uppercase tracking-wider text-[#6b4c9a] flex items-center gap-2">
-          <Target className="w-4 h-4 text-[#d4a853]" /> Today's Top Plays
-          <span className="text-[9px] font-normal text-muted-foreground ml-auto">{MODE_META[activeMode]?.emoji} {MODE_META[activeMode]?.label} mode</span>
-        </h3>
+        <div className="flex items-center gap-2">
+          <h3 className="text-xs font-bold uppercase tracking-wider text-[#6b4c9a] flex items-center gap-2">
+            <Target className="w-4 h-4 text-[#d4a853]" /> Today's Top Plays
+          </h3>
+          {/* Tier legend tooltip */}
+          <TooltipProvider delayDuration={200}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button className="flex items-center gap-0.5 text-[9px] text-muted-foreground hover:text-foreground transition-colors">
+                  <span className="h-3.5 w-3.5 rounded-full border border-muted-foreground/40 flex items-center justify-center text-[8px] font-bold">i</span>
+                  <span className="hidden sm:inline">Tiers</span>
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="max-w-[280px] p-3 space-y-1.5">
+                <p className="text-xs font-bold mb-1">Confidence Tiers</p>
+                {TIER_EXPLANATIONS.map(t => (
+                  <div key={t.tier} className="flex items-start gap-2">
+                    <Badge className={cn("text-[8px] px-1.5 py-0 h-4 font-extrabold border shrink-0", TIER_STYLES[t.tier].bg, TIER_STYLES[t.tier].text, TIER_STYLES[t.tier].border)}>
+                      {t.tier}
+                    </Badge>
+                    <span className="text-[10px] text-muted-foreground">{t.desc}</span>
+                  </div>
+                ))}
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          <span className="text-[9px] font-normal text-muted-foreground ml-auto">{MODE_META[effectiveMode]?.emoji} {MODE_META[effectiveMode]?.label} mode</span>
+        </div>
         <div className="space-y-2">
           {filteredPlays.map((play) => {
             const tierStyle = TIER_STYLES[play.tier];
+            const edge = ((play.predicted - play.line) / play.line * 100).toFixed(1);
             return (
               <div
                 key={play.id}
@@ -233,6 +273,9 @@ export default function CommandCenterTab() {
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
+                    <span className={cn("text-[10px] font-bold tabular-nums", Number(edge) > 5 ? "text-emerald-600" : Number(edge) > 2 ? "text-amber-500" : "text-muted-foreground")}>
+                      +{edge}%
+                    </span>
                     <span className="text-[10px] text-[#7c5dac] font-bold tabular-nums">{play.confidence}%</span>
                     <ArrowRight className="w-3.5 h-3.5 text-[#d4a853]" />
                   </div>

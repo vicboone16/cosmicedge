@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 
-export type AstraMode = "sharp" | "cosmic" | "sniper" | "hedge" | "shadow" | "ritual";
+export type AstraMode = "pra_sniper" | "sharp" | "cosmic" | "sniper" | "hedge" | "shadow" | "ritual";
 
 export interface AstraModeConfig {
   mode_key: string;
@@ -45,7 +45,7 @@ export function useAstraMode() {
     enabled: !!user?.id,
   });
 
-  const activeMode: AstraMode = (userPref as AstraMode) || "cosmic";
+  const activeMode: AstraMode = (userPref as AstraMode) || "pra_sniper";
 
   const setMode = useCallback(async (mode: AstraMode) => {
     if (!user?.id) return;
