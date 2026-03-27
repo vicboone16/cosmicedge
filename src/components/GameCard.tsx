@@ -266,7 +266,7 @@ export const GameCard = memo(function GameCard({ game }: { game: GameWithOdds })
           <div className="w-px h-6 bg-border/50" />
           <div className="flex-1 text-center">
             <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Venue</span>
-            <p className="text-[10px] font-medium text-foreground truncate">
+            <p className="text-[10px] font-medium text-foreground truncate max-w-[80px] sm:max-w-none">
               {game.venue || "TBD"}
             </p>
           </div>
