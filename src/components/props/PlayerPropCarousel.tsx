@@ -114,7 +114,7 @@ export function PlayerPropCarousel({
       </button>
 
       {/* Horizontal swipe rail */}
-      <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1 -mx-1 px-1">
+      <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1 -mx-1 px-1 [-webkit-overflow-scrolling:touch]">
         {sorted.map((prop) => {
           const propLabel = getPropLabel(prop.prop_type);
           const hasModel = prop.mu != null && prop.mu > 0;

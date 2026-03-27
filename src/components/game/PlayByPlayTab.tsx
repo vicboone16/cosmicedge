@@ -427,13 +427,18 @@ export function PlayByPlayTab({ gameId, homeAbbr, awayAbbr, league, gameStatus }
     });
 
     // ── Fix running scores: carry forward last known score so non-scoring
-    //    events don't show null/stale values that cause out-of-order display ──
+    //    events (rebounds, fouls, turnovers) don't show null/stale values.
+    //    Only accept a provider snapshot if its TOTAL is >= the last known total
+    //    (monotonically non-decreasing). This handles the case where only one
+    //    team scores between snapshots. ──
     let lastHome: number | null = null;
     let lastAway: number | null = null;
     for (const ev of sorted) {
       if (ev.homeScore != null && ev.awayScore != null) {
-        // Only accept scores that are monotonically non-decreasing
-        if (lastHome == null || (ev.homeScore >= lastHome && ev.awayScore >= lastAway!)) {
+        const evTotal = ev.homeScore + ev.awayScore;
+        const lastTotal = (lastHome ?? 0) + (lastAway ?? 0);
+        // Accept if first score, or total is non-decreasing
+        if (lastHome == null || evTotal >= lastTotal) {
           lastHome = ev.homeScore;
           lastAway = ev.awayScore;
         }

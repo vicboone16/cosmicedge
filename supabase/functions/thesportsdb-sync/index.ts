@@ -70,6 +70,57 @@ function getAbbr(league: string, teamName: string): string | null {
   return dict[teamName] || null;
 }
 
+/**
+ * Convert a local Eastern Time date+time to UTC ISO string.
+ * Handles EDT vs EST automatically using America/New_York rules.
+ * TheSportsDB `strTime` is in local ET for NBA/NFL/NHL/MLB.
+ */
+function convertLocalETtoUTC(dateStr: string, timeStr: string): string {
+  // Parse the date parts
+  const [year, month, day] = dateStr.split("-").map(Number);
+  const timeParts = timeStr.split(":");
+  const hour = parseInt(timeParts[0] || "0", 10);
+  const minute = parseInt(timeParts[1] || "0", 10);
+  const second = parseInt(timeParts[2] || "0", 10);
+
+  // Determine if the date falls in EDT (DST) or EST
+  // US DST: 2nd Sunday of March to 1st Sunday of November
+  const isDST = isEasternDST(year, month, day, hour);
+  const offsetHours = isDST ? 4 : 5; // EDT = UTC-4, EST = UTC-5
+
+  const utcDate = new Date(Date.UTC(year, month - 1, day, hour + offsetHours, minute, second));
+  return utcDate.toISOString();
+}
+
+/**
+ * Check if a date/time in Eastern Time falls within DST (EDT).
+ * DST starts: 2nd Sunday of March at 2:00 AM local
+ * DST ends:   1st Sunday of November at 2:00 AM local
+ */
+function isEasternDST(year: number, month: number, day: number, hour: number): boolean {
+  // Before March or after November → EST
+  if (month < 3 || month > 11) return false;
+  // April through October → EDT
+  if (month > 3 && month < 11) return true;
+
+  if (month === 3) {
+    // Find 2nd Sunday of March
+    const firstDay = new Date(year, 2, 1).getDay(); // 0=Sun
+    const secondSunday = firstDay === 0 ? 8 : (14 - firstDay + 1);
+    if (day > secondSunday) return true;
+    if (day === secondSunday) return hour >= 2;
+    return false;
+  }
+
+  // month === 11 (November)
+  // Find 1st Sunday of November
+  const firstDayNov = new Date(year, 10, 1).getDay();
+  const firstSunday = firstDayNov === 0 ? 1 : (7 - firstDayNov + 1);
+  if (day < firstSunday) return true;
+  if (day === firstSunday) return hour < 2;
+  return false;
+}
+
 function delay(ms: number) {
   return new Promise((r) => setTimeout(r, ms));
 }
@@ -468,8 +519,9 @@ async function syncSchedule(
     const key = `${homeAbbr}|${awayAbbr}|${eventDate}`;
     if (existingIndex.has(key)) { continue; }
     
-    const startTime = ev.strTimestamp ? new Date(ev.strTimestamp + "+00:00").toISOString()
-      : `${ev.dateEvent}T${ev.strTime || "00:00:00"}Z`;
+    const startTime = ev.strTimestamp
+      ? new Date(ev.strTimestamp + "+00:00").toISOString()
+      : convertLocalETtoUTC(ev.dateEvent, ev.strTime || "00:00:00");
     
     toInsert.push({
       home_team: homeTeam,
@@ -567,7 +619,7 @@ async function syncScheduleSeason(
 
     const startTime = ev.strTimestamp
       ? new Date(ev.strTimestamp + "+00:00").toISOString()
-      : `${ev.dateEvent}T${ev.strTime || "00:00:00"}Z`;
+      : convertLocalETtoUTC(ev.dateEvent, ev.strTime || "00:00:00");
 
     // Determine status
     let status = "scheduled";
@@ -748,7 +800,7 @@ async function syncLiveScores(
       // Insert new game
       const startTime = ev.strTimestamp
         ? new Date(ev.strTimestamp + (ev.strTimestamp.includes("Z") ? "" : "+00:00")).toISOString()
-        : `${eventDate}T${ev.strTime || "00:00:00"}Z`;
+        : convertLocalETtoUTC(eventDate, ev.strTime || "00:00:00");
 
       const { error } = await supabase.from("games").insert({
         home_team: ev.strHomeTeam,

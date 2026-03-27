@@ -269,7 +269,7 @@ export function PlayerPropsSection({ gameId }: PlayerPropsProps) {
           )}
         </div>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-4 overflow-x-auto [-webkit-overflow-scrolling:touch]">
           {filteredCarousels.map(({ playerName, playerId, props: cProps }) => (
             <PlayerPropCarousel
               key={playerName}
