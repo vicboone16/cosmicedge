@@ -344,7 +344,7 @@ export function PlayByPlayTab({ gameId, homeAbbr, awayAbbr, league, gameStatus }
   const normalizedEvents: NormalizedEvent[] = useMemo(() => {
     const names = nameMap || new Map<string, string>();
 
-    return rawEvents.map((ev: any, i: number) => {
+    const mapped = rawEvents.map((ev: any, i: number) => {
       let period: number;
       let clockRaw: string | null;
       let team: string | null;
