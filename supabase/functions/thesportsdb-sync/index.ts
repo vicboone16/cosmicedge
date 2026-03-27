@@ -468,8 +468,9 @@ async function syncSchedule(
     const key = `${homeAbbr}|${awayAbbr}|${eventDate}`;
     if (existingIndex.has(key)) { continue; }
     
-    const startTime = ev.strTimestamp ? new Date(ev.strTimestamp + "+00:00").toISOString()
-      : `${ev.dateEvent}T${ev.strTime || "00:00:00"}Z`;
+    const startTime = ev.strTimestamp
+      ? new Date(ev.strTimestamp + "+00:00").toISOString()
+      : convertLocalETtoUTC(ev.dateEvent, ev.strTime || "00:00:00");
     
     toInsert.push({
       home_team: homeTeam,
