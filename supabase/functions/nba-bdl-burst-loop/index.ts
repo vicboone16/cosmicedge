@@ -31,6 +31,21 @@ function parseClockToSeconds(clock: string | null | undefined): number | null {
   return mins * 60 + Math.floor(secs);
 }
 
+function deriveGameStatus(g: any): "scheduled" | "live" | "final" {
+  const statusText = String(g?.status ?? g?.game_status ?? "").toLowerCase();
+  const periodNum = Number(g?.period ?? 0);
+  const homeScore = Number(g?.home_team_score ?? 0);
+  const awayScore = Number(g?.visitor_team_score ?? 0);
+
+  const isFinal = statusText.includes("final");
+  const isLiveByText = /(live|in progress|halftime|quarter|q[1-4]|ot)/.test(statusText);
+  const isLiveByData = periodNum > 0 || homeScore > 0 || awayScore > 0;
+
+  if (isFinal) return "final";
+  if (isLiveByText || isLiveByData) return "live";
+  return "scheduled";
+}
+
 function getProjectRef(): string {
   try {
     return new URL(Deno.env.get("SUPABASE_URL") ?? "").hostname.split(".")[0];
