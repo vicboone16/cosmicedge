@@ -448,6 +448,7 @@ function DashboardCard({
   expandable,
   expanded,
   onToggle,
+  onClick,
   children,
 }: {
   title: string;
@@ -456,6 +457,7 @@ function DashboardCard({
   expandable?: boolean;
   expanded?: boolean;
   onToggle?: () => void;
+  onClick?: () => void;
   children: React.ReactNode;
 }) {
   const accentColor = {
