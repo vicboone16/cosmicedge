@@ -49,7 +49,7 @@ const Index = () => {
     <div className="relative min-h-screen dark:slate-twilight-bg slate-twilight-bg-light">
       <TwinklingStars />
       {/* Header */}
-      <header className="sticky top-0 z-40 bg-gradient-to-b from-white/70 via-white/50 to-white/0 dark:from-black/40 dark:via-black/20 dark:to-transparent backdrop-blur-xl border-b border-white/10 dark:border-white/5">
+      <header className="sticky top-0 z-40 bg-gradient-to-b from-purple-300/30 via-purple-200/15 to-transparent dark:from-black/30 dark:via-black/10 dark:to-transparent backdrop-blur-sm border-b border-purple-400/10 dark:border-white/5">
         <div className="px-4 pt-12 pb-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 mb-1">
