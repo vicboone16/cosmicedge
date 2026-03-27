@@ -415,7 +415,9 @@ export function PlayByPlayTab({ gameId, homeAbbr, awayAbbr, league, gameStatus }
       }
 
       return { key, period, clockSeconds, clockDisplay, team, player, description: desc, homeScore, awayScore, wp };
-    }).sort((a, b) => {
+    });
+
+    const sorted = mapped.sort((a, b) => {
       // Sort by period ASC, then by clockSeconds DESC (more time remaining = earlier in period)
       if (a.period !== b.period) return a.period - b.period;
       const ca = a.clockSeconds ?? -1;
