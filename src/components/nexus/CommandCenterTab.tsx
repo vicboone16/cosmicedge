@@ -42,10 +42,13 @@ const QUICK_CHIPS = [
 /* ─── Mock Data for Predictions ─── */
 const MOCK_TOP_PLAYS = [
   { id: "1", player: "Luka Dončić", team: "DAL", stat: "PRA", tier: "S" as const, predicted: 48.5, line: 44.5, confidence: 92 },
-  { id: "2", player: "Jayson Tatum", team: "BOS", stat: "Pts+Reb", tier: "S" as const, predicted: 37.2, line: 33.5, confidence: 88 },
-  { id: "3", player: "Nikola Jokić", team: "DEN", stat: "Assists", tier: "A" as const, predicted: 9.8, line: 8.5, confidence: 82 },
-  { id: "4", player: "Anthony Edwards", team: "MIN", stat: "Points", tier: "A" as const, predicted: 28.4, line: 25.5, confidence: 78 },
-  { id: "5", player: "Tyrese Haliburton", team: "IND", stat: "Pts+Ast", tier: "B" as const, predicted: 31.5, line: 29.5, confidence: 71 },
+  { id: "2", player: "Jayson Tatum", team: "BOS", stat: "PRA", tier: "S" as const, predicted: 42.8, line: 39.5, confidence: 90 },
+  { id: "3", player: "Nikola Jokić", team: "DEN", stat: "PRA", tier: "S" as const, predicted: 52.1, line: 48.5, confidence: 88 },
+  { id: "4", player: "Shai Gilgeous-Alexander", team: "OKC", stat: "PRA", tier: "A" as const, predicted: 40.2, line: 37.5, confidence: 85 },
+  { id: "5", player: "Anthony Edwards", team: "MIN", stat: "Points", tier: "A" as const, predicted: 28.4, line: 25.5, confidence: 78 },
+  { id: "6", player: "Tyrese Haliburton", team: "IND", stat: "Pts+Ast", tier: "B" as const, predicted: 31.5, line: 29.5, confidence: 71 },
+  { id: "7", player: "Jaylen Brown", team: "BOS", stat: "Pts+Reb", tier: "B" as const, predicted: 29.8, line: 27.5, confidence: 68 },
+  { id: "8", player: "Domantas Sabonis", team: "SAC", stat: "Rebounds", tier: "A" as const, predicted: 13.2, line: 11.5, confidence: 81 },
 ];
 
 const MOCK_TRAP_ALERTS = [
