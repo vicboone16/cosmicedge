@@ -92,6 +92,7 @@ export default function CommandCenterTab() {
   const [verdict, setVerdict] = useState<AstraVerdict | null>(null);
   const [isAsking, setIsAsking] = useState(false);
   const [pulseExpanded, setPulseExpanded] = useState(false);
+  const [selectedPlayId, setSelectedPlayId] = useState<string | null>(null);
 
   const askAstra = async () => {
     const text = query.trim();
