@@ -8,23 +8,25 @@ import { cn } from "@/lib/utils";
 import {
   Sparkles, Crosshair, Shield, Eye, Moon,
   Activity, Target, AlertTriangle, Heart, Zap,
-  Send, ArrowRight, Loader2, BarChart3, ChevronDown, ChevronUp,
-  User,
+  Send, ArrowRight, Loader2, ChevronDown, ChevronUp,
+  User, TrendingUp, BarChart3, Flame,
 } from "lucide-react";
 import AstraVerdictCard, { type AstraVerdict } from "@/components/astra/AstraVerdictCard";
 import AstraAssessmentHistory from "@/components/astra/AstraAssessmentHistory";
 import { useBettingProfile, ARCHETYPE_META } from "@/hooks/use-betting-profile";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { TwinklingStars } from "@/components/slate/TwinklingStars";
 
 const glassCard = "backdrop-blur-xl bg-[#e8dff5]/40 border border-[#c4b0e0]/40 shadow-lg rounded-xl";
+const goldGlass = "backdrop-blur-xl bg-gradient-to-br from-[#f5e6c8]/50 to-[#e8d5a8]/30 border border-[#d4b978]/40 shadow-lg rounded-xl";
 
-const MODE_META: Record<string, { icon: any; label: string; desc: string }> = {
-  sniper: { icon: Crosshair, label: "Sniper", desc: "Hidden value & live entry windows. Targets undervalued lines." },
-  cosmic: { icon: Sparkles, label: "Cosmic", desc: "Balanced stats + astrology blend. The default all-rounder." },
-  hedge: { icon: Shield, label: "Hedge", desc: "Risk-first. Emphasizes trap detection & safety margins." },
-  shadow: { icon: Eye, label: "Shadow", desc: "Contrarian mode. Market overreaction fades & shadow value." },
-  ritual: { icon: Moon, label: "Ritual", desc: "Full cosmic immersion — planetary hours & natal alignment." },
+const MODE_META: Record<string, { icon: any; emoji: string; label: string; desc: string }> = {
+  sniper: { icon: Crosshair, emoji: "🎯", label: "Sniper", desc: "Only S+A tier combo stats (PRA, Pts+Reb). Highest precision picks." },
+  cosmic: { icon: Sparkles, emoji: "🔮", label: "Cosmic", desc: "Picks ranked by cosmic alignment strength." },
+  hedge: { icon: Shield, emoji: "🛡️", label: "Hedge", desc: "Safest plays with lowest variance." },
+  shadow: { icon: Eye, emoji: "👁️", label: "Shadow", desc: "Contrarian/trap-avoiding picks." },
+  ritual: { icon: Moon, emoji: "✨", label: "Ritual", desc: "Full cosmic ritual blend — all factors weighted." },
 };
 
 const QUICK_CHIPS = [
@@ -36,14 +38,48 @@ const QUICK_CHIPS = [
   { label: "Hedge this", icon: Heart },
 ];
 
+/* ─── Mock Data for Predictions ─── */
+const MOCK_TOP_PLAYS = [
+  { id: "1", player: "Luka Dončić", team: "DAL", stat: "PRA", tier: "S" as const, predicted: 48.5, line: 44.5, confidence: 92 },
+  { id: "2", player: "Jayson Tatum", team: "BOS", stat: "Pts+Reb", tier: "S" as const, predicted: 37.2, line: 33.5, confidence: 88 },
+  { id: "3", player: "Nikola Jokić", team: "DEN", stat: "Assists", tier: "A" as const, predicted: 9.8, line: 8.5, confidence: 82 },
+  { id: "4", player: "Anthony Edwards", team: "MIN", stat: "Points", tier: "A" as const, predicted: 28.4, line: 25.5, confidence: 78 },
+  { id: "5", player: "Tyrese Haliburton", team: "IND", stat: "Pts+Ast", tier: "B" as const, predicted: 31.5, line: 29.5, confidence: 71 },
+];
+
+const MOCK_TRAP_ALERTS = [
+  { id: "t1", game: "MIA @ CLE", line: "CLE -7.5", note: "Model sees CLE -4.2. Line inflated by public money.", risk: 78 },
+  { id: "t2", game: "LAL @ GSW", line: "O 228.5", note: "Both teams bottom-5 pace last 10. Model projects 219.", risk: 65 },
+];
+
+const MOCK_OPPORTUNITIES = [
+  { id: "o1", player: "Dejounte Murray", stat: "Steals", edge: 18, confidence: 84 },
+  { id: "o2", player: "Chet Holmgren", stat: "Blocks", edge: 22, confidence: 79 },
+  { id: "o3", player: "Darius Garland", stat: "Assists", edge: 15, confidence: 76 },
+];
+
+const MOCK_SLIP_HEALTH = [
+  { stat: "PRA", hitRate: 72, trend: "up" as const },
+  { stat: "Points", hitRate: 64, trend: "up" as const },
+  { stat: "Rebounds", hitRate: 58, trend: "flat" as const },
+  { stat: "Blocks+Steals", hitRate: 41, trend: "down" as const },
+];
+
+const TIER_STYLES: Record<string, { bg: string; text: string; border: string; glow: string }> = {
+  S: { bg: "bg-gradient-to-r from-amber-400/90 to-yellow-500/90", text: "text-amber-950", border: "border-amber-400/60", glow: "shadow-amber-400/30" },
+  A: { bg: "bg-gradient-to-r from-slate-300/90 to-slate-400/80", text: "text-slate-800", border: "border-slate-400/60", glow: "shadow-slate-300/20" },
+  B: { bg: "bg-gradient-to-r from-amber-700/80 to-orange-800/70", text: "text-amber-100", border: "border-amber-700/50", glow: "shadow-amber-700/20" },
+};
+
 export default function CommandCenterTab() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const { modes, activeMode, activeModeConfig, setMode } = useAstraMode();
+  const { modes, activeMode, setMode } = useAstraMode();
   const { profile } = useBettingProfile();
   const [query, setQuery] = useState("");
   const [verdict, setVerdict] = useState<AstraVerdict | null>(null);
   const [isAsking, setIsAsking] = useState(false);
+  const [pulseExpanded, setPulseExpanded] = useState(false);
 
   const askAstra = async () => {
     const text = query.trim();
@@ -63,34 +99,6 @@ export default function CommandCenterTab() {
     }
   };
 
-  // Today's games for "Top Plays"
-  const { data: todayGames } = useQuery({
-    queryKey: ["cc-today-games"],
-    queryFn: async () => {
-      const today = new Date();
-      const start = new Date(today.getFullYear(), today.getMonth(), today.getDate()).toISOString();
-      const end = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1).toISOString();
-      const { data } = await supabase
-        .from("games")
-        .select("id, home_team, away_team, home_abbr, away_abbr, home_score, away_score, league, status, start_time")
-        .gte("start_time", start)
-        .lt("start_time", end)
-        .order("start_time", { ascending: true })
-        .limit(30);
-      return data || [];
-    },
-    staleTime: 60_000,
-  });
-
-  // Opportunities for filtering
-  const { data: opportunities } = useQuery({
-    queryKey: ["astra-opportunities", activeMode],
-    queryFn: async () => {
-      const { data } = await (supabase as any).from("astra_opportunity_feed").select("*").eq("is_active", true).order("confidence", { ascending: false }).limit(20);
-      return data || [];
-    },
-  });
-
   // Live games
   const { data: liveGames } = useQuery({
     queryKey: ["cc-live-games"],
@@ -107,80 +115,49 @@ export default function CommandCenterTab() {
     refetchInterval: 30_000,
   });
 
-  // Slip health
-  const { data: slipHealth } = useQuery({
-    queryKey: ["cc-slip-health", user?.id],
-    queryFn: async () => {
-      if (!user) return null;
-      const { data: slips } = await supabase.from("bet_slips").select("id, status, result, stake, payout, entry_type").eq("user_id", user.id).in("status", ["active", "pending", "live"]).limit(20);
-      const slipIds = (slips || []).map(s => s.id);
-      if (!slipIds.length) return { activeCount: 0, totalLegs: 0, hitLegs: 0, dangerLegs: 0 };
-      const { data: picks } = await supabase.from("bet_slip_picks").select("slip_id, result, match_status, live_value, line, progress").in("slip_id", slipIds).limit(100);
-      const allPicks = picks || [];
-      return {
-        activeCount: slipIds.length,
-        totalLegs: allPicks.length,
-        hitLegs: allPicks.filter(p => p.result === "hit" || p.result === "win").length,
-        dangerLegs: allPicks.filter(p => Number(p.progress || 0) < 40 && p.live_value && p.line).length,
-      };
-    },
-    enabled: !!user,
-    staleTime: 30_000,
-  });
-
-  // Trap watch
-  const { data: recentTraps } = useQuery({
-    queryKey: ["cc-trap-watch", user?.id],
-    queryFn: async () => {
-      if (!user) return [];
-      const { data } = await supabase.from("astra_bet_assessment").select("id, decision_label, market_type, trap_score, warning_note, created_at").eq("user_id", user.id).in("decision_label", ["pass", "trap_watch"]).order("created_at", { ascending: false }).limit(5);
-      return data || [];
-    },
-    enabled: !!user,
-    staleTime: 60_000,
-  });
-
-  const filteredOpps = useMemo(() => {
-    if (!opportunities) return [];
-    return opportunities.filter((o: any) => !o.mode_relevance_tags?.length || o.mode_relevance_tags.includes(activeMode));
-  }, [opportunities, activeMode]);
-
-  // Filter today's games by mode relevance (simulate confidence tiers)
-  const topPlays = useMemo(() => {
-    if (!todayGames) return [];
-    return todayGames.slice(0, 6).map((g, i) => ({
-      ...g,
-      tier: i < 2 ? "S" : i < 4 ? "A" : "B",
-      confidence: Math.max(55, 95 - i * 8),
-    }));
-  }, [todayGames]);
-
   const liveGamesCount = liveGames?.length || 0;
-  const [pulseExpanded, setPulseExpanded] = useState(false);
+
+  // Filter mock plays by mode
+  const filteredPlays = useMemo(() => {
+    if (activeMode === "sniper") return MOCK_TOP_PLAYS.filter(p => p.tier === "S" || p.tier === "A");
+    if (activeMode === "hedge") return [...MOCK_TOP_PLAYS].sort((a, b) => b.confidence - a.confidence).slice(0, 3);
+    if (activeMode === "shadow") return [...MOCK_TOP_PLAYS].reverse().slice(0, 4);
+    return MOCK_TOP_PLAYS;
+  }, [activeMode]);
 
   return (
-    <div className="space-y-5">
-      {/* Mode Pills */}
+    <div className="relative space-y-6">
+      {/* Background stars */}
+      <div className="fixed inset-0 pointer-events-none z-0">
+        <TwinklingStars />
+      </div>
+
+      {/* ═══ MODE SELECTOR PILLS ═══ */}
       <TooltipProvider delayDuration={300}>
-        <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1 no-scrollbar">
+        <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 no-scrollbar relative z-10">
           {(Object.keys(MODE_META) as string[]).map((key) => {
             const meta = MODE_META[key];
             const Icon = meta.icon;
             const isActive = key === activeMode;
-            // Also match from DB modes if available
             const dbMode = modes.find(m => m.mode_key === key);
             return (
               <Tooltip key={key}>
                 <TooltipTrigger asChild>
-                  <button onClick={() => setMode(key as AstraMode)}
-                    className={cn("flex items-center gap-1.5 px-3 py-2 rounded-full text-xs font-semibold whitespace-nowrap transition-all border",
-                      isActive ? "bg-[#a78bda] text-white border-[#8b6fbf] shadow-md" : "bg-[#e8dff5]/60 text-[#6b4c9a] border-[#d4c4ec]/50 hover:bg-[#e8dff5] hover:text-[#5a3d8a]")}>
+                  <button
+                    onClick={() => setMode(key as AstraMode)}
+                    className={cn(
+                      "flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-semibold whitespace-nowrap transition-all border",
+                      isActive
+                        ? "bg-gradient-to-r from-[#d4a853] to-[#c19a40] text-white border-[#b8922e] shadow-lg shadow-amber-500/20"
+                        : "bg-[#e8dff5]/50 text-[#6b4c9a] border-[#d4c4ec]/40 hover:bg-[#e8dff5]/80 hover:border-[#c4b0e0]/60"
+                    )}
+                  >
                     <Icon className="w-3.5 h-3.5" />
                     {dbMode?.mode_name || meta.label}
                   </button>
                 </TooltipTrigger>
                 <TooltipContent side="bottom" className="max-w-[260px] text-xs">
-                  <p className="font-semibold mb-0.5">{meta.label} Mode</p>
+                  <p className="font-semibold mb-0.5">{meta.emoji} {meta.label} Mode</p>
                   <p className="text-muted-foreground">{meta.desc}</p>
                 </TooltipContent>
               </Tooltip>
@@ -189,181 +166,282 @@ export default function CommandCenterTab() {
         </div>
       </TooltipProvider>
 
-      {/* Ask Astra */}
-      <div className="relative">
-        <input type="text" value={query} onChange={(e) => setQuery(e.target.value)} onKeyDown={(e) => e.key === "Enter" && askAstra()}
+      {/* ═══ ASK ASTRA ═══ */}
+      <div className="relative z-10">
+        <input
+          type="text"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && askAstra()}
           placeholder="Ask Astra a betting question…"
-          className={cn("w-full rounded-xl px-4 py-3 pr-10 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-[#a78bda]/40", glassCard)} />
-        <button onClick={askAstra} disabled={isAsking || !query.trim()} className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-[#a78bda] hover:bg-[#e8dff5]/60 transition-colors disabled:opacity-50">
+          className={cn("w-full rounded-xl px-4 py-3 pr-10 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-[#d4a853]/40", glassCard)}
+        />
+        <button
+          onClick={askAstra}
+          disabled={isAsking || !query.trim()}
+          className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-[#d4a853] hover:bg-[#e8dff5]/60 transition-colors disabled:opacity-50"
+        >
           {isAsking ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
         </button>
       </div>
 
       {verdict && <AstraVerdictCard verdict={verdict} />}
 
-      <div className="flex flex-wrap gap-1.5">
+      <div className="flex flex-wrap gap-1.5 relative z-10">
         {QUICK_CHIPS.map((chip) => (
-          <button key={chip.label} onClick={() => setQuery(chip.label)}
-            className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-semibold bg-[#f3eef9]/60 border border-[#d4c4ec]/50 text-[#6b4c9a] hover:text-[#5a3d8a] hover:bg-[#e8dff5] transition-all">
+          <button
+            key={chip.label}
+            onClick={() => setQuery(chip.label)}
+            className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-semibold bg-[#f3eef9]/60 border border-[#d4c4ec]/50 text-[#6b4c9a] hover:text-[#5a3d8a] hover:bg-[#e8dff5] transition-all"
+          >
             <chip.icon className="w-3 h-3" />{chip.label}
           </button>
         ))}
       </div>
 
-      {/* Today's Top Plays */}
-      {topPlays.length > 0 && (
-        <div className="space-y-3">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-[#6b4c9a] flex items-center gap-2">
-            <Target className="w-4 h-4 text-[#a78bda]" /> Today's Top Plays
-          </h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {topPlays.map((g) => (
-              <button
-                key={g.id}
-                onClick={() => navigate(`/game/${g.id}`)}
-                className={cn(glassCard, "p-3 text-left hover:border-[#a78bda]/50 transition-all w-full")}
+      {/* ═══ TODAY'S TOP PLAYS ═══ */}
+      <section className="space-y-3 relative z-10">
+        <h3 className="text-xs font-bold uppercase tracking-wider text-[#6b4c9a] flex items-center gap-2">
+          <Target className="w-4 h-4 text-[#d4a853]" /> Today's Top Plays
+          <span className="text-[9px] font-normal text-muted-foreground ml-auto">{MODE_META[activeMode]?.emoji} {MODE_META[activeMode]?.label} mode</span>
+        </h3>
+        <div className="space-y-2">
+          {filteredPlays.map((play) => {
+            const tierStyle = TIER_STYLES[play.tier];
+            return (
+              <div
+                key={play.id}
+                className={cn(glassCard, "p-4 space-y-2 hover:border-[#d4a853]/40 transition-all cursor-pointer", tierStyle.glow)}
+                onClick={() => navigate("/predictions")}
               >
-                <div className="flex items-center justify-between mb-1">
+                <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <span className="text-sm font-bold text-foreground">{g.away_abbr} @ {g.home_abbr}</span>
-                    <span className="text-[9px] text-muted-foreground">{g.league}</span>
+                    <span className="text-sm font-bold text-foreground">{play.player}</span>
+                    <span className="text-[10px] text-muted-foreground font-medium">{play.team}</span>
                   </div>
-                  <Badge className={cn(
-                    "text-[9px] px-1.5 py-0 h-4 font-bold border-0",
-                    g.tier === "S" ? "bg-emerald-500/90 text-white" : g.tier === "A" ? "bg-amber-500/90 text-white" : "bg-[#c4b0e0]/60 text-[#6b4c9a]"
-                  )}>
-                    {g.tier}-Tier
+                  <Badge className={cn("text-[9px] px-2 py-0.5 h-5 font-extrabold border", tierStyle.bg, tierStyle.text, tierStyle.border)}>
+                    {play.tier}-Tier
                   </Badge>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className={cn("text-[10px] font-semibold",
-                    g.status === "live" || g.status === "in_progress" ? "text-emerald-500" : "text-muted-foreground"
-                  )}>
-                    {g.status === "live" || g.status === "in_progress" ? "LIVE" : g.status === "final" ? "Final" : new Date(g.start_time).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
-                  </span>
-                  <span className="text-[10px] text-[#7c5dac] font-semibold tabular-nums">{g.confidence}% conf</span>
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs font-semibold text-[#6b4c9a] bg-[#f3eef9]/80 px-2 py-0.5 rounded-md">{play.stat}</span>
+                    <span className="text-xs text-foreground tabular-nums">
+                      <span className="font-bold text-emerald-600">{play.predicted}</span>
+                      <span className="text-muted-foreground mx-1">vs</span>
+                      <span className="font-medium">{play.line}</span>
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] text-[#7c5dac] font-bold tabular-nums">{play.confidence}%</span>
+                    <ArrowRight className="w-3.5 h-3.5 text-[#d4a853]" />
+                  </div>
                 </div>
-                {(g.status === "live" || g.status === "in_progress" || g.status === "final") && (
-                  <p className="text-xs font-bold tabular-nums mt-1 text-foreground">{g.away_score ?? 0} - {g.home_score ?? 0}</p>
-                )}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Live Dashboard Grid */}
-      <div className="space-y-3">
-        <h3 className="text-xs font-bold uppercase tracking-wider text-[#6b4c9a] flex items-center gap-2">
-          <Activity className="w-4 h-4 text-[#a78bda]" /> Live Dashboard
-        </h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <GlassCard title="Astra Pulse" icon={Activity} expandable expanded={pulseExpanded} onToggle={() => setPulseExpanded(!pulseExpanded)}>
-            <div className="space-y-1">
-              <div className="flex items-center gap-2">
-                <span className={cn("h-2 w-2 rounded-full", liveGamesCount > 0 ? "bg-emerald-500 animate-pulse" : "bg-muted-foreground")} />
-                <span className="text-[11px] text-foreground font-semibold">
-                  {liveGamesCount > 0 ? `${liveGamesCount} live game${liveGamesCount !== 1 ? "s" : ""} · Scanning` : "No live games — pregame mode"}
-                </span>
               </div>
-              {filteredOpps.length > 0 && <p className="text-[10px] text-emerald-500 font-semibold">{filteredOpps.length} opportunit{filteredOpps.length === 1 ? "y" : "ies"} detected</p>}
+            );
+          })}
+        </div>
+      </section>
+
+      {/* ═══ LIVE DASHBOARD GRID ═══ */}
+      <section className="space-y-3 relative z-10">
+        <h3 className="text-xs font-bold uppercase tracking-wider text-[#6b4c9a] flex items-center gap-2">
+          <Activity className="w-4 h-4 text-[#d4a853]" /> Live Dashboard
+        </h3>
+        <div className="grid grid-cols-2 gap-3">
+
+          {/* Astra Pulse */}
+          <DashboardCard
+            title="Astra Pulse"
+            icon={Activity}
+            accent="cosmic"
+            expandable
+            expanded={pulseExpanded}
+            onToggle={() => setPulseExpanded(!pulseExpanded)}
+          >
+            <div className="flex items-center justify-center py-2">
+              <div className="relative h-16 w-16">
+                {/* Circular gauge */}
+                <svg viewBox="0 0 36 36" className="w-full h-full -rotate-90">
+                  <circle cx="18" cy="18" r="15.5" fill="none" stroke="currentColor" className="text-[#d4c4ec]/30" strokeWidth="3" />
+                  <circle cx="18" cy="18" r="15.5" fill="none" stroke="url(#pulseGrad)" strokeWidth="3" strokeDasharray="97.4" strokeDashoffset={97.4 * (1 - 0.72)} strokeLinecap="round" />
+                  <defs>
+                    <linearGradient id="pulseGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                      <stop offset="0%" stopColor="#d4a853" />
+                      <stop offset="100%" stopColor="#a78bda" />
+                    </linearGradient>
+                  </defs>
+                </svg>
+                <span className="absolute inset-0 flex items-center justify-center text-xs font-bold text-[#d4a853]">72%</span>
+              </div>
             </div>
+            <p className="text-[9px] text-center text-muted-foreground leading-snug">
+              Strong Mars alignment → aggression boost
+            </p>
+            {liveGamesCount > 0 && (
+              <div className="flex items-center justify-center gap-1 mt-1">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="text-[9px] text-emerald-600 font-semibold">{liveGamesCount} live</span>
+              </div>
+            )}
             {pulseExpanded && liveGames && liveGames.length > 0 && (
-              <div className="mt-2 pt-2 border-t border-[#d4c4ec]/30 space-y-1.5">
+              <div className="mt-2 pt-2 border-t border-[#d4c4ec]/30 space-y-1">
                 {liveGames.map((g: any) => (
-                  <button key={g.id} onClick={() => navigate(`/game/${g.id}`)} className="w-full flex items-center justify-between px-2 py-1.5 rounded-lg bg-[#f3eef9]/60 hover:bg-[#e8dff5]/70 transition-colors text-left">
-                    <div className="flex items-center gap-2">
+                  <button key={g.id} onClick={(e) => { e.stopPropagation(); navigate(`/game/${g.id}`); }} className="w-full flex items-center justify-between px-1.5 py-1 rounded-lg bg-[#f3eef9]/60 hover:bg-[#e8dff5]/70 transition-colors text-left">
+                    <div className="flex items-center gap-1">
                       <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                      <span className="text-[10px] font-medium text-foreground">{g.away_abbr} @ {g.home_abbr}</span>
-                      <span className="text-[9px] text-muted-foreground">{g.league}</span>
+                      <span className="text-[9px] font-medium text-foreground">{g.away_abbr} @ {g.home_abbr}</span>
                     </div>
-                    <span className="text-[11px] font-bold tabular-nums text-foreground">{g.away_score ?? 0} - {g.home_score ?? 0}</span>
+                    <span className="text-[10px] font-bold tabular-nums text-foreground">{g.away_score ?? 0}-{g.home_score ?? 0}</span>
                   </button>
                 ))}
               </div>
             )}
-          </GlassCard>
+          </DashboardCard>
 
-          <GlassCard title="Best Opportunities" icon={Target} onClick={() => navigate("/props")}>
-            {filteredOpps.length === 0 ? <p className="text-[11px] text-muted-foreground">No active opportunities right now.</p> : (
-              <div className="space-y-1.5">
-                {filteredOpps.slice(0, 3).map((o: any) => (
-                  <div key={o.id} className="flex items-center justify-between text-[11px]">
-                    <span className="text-foreground truncate flex-1">{o.headline}</span>
-                    {o.confidence != null && <span className="text-[#7c5dac] font-bold tabular-nums ml-2">{(o.confidence * 100).toFixed(0)}%</span>}
+          {/* Trap Watch */}
+          <DashboardCard title="Trap Watch" icon={AlertTriangle} accent="danger">
+            <div className="space-y-1.5">
+              {MOCK_TRAP_ALERTS.map(trap => (
+                <div key={trap.id} className="space-y-0.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold text-foreground">{trap.game}</span>
+                    <span className="text-[9px] text-red-500 font-bold tabular-nums">{trap.risk}% risk</span>
                   </div>
-                ))}
-              </div>
-            )}
-          </GlassCard>
-
-          <GlassCard title="Trap Watch" icon={AlertTriangle} onClick={() => navigate("/astra")}>
-            {(recentTraps?.length ?? 0) === 0 ? <p className="text-[11px] text-muted-foreground">No active trap alerts.</p> : (
-              <div className="space-y-1">
-                {recentTraps!.slice(0, 3).map((t: any) => (
-                  <div key={t.id} className="text-[10px]">
-                    <span className="text-red-500 font-semibold">⚠</span>{" "}
-                    <span className="text-foreground">{t.warning_note || t.market_type || "Trap detected"}</span>
-                    {t.trap_score != null && <span className="text-muted-foreground ml-1">({Math.round(t.trap_score * 100)}%)</span>}
-                  </div>
-                ))}
-              </div>
-            )}
-          </GlassCard>
-
-          <GlassCard title="Slip Health" icon={Heart} onClick={() => navigate("/skyspread")}>
-            {!slipHealth || slipHealth.activeCount === 0 ? <p className="text-[11px] text-muted-foreground">No active slips to monitor.</p> : (
-              <div className="space-y-1">
-                <div className="flex items-center gap-3 text-[11px]">
-                  <span className="text-foreground font-semibold">{slipHealth.activeCount} active slip{slipHealth.activeCount !== 1 ? "s" : ""}</span>
-                  <span className="text-muted-foreground">{slipHealth.totalLegs} legs</span>
+                  <p className="text-[9px] text-muted-foreground leading-snug">{trap.note}</p>
                 </div>
-                {slipHealth.hitLegs > 0 && <p className="text-[10px] text-emerald-500 font-semibold">✓ {slipHealth.hitLegs} hit</p>}
-                {slipHealth.dangerLegs > 0 && <p className="text-[10px] text-red-500 font-semibold">⚠ {slipHealth.dangerLegs} struggling</p>}
-              </div>
-            )}
-          </GlassCard>
-        </div>
-      </div>
+              ))}
+            </div>
+          </DashboardCard>
 
-      {/* Your Profile strip */}
-      {profile && (
-        <button onClick={() => navigate("/profile")} className={cn(glassCard, "w-full p-3 flex items-center gap-3 hover:border-[#a78bda]/50 transition-all text-left")}>
-          <div className="h-9 w-9 rounded-full bg-[#a78bda]/20 flex items-center justify-center shrink-0">
-            <User className="h-4 w-4 text-[#7c5dac]" />
+          {/* Slip Health */}
+          <DashboardCard title="Slip Health" icon={BarChart3} accent="neutral">
+            <div className="space-y-1.5">
+              {MOCK_SLIP_HEALTH.map(s => (
+                <div key={s.stat} className="flex items-center gap-2">
+                  <span className="text-[9px] font-medium text-foreground w-20 truncate">{s.stat}</span>
+                  <div className="flex-1 h-1.5 bg-[#d4c4ec]/30 rounded-full overflow-hidden">
+                    <div
+                      className={cn("h-full rounded-full transition-all", s.hitRate >= 65 ? "bg-emerald-500" : s.hitRate >= 50 ? "bg-amber-500" : "bg-red-400")}
+                      style={{ width: `${s.hitRate}%` }}
+                    />
+                  </div>
+                  <span className="text-[9px] font-bold tabular-nums text-foreground w-7 text-right">{s.hitRate}%</span>
+                  <span className="text-[9px]">
+                    {s.trend === "up" ? "🔥" : s.trend === "down" ? "⚠️" : "—"}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </DashboardCard>
+
+          {/* Opportunity Feed */}
+          <DashboardCard title="Opportunities" icon={Zap} accent="gold">
+            <div className="space-y-1.5">
+              {MOCK_OPPORTUNITIES.map(opp => (
+                <div key={opp.id} className="flex items-center justify-between">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[10px] font-bold text-foreground truncate">{opp.player}</p>
+                    <p className="text-[9px] text-muted-foreground">{opp.stat}</p>
+                  </div>
+                  <div className="text-right shrink-0 ml-2">
+                    <p className="text-[10px] font-bold text-emerald-600 tabular-nums">+{opp.edge}% edge</p>
+                    <Badge className={cn("text-[8px] px-1 py-0 h-3.5 font-bold border-0",
+                      opp.confidence >= 80 ? "bg-amber-400/80 text-amber-950" : "bg-[#c4b0e0]/50 text-[#6b4c9a]"
+                    )}>
+                      {opp.confidence}%
+                    </Badge>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </DashboardCard>
+
+        </div>
+      </section>
+
+      {/* ═══ YOUR BETTING PROFILE STRIP ═══ */}
+      <section className="relative z-10">
+        {profile ? (
+          <button
+            onClick={() => navigate("/profile")}
+            className={cn(goldGlass, "w-full p-4 flex items-center gap-3 hover:border-[#d4a853]/50 transition-all text-left")}
+          >
+            <div className="h-10 w-10 rounded-full bg-gradient-to-br from-[#d4a853]/30 to-[#a78bda]/20 flex items-center justify-center shrink-0">
+              <User className="h-5 w-5 text-[#d4a853]" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-bold text-foreground">Your Profile</p>
+              <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                <span className="text-[10px] text-[#7c5dac] font-semibold">
+                  {ARCHETYPE_META[profile.betting_archetype]?.emoji}{" "}
+                  {ARCHETYPE_META[profile.betting_archetype]?.label || profile.betting_archetype}
+                </span>
+                <span className="text-[9px] text-muted-foreground">·</span>
+                <span className="text-[10px] text-muted-foreground">{profile.bets_analyzed} bets analyzed</span>
+                <span className="text-[9px] text-muted-foreground">·</span>
+                <span className="text-[10px] text-muted-foreground capitalize">{profile.risk_tolerance} risk</span>
+              </div>
+            </div>
+            <ArrowRight className="h-4 w-4 text-[#d4a853] shrink-0" />
+          </button>
+        ) : (
+          <div className={cn(glassCard, "w-full p-4 text-center")}>
+            <p className="text-xs text-muted-foreground">Track your bets to build your profile</p>
           </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-foreground">Your Profile</p>
-            <p className="text-[10px] text-muted-foreground">
-              {ARCHETYPE_META[profile.betting_archetype]?.emoji}{" "}
-              {ARCHETYPE_META[profile.betting_archetype]?.label || profile.betting_archetype}
-              {" · "}{profile.risk_tolerance} risk
-              {profile.best_performing_markets.length > 0 && ` · Best: ${profile.best_performing_markets.slice(0, 2).join(", ")}`}
-            </p>
-          </div>
-          <ArrowRight className="h-4 w-4 text-[#a78bda] shrink-0" />
-        </button>
-      )}
+        )}
+      </section>
 
       <AstraAssessmentHistory limit={5} />
     </div>
   );
 }
 
-function GlassCard({ title, icon: Icon, dimmed, onClick, expandable, expanded, onToggle, children }: { title: string; icon: any; dimmed?: boolean; onClick?: () => void; expandable?: boolean; expanded?: boolean; onToggle?: () => void; children: React.ReactNode }) {
-  const handleClick = expandable ? onToggle : onClick;
+/* ─── Dashboard Card Component ─── */
+function DashboardCard({
+  title,
+  icon: Icon,
+  accent = "neutral",
+  expandable,
+  expanded,
+  onToggle,
+  children,
+}: {
+  title: string;
+  icon: any;
+  accent?: "cosmic" | "danger" | "gold" | "neutral";
+  expandable?: boolean;
+  expanded?: boolean;
+  onToggle?: () => void;
+  children: React.ReactNode;
+}) {
+  const accentColor = {
+    cosmic: "text-[#a78bda]",
+    danger: "text-red-400",
+    gold: "text-[#d4a853]",
+    neutral: "text-[#7c5dac]",
+  }[accent];
+
+  const borderHover = {
+    cosmic: "hover:border-[#a78bda]/50",
+    danger: "hover:border-red-400/40",
+    gold: "hover:border-[#d4a853]/40",
+    neutral: "hover:border-[#c4b0e0]/60",
+  }[accent];
+
   return (
-    <div onClick={handleClick} className={cn(glassCard, "p-4 space-y-2 transition-all", dimmed && "opacity-50", handleClick && "cursor-pointer hover:border-[#a78bda]/50 active:scale-[0.99]")}>
+    <div
+      onClick={expandable ? onToggle : undefined}
+      className={cn(glassCard, "p-3 space-y-2 transition-all", borderHover, expandable && "cursor-pointer")}
+    >
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Icon className="h-4 w-4 text-[#a78bda]" />
-          <h3 className="text-xs font-bold uppercase tracking-wider text-[#6b4c9a]">{title}</h3>
+        <div className="flex items-center gap-1.5">
+          <Icon className={cn("h-3.5 w-3.5", accentColor)} />
+          <h4 className="text-[10px] font-bold uppercase tracking-wider text-[#6b4c9a]">{title}</h4>
         </div>
-        {expandable ? (
-          expanded ? <ChevronUp className="h-3.5 w-3.5 text-[#a78bda]" /> : <ChevronDown className="h-3.5 w-3.5 text-[#a78bda]" />
-        ) : onClick ? (
-          <ArrowRight className="h-3.5 w-3.5 text-[#a78bda]" />
-        ) : null}
+        {expandable && (
+          expanded ? <ChevronUp className="h-3 w-3 text-[#a78bda]" /> : <ChevronDown className="h-3 w-3 text-[#a78bda]" />
+        )}
       </div>
       {children}
     </div>
