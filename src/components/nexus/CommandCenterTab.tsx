@@ -379,7 +379,7 @@ export default function CommandCenterTab() {
           </DashboardCard>
 
           {/* Opportunity Feed */}
-          <DashboardCard title="Opportunities" icon={Zap} accent="gold">
+          <DashboardCard title="Opportunities" icon={Zap} accent="gold" onClick={() => navigate("/predictions")}>
             <div className="space-y-1.5">
               {MOCK_OPPORTUNITIES.map(opp => (
                 <div key={opp.id} className="flex items-center justify-between">
