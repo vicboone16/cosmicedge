@@ -73,7 +73,15 @@ const TIER_STYLES: Record<string, { bg: string; text: string; border: string; gl
   S: { bg: "bg-gradient-to-r from-amber-400/90 to-yellow-500/90", text: "text-amber-950", border: "border-amber-400/60", glow: "shadow-amber-400/30" },
   A: { bg: "bg-gradient-to-r from-slate-300/90 to-slate-400/80", text: "text-slate-800", border: "border-slate-400/60", glow: "shadow-slate-300/20" },
   B: { bg: "bg-gradient-to-r from-amber-700/80 to-orange-800/70", text: "text-amber-100", border: "border-amber-700/50", glow: "shadow-amber-700/20" },
+  C: { bg: "bg-gradient-to-r from-zinc-400/70 to-zinc-500/60", text: "text-zinc-900", border: "border-zinc-400/40", glow: "shadow-zinc-400/10" },
 };
+
+const TIER_EXPLANATIONS = [
+  { tier: "S", label: "S-Tier: Elite", desc: "90%+ model agreement, best ROI historically" },
+  { tier: "A", label: "A-Tier: Strong", desc: "80-89% confidence, high-value pick" },
+  { tier: "B", label: "B-Tier: Solid", desc: "70-79% confidence, good value play" },
+  { tier: "C", label: "C-Tier: Moderate", desc: "60-69% confidence, moderate edge" },
+];
 
 export default function CommandCenterTab() {
   const { user } = useAuth();
