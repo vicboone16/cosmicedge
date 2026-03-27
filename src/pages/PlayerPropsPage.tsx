@@ -606,7 +606,12 @@ export default function PlayerPropsPage() {
                     )}
                   </div>
                 ) : (
-                  <div className="cosmic-card rounded-xl overflow-x-auto">
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between px-1">
+                      <p className="text-[10px] text-muted-foreground">{filtered.length} predictions</p>
+                      <span className="text-[9px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-semibold">Powered by Nebula Engine</span>
+                    </div>
+                    <div className="cosmic-card rounded-xl overflow-x-auto">
                     <Table>
                       <TableHeader>
                         <TableRow className="hover:bg-transparent">
