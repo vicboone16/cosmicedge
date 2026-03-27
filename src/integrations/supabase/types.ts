@@ -7999,6 +7999,159 @@ export type Database = {
         }
         Relationships: []
       }
+      prop_simulations: {
+        Row: {
+          created_at: string
+          edge_over: number | null
+          edge_under: number | null
+          fantasy_points_mean: number | null
+          game_id: string
+          id: string
+          implied_prob_over: number | null
+          implied_prob_under: number | null
+          line: number
+          num_simulations: number
+          percentile_10: number | null
+          percentile_25: number | null
+          percentile_50: number | null
+          percentile_75: number | null
+          percentile_90: number | null
+          player_id: string | null
+          player_name: string
+          prob_over: number
+          prob_under: number
+          projected_value: number
+          stat_type: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          edge_over?: number | null
+          edge_under?: number | null
+          fantasy_points_mean?: number | null
+          game_id: string
+          id?: string
+          implied_prob_over?: number | null
+          implied_prob_under?: number | null
+          line: number
+          num_simulations?: number
+          percentile_10?: number | null
+          percentile_25?: number | null
+          percentile_50?: number | null
+          percentile_75?: number | null
+          percentile_90?: number | null
+          player_id?: string | null
+          player_name: string
+          prob_over: number
+          prob_under: number
+          projected_value: number
+          stat_type: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          edge_over?: number | null
+          edge_under?: number | null
+          fantasy_points_mean?: number | null
+          game_id?: string
+          id?: string
+          implied_prob_over?: number | null
+          implied_prob_under?: number | null
+          line?: number
+          num_simulations?: number
+          percentile_10?: number | null
+          percentile_25?: number | null
+          percentile_50?: number | null
+          percentile_75?: number | null
+          percentile_90?: number | null
+          player_id?: string | null
+          player_name?: string
+          prob_over?: number
+          prob_under?: number
+          projected_value?: number
+          stat_type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prop_simulations_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prop_simulations_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "v_current_game_players"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "prop_simulations_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "v_game_live_state"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "prop_simulations_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "v_oracle_player_validity"
+            referencedColumns: ["game_id"]
+          },
+          {
+            foreignKeyName: "prop_simulations_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "pbp_event_participants"
+            referencedColumns: ["participant_player_id"]
+          },
+          {
+            foreignKeyName: "prop_simulations_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "pbp_event_participants"
+            referencedColumns: ["primary_player_id"]
+          },
+          {
+            foreignKeyName: "prop_simulations_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "pbp_parsed_events"
+            referencedColumns: ["resolved_player_id"]
+          },
+          {
+            foreignKeyName: "prop_simulations_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "pbp_substitution_events"
+            referencedColumns: ["participant_player_id"]
+          },
+          {
+            foreignKeyName: "prop_simulations_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prop_simulations_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "v_current_game_players"
+            referencedColumns: ["player_id"]
+          },
+          {
+            foreignKeyName: "prop_simulations_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "v_oracle_player_validity"
+            referencedColumns: ["player_id"]
+          },
+        ]
+      }
       provider_flags: {
         Row: {
           enabled: boolean
