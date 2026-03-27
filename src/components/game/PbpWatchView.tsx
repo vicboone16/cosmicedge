@@ -18,11 +18,20 @@ interface PbpWatchViewProps {
   league: string;
 }
 
-/* ─── Parse clock strings → seconds ─── */
+/* ─── Parse clock strings → seconds (handles ISO 8601 durations like "PT05M30.00S") ─── */
 function parseClockSec(raw: string | null | undefined): number | null {
   if (!raw) return null;
   let cleaned = raw.replace(/^Q\d+\s+/i, "").trim();
   if (/final|half/i.test(cleaned)) return 0;
+
+  // ISO 8601 duration: PT{minutes}M{seconds}S
+  const isoMatch = cleaned.match(/^PT(?:(\d+)M)?(?:(\d+(?:\.\d+)?)S)?$/i);
+  if (isoMatch) {
+    const minutes = Number(isoMatch[1] ?? 0);
+    const seconds = Math.floor(Number(isoMatch[2] ?? 0));
+    return minutes * 60 + seconds;
+  }
+
   if (/^\d+(\.\d+)?$/.test(cleaned)) {
     const val = parseFloat(cleaned);
     return Number.isFinite(val) ? Math.max(0, val) : null;

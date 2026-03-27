@@ -42,11 +42,19 @@ function computeWP(
   return Math.max(0.001, Math.min(0.999, wp));
 }
 
-/* ─── Parse clock strings like "5:32", "Q2 5:32", "12:00.0", "0.1" → seconds ─── */
+/* ─── Parse clock strings like "5:32", "Q2 5:32", "12:00.0", "0.1", "PT05M30.00S" → seconds ─── */
 function parseClockToSeconds(raw: string | null | undefined): number | null {
   if (!raw) return null;
   let cleaned = raw.replace(/^Q\d+\s+/i, "").trim();
   if (/final|half/i.test(cleaned)) return 0;
+
+  // ISO 8601 duration: PT{minutes}M{seconds}S  (e.g. "PT05M30.00S", "PT00M45.30S", "PT12M00.00S")
+  const isoMatch = cleaned.match(/^PT(?:(\d+)M)?(?:(\d+(?:\.\d+)?)S)?$/i);
+  if (isoMatch) {
+    const minutes = Number(isoMatch[1] ?? 0);
+    const seconds = Math.floor(Number(isoMatch[2] ?? 0));
+    return minutes * 60 + seconds;
+  }
 
   // If value is a pure decimal number (e.g. "0.1", "22.6", "125.4") treat as raw seconds
   if (/^\d+(\.\d+)?$/.test(cleaned)) {
