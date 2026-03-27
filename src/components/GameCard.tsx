@@ -221,23 +221,23 @@ export const GameCard = memo(function GameCard({ game }: { game: GameWithOdds })
         </div>
       )}
 
-      {/* Edge Tier Badge */}
+      {/* Confidence Tier Badge */}
       {pregame && !isFinal && pregame.edgeHome != null && (
         (() => {
           const absEdge = Math.abs(pregame.edgeHome);
           const pct = (absEdge * 100);
-          if (pct < 3) return null;
-          const tier = pct >= 8 ? "Elite" : pct >= 5 ? "Strong" : "Playable";
-          const tierColor = tier === "Elite" ? "bg-cosmic-green/15 text-cosmic-green border-cosmic-green/30" 
-            : tier === "Strong" ? "bg-cosmic-gold/15 text-cosmic-gold border-cosmic-gold/30" 
-            : "bg-primary/10 text-primary border-primary/20";
+          if (pct < 2) return null;
+          const tier = pct >= 8 ? "S" : pct >= 5 ? "A" : pct >= 3 ? "B" : null;
+          if (!tier) return null;
+          const badgeClass = tier === "S" ? "tier-badge-s" : tier === "A" ? "tier-badge-a" : "tier-badge-b";
+          const tierLabel = tier === "S" ? "S-Tier" : tier === "A" ? "A-Tier" : "B-Tier";
           return (
             <div className="mt-2 pt-2 border-t border-border/30 flex items-center gap-2">
-              <span className={cn("text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border", tierColor)}>
-                {tier} Edge
+              <span className={cn("text-[9px] font-extrabold uppercase tracking-wider px-2.5 py-1 rounded-full", badgeClass)}>
+                {tierLabel}
               </span>
               <span className="text-[10px] text-muted-foreground">
-                {pregame.edgeHome > 0 ? game.home_abbr : game.away_abbr} +{pct.toFixed(1)}%
+                {pregame.edgeHome > 0 ? game.home_abbr : game.away_abbr} +{pct.toFixed(1)}% edge
               </span>
             </div>
           );
