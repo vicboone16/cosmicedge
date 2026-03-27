@@ -366,7 +366,7 @@ export default function PlayerPropsPage() {
         <div className="flex items-center justify-between mb-3">
           <h1 className="text-lg font-bold font-display flex items-center gap-2">
             <TrendingUp className="h-5 w-5 text-primary" />
-            Props
+            Predictions
           </h1>
           {activeTab === "markets" && (
             <button
