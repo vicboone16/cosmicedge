@@ -141,7 +141,7 @@ export const GameCard = memo(function GameCard({ game }: { game: GameWithOdds })
             >
               {game.away_abbr}
             </span>
-            <span className={cn("text-sm font-medium", isFinal && (game.away_score ?? 0) > (game.home_score ?? 0) && "text-foreground", isFinal && (game.away_score ?? 0) <= (game.home_score ?? 0) && "text-muted-foreground")}>
+            <span className={cn("text-sm font-medium truncate max-w-[120px] sm:max-w-none", isFinal && (game.away_score ?? 0) > (game.home_score ?? 0) && "text-foreground", isFinal && (game.away_score ?? 0) <= (game.home_score ?? 0) && "text-muted-foreground")}>
               {game.away_team}
             </span>
           </div>
