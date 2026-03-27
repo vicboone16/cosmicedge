@@ -476,8 +476,8 @@ function DashboardCard({
 
   return (
     <div
-      onClick={expandable ? onToggle : undefined}
-      className={cn(glassCard, "p-3 space-y-2 transition-all", borderHover, expandable && "cursor-pointer")}
+      onClick={expandable ? onToggle : onClick}
+      className={cn(glassCard, "p-3 space-y-2 transition-all", borderHover, (expandable || onClick) && "cursor-pointer")}
     >
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1.5">
