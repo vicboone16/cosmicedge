@@ -130,12 +130,16 @@ export default function CommandCenterTab() {
   const liveGamesCount = liveGames?.length || 0;
 
   // Filter mock plays by mode
+  // Default to pra_sniper if no user preference set
+  const effectiveMode = activeMode === "cosmic" && !user ? "pra_sniper" : activeMode;
+
   const filteredPlays = useMemo(() => {
-    if (activeMode === "sniper") return MOCK_TOP_PLAYS.filter(p => p.tier === "S" || p.tier === "A");
-    if (activeMode === "hedge") return [...MOCK_TOP_PLAYS].sort((a, b) => b.confidence - a.confidence).slice(0, 3);
-    if (activeMode === "shadow") return [...MOCK_TOP_PLAYS].reverse().slice(0, 4);
+    if (effectiveMode === "pra_sniper") return MOCK_TOP_PLAYS.filter(p => p.stat === "PRA");
+    if (effectiveMode === "sniper") return MOCK_TOP_PLAYS.filter(p => p.tier === "S" || p.tier === "A");
+    if (effectiveMode === "hedge") return [...MOCK_TOP_PLAYS].sort((a, b) => b.confidence - a.confidence).slice(0, 3);
+    if (effectiveMode === "shadow") return [...MOCK_TOP_PLAYS].reverse().slice(0, 4);
     return MOCK_TOP_PLAYS;
-  }, [activeMode]);
+  }, [effectiveMode]);
 
   return (
     <div className="relative space-y-6">
