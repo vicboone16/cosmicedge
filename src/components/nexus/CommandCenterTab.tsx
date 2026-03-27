@@ -358,7 +358,7 @@ export default function CommandCenterTab() {
           </DashboardCard>
 
           {/* Slip Health */}
-          <DashboardCard title="Slip Health" icon={BarChart3} accent="neutral">
+          <DashboardCard title="Slip Health" icon={BarChart3} accent="neutral" onClick={() => navigate("/skyspread")}>
             <div className="space-y-1.5">
               {MOCK_SLIP_HEALTH.map(s => (
                 <div key={s.stat} className="flex items-center gap-2">
