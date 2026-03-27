@@ -749,7 +749,7 @@ async function syncLiveScores(
       // Insert new game
       const startTime = ev.strTimestamp
         ? new Date(ev.strTimestamp + (ev.strTimestamp.includes("Z") ? "" : "+00:00")).toISOString()
-        : `${eventDate}T${ev.strTime || "00:00:00"}Z`;
+        : convertLocalETtoUTC(eventDate, ev.strTime || "00:00:00");
 
       const { error } = await supabase.from("games").insert({
         home_team: ev.strHomeTeam,
