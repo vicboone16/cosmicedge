@@ -228,16 +228,24 @@ function PlayersTab() {
         </div>
       ) : (
         <>
-          {/* Player Insights section */}
+          {/* Player Insights — grouped by player */}
           {playerInsights && playerInsights.length > 0 && (
             <div className="space-y-2">
               <h3 className="text-xs font-semibold uppercase tracking-widest text-[#6b4c9a] flex items-center gap-1.5">
                 <TrendingUp className="h-3.5 w-3.5 text-[#a78bda]" /> Player Insights
               </h3>
               <div className="space-y-2">
-                {playerInsights.slice(0, 5).map(insight => (
-                  <TrendCard key={insight.id} insight={insight} />
-                ))}
+                {(() => {
+                  const grouped = new Map<string, typeof playerInsights>();
+                  for (const insight of playerInsights.slice(0, 10)) {
+                    const key = insight.playerName;
+                    if (!grouped.has(key)) grouped.set(key, []);
+                    grouped.get(key)!.push(insight);
+                  }
+                  return Array.from(grouped.entries()).map(([playerName, insights]) => (
+                    <PlayerInsightGroup key={playerName} playerName={playerName} insights={insights} />
+                  ));
+                })()}
               </div>
             </div>
           )}
