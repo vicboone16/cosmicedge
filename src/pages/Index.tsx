@@ -13,6 +13,7 @@ import { TrendingPlaysStrip } from "@/components/slate/TrendingPlaysStrip";
 import { LiveNowStrip } from "@/components/slate/LiveNowStrip";
 import { LiveRadarPill } from "@/components/slate/LiveRadarPill";
 import { GuidanceCard } from "@/components/ui/GuidanceCard";
+import { TwinklingStars } from "@/components/slate/TwinklingStars";
 
 const Index = () => {
   const [selectedLeague, setSelectedLeague] = useState<League | "ALL">("ALL");
@@ -45,9 +46,10 @@ const Index = () => {
   const isBlockedLeague = selectedLeague === "NCAAF" || selectedLeague === "NFL" || (selectedLeague === "NCAAB" && !isAdmin);
 
   return (
-    <div className="min-h-screen">
+    <div className="relative min-h-screen dark:slate-twilight-bg slate-twilight-bg-light">
+      <TwinklingStars />
       {/* Header */}
-      <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-xl border-b border-border/50">
+      <header className="sticky top-0 z-40 bg-white/60 dark:bg-black/30 backdrop-blur-xl border-b border-white/20 dark:border-white/10">
         <div className="px-4 pt-12 pb-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 mb-1">

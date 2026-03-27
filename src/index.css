@@ -243,4 +243,47 @@
     background: linear-gradient(135deg, hsl(var(--cosmic-lavender) / 0.2), hsl(var(--cosmic-indigo) / 0.15));
     border: 1px solid hsl(var(--cosmic-lavender) / 0.3);
   }
+
+  .slate-twilight-bg {
+    background: linear-gradient(
+      180deg,
+      hsl(265 35% 22%) 0%,
+      hsl(260 30% 30%) 25%,
+      hsl(255 28% 42%) 50%,
+      hsl(265 30% 58%) 75%,
+      hsl(270 35% 72%) 100%
+    );
+  }
+
+  .slate-twilight-bg-light {
+    background: linear-gradient(
+      180deg,
+      hsl(260 40% 82%) 0%,
+      hsl(265 35% 86%) 25%,
+      hsl(270 30% 90%) 50%,
+      hsl(268 28% 93%) 75%,
+      hsl(265 25% 95%) 100%
+    );
+  }
+
+  .tier-badge-s {
+    background: linear-gradient(135deg, hsl(42 85% 55%), hsl(38 90% 45%));
+    color: hsl(38 90% 12%);
+    box-shadow: 0 0 8px hsl(42 85% 55% / 0.4);
+  }
+  .tier-badge-a {
+    background: linear-gradient(135deg, hsl(220 15% 72%), hsl(225 12% 60%));
+    color: hsl(225 20% 15%);
+    box-shadow: 0 0 6px hsl(220 15% 72% / 0.3);
+  }
+  .tier-badge-b {
+    background: linear-gradient(135deg, hsl(25 50% 55%), hsl(20 45% 45%));
+    color: hsl(20 50% 12%);
+    box-shadow: 0 0 6px hsl(25 50% 55% / 0.3);
+  }
+}
+
+@keyframes twinkle {
+  0%, 100% { opacity: 0.1; transform: scale(0.8); }
+  50% { opacity: 0.7; transform: scale(1.2); }
 }
