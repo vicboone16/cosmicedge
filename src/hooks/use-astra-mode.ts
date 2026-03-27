@@ -45,7 +45,7 @@ export function useAstraMode() {
     enabled: !!user?.id,
   });
 
-  const activeMode: AstraMode = (userPref as AstraMode) || "cosmic";
+  const activeMode: AstraMode = (userPref as AstraMode) || "pra_sniper";
 
   const setMode = useCallback(async (mode: AstraMode) => {
     if (!user?.id) return;
