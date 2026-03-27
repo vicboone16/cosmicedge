@@ -12,6 +12,7 @@ import { GuidanceCard } from "@/components/ui/GuidanceCard";
 import { DataSourceBadge } from "@/components/ui/DataSourceBadge";
 import SignalLabPage from "./SignalLabPage";
 import HistoricalPage from "./HistoricalPage";
+import { TrendCard, type TrendInsight } from "@/components/trends/TrendCard";
 import { getMarketShort } from "@/lib/market-catalog";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
