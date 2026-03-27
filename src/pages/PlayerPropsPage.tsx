@@ -551,6 +551,8 @@ export default function PlayerPropsPage() {
 
       {activeTab === "explore" ? (
         <PropsExploreTab />
+      ) : activeTab === "montecarlo" ? (
+        <MonteCarloSimTab selectedDate={selectedDate} />
       ) : (
       <div className="px-4 py-4">
         {view === "odds" ? (
