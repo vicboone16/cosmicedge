@@ -298,7 +298,10 @@ Deno.serve(async (req) => {
         // Update scores (realtime push via publication)
         const homeScore = g.home_team_score ?? null;
         const awayScore = g.visitor_team_score ?? null;
-        const status = g.status === "Final" ? "final" : g.period > 0 ? "live" : "scheduled";
+        const status = deriveGameStatus(g);
+
+        // Ignore provider pregame rows so we don't overwrite active game data with 0-0 snapshots.
+        if (status === "scheduled") continue;
 
         // ── Freeze pregame odds at tipoff ──
         // On first tick where game becomes live, snapshot current odds into pregame_odds
