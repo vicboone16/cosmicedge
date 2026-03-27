@@ -8,6 +8,7 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { format, addDays, isToday } from "date-fns";
 import { Input } from "@/components/ui/input";
 import { PropsExploreTab } from "@/components/props/PropsExploreTab";
+import { MonteCarloSimTab } from "@/components/props/MonteCarloSimTab";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
