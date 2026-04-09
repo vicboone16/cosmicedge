@@ -132,10 +132,11 @@ const Index = () => {
         ) : null}
 
         {!isBlockedLeague && isError && (
-          <div className="text-center py-16">
-            <p className="text-sm text-destructive mb-2">The cosmos are misaligned</p>
+          <div className="text-center py-16 space-y-2">
+            <p className="text-sm text-destructive">Failed to load games</p>
+            <p className="text-xs text-muted-foreground">Check your connection and try again.</p>
             <button onClick={() => refetch()} className="text-xs text-primary hover:underline">
-              Realign & retry
+              Retry
             </button>
           </div>
         )}

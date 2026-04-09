@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Star, Loader2, Mail, Lock, User } from "lucide-react";
+import { Star, Loader2, Mail, Lock, User, ArrowLeft } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { lovable } from "@/integrations/lovable/index";
 import { cn } from "@/lib/utils";
@@ -57,26 +57,35 @@ const AuthPage = () => {
           <p className="text-xs text-muted-foreground mt-1">Where the line meets the sky</p>
         </div>
 
-        {/* Mode toggle */}
-        <div className="flex rounded-xl bg-secondary p-1">
-          {(["login", "signup"] as const).map(m => (
+        {/* Mode toggle — hidden in reset flow, replaced by back button */}
+        {mode !== "reset" ? (
+          <div className="flex rounded-xl bg-secondary p-1">
+            {(["login", "signup"] as const).map(m => (
+              <button
+                key={m}
+                onClick={() => { setMode(m); setError(null); setSuccess(null); }}
+                className={cn(
+                  "flex-1 text-sm font-medium py-2 rounded-lg transition-all",
+                  mode === m ? "bg-card text-foreground shadow-sm" : "text-muted-foreground"
+                )}
+              >
+                {m === "login" ? "Log In" : "Sign Up"}
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div className="space-y-2">
             <button
-              key={m}
-              onClick={() => { setMode(m); setError(null); setSuccess(null); }}
-              className={cn(
-                "flex-1 text-sm font-medium py-2 rounded-lg transition-all",
-                mode === m ? "bg-card text-foreground shadow-sm" : "text-muted-foreground"
-              )}
+              onClick={() => { setMode("login"); setError(null); setSuccess(null); }}
+              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
             >
-              {m === "login" ? "Log In" : "Sign Up"}
+              <ArrowLeft className="h-3.5 w-3.5" />
+              Back to Log In
             </button>
-          ))}
-        </div>
-
-        {mode === "reset" && (
-          <div className="text-center">
-            <h2 className="text-sm font-semibold text-foreground">Reset Password</h2>
-            <p className="text-xs text-muted-foreground mt-1">Enter your email to receive a password reset link.</p>
+            <div>
+              <h2 className="text-sm font-semibold text-foreground">Reset Password</h2>
+              <p className="text-xs text-muted-foreground mt-0.5">Enter your email to receive a reset link.</p>
+            </div>
           </div>
         )}
 
