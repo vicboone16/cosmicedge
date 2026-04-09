@@ -206,7 +206,7 @@ function AstraChat() {
               {suggestions.map((s) => (
                 <button
                   key={s}
-                  onClick={() => setInput(s)}
+                  onClick={() => send(s)}
                   className="w-full text-left cosmic-card rounded-lg p-3 flex items-center gap-2 hover:border-primary/30 transition-colors"
                 >
                   <ChevronRight className="h-3 w-3 text-primary flex-shrink-0" />

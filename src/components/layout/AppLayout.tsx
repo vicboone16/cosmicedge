@@ -5,7 +5,7 @@ import { PropDrawerProvider } from "@/hooks/use-prop-drawer";
 import { useAuth } from "@/hooks/use-auth";
 import { useIsAdmin } from "@/hooks/use-admin";
 import { useMemo } from "react";
-import { User, LogIn, Moon, Settings, Users, LogOut, Shield, Sparkles, FlaskConical, Telescope, Calculator, BarChart3, HelpCircle, MessageCircle } from "lucide-react";
+import { User, LogIn, Settings, Users, LogOut, Shield, Sparkles, FlaskConical, Telescope, Calculator, BarChart3, HelpCircle, MessageCircle } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -109,7 +109,7 @@ export function AppLayout() {
                   {(user.user_metadata?.display_name || user.email || "U")[0].toUpperCase()}
                 </span>
               ) : (
-                <Moon className="h-4 w-4 text-muted-foreground" />
+                <User className="h-4 w-4 text-muted-foreground" />
               )}
               {!!pendingCount && pendingCount > 0 && (
                 <span className="absolute -top-1 -right-1 h-4 min-w-[16px] px-1 rounded-full bg-destructive text-destructive-foreground text-[9px] font-bold flex items-center justify-center">

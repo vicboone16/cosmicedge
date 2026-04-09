@@ -29,7 +29,6 @@ function deriveSignals(prop: TopProp): string[] {
   if (prop.streak != null && prop.streak >= 4) s.push("over_heater");
   if (prop.hit_l10 != null && prop.hit_l10 >= 0.7) s.push("momentum");
   if ((prop.edge_score_v11 ?? prop.edge_score) >= 65) s.push("defense_edge");
-  if (s.length < 3) s.push("usage_spike");
   return s.slice(0, 4);
 }
 

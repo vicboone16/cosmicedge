@@ -1,4 +1,4 @@
-import { CalendarDays, Star, Crosshair, TrendingUp, Compass, Sparkles, Command } from "lucide-react";
+import { CalendarDays, Star, Crosshair, TrendingUp, Compass, Sparkles, Command, Lock } from "lucide-react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
@@ -25,9 +25,13 @@ export function BottomNav() {
               <button
                 key={to}
                 onClick={() => navigate("/auth")}
-                className="flex flex-col items-center gap-0.5 px-1 sm:px-2 py-2 rounded-lg text-muted-foreground/50 min-w-0"
+                aria-label={`${label} — sign in required`}
+                className="flex flex-col items-center gap-0.5 px-1 sm:px-2 py-2 rounded-lg text-muted-foreground/40 min-w-0"
               >
-                <Icon className="h-5 w-5 shrink-0" />
+                <div className="relative">
+                  <Icon className="h-[1.35rem] w-[1.35rem]" />
+                  <Lock className="absolute -bottom-1 -right-1 h-2.5 w-2.5 text-muted-foreground/60" />
+                </div>
                 <span className="text-[9px] sm:text-[10px] font-medium truncate">{label}</span>
               </button>
             );
