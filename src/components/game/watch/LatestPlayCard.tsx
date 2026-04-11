@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import { motion, AnimatePresence } from "framer-motion";
 import type { NormalizedPbpEvent } from "@/lib/pbp-event-parser";
 
 interface LatestPlayCardProps {
@@ -7,100 +8,124 @@ interface LatestPlayCardProps {
   awayAbbr: string;
 }
 
-const EVENT_LABELS: Record<string, string> = {
-  made_shot: "Made Shot",
-  missed_shot: "Missed Shot",
-  free_throw_made: "FT Made",
-  free_throw_missed: "FT Missed",
-  rebound_offensive: "Off. Rebound",
-  rebound_defensive: "Def. Rebound",
-  turnover: "Turnover",
-  steal: "Steal",
-  block: "Block",
-  foul_personal: "Personal Foul",
-  foul_shooting: "Shooting Foul",
-  foul_offensive: "Offensive Foul",
-  foul_technical: "Technical Foul",
-  foul_loose_ball: "Loose Ball Foul",
-  timeout: "Timeout",
-  substitution: "Substitution",
-  jump_ball: "Jump Ball",
-  violation: "Violation",
-  review: "Review",
-  period_start: "Period Start",
-  period_end: "Period End",
-  unknown: "Play",
-};
-
-const EVENT_COLORS: Record<string, string> = {
-  made_shot: "text-cosmic-green border-cosmic-green/30",
-  missed_shot: "text-cosmic-red border-cosmic-red/30",
-  free_throw_made: "text-cosmic-green border-cosmic-green/30",
-  free_throw_missed: "text-cosmic-red border-cosmic-red/30",
-  rebound_offensive: "text-cosmic-gold border-cosmic-gold/30",
-  rebound_defensive: "text-cosmic-cyan border-cosmic-cyan/30",
-  turnover: "text-cosmic-red border-cosmic-red/30",
-  steal: "text-cosmic-cyan border-cosmic-cyan/30",
-  foul_personal: "text-cosmic-gold border-cosmic-gold/30",
-  foul_shooting: "text-cosmic-gold border-cosmic-gold/30",
-  timeout: "text-muted-foreground border-border",
+const EVENT_CONFIG: Record<string, { label: string; icon: string; bg: string; text: string; border: string }> = {
+  made_shot:         { label: "Made Shot",       icon: "🏀", bg: "bg-green-500/15",  text: "text-green-400",  border: "border-green-500/30" },
+  missed_shot:       { label: "Missed Shot",     icon: "✕",  bg: "bg-red-500/15",   text: "text-red-400",    border: "border-red-500/30" },
+  free_throw_made:   { label: "FT Made",         icon: "●",  bg: "bg-green-500/15", text: "text-green-400",  border: "border-green-500/30" },
+  free_throw_missed: { label: "FT Missed",       icon: "○",  bg: "bg-red-500/15",   text: "text-red-400",    border: "border-red-500/30" },
+  rebound_offensive: { label: "Off. Rebound",    icon: "↗",  bg: "bg-amber-500/15", text: "text-amber-400",  border: "border-amber-500/30" },
+  rebound_defensive: { label: "Def. Rebound",    icon: "↙",  bg: "bg-sky-500/15",   text: "text-sky-400",    border: "border-sky-500/30" },
+  turnover:          { label: "Turnover",        icon: "⇄",  bg: "bg-orange-500/15",text: "text-orange-400", border: "border-orange-500/30" },
+  steal:             { label: "Steal",           icon: "⚡",  bg: "bg-sky-500/15",   text: "text-sky-400",    border: "border-sky-500/30" },
+  block:             { label: "Block",           icon: "🛡",  bg: "bg-violet-500/15",text: "text-violet-400", border: "border-violet-500/30" },
+  foul_personal:     { label: "Personal Foul",   icon: "🚨", bg: "bg-yellow-500/15",text: "text-yellow-400", border: "border-yellow-500/30" },
+  foul_shooting:     { label: "Shooting Foul",   icon: "🚨", bg: "bg-yellow-500/15",text: "text-yellow-400", border: "border-yellow-500/30" },
+  foul_offensive:    { label: "Offensive Foul",  icon: "🚨", bg: "bg-orange-500/15",text: "text-orange-400", border: "border-orange-500/30" },
+  foul_technical:    { label: "Technical Foul",  icon: "⚠",  bg: "bg-red-500/15",   text: "text-red-400",    border: "border-red-500/30" },
+  timeout:           { label: "Timeout",         icon: "⏸",  bg: "bg-muted/40",     text: "text-muted-foreground", border: "border-border/50" },
+  substitution:      { label: "Substitution",    icon: "↔",  bg: "bg-muted/30",     text: "text-muted-foreground", border: "border-border/40" },
+  jump_ball:         { label: "Jump Ball",       icon: "▲",  bg: "bg-sky-500/10",   text: "text-sky-400",    border: "border-sky-500/20" },
+  unknown:           { label: "Play",            icon: "·",  bg: "bg-muted/30",     text: "text-muted-foreground", border: "border-border/40" },
 };
 
 export function LatestPlayCard({ event, homeAbbr, awayAbbr }: LatestPlayCardProps) {
   if (!event) {
     return (
-      <div className="p-4 rounded-lg border border-border/30 bg-card/50">
-        <p className="text-xs text-muted-foreground text-center">Waiting for live play-by-play…</p>
+      <div className="flex items-center justify-center py-5 rounded-xl border border-border/25 bg-card/40">
+        <div className="flex items-center gap-2">
+          <span className="h-1.5 w-1.5 rounded-full bg-primary/40 animate-pulse" />
+          <p className="text-xs text-muted-foreground">Waiting for live play-by-play…</p>
+        </div>
       </div>
     );
   }
 
-  const label = EVENT_LABELS[event.eventType] || "Play";
-  const colorClass = EVENT_COLORS[event.eventType] || "text-muted-foreground border-border";
+  const cfg = EVENT_CONFIG[event.eventType] || EVENT_CONFIG.unknown;
   const periodLabel = event.period <= 4 ? `Q${event.period}` : `OT${event.period - 4}`;
+  const isScoring = event.isScoringPlay && event.pointsScored;
 
   return (
-    <div className="p-3 rounded-lg border border-border/40 bg-card/60 backdrop-blur-sm space-y-2">
-      {/* Event type badge + score */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className={cn(
-            "text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border",
-            colorClass
-          )}>
-            {label}
-          </span>
-          {event.teamId && (
-            <span className="text-[10px] font-bold text-primary">{event.teamId}</span>
+    // Key on sourceEventId forces a re-mount animation every time the play changes
+    <AnimatePresence mode="wait">
+      <motion.div
+        key={event.sourceEventId}
+        initial={{ opacity: 0, y: -6 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: 4 }}
+        transition={{ duration: 0.22, ease: "easeOut" }}
+        className={cn(
+          "relative rounded-xl border p-3 overflow-hidden",
+          cfg.bg, cfg.border,
+        )}
+      >
+        {/* Left accent bar */}
+        <div className={cn("absolute left-0 top-0 bottom-0 w-1 rounded-l-xl", cfg.text.replace("text-", "bg-"))} />
+
+        <div className="pl-2 space-y-2">
+          {/* Top row: badge + team + period/clock */}
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* Event type badge */}
+              <span className={cn(
+                "inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border",
+                cfg.bg, cfg.text, cfg.border,
+              )}>
+                <span>{cfg.icon}</span>
+                <span>{cfg.label}</span>
+              </span>
+
+              {/* Team */}
+              {event.teamId && (
+                <span className={cn(
+                  "text-[10px] font-black tracking-wide",
+                  event.teamId === homeAbbr ? "text-primary" : "text-sky-400"
+                )}>
+                  {event.teamId}
+                </span>
+              )}
+
+              {/* Points badge */}
+              {isScoring && (
+                <motion.span
+                  initial={{ scale: 0.5, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  className="text-[11px] font-black text-green-400 tabular-nums"
+                >
+                  +{event.pointsScored}
+                </motion.span>
+              )}
+            </div>
+
+            {/* Period + clock */}
+            <span className="text-[9px] tabular-nums text-muted-foreground/60 shrink-0 font-mono">
+              {periodLabel} · {event.clockDisplay || "—"}
+            </span>
+          </div>
+
+          {/* Play description */}
+          <p className="text-sm text-foreground font-medium leading-snug">
+            {event.rawDescription || "—"}
+          </p>
+
+          {/* Score after play */}
+          {event.scoreAwayAfter != null && event.scoreHomeAfter != null && (
+            <div className="flex items-center gap-1.5 text-[10px] tabular-nums text-muted-foreground/70">
+              <span className="font-bold">{awayAbbr}</span>
+              <span className="font-black text-foreground/80">
+                {event.scoreAwayAfter} – {event.scoreHomeAfter}
+              </span>
+              <span className="font-bold">{homeAbbr}</span>
+            </div>
+          )}
+
+          {/* Player name */}
+          {event.primaryPlayerId && (
+            <p className="text-[10px] font-semibold text-primary/70 mt-0.5">
+              {event.primaryPlayerId}
+            </p>
           )}
         </div>
-        <div className="flex items-center gap-1.5 text-[10px] tabular-nums text-muted-foreground">
-          <span>{periodLabel}</span>
-          <span>·</span>
-          <span>{event.clockDisplay || "—"}</span>
-        </div>
-      </div>
-
-      {/* Description */}
-      <p className="text-sm text-foreground leading-relaxed">
-        {event.rawDescription || "—"}
-      </p>
-
-      {/* Score after */}
-      {event.scoreAwayAfter != null && event.scoreHomeAfter != null && (
-        <div className="flex items-center gap-2 text-[10px] tabular-nums text-muted-foreground">
-          <span className="font-bold">{awayAbbr}</span>
-          <span>{event.scoreAwayAfter}</span>
-          <span>—</span>
-          <span>{event.scoreHomeAfter}</span>
-          <span className="font-bold">{homeAbbr}</span>
-        </div>
-      )}
-
-      {/* Player */}
-      {event.primaryPlayerId && (
-        <p className="text-[10px] text-primary/70">{event.primaryPlayerId}</p>
-      )}
-    </div>
+      </motion.div>
+    </AnimatePresence>
   );
 }
