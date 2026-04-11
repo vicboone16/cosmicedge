@@ -655,75 +655,105 @@ export function PlayByPlayTab({ gameId, homeAbbr, awayAbbr, league, gameStatus }
       </div>
 
       {/* Events grouped by period */}
-      <div className="max-h-[65vh] overflow-y-auto space-y-0">
+      <div className="max-h-[65vh] overflow-y-auto space-y-0 rounded-xl overflow-hidden border border-border/30">
         {groupedByPeriod.map(({ period, events: periodEvents }) => (
           <div key={period}>
-            <div className="sticky top-0 z-10 flex items-center justify-between px-3 py-2 bg-primary/10 border-y border-border/50">
-              <span className="text-[10px] font-bold text-primary uppercase tracking-wider">
-                {periodLongLabel(period)}
-              </span>
-              <div className="flex items-center gap-3 text-[10px] font-bold text-muted-foreground">
-                <span>{awayAbbr}</span>
-                <span>{homeAbbr}</span>
-                <span className="w-10 text-center">WP</span>
+            {/* Period header */}
+            <div className="sticky top-0 z-10 flex items-center justify-between px-4 py-2.5 bg-gradient-to-r from-primary/15 to-primary/5 border-y border-border/40 backdrop-blur-sm">
+              <div className="flex items-center gap-2">
+                <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
+                <span className="text-[11px] font-bold text-primary uppercase tracking-wider">
+                  {periodLongLabel(period)}
+                </span>
+              </div>
+              <div className="flex items-center gap-4 text-[10px] font-bold text-muted-foreground">
+                <span className="uppercase tracking-wider">{awayAbbr}</span>
+                <span className="uppercase tracking-wider">{homeAbbr}</span>
+                <span className="w-12 text-center text-[9px] uppercase tracking-wider">H-WP%</span>
               </div>
             </div>
 
-            {periodEvents.map((ev) => {
+            {periodEvents.map((ev, idx) => {
               const isHome = ev.team === homeAbbr;
               const isAway = ev.team === awayAbbr;
+              const hasTeam = isHome || isAway;
 
-              // Format WP display
-              const wpDisplay = ev.wp != null
-                ? `${(ev.wp * 100).toFixed(0)}%`
-                : null;
-
-              // WP color: >55% = green (home favored), <45% = red (away favored)
+              const wpDisplay = ev.wp != null ? `${(ev.wp * 100).toFixed(0)}%` : null;
               const wpColor = ev.wp != null
-                ? ev.wp >= 0.55 ? "text-cosmic-green"
-                  : ev.wp <= 0.45 ? "text-cosmic-red"
-                  : "text-muted-foreground"
-                : "text-muted-foreground";
+                ? ev.wp >= 0.6 ? "text-cosmic-green" : ev.wp <= 0.4 ? "text-cosmic-red" : "text-muted-foreground/70"
+                : "text-muted-foreground/40";
+
+              // Detect scoring plays from description
+              const isScore = ev.description != null && /\bscore[sd]?\b|\bmakes?\b|\b\d+\s*pt|\bshot\b|\bdunk\b|\blayup\b|\bjumper\b|\bthree\b|\b3pt\b/i.test(ev.description);
+              const isFoul = /\bfoul\b/i.test(ev.description || "");
+              const isTO = /\bturnover\b|\bstolen\b|\bsteals?\b/i.test(ev.description || "");
+              const isBlock = /\bblocks?\b/i.test(ev.description || "");
+              const isReb = /\brebound\b/i.test(ev.description || "");
+
+              const eventIcon = isScore ? "⚡" : isFoul ? "🚨" : isTO ? "↩️" : isBlock ? "🛡️" : isReb ? "↗️" : null;
+
+              const rowBg = isScore
+                ? isHome ? "bg-primary/5 border-l-2 border-l-primary" : "bg-muted/30 border-l-2 border-l-muted-foreground/30"
+                : idx % 2 === 0 ? "bg-transparent" : "bg-muted/10";
 
               return (
                 <div
                   key={ev.key}
-                  className="flex items-start gap-2 px-3 py-2.5 border-b border-border/20 transition-colors"
+                  className={cn(
+                    "flex items-center gap-3 px-4 py-2 border-b border-border/15 transition-colors hover:bg-muted/20",
+                    rowBg
+                  )}
                 >
-                  {/* Team indicator */}
-                  <div className="w-8 shrink-0 flex items-center justify-center pt-0.5">
-                    {(isHome || isAway) && (
+                  {/* Clock */}
+                  <span className="text-[10px] tabular-nums text-muted-foreground/60 w-10 shrink-0 font-mono">
+                    {ev.clockDisplay || "—"}
+                  </span>
+
+                  {/* Team badge */}
+                  <div className="w-8 shrink-0 flex justify-center">
+                    {hasTeam ? (
                       <span className={cn(
-                        "text-[9px] font-bold px-1.5 py-0.5 rounded",
-                        isHome ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"
+                        "text-[8px] font-bold px-1.5 py-0.5 rounded-full",
+                        isHome
+                          ? "bg-primary/15 text-primary ring-1 ring-primary/30"
+                          : "bg-muted/50 text-muted-foreground ring-1 ring-border/40"
                       )}>
                         {ev.team}
                       </span>
-                    )}
+                    ) : null}
                   </div>
 
-                  {/* Content */}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs leading-relaxed text-muted-foreground">
-                      <span className="tabular-nums text-muted-foreground mr-1.5">{ev.clockDisplay}</span>
+                  {/* Event icon + description */}
+                  <div className="flex-1 min-w-0 flex items-center gap-1.5">
+                    {eventIcon && <span className="text-[10px] shrink-0">{eventIcon}</span>}
+                    <p className={cn(
+                      "text-xs leading-relaxed truncate",
+                      isScore ? "text-foreground font-medium" : "text-muted-foreground"
+                    )}>
+                      {ev.player && ev.description && !ev.description.toLowerCase().includes(ev.player.toLowerCase().split(" ").pop() || "") && (
+                        <span className="text-primary/80 font-semibold mr-1">{ev.player.split(" ").pop()}</span>
+                      )}
                       {ev.description || ev.player || "—"}
                     </p>
-                    {ev.player && ev.description && !ev.description.includes(ev.player) && (
-                      <span className="text-[9px] text-primary/70">{ev.player}</span>
-                    )}
                   </div>
 
-                  {/* Per-event running score */}
+                  {/* Running score */}
                   <div className="flex items-center gap-3 shrink-0">
-                    <span className="text-[10px] tabular-nums font-medium text-muted-foreground w-5 text-right">
+                    <span className={cn(
+                      "text-[11px] tabular-nums font-bold w-5 text-right",
+                      isAway && isScore ? "text-foreground" : "text-muted-foreground/70"
+                    )}>
                       {ev.awayScore != null ? ev.awayScore : ""}
                     </span>
-                    <span className="text-[10px] tabular-nums font-medium text-muted-foreground w-5 text-right">
+                    <span className="text-[10px] text-muted-foreground/30">–</span>
+                    <span className={cn(
+                      "text-[11px] tabular-nums font-bold w-5",
+                      isHome && isScore ? "text-foreground" : "text-muted-foreground/70"
+                    )}>
                       {ev.homeScore != null ? ev.homeScore : ""}
                     </span>
-                    {/* Win Probability */}
-                    <span className={cn("text-[9px] tabular-nums font-semibold w-10 text-center", wpColor)}>
-                      {wpDisplay || ""}
+                    <span className={cn("text-[9px] tabular-nums font-semibold w-12 text-center", wpColor)}>
+                      {wpDisplay || "·"}
                     </span>
                   </div>
                 </div>

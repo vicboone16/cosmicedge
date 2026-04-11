@@ -499,72 +499,131 @@ export function LivePropsTab({ gameId, homeAbbr, awayAbbr, isLive }: Props) {
   );
 }
 
+/* ─── Animated SVG edge ring ─── */
+function EdgeRing({ score, isOver }: { score: number; isOver: boolean }) {
+  const radius = 18;
+  const circumference = 2 * Math.PI * radius;
+  const dashOffset = circumference * (1 - Math.min(score, 100) / 100);
+  const ringColor = score >= 70 ? "#22c55e" : score >= 50 ? "#6366f1" : "#71717a";
+  const glowColor = score >= 70 ? "drop-shadow(0 0 4px #22c55e88)" : score >= 50 ? "drop-shadow(0 0 3px #6366f188)" : "none";
+
+  return (
+    <div className="relative shrink-0 w-11 h-11">
+      <svg viewBox="0 0 40 40" className="w-full h-full -rotate-90">
+        {/* Track */}
+        <circle cx="20" cy="20" r={radius} fill="none" stroke="currentColor" className="text-border/40" strokeWidth="2.5" />
+        {/* Animated fill */}
+        <circle
+          cx="20" cy="20" r={radius} fill="none"
+          stroke={ringColor}
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeDasharray={circumference}
+          strokeDashoffset={dashOffset}
+          style={{ transition: "stroke-dashoffset 0.8s ease, stroke 0.4s ease", filter: glowColor }}
+        />
+        {/* Pulse ring when high-edge */}
+        {score >= 70 && (
+          <circle
+            cx="20" cy="20" r={radius} fill="none"
+            stroke={ringColor}
+            strokeWidth="1"
+            opacity="0.35"
+            strokeDasharray={circumference}
+            strokeDashoffset={dashOffset}
+            className="animate-pulse"
+          />
+        )}
+      </svg>
+      {/* Center label */}
+      <div className="absolute inset-0 flex flex-col items-center justify-center">
+        <span className="text-[9px] font-bold tabular-nums leading-none" style={{ color: ringColor }}>
+          {score.toFixed(0)}
+        </span>
+        <span className="text-[7px] text-muted-foreground leading-none mt-0.5">
+          {isOver ? "OVR" : "UND"}
+        </span>
+      </div>
+    </div>
+  );
+}
+
 function LivePropCard({ prop }: { prop: TopProp }) {
   const { openProp } = usePropDrawer();
   const edgeScore = prop.edge_score_v11 ?? prop.edge_score;
   const tier = getEdgeTier(edgeScore);
   const isOver = prop.side === "over" || prop.side == null;
   const propLabel = getPropLabel(prop.prop_type);
+  const diff = prop.line != null ? (prop.mu - prop.line) : 0;
+  const diffSign = diff >= 0 ? "+" : "";
 
   return (
     <button
       onClick={() => openProp(prop)}
       className={cn(
-        "w-full cosmic-card rounded-xl p-3 space-y-2 text-left hover:border-primary/30 transition-colors",
-        edgeScore >= 70 && "border-cosmic-green/30 shadow-[0_0_12px_-4px] shadow-cosmic-green/20"
+        "w-full cosmic-card rounded-xl p-3 text-left hover:border-primary/30 transition-colors group",
+        edgeScore >= 70 && "border-cosmic-green/40 shadow-[0_0_16px_-4px] shadow-cosmic-green/25",
+        edgeScore >= 85 && "border-cosmic-gold/40 shadow-[0_0_20px_-4px] shadow-cosmic-gold/30"
       )}
     >
-      <div className="flex items-center justify-between">
-        <div className="min-w-0">
-          <span className="text-xs font-semibold text-foreground truncate block">{prop.player_name}</span>
-          <span className="text-[10px] text-muted-foreground">{prop.player_team}</span>
+      <div className="flex items-center gap-3">
+        {/* Animated ring */}
+        <EdgeRing score={edgeScore} isOver={isOver} />
+
+        {/* Content */}
+        <div className="flex-1 min-w-0 space-y-1.5">
+          <div className="flex items-center justify-between">
+            <div className="min-w-0">
+              <span className="text-xs font-semibold text-foreground truncate block">{prop.player_name}</span>
+              <span className="text-[10px] text-muted-foreground">{prop.player_team}</span>
+            </div>
+            <Badge variant="outline" className={cn("text-[9px] px-1.5 py-0 h-4 font-bold shrink-0 ml-2", tier.className)}>
+              {tier.label}
+            </Badge>
+          </div>
+
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-bold text-muted-foreground uppercase">{propLabel}</span>
+              <span className="text-sm font-bold tabular-nums">{prop.line != null ? Number(prop.line) : "—"}</span>
+              <span className="text-[10px] text-muted-foreground">→</span>
+              <span className={cn("text-sm font-bold tabular-nums", isOver ? "text-cosmic-green" : "text-cosmic-red")}>
+                {prop.mu?.toFixed(1)}
+              </span>
+              <span className="text-[10px] text-muted-foreground tabular-nums">({diffSign}{diff.toFixed(1)})</span>
+            </div>
+            <span className={cn(
+              "text-xs font-semibold flex items-center gap-0.5 shrink-0",
+              isOver ? "text-cosmic-green" : "text-cosmic-red"
+            )}>
+              {isOver ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+              {isOver ? "Over" : "Under"}
+              <span className="text-muted-foreground ml-1 tabular-nums">{formatOdds(prop.odds)}</span>
+            </span>
+          </div>
+
+          {prop.one_liner && (
+            <p className="text-[10px] text-muted-foreground italic leading-snug">{prop.one_liner}</p>
+          )}
+
+          <div className="flex gap-1 flex-wrap">
+            {prop.streak != null && prop.streak >= 3 && (
+              <span className="text-[8px] px-1.5 py-0.5 rounded-full font-semibold bg-cosmic-green/10 text-cosmic-green border border-cosmic-green/20">
+                🔥 {prop.streak}× Streak
+              </span>
+            )}
+            {prop.hit_l10 != null && prop.hit_l10 >= 0.7 && (
+              <span className="text-[8px] px-1.5 py-0.5 rounded-full font-semibold bg-primary/10 text-primary border border-primary/20">
+                L10: {(prop.hit_l10 * 100).toFixed(0)}%
+              </span>
+            )}
+            {edgeScore >= 65 && (
+              <span className="text-[8px] px-1.5 py-0.5 rounded-full font-semibold bg-blue-400/10 text-blue-400 border border-blue-400/20">
+                Strong Signal
+              </span>
+            )}
+          </div>
         </div>
-        <Badge variant="outline" className={cn("text-[9px] px-1.5 py-0 h-4 font-bold", tier.className)}>
-          {edgeScore.toFixed(0)} {tier.label}
-        </Badge>
-      </div>
-
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className="text-[10px] font-bold text-muted-foreground uppercase">{propLabel}</span>
-          <span className="text-sm font-bold tabular-nums">{prop.line != null ? Number(prop.line) : "—"}</span>
-          <span className="text-[10px] text-muted-foreground">→</span>
-          <span className="text-sm font-bold tabular-nums text-foreground">{prop.mu?.toFixed(1)}</span>
-        </div>
-        <span className={cn(
-          "text-xs font-semibold flex items-center gap-0.5",
-          isOver ? "text-cosmic-green" : "text-cosmic-red"
-        )}>
-          {isOver ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-          {isOver ? "Over" : "Under"}
-          <span className="text-muted-foreground ml-1 tabular-nums">{formatOdds(prop.odds)}</span>
-        </span>
-      </div>
-
-      <div className="flex items-center gap-2">
-        <div className="flex-1 h-1.5 bg-border rounded-full overflow-hidden">
-          <div
-            className={cn("h-full rounded-full transition-all", tier.className.includes("green") ? "bg-cosmic-green" : tier.className.includes("primary") ? "bg-primary" : "bg-muted-foreground")}
-            style={{ width: `${Math.min(100, edgeScore)}%` }}
-          />
-        </div>
-        <span className="text-[9px] text-muted-foreground tabular-nums">{edgeScore.toFixed(0)}/100</span>
-      </div>
-
-      {prop.one_liner && (
-        <p className="text-[10px] text-muted-foreground italic">{prop.one_liner}</p>
-      )}
-
-      <div className="flex gap-1 flex-wrap">
-        {prop.streak != null && prop.streak >= 3 && (
-          <span className="text-[8px] px-1.5 py-0.5 rounded-full font-semibold bg-cosmic-green/10 text-cosmic-green">Over Heater</span>
-        )}
-        {prop.hit_l10 != null && prop.hit_l10 >= 0.7 && (
-          <span className="text-[8px] px-1.5 py-0.5 rounded-full font-semibold bg-primary/10 text-primary">Momentum</span>
-        )}
-        {edgeScore >= 65 && (
-          <span className="text-[8px] px-1.5 py-0.5 rounded-full font-semibold bg-blue-400/10 text-blue-400">Strong Signal</span>
-        )}
       </div>
     </button>
   );

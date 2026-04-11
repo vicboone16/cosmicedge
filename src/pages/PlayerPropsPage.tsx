@@ -39,7 +39,7 @@ interface GameInfo {
   league: string;
 }
 
-type SortKey = "player" | "market" | "line" | "over" | "under";
+type SortKey = "player" | "market" | "line" | "over" | "under" | "edge" | "prediction";
 type MarketCategory = "all" | "standard" | "alternate" | "period";
 type PropsView = "odds" | "trends";
 type PropsMode = "player" | "team";
@@ -212,6 +212,9 @@ export default function PlayerPropsPage() {
   const [view, setView] = useState<PropsView>("odds");
   const [propsMode, setPropsMode] = useState<PropsMode>("player");
   const [playerIdCache, setPlayerIdCache] = useState<Map<string, string>>(new Map());
+  const [edgeMinFilter, setEdgeMinFilter] = useState<number>(0);
+  const [expandedPlayers, setExpandedPlayers] = useState<Set<string>>(new Set());
+  const [groupByPlayer, setGroupByPlayer] = useState(true);
 
   const canGoForward = selectedDate < addDays(new Date(), 7);
   const goBack = () => setSelectedDate((d) => addDays(d, -1));
@@ -259,6 +262,31 @@ export default function PlayerPropsPage() {
     },
     enabled: gameIds.length > 0,
     refetchInterval: 30_000,
+  });
+
+  // Edge/prediction overlay from model
+  const { data: edgeOverlay } = useQuery({
+    queryKey: ["props-edge-overlay", gameIds],
+    queryFn: async () => {
+      if (gameIds.length === 0) return new Map<string, { edgeScore: number; mu: number; side: string }>();
+      const { data } = await supabase
+        .from("v_prop_overlay_enhanced" as any)
+        .select("player_name, prop_type, edge_score, edge_score_v11, mu, side")
+        .in("game_id", gameIds)
+        .limit(500);
+      const map = new Map<string, { edgeScore: number; mu: number; side: string }>();
+      for (const row of (data || []) as any[]) {
+        const key = `${row.player_name}::${row.prop_type}`;
+        map.set(key, {
+          edgeScore: row.edge_score_v11 ?? row.edge_score ?? 0,
+          mu: row.mu ?? 0,
+          side: row.side ?? "over",
+        });
+      }
+      return map;
+    },
+    enabled: gameIds.length > 0,
+    staleTime: 120_000,
   });
 
   const [isManualFetching, setIsManualFetching] = useState(false);
@@ -324,7 +352,11 @@ export default function PlayerPropsPage() {
     }
     if (search) {
       const q = search.toLowerCase();
-      rows = rows.filter((r) => r.player_name.toLowerCase().includes(q));
+      rows = rows.filter((r) =>
+        r.player_name.toLowerCase().includes(q) ||
+        r.market_key.toLowerCase().includes(q) ||
+        (r.market_label || "").toLowerCase().includes(q)
+      );
     }
     if (categoryFilter !== "all") {
       rows = rows.filter((r) => classifyMarket(r.market_key) === categoryFilter);
@@ -332,7 +364,14 @@ export default function PlayerPropsPage() {
     if (marketFilter !== "all") {
       rows = rows.filter((r) => r.market_key === marketFilter);
     }
-    rows.sort((a, b) => {
+    if (edgeMinFilter > 0 && edgeOverlay) {
+      rows = rows.filter((r) => {
+        const key = `${r.player_name}::${r.market_key}`;
+        const overlay = edgeOverlay.get(key);
+        return overlay ? overlay.edgeScore >= edgeMinFilter : false;
+      });
+    }
+    rows = [...rows].sort((a, b) => {
       let cmp = 0;
       switch (sortKey) {
         case "player": cmp = a.player_name.localeCompare(b.player_name); break;
@@ -340,11 +379,23 @@ export default function PlayerPropsPage() {
         case "line": cmp = (a.line ?? 0) - (b.line ?? 0); break;
         case "over": cmp = (a.over_price ?? 0) - (b.over_price ?? 0); break;
         case "under": cmp = (a.under_price ?? 0) - (b.under_price ?? 0); break;
+        case "edge": {
+          const oa = edgeOverlay?.get(`${a.player_name}::${a.market_key}`)?.edgeScore ?? 0;
+          const ob = edgeOverlay?.get(`${b.player_name}::${b.market_key}`)?.edgeScore ?? 0;
+          cmp = oa - ob;
+          break;
+        }
+        case "prediction": {
+          const ma = edgeOverlay?.get(`${a.player_name}::${a.market_key}`)?.mu ?? 0;
+          const mb = edgeOverlay?.get(`${b.player_name}::${b.market_key}`)?.mu ?? 0;
+          cmp = ma - mb;
+          break;
+        }
       }
       return sortAsc ? cmp : -cmp;
     });
     return rows;
-  }, [deduped, search, marketFilter, categoryFilter, leagueFilter, games, sortKey, sortAsc]);
+  }, [deduped, search, marketFilter, categoryFilter, leagueFilter, games, sortKey, sortAsc, edgeMinFilter, edgeOverlay]);
 
   const toggleSort = (key: SortKey) => {
     if (sortKey === key) setSortAsc(!sortAsc);
@@ -525,12 +576,12 @@ export default function PlayerPropsPage() {
                     <Input
                       value={search}
                       onChange={(e) => setSearch(e.target.value)}
-                      placeholder="Filter by player name..."
+                      placeholder="Search player, market..."
                       className="pl-8 h-8 text-xs"
                     />
                   </div>
                   <Select value={marketFilter} onValueChange={setMarketFilter}>
-                    <SelectTrigger className="w-[120px] h-8 text-xs">
+                    <SelectTrigger className="w-[110px] h-8 text-xs">
                       <SelectValue placeholder="Market" />
                     </SelectTrigger>
                     <SelectContent>
@@ -542,6 +593,36 @@ export default function PlayerPropsPage() {
                       ))}
                     </SelectContent>
                   </Select>
+                </div>
+                {/* Edge min filter + group toggle */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] text-muted-foreground">Min Edge:</span>
+                    <div className="flex gap-1">
+                      {[0, 50, 65, 75].map(v => (
+                        <button
+                          key={v}
+                          onClick={() => setEdgeMinFilter(v)}
+                          className={cn(
+                            "text-[10px] px-2 py-0.5 rounded-full font-semibold transition-colors",
+                            edgeMinFilter === v ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground"
+                          )}
+                        >
+                          {v === 0 ? "All" : `${v}+`}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setGroupByPlayer(!groupByPlayer)}
+                    className={cn(
+                      "flex items-center gap-1 text-[10px] px-2.5 py-1 rounded-full font-semibold transition-colors ml-auto",
+                      groupByPlayer ? "bg-primary/15 text-primary border border-primary/30" : "bg-secondary text-muted-foreground"
+                    )}
+                  >
+                    {groupByPlayer ? <Users className="h-3 w-3" /> : <User className="h-3 w-3" />}
+                    {groupByPlayer ? "Grouped" : "Flat"}
+                  </button>
                 </div>
               </>
             )}
@@ -611,6 +692,23 @@ export default function PlayerPropsPage() {
                       <p className="text-[10px] text-muted-foreground">{filtered.length} predictions</p>
                       <span className="text-[9px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-semibold">Powered by Nebula Engine</span>
                     </div>
+                    {groupByPlayer ? (
+                      /* ── Player-Grouped View ── */
+                      <PlayerGroupedProps
+                        props={filtered}
+                        gameMap={gameMap}
+                        edgeOverlay={edgeOverlay}
+                        expandedPlayers={expandedPlayers}
+                        onTogglePlayer={(name) => setExpandedPlayers(prev => {
+                          const next = new Set(prev);
+                          next.has(name) ? next.delete(name) : next.add(name);
+                          return next;
+                        })}
+                        playerIdCache={playerIdCache}
+                        setPlayerIdCache={setPlayerIdCache}
+                        navigate={navigate}
+                      />
+                    ) : (
                     <div className="cosmic-card rounded-xl overflow-x-auto">
                     <Table>
                       <TableHeader>
@@ -631,6 +729,12 @@ export default function PlayerPropsPage() {
                           <TableHead className="text-[10px] uppercase tracking-wider h-9 px-2 text-right">
                             <SortHeader label="Under" field="under" />
                           </TableHead>
+                          <TableHead className="text-[10px] uppercase tracking-wider h-9 px-2 text-right">
+                            <SortHeader label="Edge" field="edge" />
+                          </TableHead>
+                          <TableHead className="text-[10px] uppercase tracking-wider h-9 px-2 text-right">
+                            <SortHeader label="Proj" field="prediction" />
+                          </TableHead>
                           <TableHead className="text-[10px] uppercase tracking-wider h-9 px-1 w-8"></TableHead>
                         </TableRow>
                       </TableHeader>
@@ -638,11 +742,13 @@ export default function PlayerPropsPage() {
                         {filtered.map((prop) => {
                           const game = prop.game_id ? gameMap.get(prop.game_id) : null;
                           const cat = classifyMarket(prop.market_key);
+                          const overlayKey = `${prop.player_name}::${prop.market_key}`;
+                          const overlay = edgeOverlay?.get(overlayKey);
+                          const edgeScore = overlay?.edgeScore ?? 0;
+                          const mu = overlay?.mu ?? null;
                           const handlePlayerClick = async () => {
-                            // Check cache first
                             const cached = playerIdCache.get(prop.player_name);
                             if (cached) { navigate(`/player/${cached}`); return; }
-                            // Lookup by name
                             const { data } = await supabase.rpc("search_players_unaccent", {
                               search_query: prop.player_name, max_results: 1,
                             });
@@ -697,6 +803,23 @@ export default function PlayerPropsPage() {
                                   </span>
                                 )}
                               </TableCell>
+                              <TableCell className="px-2 py-2 text-right tabular-nums">
+                                {edgeScore > 0 && (
+                                  <span className={cn(
+                                    "text-[10px] font-bold",
+                                    edgeScore >= 70 ? "text-cosmic-green" : edgeScore >= 50 ? "text-primary" : "text-muted-foreground"
+                                  )}>
+                                    {edgeScore.toFixed(0)}
+                                  </span>
+                                )}
+                              </TableCell>
+                              <TableCell className="px-2 py-2 text-right tabular-nums">
+                                {mu != null && mu > 0 && (
+                                  <span className="text-[10px] font-semibold text-foreground/80">
+                                    {mu.toFixed(1)}
+                                  </span>
+                                )}
+                              </TableCell>
                               <TableCell className="px-1 py-2">
                                 <button
                                   onClick={handleAddToSkySpread}
@@ -712,6 +835,7 @@ export default function PlayerPropsPage() {
                       </TableBody>
                     </Table>
                     </div>
+                    )}
                   </div>
                 )}
               </>
@@ -726,6 +850,202 @@ export default function PlayerPropsPage() {
         )}
       </div>
       )}
+    </div>
+  );
+}
+
+// ── Player-Grouped Props Component ──
+function PlayerGroupedProps({
+  props,
+  gameMap,
+  edgeOverlay,
+  expandedPlayers,
+  onTogglePlayer,
+  playerIdCache,
+  setPlayerIdCache,
+  navigate,
+}: {
+  props: PropRow[];
+  gameMap: Map<string, GameInfo>;
+  edgeOverlay: Map<string, { edgeScore: number; mu: number; side: string }> | undefined;
+  expandedPlayers: Set<string>;
+  onTogglePlayer: (name: string) => void;
+  playerIdCache: Map<string, string>;
+  setPlayerIdCache: (fn: (prev: Map<string, string>) => Map<string, string>) => void;
+  navigate: (path: string) => void;
+}) {
+  // Group by player
+  const grouped = useMemo(() => {
+    const map = new Map<string, PropRow[]>();
+    for (const p of props) {
+      if (!map.has(p.player_name)) map.set(p.player_name, []);
+      map.get(p.player_name)!.push(p);
+    }
+    // Sort groups: players with highest best-edge first
+    return Array.from(map.entries()).sort((a, b) => {
+      const bestA = a[1].reduce((max, p) => {
+        const e = edgeOverlay?.get(`${p.player_name}::${p.market_key}`)?.edgeScore ?? 0;
+        return Math.max(max, e);
+      }, 0);
+      const bestB = b[1].reduce((max, p) => {
+        const e = edgeOverlay?.get(`${p.player_name}::${p.market_key}`)?.edgeScore ?? 0;
+        return Math.max(max, e);
+      }, 0);
+      return bestB - bestA;
+    });
+  }, [props, edgeOverlay]);
+
+  if (grouped.length === 0) return null;
+
+  return (
+    <div className="space-y-2">
+      {grouped.map(([playerName, playerProps]) => {
+        const isExpanded = expandedPlayers.has(playerName);
+        const game = playerProps[0].game_id ? gameMap.get(playerProps[0].game_id) : null;
+        // Best edge for this player
+        const bestEdge = playerProps.reduce((max, p) => {
+          const e = edgeOverlay?.get(`${p.player_name}::${p.market_key}`)?.edgeScore ?? 0;
+          return Math.max(max, e);
+        }, 0);
+        const bestMu = playerProps.reduce((best: { mu: number; market: string } | null, p) => {
+          const ov = edgeOverlay?.get(`${p.player_name}::${p.market_key}`);
+          if (!ov) return best;
+          if (!best || ov.mu > best.mu) return { mu: ov.mu, market: getMarketShort(p.market_key) };
+          return best;
+        }, null);
+
+        const handlePlayerClick = async (e: React.MouseEvent) => {
+          e.stopPropagation();
+          const cached = playerIdCache.get(playerName);
+          if (cached) { navigate(`/player/${cached}`); return; }
+          const { data } = await supabase.rpc("search_players_unaccent", {
+            search_query: playerName, max_results: 1,
+          });
+          if (data && data.length > 0) {
+            const pid = (data[0] as any).player_id;
+            setPlayerIdCache(prev => new Map(prev).set(playerName, pid));
+            navigate(`/player/${pid}`);
+          }
+        };
+
+        return (
+          <div key={playerName} className="cosmic-card rounded-xl overflow-hidden">
+            {/* Player header row — click to expand */}
+            <button
+              onClick={() => onTogglePlayer(playerName)}
+              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted/20 transition-colors text-left"
+            >
+              {/* Avatar placeholder */}
+              <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0 text-primary font-bold text-xs">
+                {playerName.split(" ").map(s => s[0]).join("").slice(0, 2).toUpperCase()}
+              </div>
+
+              <div className="flex-1 min-w-0">
+                <button onClick={handlePlayerClick} className="text-sm font-semibold text-foreground hover:text-primary transition-colors text-left truncate block">
+                  {playerName}
+                </button>
+                <div className="flex items-center gap-2 mt-0.5">
+                  {game && (
+                    <span className="text-[10px] text-muted-foreground">
+                      {game.away_abbr}@{game.home_abbr}
+                    </span>
+                  )}
+                  <span className="text-[10px] text-muted-foreground">{playerProps.length} props</span>
+                  {bestMu && (
+                    <span className="text-[10px] text-muted-foreground">
+                      Best proj: <span className="font-semibold text-foreground/80">{bestMu.mu.toFixed(1)}</span> {bestMu.market}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0">
+                {bestEdge > 0 && (
+                  <span className={cn(
+                    "text-[10px] font-bold px-2 py-0.5 rounded-full",
+                    bestEdge >= 70 ? "bg-cosmic-green/15 text-cosmic-green" :
+                    bestEdge >= 50 ? "bg-primary/15 text-primary" :
+                    "bg-secondary text-muted-foreground"
+                  )}>
+                    {bestEdge.toFixed(0)} edge
+                  </span>
+                )}
+                <ChevronRight className={cn("h-4 w-4 text-muted-foreground transition-transform", isExpanded && "rotate-90")} />
+              </div>
+            </button>
+
+            {/* Expanded props for this player */}
+            {isExpanded && (
+              <div className="border-t border-border/30 divide-y divide-border/20">
+                {playerProps.map(prop => {
+                  const overlayKey = `${prop.player_name}::${prop.market_key}`;
+                  const overlay = edgeOverlay?.get(overlayKey);
+                  const edgeScore = overlay?.edgeScore ?? 0;
+                  const mu = overlay?.mu ?? null;
+                  const cat = classifyMarket(prop.market_key);
+
+                  return (
+                    <div key={prop.id} className="flex items-center gap-3 px-4 py-2.5 hover:bg-muted/10 transition-colors">
+                      {/* Market badge */}
+                      <span className={cn(
+                        "text-[10px] font-bold px-2 py-0.5 rounded w-16 text-center shrink-0",
+                        cat === "alternate" ? "bg-accent/20 text-accent-foreground" :
+                        cat === "period" ? "bg-primary/10 text-primary" :
+                        "bg-secondary text-foreground"
+                      )}>
+                        {getMarketShort(prop.market_key)}
+                      </span>
+
+                      {/* Line */}
+                      <span className="text-sm font-bold tabular-nums text-foreground w-10 text-center shrink-0">
+                        {prop.line ?? "—"}
+                      </span>
+
+                      {/* Over / Under */}
+                      <div className="flex items-center gap-3 flex-1">
+                        <span className="text-[11px] font-semibold text-cosmic-green tabular-nums">
+                          O {formatPrice(prop.over_price)}
+                        </span>
+                        <span className="text-[11px] font-semibold text-cosmic-red tabular-nums">
+                          U {formatPrice(prop.under_price)}
+                        </span>
+                      </div>
+
+                      {/* Model data */}
+                      <div className="flex items-center gap-2 shrink-0">
+                        {mu != null && mu > 0 && (
+                          <span className="text-[10px] text-muted-foreground">
+                            Proj: <span className="font-semibold text-foreground/80">{mu.toFixed(1)}</span>
+                          </span>
+                        )}
+                        {edgeScore > 0 && (
+                          <span className={cn(
+                            "text-[10px] font-bold px-1.5 py-0.5 rounded",
+                            edgeScore >= 70 ? "bg-cosmic-green/15 text-cosmic-green" :
+                            edgeScore >= 50 ? "bg-primary/10 text-primary" :
+                            "text-muted-foreground"
+                          )}>
+                            {edgeScore.toFixed(0)}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Add to SkySpread */}
+                      <button
+                        onClick={() => navigate(`/skyspread?prefill=true&player=${encodeURIComponent(prop.player_name)}&market=${encodeURIComponent(prop.market_key)}&line=${prop.line ?? ""}&odds=${prop.over_price ?? ""}&game_id=${prop.game_id ?? ""}`)}
+                        className="p-1 rounded-md hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors shrink-0"
+                        title="Add to SkySpread"
+                      >
+                        <Plus className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }

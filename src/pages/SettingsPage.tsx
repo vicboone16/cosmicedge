@@ -1,11 +1,11 @@
-import { Settings, Sliders, Star, MapPin, Shield, LogIn, LogOut, User, Globe, Upload, FileSpreadsheet, ChevronRight, Moon, Sun, Bell, BellOff } from "lucide-react";
+import { Settings, Sliders, Star, MapPin, Shield, LogIn, LogOut, User, Globe, Upload, FileSpreadsheet, ChevronRight, Moon, Sun, Bell, BellOff, Sparkles } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useAuth } from "@/hooks/use-auth";
 import { useTimezone } from "@/hooks/use-timezone";
 import { useIsAdmin } from "@/hooks/use-admin";
 import { useSettings } from "@/hooks/use-settings";
 import { useNavigate } from "react-router-dom";
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -16,6 +16,8 @@ import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { useNotificationPreferences } from "@/hooks/use-notification-preferences";
 import { toast as sonnerToast } from "sonner";
+
+const ZODIAC_SIGNS = ["Aries","Taurus","Gemini","Cancer","Leo","Virgo","Libra","Scorpio","Sagittarius","Capricorn","Aquarius","Pisces"] as const;
 
 const SettingsPage = () => {
   const { theme, setTheme } = useTheme();
@@ -33,6 +35,41 @@ const SettingsPage = () => {
   const gameLogRef = useRef<HTMLInputElement>(null);
   const [gameLogImporting, setGameLogImporting] = useState(false);
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
+
+  // Birth chart state
+  const [sunSign, setSunSign] = useState<string>("");
+  const [moonSign, setMoonSign] = useState<string>("");
+  const [risingSign, setRisingSign] = useState<string>("");
+  const [chartSaving, setChartSaving] = useState(false);
+
+  // Load current chart from profiles
+  useEffect(() => {
+    if (!user) return;
+    supabase.from("profiles").select("sun_sign, moon_sign, rising_sign").eq("id", user.id).maybeSingle().then(({ data }) => {
+      if (data) {
+        setSunSign(data.sun_sign || "");
+        setMoonSign(data.moon_sign || "");
+        setRisingSign(data.rising_sign || "");
+      }
+    });
+  }, [user]);
+
+  const saveChart = async () => {
+    if (!user) return;
+    setChartSaving(true);
+    const { error } = await supabase.from("profiles").upsert({
+      id: user.id,
+      sun_sign: sunSign || null,
+      moon_sign: moonSign || null,
+      rising_sign: risingSign || null,
+    } as any);
+    setChartSaving(false);
+    if (error) {
+      toast({ title: "Error saving chart", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Birth chart saved", description: "Your cosmic profile has been updated." });
+    }
+  };
 
   const timezones = useMemo(() => {
     try {
@@ -297,6 +334,53 @@ const SettingsPage = () => {
               <p className="text-xs text-muted-foreground">Required for SkySpread & Live Board</p>
             </div>
           </button>
+        )}
+
+        {/* Birth Chart — only shown to logged-in users */}
+        {user && (
+          <div className="cosmic-card rounded-xl p-4">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                <Sparkles className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <p className="text-sm font-medium">Birth Chart</p>
+                <p className="text-xs text-muted-foreground">Powers your Celestial page cosmic insights</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-3 mb-4">
+              {([
+                { label: "Sun Sign", icon: Sun, value: sunSign, set: setSunSign },
+                { label: "Moon Sign", icon: Moon, value: moonSign, set: setMoonSign },
+                { label: "Rising Sign", icon: Sparkles, value: risingSign, set: setRisingSign },
+              ] as const).map(({ label, icon: Icon, value, set }) => (
+                <div key={label} className="space-y-1.5">
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <Icon className="h-3.5 w-3.5 text-muted-foreground" />
+                    <label className="text-xs font-medium text-muted-foreground">{label}</label>
+                  </div>
+                  <Select value={value} onValueChange={(v) => set(v === "__none__" ? "" : v)}>
+                    <SelectTrigger className="h-9 text-xs">
+                      <SelectValue placeholder="Select" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__" className="text-xs text-muted-foreground">Not set</SelectItem>
+                      {ZODIAC_SIGNS.map(sign => (
+                        <SelectItem key={sign} value={sign} className="text-xs">{sign}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              ))}
+            </div>
+            <button
+              onClick={saveChart}
+              disabled={chartSaving}
+              className="w-full py-2 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
+            >
+              {chartSaving ? "Saving..." : "Save Birth Chart"}
+            </button>
+          </div>
         )}
 
         {/* Timezone selector */}
