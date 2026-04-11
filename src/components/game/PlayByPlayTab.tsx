@@ -177,7 +177,7 @@ export function PlayByPlayTab({ gameId, homeAbbr, awayAbbr, league, gameStatus }
   const isLiveGame = gameStatus === "live" || gameStatus === "in_progress";
   const isFinalGame = gameStatus === "final";
   // Watch mode currently only for NBA; read mode for all leagues
-  const showWatchToggle = isNBA && ENABLE_PBP_WATCH_MODE && (isAdmin || isLiveGame || isFinalGame);
+  const showWatchToggle = isNBA && ENABLE_PBP_WATCH_MODE && (isLiveGame || isFinalGame);
 
   // ── Live score from game_state_snapshots (authoritative) ──
   const { data: liveSnapshot } = useQuery({
