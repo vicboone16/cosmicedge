@@ -49,10 +49,117 @@ const EDGE_TIER_COLORS: Record<string, string> = {
   low: "text-muted-foreground",
 };
 
+const MARKET_LABELS: Record<string, string> = {
+  // NBA / general player props
+  player_points: "Points",
+  player_assists: "Assists",
+  player_rebounds: "Rebounds",
+  player_threes: "3-Pointers",
+  player_three_pointers_made: "3-Pointers",
+  player_steals: "Steals",
+  player_blocks: "Blocks",
+  player_turnovers: "Turnovers",
+  player_pra: "Pts+Reb+Ast",
+  player_pr: "Pts+Reb",
+  player_pa: "Pts+Ast",
+  player_ra: "Reb+Ast",
+  player_double_double: "Double-Double",
+  player_triple_double: "Triple-Double",
+  player_minutes: "Minutes",
+  // NFL
+  player_passing_yards: "Pass Yds",
+  player_passing_touchdowns: "Pass TDs",
+  player_passing_completions: "Completions",
+  player_rushing_yards: "Rush Yds",
+  player_rushing_attempts: "Rush Att",
+  player_receiving_yards: "Rec Yds",
+  player_receptions: "Receptions",
+  player_anytime_td: "Anytime TD",
+  player_first_td: "First TD",
+  // MLB
+  player_total_bases: "Total Bases",
+  player_hits: "Hits",
+  player_home_runs: "Home Runs",
+  player_runs: "Runs",
+  player_rbi: "RBIs",
+  player_strikeouts: "Strikeouts",
+  player_earned_runs: "Earned Runs",
+  player_walks: "Walks",
+  // NHL
+  player_shots_on_goal: "Shots on Goal",
+  player_power_play_points: "PP Points",
+  player_goals: "Goals",
+  player_saves: "Saves",
+  // Market types
+  moneyline: "Moneyline",
+  h2h: "Moneyline",
+  spread: "Spread",
+  spreads: "Spread",
+  total: "Total O/U",
+  totals: "Total O/U",
+  outrights: "Futures",
+  draw_no_bet: "Draw No Bet",
+};
+
+function humanizeMarket(marketType: string | null | undefined): string {
+  if (!marketType) return "Bet";
+  return MARKET_LABELS[marketType] || marketType.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase());
+}
+
+function humanizeSide(side: string | null | undefined): string {
+  if (!side) return "";
+  const map: Record<string, string> = { over: "Over", under: "Under", home: "Home", away: "Away" };
+  return map[side.toLowerCase()] ?? side;
+}
+
 function ScoreBar({ value, max = 100, color }: { value: number; max?: number; color: string }) {
   return (
     <div className="h-1.5 bg-border rounded-full overflow-hidden flex-1">
       <div className={cn("h-full rounded-full", color)} style={{ width: `${Math.min((value / max) * 100, 100)}%` }} />
+    </div>
+  );
+}
+
+function LivePaceBar({ bet, gameData }: { bet: BetRow; gameData?: { home_score?: number | null; away_score?: number | null; quarter?: string | null; period?: string | null; clock?: string | null } | null }) {
+  if (!gameData || !bet.line) return null;
+
+  const homeScore = gameData.home_score ?? 0;
+  const awayScore = gameData.away_score ?? 0;
+  const totalScore = homeScore + awayScore;
+  const raw = gameData.quarter ?? gameData.period ?? "1";
+  const quarter = parseInt(raw) || 1;
+  // Estimate elapsed game fraction (assume 4 quarters, midpoint of current)
+  const elapsed = Math.min((quarter - 1 + 0.5) / 4, 0.999);
+  const projectedFinal = Math.round(totalScore / elapsed);
+  const delta = projectedFinal - bet.line;
+  const side = bet.side?.toLowerCase();
+
+  const isTotal = bet.market_type === "total" || bet.market_type === "totals";
+  if (!isTotal) return null;
+
+  const winning = side === "over" ? delta > 0 : delta < 0;
+  const barColor = winning ? "bg-cosmic-green" : "bg-cosmic-red";
+  const textColor = winning ? "text-cosmic-green" : "text-cosmic-red";
+  const progressPct = Math.min((totalScore / bet.line) * 100, 100);
+
+  return (
+    <div className="rounded-lg bg-secondary/40 border border-border/30 p-2 space-y-1.5 mt-2">
+      <div className="flex items-center justify-between">
+        <span className="text-[9px] font-semibold text-muted-foreground uppercase tracking-wider">Live Pace</span>
+        <span className={cn("text-[10px] font-bold tabular-nums", textColor)}>
+          Proj {projectedFinal} {delta > 0 ? "▲" : "▼"}{Math.abs(delta)} vs {bet.line}
+        </span>
+      </div>
+      <div className="relative h-2 bg-border/50 rounded-full overflow-hidden">
+        <div className={cn("h-full rounded-full transition-all duration-700", barColor)} style={{ width: `${progressPct}%` }} />
+        {/* Target line at 100% */}
+        <div className="absolute top-0 h-full w-px bg-white/50 right-0" />
+      </div>
+      <div className="flex items-center justify-between text-[8px] text-muted-foreground">
+        <span>{totalScore} pts so far</span>
+        <span className="font-medium">Q{quarter} of 4</span>
+        <span>{side === "over" ? "Over" : "Under"} {bet.line}</span>
+      </div>
     </div>
   );
 }
@@ -275,12 +382,28 @@ function LiveCard({ item, onRemove, onTogglePin }: {
         </div>
       )}
 
-      <div className="flex items-center gap-2 mb-2">
-        <span className="text-[10px] text-cosmic-indigo font-medium">{bet.market_type}</span>
+      <div className="flex items-center gap-2 flex-wrap mb-2">
+        <span className="text-[10px] font-semibold text-cosmic-indigo bg-cosmic-indigo/10 px-1.5 py-0.5 rounded">
+          {humanizeMarket(bet.market_type)}
+        </span>
+        {bet.side && (
+          <span className="text-[10px] font-semibold text-muted-foreground bg-secondary/60 px-1.5 py-0.5 rounded">
+            {humanizeSide(bet.side)}
+          </span>
+        )}
         <span className="text-xs text-foreground font-medium">{bet.selection}</span>
-        {bet.line != null && <span className="text-[10px] text-muted-foreground">{bet.line > 0 ? "+" : ""}{bet.line}</span>}
-        {bet.odds != null && <span className="text-[10px] text-muted-foreground">({bet.odds > 0 ? "+" : ""}{bet.odds})</span>}
+        {bet.line != null && (
+          <span className="text-[10px] font-mono text-muted-foreground">{bet.line > 0 ? "+" : ""}{bet.line}</span>
+        )}
+        {bet.odds != null && (
+          <span className="text-[10px] font-mono text-muted-foreground">({bet.odds > 0 ? "+" : ""}{bet.odds})</span>
+        )}
       </div>
+
+      {/* Live pace bar for total bets */}
+      {isLive && snapshot && (
+        <LivePaceBar bet={bet} gameData={{ home_score: snapshot.home_score, away_score: snapshot.away_score, quarter: snapshot.quarter }} />
+      )}
 
       <div className="flex items-center gap-2 pt-2 border-t border-border/50">
         <button
@@ -353,7 +476,7 @@ const SkySpreadPage = () => {
             const isWin = updated.result === "win";
             toast({
               title: isWin ? "🎉 Bet Won!" : updated.result === "push" ? "↔️ Bet Pushed" : "❌ Bet Lost",
-              description: `${updated.selection} — ${updated.market_type}${updated.payout ? ` · Payout: $${Number(updated.payout).toFixed(2)}` : ""}`,
+              description: `${updated.selection} — ${humanizeMarket(updated.market_type)}${updated.payout ? ` · Payout: $${Number(updated.payout).toFixed(2)}` : ""}`,
             });
             queryClient.invalidateQueries({ queryKey: ["skyspread-bets"] });
           }
@@ -546,12 +669,81 @@ const SkySpreadPage = () => {
 
   if (!userId) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center px-4">
-        <Star className="h-8 w-8 text-primary mb-3" />
-        <p className="text-sm text-muted-foreground text-center mb-3">Log in to access SkySpread.</p>
-        <button onClick={() => navigate("/auth")} className="text-xs text-primary hover:underline">
-          Go to Login →
-        </button>
+      <div className="min-h-screen overflow-x-hidden">
+        {/* Hero */}
+        <div className="relative px-6 pt-16 pb-10 text-center overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-b from-primary/10 via-background to-background pointer-events-none" />
+          <div className="relative">
+            <div className="inline-flex items-center justify-center h-16 w-16 rounded-2xl bg-primary/15 border border-primary/25 mb-4 mx-auto shadow-lg">
+              <Star className="h-8 w-8 text-primary" />
+            </div>
+            <h1 className="text-3xl font-bold font-display tracking-tight mb-2">SkySpread</h1>
+            <p className="text-sm text-muted-foreground max-w-xs mx-auto leading-relaxed">
+              Your intelligent betting ledger — track lines, monitor live positions, and let the cosmos guide your edge.
+            </p>
+            <button
+              onClick={() => navigate("/auth")}
+              className="mt-5 inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-primary text-primary-foreground text-sm font-semibold shadow-md hover:opacity-90 transition-opacity"
+            >
+              <Star className="h-4 w-4" /> Sign In to Start
+            </button>
+          </div>
+        </div>
+
+        {/* Feature grid */}
+        <div className="px-4 pb-8 space-y-3 max-w-md mx-auto">
+          {[
+            {
+              icon: "📊",
+              title: "Smart Bet Ledger",
+              desc: "Log every play with edge score, confidence, and volatility tracking. Instant P&L across all markets.",
+            },
+            {
+              icon: "⚡",
+              title: "Live Board",
+              desc: "Real-time score updates. See exactly where your bet stands — covering, sweating, or danger — as the game unfolds.",
+            },
+            {
+              icon: "📈",
+              title: "Live Pacing",
+              desc: "For totals, see the projected final score vs. your line in real time. Quarter-by-quarter pace analysis.",
+            },
+            {
+              icon: "🎯",
+              title: "One-Tap Settlement",
+              desc: "Mark bets Win / Loss / Push inline — payout calculated automatically from your odds and stake.",
+            },
+            {
+              icon: "🗂️",
+              title: "Bet Slips & Parlays",
+              desc: "Import full bet slips and track each leg. Parlay health scores update as games go final.",
+            },
+            {
+              icon: "💰",
+              title: "Bankroll Analytics",
+              desc: "Unit tracking, ROI, win rates by market type. Know exactly where your edge is — and where it isn't.",
+            },
+          ].map(f => (
+            <div key={f.title} className="flex items-start gap-4 rounded-xl border border-border/50 bg-card/60 backdrop-blur-sm p-4">
+              <div className="text-2xl shrink-0 leading-none mt-0.5">{f.icon}</div>
+              <div>
+                <p className="text-sm font-semibold text-foreground mb-0.5">{f.title}</p>
+                <p className="text-xs text-muted-foreground leading-relaxed">{f.desc}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Bottom CTA */}
+        <div className="px-4 pb-16 text-center">
+          <button
+            onClick={() => navigate("/auth")}
+            className="inline-flex items-center gap-2 px-8 py-3 rounded-xl bg-primary text-primary-foreground text-sm font-semibold shadow-md hover:opacity-90 transition-opacity"
+          >
+            Get Started Free →
+          </button>
+          <p className="text-[10px] text-muted-foreground mt-3">Free to use · No credit card required</p>
+        </div>
       </div>
     );
   }
@@ -822,6 +1014,7 @@ const SkySpreadPage = () => {
                         <div className="mb-1">
                           <PeriodScoresTicker gameId={bet.game_id} league={bet.sport || "NBA"} isLive={true} />
                         </div>
+                        <LivePaceBar bet={bet} gameData={gameData} />
                         </>
                       )}
                       {gameFinal && (
@@ -830,12 +1023,24 @@ const SkySpreadPage = () => {
                         </div>
                       )}
 
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className="text-[10px] text-cosmic-indigo font-medium">{bet.market_type}</span>
-                        <span className="text-[10px] text-muted-foreground">·</span>
-                        <span className="text-xs text-foreground font-medium truncate">{bet.selection}</span>
-                        {bet.line != null && <span className="text-[10px] text-muted-foreground">{bet.line > 0 ? "+" : ""}{bet.line}</span>}
-                        {bet.odds != null && <span className="text-[10px] text-muted-foreground">{bet.odds > 0 ? "+" : ""}{bet.odds}</span>}
+                      <div className="flex items-center gap-1.5 flex-wrap mb-2">
+                        <span className="text-[10px] font-semibold text-cosmic-indigo bg-cosmic-indigo/10 px-1.5 py-0.5 rounded-md">
+                          {humanizeMarket(bet.market_type)}
+                        </span>
+                        {bet.side && (
+                          <span className="text-[10px] font-semibold text-muted-foreground bg-secondary/60 px-1.5 py-0.5 rounded-md">
+                            {humanizeSide(bet.side)}
+                          </span>
+                        )}
+                        <span className="text-xs text-foreground font-medium truncate max-w-[120px]">{bet.selection}</span>
+                        {bet.line != null && (
+                          <span className="text-[10px] font-mono text-muted-foreground">{bet.line > 0 ? "+" : ""}{bet.line}</span>
+                        )}
+                        {bet.odds != null && (
+                          <span className="text-[10px] font-mono font-semibold text-foreground/70">
+                            {bet.odds > 0 ? "+" : ""}{bet.odds}
+                          </span>
+                        )}
                       </div>
 
                       {(bet.stake_amount || bet.stake) && (

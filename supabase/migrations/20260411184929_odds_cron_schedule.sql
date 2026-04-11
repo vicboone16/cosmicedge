@@ -164,46 +164,81 @@ SELECT cron.schedule(
   $$
   UPDATE public.bets b
   SET
-    status     = CASE
-      WHEN b.market_type = 'moneyline' AND b.side = 'home'
-           AND g.home_score > g.away_score THEN 'won'
-      WHEN b.market_type = 'moneyline' AND b.side = 'away'
-           AND g.away_score > g.home_score THEN 'won'
-      WHEN b.market_type = 'total' AND b.side = 'over'
-           AND (g.home_score + g.away_score) > b.line THEN 'won'
-      WHEN b.market_type = 'total' AND b.side = 'under'
-           AND (g.home_score + g.away_score) < b.line THEN 'won'
-      WHEN b.market_type = 'total'
-           AND (g.home_score + g.away_score) = b.line THEN 'push'
+    status = CASE
+      -- ── Moneyline ──────────────────────────────────────────────────────────
+      WHEN b.market_type IN ('moneyline','h2h') AND b.side = 'home'
+           AND g.home_score > g.away_score                             THEN 'won'
+      WHEN b.market_type IN ('moneyline','h2h') AND b.side = 'away'
+           AND g.away_score > g.home_score                             THEN 'won'
+      WHEN b.market_type IN ('moneyline','h2h')
+           AND g.home_score = g.away_score                             THEN 'push'
+
+      -- ── Spread: home team + handicap ───────────────────────────────────────
+      -- b.line is the handicap applied to the home team (e.g. -5.5 means home -5.5)
+      -- Bet wins if (home_score + b.line) > away_score
+      WHEN b.market_type IN ('spread','spreads') AND b.side = 'home'
+           AND (g.home_score::numeric + b.line) > g.away_score::numeric THEN 'won'
+      WHEN b.market_type IN ('spread','spreads') AND b.side = 'home'
+           AND (g.home_score::numeric + b.line) = g.away_score::numeric THEN 'push'
+      WHEN b.market_type IN ('spread','spreads') AND b.side = 'away'
+           AND (g.away_score::numeric - b.line) > g.home_score::numeric THEN 'won'
+      WHEN b.market_type IN ('spread','spreads') AND b.side = 'away'
+           AND (g.away_score::numeric - b.line) = g.home_score::numeric THEN 'push'
+
+      -- ── Totals ─────────────────────────────────────────────────────────────
+      WHEN b.market_type IN ('total','totals') AND b.side = 'over'
+           AND (g.home_score + g.away_score)::numeric > b.line         THEN 'won'
+      WHEN b.market_type IN ('total','totals') AND b.side = 'under'
+           AND (g.home_score + g.away_score)::numeric < b.line         THEN 'won'
+      WHEN b.market_type IN ('total','totals')
+           AND (g.home_score + g.away_score)::numeric = b.line         THEN 'push'
+
       ELSE 'lost'
     END,
-    result     = CASE
-      WHEN b.market_type = 'moneyline' AND b.side = 'home'
-           AND g.home_score > g.away_score THEN 'win'
-      WHEN b.market_type = 'moneyline' AND b.side = 'away'
-           AND g.away_score > g.home_score THEN 'win'
-      WHEN b.market_type = 'total' AND b.side = 'over'
-           AND (g.home_score + g.away_score) > b.line THEN 'win'
-      WHEN b.market_type = 'total' AND b.side = 'under'
-           AND (g.home_score + g.away_score) < b.line THEN 'win'
-      WHEN b.market_type = 'total'
-           AND (g.home_score + g.away_score) = b.line THEN 'push'
+    result = CASE
+      WHEN b.market_type IN ('moneyline','h2h') AND b.side = 'home'
+           AND g.home_score > g.away_score                             THEN 'win'
+      WHEN b.market_type IN ('moneyline','h2h') AND b.side = 'away'
+           AND g.away_score > g.home_score                             THEN 'win'
+      WHEN b.market_type IN ('moneyline','h2h')
+           AND g.home_score = g.away_score                             THEN 'push'
+      WHEN b.market_type IN ('spread','spreads') AND b.side = 'home'
+           AND (g.home_score::numeric + b.line) > g.away_score::numeric THEN 'win'
+      WHEN b.market_type IN ('spread','spreads') AND b.side = 'home'
+           AND (g.home_score::numeric + b.line) = g.away_score::numeric THEN 'push'
+      WHEN b.market_type IN ('spread','spreads') AND b.side = 'away'
+           AND (g.away_score::numeric - b.line) > g.home_score::numeric THEN 'win'
+      WHEN b.market_type IN ('spread','spreads') AND b.side = 'away'
+           AND (g.away_score::numeric - b.line) = g.home_score::numeric THEN 'push'
+      WHEN b.market_type IN ('total','totals') AND b.side = 'over'
+           AND (g.home_score + g.away_score)::numeric > b.line         THEN 'win'
+      WHEN b.market_type IN ('total','totals') AND b.side = 'under'
+           AND (g.home_score + g.away_score)::numeric < b.line         THEN 'win'
+      WHEN b.market_type IN ('total','totals')
+           AND (g.home_score + g.away_score)::numeric = b.line         THEN 'push'
       ELSE 'loss'
     END,
     settled_at = now(),
-    payout     = CASE
+    payout = CASE
+      -- Push: return stake
+      WHEN (g.home_score = g.away_score AND b.market_type IN ('moneyline','h2h'))
+        OR ((g.home_score::numeric + b.line) = g.away_score::numeric AND b.market_type IN ('spread','spreads') AND b.side = 'home')
+        OR ((g.away_score::numeric - b.line) = g.home_score::numeric AND b.market_type IN ('spread','spreads') AND b.side = 'away')
+        OR ((g.home_score + g.away_score)::numeric = b.line AND b.market_type IN ('total','totals'))
+           THEN COALESCE(b.stake_amount, 0)
+      -- American odds payout for wins
       WHEN b.odds > 0 THEN COALESCE(b.stake_amount, 0) * (b.odds::numeric / 100)
       WHEN b.odds < 0 THEN COALESCE(b.stake_amount, 0) * (100.0 / ABS(b.odds::numeric))
       ELSE 0
     END
   FROM public.games g
   WHERE b.game_id = g.id
-    AND g.status IN ('final', 'complete', 'closed')
+    AND g.status IN ('final', 'complete', 'closed', 'F', 'STATUS_FINAL')
     AND b.status NOT IN ('settled', 'won', 'lost', 'push', 'void')
     AND b.line IS NOT NULL
     AND g.home_score IS NOT NULL
     AND g.away_score IS NOT NULL
-    AND b.market_type IN ('moneyline', 'total', 'spread');
+    AND b.market_type IN ('moneyline', 'h2h', 'total', 'totals', 'spread', 'spreads');
   $$
 );
 
