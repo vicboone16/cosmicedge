@@ -154,6 +154,63 @@ const FriendsPage = () => {
     loadFriends();
   };
 
+  const startConversation = async (e: React.MouseEvent, friendUserId: string) => {
+    e.stopPropagation();
+    if (!user) return;
+
+    // Look for existing 1:1 conversation between the two users
+    const { data: myMemberships } = await supabase
+      .from("conversation_members")
+      .select("conversation_id")
+      .eq("user_id", user.id) as any;
+
+    const myConvoIds = (myMemberships || []).map((m: any) => m.conversation_id);
+
+    if (myConvoIds.length > 0) {
+      const { data: sharedConvos } = await supabase
+        .from("conversation_members")
+        .select("conversation_id")
+        .eq("user_id", friendUserId)
+        .in("conversation_id", myConvoIds) as any;
+
+      if (sharedConvos && sharedConvos.length > 0) {
+        // Check it's a 1:1 (not a group) by finding a non-group conversation
+        for (const sc of sharedConvos as any[]) {
+          const { data: convo } = await supabase
+            .from("conversations")
+            .select("id, is_group")
+            .eq("id", sc.conversation_id)
+            .eq("is_group", false)
+            .maybeSingle() as any;
+          if (convo) {
+            navigate(`/messages/${convo.id}`);
+            return;
+          }
+        }
+      }
+    }
+
+    // No existing conversation — create one
+    const { data: newConvo, error: convoErr } = await supabase
+      .from("conversations")
+      .insert({ is_group: false } as any)
+      .select("id")
+      .single() as any;
+
+    if (convoErr || !newConvo) {
+      toast({ title: "Error", description: "Could not start conversation", variant: "destructive" });
+      return;
+    }
+
+    // Add both users as members
+    await supabase.from("conversation_members").insert([
+      { conversation_id: newConvo.id, user_id: user.id } as any,
+      { conversation_id: newConvo.id, user_id: friendUserId } as any,
+    ]);
+
+    navigate(`/messages/${newConvo.id}`);
+  };
+
   const UserCard = ({ profile: p, actions, clickable = false }: { profile: FriendProfile; actions: React.ReactNode; clickable?: boolean }) => (
     <div className="cosmic-card rounded-xl p-4 flex items-center gap-3">
       <div
@@ -331,8 +388,12 @@ const FriendsPage = () => {
           ) : friends.map(f => (
             <UserCard key={f.id} profile={f.profile} clickable actions={
               <div className="flex items-center gap-1.5 shrink-0">
-                <button onClick={(e) => { e.stopPropagation(); navigate(`/user/${f.profile.user_id}`); }} className="p-2 rounded-lg bg-secondary hover:bg-accent transition-colors">
-                  <MessageCircle className="h-3.5 w-3.5 text-muted-foreground" />
+                <button
+                  onClick={(e) => startConversation(e, f.profile.user_id)}
+                  className="p-2 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary transition-colors"
+                  title="Send message"
+                >
+                  <MessageCircle className="h-3.5 w-3.5" />
                 </button>
               </div>
             } />

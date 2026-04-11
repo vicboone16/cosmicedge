@@ -513,6 +513,32 @@ const SkySpreadPage = () => {
     }
   };
 
+  const handleQuickSettle = async (bet: BetRow, outcome: "won" | "lost" | "push") => {
+    const stakeAmt = Number(bet.stake_amount ?? bet.stake ?? 0);
+    let payout = 0;
+    if (outcome === "won" && bet.odds != null) {
+      payout = bet.odds > 0
+        ? stakeAmt * (bet.odds / 100)
+        : stakeAmt * (100 / Math.abs(bet.odds));
+    } else if (outcome === "push") {
+      payout = stakeAmt;
+    }
+    const resultMap = { won: "win", lost: "loss", push: "push" } as const;
+    const { error } = await supabase.from("bets").update({
+      status: outcome,
+      result: resultMap[outcome],
+      settled_at: new Date().toISOString(),
+      payout,
+    } as any).eq("id", bet.id);
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: outcome === "won" ? "Bet won! 🎉" : outcome === "lost" ? "Bet settled as loss" : "Bet pushed — stake returned" });
+      queryClient.invalidateQueries({ queryKey: ["skyspread-bets"] });
+      queryClient.invalidateQueries({ queryKey: ["live-board"] });
+    }
+  };
+
   const handleTogglePin = async (item: LiveBoardItem) => {
     await supabase.from("live_board_items").update({ is_pinned: !item.is_pinned }).eq("id", item.id);
     queryClient.invalidateQueries({ queryKey: ["live-board"] });
@@ -870,6 +896,33 @@ const SkySpreadPage = () => {
                       )}
                       {bet.book && (
                         <p className="text-[10px] text-muted-foreground">Book: {bet.book}</p>
+                      )}
+
+                      {/* Quick-settle buttons (only for unsettled bets) */}
+                      {(!bet.status || bet.status === "open" || bet.status === "live") && (
+                        <div className="pt-2 border-t border-border/30">
+                          <p className="text-[9px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Settle Result</p>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => handleQuickSettle(bet, "won")}
+                              className="flex-1 flex items-center justify-center gap-1 text-[10px] font-semibold py-1.5 rounded-lg bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/25 transition-colors"
+                            >
+                              <CheckCircle className="h-3 w-3" /> Win
+                            </button>
+                            <button
+                              onClick={() => handleQuickSettle(bet, "lost")}
+                              className="flex-1 flex items-center justify-center gap-1 text-[10px] font-semibold py-1.5 rounded-lg bg-red-500/15 text-red-400 border border-red-500/30 hover:bg-red-500/25 transition-colors"
+                            >
+                              <AlertTriangle className="h-3 w-3" /> Loss
+                            </button>
+                            <button
+                              onClick={() => handleQuickSettle(bet, "push")}
+                              className="flex-1 flex items-center justify-center gap-1 text-[10px] font-semibold py-1.5 rounded-lg bg-amber-500/15 text-amber-400 border border-amber-500/30 hover:bg-amber-500/25 transition-colors"
+                            >
+                              <Target className="h-3 w-3" /> Push
+                            </button>
+                          </div>
+                        </div>
                       )}
 
                       {/* Edit & Delete actions */}
