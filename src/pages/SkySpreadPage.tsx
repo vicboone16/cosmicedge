@@ -566,19 +566,19 @@ const SkySpreadPage = () => {
         </div>
 
         {/* Tab Switcher */}
-        <div className="flex gap-1 mt-3">
+        <div className="flex gap-1 mt-3 overflow-x-auto no-scrollbar">
           {([
             { key: "ledger" as const, label: "Ledger", icon: Star },
             { key: "tracked" as const, label: "Tracked", icon: Target },
             { key: "slips" as const, label: "Slips", icon: FileText },
             { key: "bankroll" as const, label: "Bankroll", icon: Wallet },
-            { key: "calc" as const, label: "Calc", icon: Calculator },
+            { key: "calc" as const, label: "Tools & Import", icon: Calculator },
           ]).map(({ key, label, icon: Icon }) => (
             <button
               key={key}
               onClick={() => setActiveTab(key)}
               className={cn(
-                "flex-1 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center justify-center gap-1.5",
+                "shrink-0 py-1.5 px-3 rounded-lg text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 whitespace-nowrap",
                 activeTab === key ? "bg-primary text-primary-foreground" : "bg-secondary/60 text-muted-foreground hover:text-foreground"
               )}
             >
@@ -591,7 +591,7 @@ const SkySpreadPage = () => {
       <div className="px-4 py-4 space-y-4">
         <GuidanceCard title="SkySpread Betting Hub" dismissKey="skyspread_intro" variant="onboarding">
           <p>Track your bets, manage slips, and monitor live positions all in one place. Use <strong>Tracked Props</strong> to watch individual player lines, or import parlays via <strong>Slips</strong>.</p>
-          <p className="mt-1">The <strong>Bankroll</strong> tab tracks your overall P&L and unit performance.</p>
+          <p className="mt-1">The <strong>Bankroll</strong> tab tracks your overall P&L and unit performance. Use <strong>Tools & Import</strong> to calculate bets, build parlays, check EV, hedge, and import bets from a spreadsheet (paste CSV or upload a file).</p>
         </GuidanceCard>
         {activeTab === "calc" ? (
           <BetCalculatorTab userId={userId} />
