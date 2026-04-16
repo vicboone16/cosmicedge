@@ -113,78 +113,121 @@ export function LiveCourtCanvas({ lastEvent, recentEvents, possessionTeamId, hom
   return (
     <div className="relative w-full aspect-[2/1] rounded-xl overflow-hidden select-none"
       style={{
-        background: "linear-gradient(135deg, hsl(25 40% 22%), hsl(25 35% 18%), hsl(25 30% 15%))",
+        background: "linear-gradient(160deg, hsl(31 72% 58%), hsl(28 66% 52%), hsl(25 61% 47%))",
       }}
     >
-      {/* Court floor texture overlay */}
-      <div className="absolute inset-0 opacity-[0.04]"
+      {/* Wood grain — horizontal stripes running the court's length */}
+      <div className="absolute inset-0"
         style={{
-          backgroundImage: "repeating-linear-gradient(90deg, transparent, transparent 8px, rgba(255,255,255,0.03) 8px, rgba(255,255,255,0.03) 9px)",
+          backgroundImage: "repeating-linear-gradient(0deg, transparent, transparent 11px, rgba(0,0,0,0.028) 11px, rgba(0,0,0,0.028) 12px)",
+        }}
+      />
+      {/* Subtle centre-court gloss highlight */}
+      <div className="absolute inset-0"
+        style={{
+          background: "radial-gradient(ellipse at 50% 50%, rgba(255,255,255,0.06) 0%, transparent 55%)",
         }}
       />
 
-      {/* Court SVG with premium lines */}
+      {/* ─── NBA-accurate court SVG ───
+          ViewBox 940 × 500.  Court boundary: x 20–920, y 20–480 (900 × 460 px).
+          Scale ≈ 9.57 px/ft (x) · 9.2 px/ft (y).
+          Left basket:  (61, 250)   Right basket: (879, 250)
+          3-pt radius:  227 px (23.75 ft)   Corner 3 y:  48 / 452 (3 ft inset)
+          Paint:        x 20–202 / 738–920, y 176–324 (16 ft wide, 19 ft deep)
+          FT circle:    r 57 (6 ft), centred on FT line at (202, 250) / (738, 250)
+          Restricted:   r 38 (4 ft), centred on basket
+      */}
       <svg viewBox="0 0 940 500" className="absolute inset-0 w-full h-full" xmlns="http://www.w3.org/2000/svg">
+
         {/* Court boundary */}
-        <rect x="20" y="20" width="900" height="460" rx="3"
-          fill="none" stroke="rgba(255,255,255,0.18)" strokeWidth="2.5" />
+        <rect x="20" y="20" width="900" height="460" rx="2"
+          fill="none" stroke="rgba(255,248,235,0.82)" strokeWidth="2.5" />
 
         {/* Half-court line */}
         <line x1="470" y1="20" x2="470" y2="480"
-          stroke="rgba(255,255,255,0.15)" strokeWidth="2" />
+          stroke="rgba(255,248,235,0.80)" strokeWidth="2" />
 
-        {/* Center circle */}
-        <circle cx="470" cy="250" r="60"
-          fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth="2" />
-        <circle cx="470" cy="250" r="5"
-          fill="rgba(255,255,255,0.15)" />
+        {/* Centre circles */}
+        <circle cx="470" cy="250" r="57"
+          fill="none" stroke="rgba(255,248,235,0.78)" strokeWidth="2" />
+        <circle cx="470" cy="250" r="24"
+          fill="none" stroke="rgba(255,248,235,0.42)" strokeWidth="1.5" />
+        <circle cx="470" cy="250" r="4"
+          fill="rgba(255,248,235,0.38)" />
 
-        {/* Left 3-point arc */}
-        <path d="M 20 60 L 140 60 Q 290 60 290 250 Q 290 440 140 440 L 20 440"
-          fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth="1.5" />
+        {/* ── Left 3-point line ──
+            Two corner straights (at y=48 & y=452) plus a proper circular arc.
+            Arc radius 227, large-arc=0, sweep=1 (clockwise → bows away from basket). */}
+        <path d="M 20,48 L 165,48 A 227,227 0 0,1 165,452 L 20,452"
+          fill="none" stroke="rgba(255,248,235,0.80)" strokeWidth="2" />
 
-        {/* Right 3-point arc */}
-        <path d="M 920 60 L 800 60 Q 650 60 650 250 Q 650 440 800 440 L 920 440"
-          fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth="1.5" />
+        {/* ── Right 3-point line ──
+            Mirror: sweep=0 (counterclockwise → bows away from right basket). */}
+        <path d="M 920,48 L 775,48 A 227,227 0 0,0 775,452 L 920,452"
+          fill="none" stroke="rgba(255,248,235,0.80)" strokeWidth="2" />
 
-        {/* Left paint */}
-        <rect x="20" y="170" width="190" height="160" rx="1"
-          fill="rgba(255,255,255,0.03)" stroke="rgba(255,255,255,0.14)" strokeWidth="1.5" />
+        {/* Paint areas */}
+        <rect x="20" y="176" width="182" height="148"
+          fill="rgba(0,0,0,0.065)" stroke="rgba(255,248,235,0.78)" strokeWidth="2" />
+        <rect x="738" y="176" width="182" height="148"
+          fill="rgba(0,0,0,0.065)" stroke="rgba(255,248,235,0.78)" strokeWidth="2" />
 
-        {/* Right paint */}
-        <rect x="730" y="170" width="190" height="160" rx="1"
-          fill="rgba(255,255,255,0.03)" stroke="rgba(255,255,255,0.14)" strokeWidth="1.5" />
+        {/* ── FT circles ──
+            Left:  solid half faces basket (sweep=0 → bows left/toward basket)
+                   dashed half faces mid-court (sweep=1).
+            Right: mirror. */}
+        <path d="M 202,193 A 57,57 0 0,0 202,307"
+          fill="none" stroke="rgba(255,248,235,0.72)" strokeWidth="1.5" />
+        <path d="M 202,193 A 57,57 0 0,1 202,307"
+          fill="none" stroke="rgba(255,248,235,0.38)" strokeWidth="1.5" strokeDasharray="5 4" />
 
-        {/* Left restricted area */}
-        <path d="M 20 210 Q 80 210 80 250 Q 80 290 20 290"
-          fill="none" stroke="rgba(255,255,255,0.10)" strokeWidth="1.5" />
+        <path d="M 738,193 A 57,57 0 0,1 738,307"
+          fill="none" stroke="rgba(255,248,235,0.72)" strokeWidth="1.5" />
+        <path d="M 738,193 A 57,57 0 0,0 738,307"
+          fill="none" stroke="rgba(255,248,235,0.38)" strokeWidth="1.5" strokeDasharray="5 4" />
 
-        {/* Right restricted area */}
-        <path d="M 920 210 Q 860 210 860 250 Q 860 290 920 290"
-          fill="none" stroke="rgba(255,255,255,0.10)" strokeWidth="1.5" />
+        {/* ── Restricted-area arcs (4 ft radius) ──
+            Left:  sweep=1 → bows right (away from endline).
+            Right: sweep=0 → bows left. */}
+        <path d="M 61,212 A 38,38 0 0,1 61,288"
+          fill="none" stroke="rgba(255,248,235,0.68)" strokeWidth="1.5" />
+        <path d="M 879,212 A 38,38 0 0,0 879,288"
+          fill="none" stroke="rgba(255,248,235,0.68)" strokeWidth="1.5" />
 
-        {/* Baskets */}
-        <circle cx="42" cy="250" r="9"
-          fill="none" stroke="hsl(var(--cosmic-gold))" strokeWidth="2" opacity="0.6" />
-        <line x1="20" y1="250" x2="33" y2="250"
-          stroke="rgba(255,255,255,0.15)" strokeWidth="2" />
+        {/* ── Backboards (6 ft wide, shown as thick line at endline) ── */}
+        <line x1="20" y1="222" x2="20" y2="278"
+          stroke="rgba(255,248,235,0.88)" strokeWidth="5" strokeLinecap="round" />
+        <line x1="920" y1="222" x2="920" y2="278"
+          stroke="rgba(255,248,235,0.88)" strokeWidth="5" strokeLinecap="round" />
 
-        <circle cx="898" cy="250" r="9"
-          fill="none" stroke="hsl(var(--cosmic-gold))" strokeWidth="2" opacity="0.6" />
-        <line x1="907" y1="250" x2="920" y2="250"
-          stroke="rgba(255,255,255,0.15)" strokeWidth="2" />
+        {/* ── Rims (18-in diameter = r 8 px, gold) ── */}
+        <circle cx="61" cy="250" r="8"
+          fill="none" stroke="hsl(var(--cosmic-gold))" strokeWidth="2.5" opacity="0.88" />
+        <circle cx="879" cy="250" r="8"
+          fill="none" stroke="hsl(var(--cosmic-gold))" strokeWidth="2.5" opacity="0.88" />
 
-        {/* Free throw lines */}
-        <line x1="210" y1="170" x2="210" y2="330"
-          stroke="rgba(255,255,255,0.10)" strokeWidth="1.5" />
-        <line x1="730" y1="170" x2="730" y2="330"
-          stroke="rgba(255,255,255,0.10)" strokeWidth="1.5" />
-
-        {/* FT circles */}
-        <circle cx="210" cy="250" r="60"
-          fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="1" strokeDasharray="5 5" />
-        <circle cx="730" cy="250" r="60"
-          fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="1" strokeDasharray="5 5" />
+        {/* ── Lane hash marks — outside the paint at 3 / 7 / 11 / 14 ft from endline ── */}
+        {/* Left paint — top */}
+        <line x1="49"  y1="176" x2="49"  y2="167" stroke="rgba(255,248,235,0.62)" strokeWidth="1.5" />
+        <line x1="87"  y1="176" x2="87"  y2="167" stroke="rgba(255,248,235,0.62)" strokeWidth="1.5" />
+        <line x1="125" y1="176" x2="125" y2="167" stroke="rgba(255,248,235,0.62)" strokeWidth="1.5" />
+        <line x1="154" y1="176" x2="154" y2="167" stroke="rgba(255,248,235,0.62)" strokeWidth="1.5" />
+        {/* Left paint — bottom */}
+        <line x1="49"  y1="324" x2="49"  y2="333" stroke="rgba(255,248,235,0.62)" strokeWidth="1.5" />
+        <line x1="87"  y1="324" x2="87"  y2="333" stroke="rgba(255,248,235,0.62)" strokeWidth="1.5" />
+        <line x1="125" y1="324" x2="125" y2="333" stroke="rgba(255,248,235,0.62)" strokeWidth="1.5" />
+        <line x1="154" y1="324" x2="154" y2="333" stroke="rgba(255,248,235,0.62)" strokeWidth="1.5" />
+        {/* Right paint — top */}
+        <line x1="891" y1="176" x2="891" y2="167" stroke="rgba(255,248,235,0.62)" strokeWidth="1.5" />
+        <line x1="853" y1="176" x2="853" y2="167" stroke="rgba(255,248,235,0.62)" strokeWidth="1.5" />
+        <line x1="815" y1="176" x2="815" y2="167" stroke="rgba(255,248,235,0.62)" strokeWidth="1.5" />
+        <line x1="786" y1="176" x2="786" y2="167" stroke="rgba(255,248,235,0.62)" strokeWidth="1.5" />
+        {/* Right paint — bottom */}
+        <line x1="891" y1="324" x2="891" y2="333" stroke="rgba(255,248,235,0.62)" strokeWidth="1.5" />
+        <line x1="853" y1="324" x2="853" y2="333" stroke="rgba(255,248,235,0.62)" strokeWidth="1.5" />
+        <line x1="815" y1="324" x2="815" y2="333" stroke="rgba(255,248,235,0.62)" strokeWidth="1.5" />
+        <line x1="786" y1="324" x2="786" y2="333" stroke="rgba(255,248,235,0.62)" strokeWidth="1.5" />
       </svg>
 
       {/* Possession glow on active side */}

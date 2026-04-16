@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>CosmicEdge — Watch Mode Mockup</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #0f0f14;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    color: #e2e8f0;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 32px 16px;
+    gap: 0;
+  }
+  h2 {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #94a3b8;
+    margin-bottom: 12px;
+    align-self: flex-start;
+    max-width: 620px;
+    width: 100%;
+  }
+
+  /* ── Watch container ── */
+  .watch-wrap {
+    width: 100%;
+    max-width: 620px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  /* ── Score header ── */
+  .scorebar {
+    background: #1a1a28;
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 12px;
+    padding: 10px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .team-score { display: flex; align-items: center; gap: 8px; }
+  .team-abbr { font-size: 12px; font-weight: 700; color: #94a3b8; }
+  .score-num { font-size: 28px; font-weight: 800; font-variant-numeric: tabular-nums; color: #f1f5f9; }
+  .score-sep { font-size: 14px; color: #475569; }
+  .clock-pill {
+    background: rgba(99,102,241,0.15);
+    border: 1px solid rgba(99,102,241,0.3);
+    border-radius: 20px;
+    padding: 3px 10px;
+    font-size: 10px;
+    font-weight: 700;
+    color: #a5b4fc;
+    text-align: center;
+  }
+
+  /* ── Court ── */
+  .court-wrap {
+    width: 100%;
+    aspect-ratio: 2 / 1;
+    border-radius: 14px;
+    overflow: hidden;
+    position: relative;
+    background: linear-gradient(160deg, hsl(31,72%,58%), hsl(28,66%,52%), hsl(25,61%,47%));
+  }
+  .grain {
+    position: absolute; inset: 0;
+    background-image: repeating-linear-gradient(
+      0deg,
+      transparent, transparent 11px,
+      rgba(0,0,0,0.028) 11px, rgba(0,0,0,0.028) 12px
+    );
+  }
+  .gloss {
+    position: absolute; inset: 0;
+    background: radial-gradient(ellipse at 50% 50%, rgba(255,255,255,0.06) 0%, transparent 55%);
+  }
+  .court-svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+
+  /* player dots */
+  .dot {
+    position: absolute;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 7px; font-weight: 800; color: rgba(255,255,255,0.92);
+    border: 2px solid rgba(0,0,0,0.28);
+    transform: translate(-50%, -50%);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  }
+  .dot-home { background: #6366f1; }
+  .dot-away { background: #22d3ee; }
+  .dot-score { background: #22c55e; }
+  .dot-latest {
+    width: 28px; height: 28px;
+    box-shadow: 0 0 14px rgba(99,102,241,0.45), 0 2px 6px rgba(0,0,0,0.4);
+  }
+  .dot-sm { width: 22px; height: 22px; opacity: 0.72; }
+  .dot-xs { width: 20px; height: 20px; opacity: 0.50; }
+
+  .score-badge {
+    position: absolute;
+    top: -16px; left: 50%;
+    transform: translateX(-50%);
+    font-size: 9px; font-weight: 900;
+    color: #22c55e;
+    text-shadow: 0 1px 4px rgba(0,0,0,0.5);
+    pointer-events: none;
+  }
+
+  .poss-pill {
+    position: absolute; bottom: 8px; left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0,0,0,0.38);
+    backdrop-filter: blur(4px);
+    border-radius: 20px; padding: 3px 12px;
+    font-size: 10px; font-weight: 700; color: rgba(255,255,255,0.7);
+  }
+
+  .dot-count {
+    position: absolute; top: 8px; right: 8px;
+    background: rgba(0,0,0,0.28); border-radius: 4px;
+    font-size: 8px; font-family: monospace; color: rgba(255,255,255,0.38);
+    padding: 2px 6px;
+  }
+
+  /* ── Latest play card ── */
+  .latest-card {
+    background: rgba(255,255,255,0.035);
+    border: 1px solid rgba(255,255,255,0.09);
+    border-radius: 12px;
+    padding: 12px;
+    display: flex; flex-direction: column; gap: 6px;
+    position: relative;
+  }
+  .card-header { display: flex; align-items: center; justify-content: space-between; }
+  .event-badge {
+    font-size: 8px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.1em;
+    padding: 2px 8px; border-radius: 20px; border: 1px solid;
+  }
+  .badge-green { color: #22c55e; border-color: rgba(34,197,94,0.28); }
+  .badge-cyan  { color: #22d3ee; border-color: rgba(34,211,238,0.28); }
+  .badge-gold  { color: #f59e0b; border-color: rgba(245,158,11,0.28); }
+  .badge-red   { color: #f87171; border-color: rgba(248,113,113,0.28); }
+  .team-label { font-size: 10px; font-weight: 700; color: #a5b4fc; }
+  .clock-label { font-size: 10px; color: #64748b; font-variant-numeric: tabular-nums; }
+  .play-desc { font-size: 13px; color: #f1f5f9; line-height: 1.4; }
+  .play-score { font-size: 10px; color: #64748b; font-variant-numeric: tabular-nums; }
+  .play-score b { color: #94a3b8; }
+  .player-name { font-size: 10px; color: rgba(165,180,252,0.7); }
+  .pts-flash {
+    position: absolute; top: 10px; right: 12px;
+    font-size: 13px; font-weight: 900; color: #22c55e;
+    text-shadow: 0 1px 6px rgba(0,0,0,0.3);
+  }
+
+  /* ── Recent plays ── */
+  .recent-wrap { display: flex; flex-direction: column; gap: 4px; }
+  .recent-label {
+    font-size: 9px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.12em;
+    color: rgba(148,163,184,0.6); padding-left: 4px;
+  }
+  .recent-list {
+    border: 1px solid rgba(255,255,255,0.07);
+    background: rgba(255,255,255,0.02);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .recent-row {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 10px;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    font-size: 10px; color: #94a3b8;
+  }
+  .recent-row:last-child { border-bottom: none; }
+  .recent-row.new { background: rgba(99,102,241,0.06); }
+  .rteam { font-size: 8px; font-weight: 700; width: 28px; flex-shrink: 0; }
+  .rteam.home { color: #a5b4fc; }
+  .rteam.away { color: #64748b; }
+  .rdesc { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .rclock { font-size: 9px; color: rgba(148,163,184,0.5); flex-shrink: 0; font-variant-numeric: tabular-nums; }
+  .rpts { font-size: 8px; font-weight: 700; color: #22c55e; flex-shrink: 0; }
+
+  /* annotation overlay */
+  .annotations {
+    width: 100%; max-width: 620px;
+    margin-top: 24px;
+    background: #1a1a28;
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 12px;
+    padding: 16px;
+  }
+  .annotations h3 { font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #6366f1; margin-bottom: 12px; }
+  .ann-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 24px; }
+  .ann-item { display: flex; flex-direction: column; gap: 2px; }
+  .ann-label { font-size: 9px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.08em; }
+  .ann-val { font-size: 11px; color: #e2e8f0; }
+  .ann-val.good { color: #22c55e; }
+  .ann-val.fixed { color: #f59e0b; }
+</style>
+</head>
+<body>
+
+<div style="max-width:620px;width:100%;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between">
+  <span style="font-size:18px;font-weight:800;color:#f1f5f9;letter-spacing:-0.02em">CosmicEdge <span style="color:#6366f1">Watch</span></span>
+  <span style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;color:#22c55e;background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.25);padding:3px 10px;border-radius:20px">● Live</span>
+</div>
+
+<div class="watch-wrap">
+
+  <!-- Score header -->
+  <div class="scorebar">
+    <div class="team-score">
+      <span class="team-abbr">MIL</span>
+      <span class="score-num">98</span>
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:center;gap:4px">
+      <span class="clock-pill">Q4 · 3:42</span>
+      <span style="font-size:9px;color:#64748b">MIL leads by 4</span>
+    </div>
+    <div class="team-score">
+      <span class="score-num">94</span>
+      <span class="team-abbr">BOS</span>
+    </div>
+  </div>
+
+  <!-- Court -->
+  <div class="court-wrap">
+    <div class="grain"></div>
+    <div class="gloss"></div>
+
+    <svg viewBox="0 0 940 500" class="court-svg" xmlns="http://www.w3.org/2000/svg">
+      <!-- Court boundary -->
+      <rect x="20" y="20" width="900" height="460" rx="2"
+        fill="none" stroke="rgba(255,248,235,0.82)" stroke-width="2.5"/>
+      <!-- Half-court line -->
+      <line x1="470" y1="20" x2="470" y2="480"
+        stroke="rgba(255,248,235,0.80)" stroke-width="2"/>
+      <!-- Centre circles -->
+      <circle cx="470" cy="250" r="57"
+        fill="none" stroke="rgba(255,248,235,0.78)" stroke-width="2"/>
+      <circle cx="470" cy="250" r="24"
+        fill="none" stroke="rgba(255,248,235,0.42)" stroke-width="1.5"/>
+      <circle cx="470" cy="250" r="4" fill="rgba(255,248,235,0.38)"/>
+      <!-- Left 3-pt line: corner straights + proper circular arc (r=227) -->
+      <path d="M 20,48 L 165,48 A 227,227 0 0,1 165,452 L 20,452"
+        fill="none" stroke="rgba(255,248,235,0.80)" stroke-width="2"/>
+      <!-- Right 3-pt line -->
+      <path d="M 920,48 L 775,48 A 227,227 0 0,0 775,452 L 920,452"
+        fill="none" stroke="rgba(255,248,235,0.80)" stroke-width="2"/>
+      <!-- Paint areas -->
+      <rect x="20" y="176" width="182" height="148"
+        fill="rgba(0,0,0,0.065)" stroke="rgba(255,248,235,0.78)" stroke-width="2"/>
+      <rect x="738" y="176" width="182" height="148"
+        fill="rgba(0,0,0,0.065)" stroke="rgba(255,248,235,0.78)" stroke-width="2"/>
+      <!-- Left FT circle (solid toward basket, dashed toward mid-court) -->
+      <path d="M 202,193 A 57,57 0 0,0 202,307"
+        fill="none" stroke="rgba(255,248,235,0.72)" stroke-width="1.5"/>
+      <path d="M 202,193 A 57,57 0 0,1 202,307"
+        fill="none" stroke="rgba(255,248,235,0.38)" stroke-width="1.5" stroke-dasharray="5 4"/>
+      <!-- Right FT circle -->
+      <path d="M 738,193 A 57,57 0 0,1 738,307"
+        fill="none" stroke="rgba(255,248,235,0.72)" stroke-width="1.5"/>
+      <path d="M 738,193 A 57,57 0 0,0 738,307"
+        fill="none" stroke="rgba(255,248,235,0.38)" stroke-width="1.5" stroke-dasharray="5 4"/>
+      <!-- Restricted area arcs (r=38, 4 ft) -->
+      <path d="M 61,212 A 38,38 0 0,1 61,288"
+        fill="none" stroke="rgba(255,248,235,0.68)" stroke-width="1.5"/>
+      <path d="M 879,212 A 38,38 0 0,0 879,288"
+        fill="none" stroke="rgba(255,248,235,0.68)" stroke-width="1.5"/>
+      <!-- Backboards (6 ft wide thick line at endline) -->
+      <line x1="20" y1="222" x2="20" y2="278"
+        stroke="rgba(255,248,235,0.88)" stroke-width="5" stroke-linecap="round"/>
+      <line x1="920" y1="222" x2="920" y2="278"
+        stroke="rgba(255,248,235,0.88)" stroke-width="5" stroke-linecap="round"/>
+      <!-- Rims (gold, correct position x=61/879) -->
+      <circle cx="61" cy="250" r="8"
+        fill="none" stroke="#f59e0b" stroke-width="2.5" opacity="0.88"/>
+      <circle cx="879" cy="250" r="8"
+        fill="none" stroke="#f59e0b" stroke-width="2.5" opacity="0.88"/>
+      <!-- Lane hash marks — left paint top -->
+      <line x1="49"  y1="176" x2="49"  y2="167" stroke="rgba(255,248,235,0.62)" stroke-width="1.5"/>
+      <line x1="87"  y1="176" x2="87"  y2="167" stroke="rgba(255,248,235,0.62)" stroke-width="1.5"/>
+      <line x1="125" y1="176" x2="125" y2="167" stroke="rgba(255,248,235,0.62)" stroke-width="1.5"/>
+      <line x1="154" y1="176" x2="154" y2="167" stroke="rgba(255,248,235,0.62)" stroke-width="1.5"/>
+      <!-- left paint bottom -->
+      <line x1="49"  y1="324" x2="49"  y2="333" stroke="rgba(255,248,235,0.62)" stroke-width="1.5"/>
+      <line x1="87"  y1="324" x2="87"  y2="333" stroke="rgba(255,248,235,0.62)" stroke-width="1.5"/>
+      <line x1="125" y1="324" x2="125" y2="333" stroke="rgba(255,248,235,0.62)" stroke-width="1.5"/>
+      <line x1="154" y1="324" x2="154" y2="333" stroke="rgba(255,248,235,0.62)" stroke-width="1.5"/>
+      <!-- right paint top -->
+      <line x1="891" y1="176" x2="891" y2="167" stroke="rgba(255,248,235,0.62)" stroke-width="1.5"/>
+      <line x1="853" y1="176" x2="853" y2="167" stroke="rgba(255,248,235,0.62)" stroke-width="1.5"/>
+      <line x1="815" y1="176" x2="815" y2="167" stroke="rgba(255,248,235,0.62)" stroke-width="1.5"/>
+      <line x1="786" y1="176" x2="786" y2="167" stroke="rgba(255,248,235,0.62)" stroke-width="1.5"/>
+      <!-- right paint bottom -->
+      <line x1="891" y1="324" x2="891" y2="333" stroke="rgba(255,248,235,0.62)" stroke-width="1.5"/>
+      <line x1="853" y1="324" x2="853" y2="333" stroke="rgba(255,248,235,0.62)" stroke-width="1.5"/>
+      <line x1="815" y1="324" x2="815" y2="333" stroke="rgba(255,248,235,0.62)" stroke-width="1.5"/>
+      <line x1="786" y1="324" x2="786" y2="333" stroke="rgba(255,248,235,0.62)" stroke-width="1.5"/>
+    </svg>
+
+    <!-- Player dots (absolute positioned as % of div) -->
+    <!-- Latest: GI scored 3 near right wing -->
+    <div class="dot dot-score dot-latest" style="left:81%;top:20%">
+      GI
+      <span class="score-badge">+3</span>
+    </div>
+    <!-- Away players -->
+    <div class="dot dot-away dot-sm" style="left:54%;top:18%">JT</div>
+    <div class="dot dot-away dot-xs" style="left:48%;top:50%">JB</div>
+    <!-- Home players fading out -->
+    <div class="dot dot-home dot-sm" style="left:63%;top:72%">BL</div>
+    <div class="dot dot-home dot-xs" style="left:75%;top:50%">KP</div>
+
+    <!-- Possession pill -->
+    <div class="poss-pill">BOS ←</div>
+    <div class="dot-count">5 active</div>
+  </div>
+
+  <!-- Latest play card -->
+  <div class="latest-card">
+    <div class="pts-flash">+3</div>
+    <div class="card-header">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span class="event-badge badge-green">Made Shot</span>
+        <span class="team-label">MIL</span>
+      </div>
+      <span class="clock-label">Q4 · 3:42</span>
+    </div>
+    <p class="play-desc">Giannis Antetokounmpo 26' 3PT Jump Shot (28 PTS) (D. Holiday 7 AST)</p>
+    <div class="play-score"><b>BOS</b> 94 — 98 <b>MIL</b></div>
+    <span class="player-name">Giannis Antetokounmpo</span>
+  </div>
+
+  <!-- Recent plays -->
+  <div class="recent-wrap">
+    <span class="recent-label">Recent Plays</span>
+    <div class="recent-list">
+      <div class="recent-row new">
+        <span class="rteam home">MIL</span>
+        <span class="rdesc">Giannis Antetokounmpo 26' 3PT Jump Shot (28 PTS)</span>
+        <span class="rclock">3:42</span>
+        <span class="rpts">+3</span>
+      </div>
+      <div class="recent-row">
+        <span class="rteam away">BOS</span>
+        <span class="rdesc">Jaylen Brown Personal Take Foul (4 PF)</span>
+        <span class="rclock">3:55</span>
+      </div>
+      <div class="recent-row">
+        <span class="rteam home">MIL</span>
+        <span class="rdesc">Khris Middleton Defensive Rebound (3 REB)</span>
+        <span class="rclock">3:57</span>
+      </div>
+      <div class="recent-row">
+        <span class="rteam away">BOS</span>
+        <span class="rdesc">Jayson Tatum Driving Layup Miss</span>
+        <span class="rclock">4:03</span>
+      </div>
+      <div class="recent-row">
+        <span class="rteam away">BOS</span>
+        <span class="rdesc">Jrue Holiday Turnover — Out of Bounds</span>
+        <span class="rclock">4:18</span>
+      </div>
+      <div class="recent-row">
+        <span class="rteam home">MIL</span>
+        <span class="rdesc">Bobby Portis Jump Shot (12 PTS)</span>
+        <span class="rclock">4:31</span>
+        <span class="rpts">+2</span>
+      </div>
+      <div class="recent-row">
+        <span class="rteam away">BOS</span>
+        <span class="rdesc">Jayson Tatum 3PT Jump Shot (30 PTS)</span>
+        <span class="rclock">4:48</span>
+        <span class="rpts">+3</span>
+      </div>
+      <div class="recent-row">
+        <span class="rteam home">MIL</span>
+        <span class="rdesc">Brook Lopez Offensive Rebound (2 OREB)</span>
+        <span class="rclock">5:01</span>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /watch-wrap -->
+
+<!-- Annotation panel -->
+<div class="annotations">
+  <h3>What changed vs. the old court</h3>
+  <div class="ann-grid">
+    <div class="ann-item">
+      <span class="ann-label">Floor lightness</span>
+      <span class="ann-val good">58 % (was 15–18 %)</span>
+    </div>
+    <div class="ann-item">
+      <span class="ann-label">Line opacity</span>
+      <span class="ann-val good">78–82 % (was 6–18 %)</span>
+    </div>
+    <div class="ann-item">
+      <span class="ann-label">3-point arc</span>
+      <span class="ann-val good">True circular arc, r=23.75 ft</span>
+    </div>
+    <div class="ann-item">
+      <span class="ann-label">Backboard</span>
+      <span class="ann-val good">Added — 6 ft wide endline stroke</span>
+    </div>
+    <div class="ann-item">
+      <span class="ann-label">Rim position</span>
+      <span class="ann-val good">Corrected to 4.25 ft from baseline</span>
+    </div>
+    <div class="ann-item">
+      <span class="ann-label">FT circle</span>
+      <span class="ann-val good">Solid (basket) + dashed (mid-court)</span>
+    </div>
+    <div class="ann-item">
+      <span class="ann-label">Restricted area</span>
+      <span class="ann-val good">True 4 ft arc, centred on rim</span>
+    </div>
+    <div class="ann-item">
+      <span class="ann-label">Lane hash marks</span>
+      <span class="ann-val good">Added — 4 per side at 3/7/11/14 ft</span>
+    </div>
+    <div class="ann-item">
+      <span class="ann-label">Watch tab gate</span>
+      <span class="ann-val fixed">Admin gate restored (pending QA)</span>
+    </div>
+    <div class="ann-item">
+      <span class="ann-label">Event animations</span>
+      <span class="ann-val good">Slide-in + flash on new events</span>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
