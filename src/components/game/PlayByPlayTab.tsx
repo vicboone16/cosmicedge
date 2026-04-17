@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { useIsAdmin } from "@/hooks/use-admin";
 import { PbpWatchView } from "./PbpWatchView";
+import { MlbWatchView } from "./MlbWatchView";
 
 interface PlayByPlayTabProps {
   gameId: string;
@@ -176,8 +177,8 @@ export function PlayByPlayTab({ gameId, homeAbbr, awayAbbr, league, gameStatus }
   const ENABLE_PBP_WATCH_MODE = true;
   const isLiveGame = gameStatus === "live" || gameStatus === "in_progress";
   const isFinalGame = gameStatus === "final";
-  // Watch mode currently only for NBA; read mode for all leagues
-  const showWatchToggle = isNBA && ENABLE_PBP_WATCH_MODE && (isAdmin || isLiveGame || isFinalGame);
+  // Watch mode for NBA and MLB
+  const showWatchToggle = (isNBA || isMLB) && ENABLE_PBP_WATCH_MODE && (isAdmin || isLiveGame || isFinalGame);
 
   // ── Live score from game_state_snapshots (authoritative) ──
   const { data: liveSnapshot } = useQuery({
@@ -607,7 +608,9 @@ export function PlayByPlayTab({ gameId, homeAbbr, awayAbbr, league, gameStatus }
 
       {/* Watch mode: full visual experience */}
       {mode === "watch" && showWatchToggle ? (
-        <PbpWatchView gameId={gameId} homeAbbr={homeAbbr} awayAbbr={awayAbbr} league={league} />
+        isMLB
+          ? <MlbWatchView gameId={gameId} homeAbbr={homeAbbr} awayAbbr={awayAbbr} />
+          : <PbpWatchView gameId={gameId} homeAbbr={homeAbbr} awayAbbr={awayAbbr} league={league} />
 
       ) : (
         <>
