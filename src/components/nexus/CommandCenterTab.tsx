@@ -88,6 +88,9 @@ export default function CommandCenterTab() {
   const navigate = useNavigate();
   const { modes, activeMode, setMode } = useAstraMode();
   const { profile } = useBettingProfile();
+  const [localMode, setLocalMode] = useState<AstraMode>(() => {
+    return (localStorage.getItem("astra-mode") as AstraMode) || activeMode || "pra_sniper";
+  });
   const [query, setQuery] = useState("");
   const [verdict, setVerdict] = useState<AstraVerdict | null>(null);
   const [isAsking, setIsAsking] = useState(false);
@@ -130,8 +133,7 @@ export default function CommandCenterTab() {
 
   const liveGamesCount = liveGames?.length || 0;
 
-  // Filter mock plays by mode
-  const effectiveMode = activeMode;
+  const effectiveMode = localMode;
 
   const filteredPlays = useMemo(() => {
     if (effectiveMode === "pra_sniper") return MOCK_TOP_PLAYS.filter(p => p.stat === "PRA");
@@ -160,7 +162,12 @@ export default function CommandCenterTab() {
               <Tooltip key={key}>
                 <TooltipTrigger asChild>
                   <button
-                    onClick={() => setMode(key as AstraMode)}
+                    onClick={() => {
+                      const m = key as AstraMode;
+                      setLocalMode(m);
+                      localStorage.setItem("astra-mode", m);
+                      setMode(m);
+                    }}
                     className={cn(
                       "flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-semibold whitespace-nowrap transition-all border",
                       isActive
