@@ -258,55 +258,100 @@ export default function CommandCenterTab() {
           </TooltipProvider>
           <span className="text-[9px] font-normal text-muted-foreground ml-auto">{MODE_META[effectiveMode]?.emoji} {MODE_META[effectiveMode]?.label} mode</span>
         </div>
-        <div className="space-y-2">
-          {filteredPlays.map((play) => {
-            const tierStyle = TIER_STYLES[play.tier];
-            const edge = ((play.predicted - play.line) / play.line * 100).toFixed(1);
-            return (
-              <div
-                key={play.id}
-                className={cn(
-                  glassCard, "p-4 space-y-2 hover:border-[#d4a853]/40 transition-all cursor-pointer", tierStyle.glow,
-                  selectedPlayId === play.id && "ring-2 ring-[#d4a853]/60 border-[#d4a853]/50 bg-[#f5e6c8]/20"
-                )}
-                onClick={() => {
-                  if (selectedPlayId === play.id) {
-                    navigate("/predictions");
-                  } else {
-                    setSelectedPlayId(play.id);
-                  }
-                }}
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-bold text-foreground">{play.player}</span>
-                    <span className="text-[10px] text-muted-foreground font-medium">{play.team}</span>
+        {effectiveMode === "pra_sniper" ? (
+          /* ── PRA Sniper: visual 2-col cards ── */
+          <div className="grid grid-cols-2 gap-3">
+            {filteredPlays.map((play) => {
+              const tierStyle = TIER_STYLES[play.tier];
+              const edge = ((play.predicted - play.line) / play.line * 100).toFixed(1);
+              const pts = (play.predicted * 0.55).toFixed(1);
+              const reb = (play.predicted * 0.25).toFixed(1);
+              const ast = (play.predicted * 0.20).toFixed(1);
+              return (
+                <div
+                  key={play.id}
+                  className={cn(
+                    glassCard, "p-3 space-y-2 cursor-pointer hover:border-[#d4a853]/40 transition-all overflow-hidden", tierStyle.glow,
+                    selectedPlayId === play.id && "ring-2 ring-[#d4a853]/60 border-[#d4a853]/50 bg-[#f5e6c8]/20"
+                  )}
+                  onClick={() => selectedPlayId === play.id ? navigate("/predictions") : setSelectedPlayId(play.id)}
+                >
+                  <div className={cn("h-1 rounded-full w-full", tierStyle.bg)} />
+                  <div>
+                    <p className="text-xs font-bold text-foreground leading-tight truncate">{play.player}</p>
+                    <p className="text-[9px] text-muted-foreground">{play.team} · PRA {play.predicted}</p>
                   </div>
-                  <Badge className={cn("text-[9px] px-2 py-0.5 h-5 font-extrabold border", tierStyle.bg, tierStyle.text, tierStyle.border)}>
-                    {play.tier}-Tier
-                  </Badge>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <span className="text-xs font-semibold text-[#6b4c9a] bg-[#f3eef9]/80 px-2 py-0.5 rounded-md">{play.stat}</span>
-                    <span className="text-xs text-foreground tabular-nums">
-                      <span className="font-bold text-emerald-600">{play.predicted}</span>
-                      <span className="text-muted-foreground mx-1">vs</span>
-                      <span className="font-medium">{play.line}</span>
-                    </span>
+                  <div className="grid grid-cols-3 gap-1 text-center">
+                    {([["PTS", pts], ["REB", reb], ["AST", ast]] as [string, string][]).map(([label, val]) => (
+                      <div key={label} className="bg-[#f3eef9]/60 rounded-md py-1">
+                        <p className="text-[8px] text-muted-foreground font-medium">{label}</p>
+                        <p className="text-[10px] font-bold text-foreground tabular-nums">{val}</p>
+                      </div>
+                    ))}
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className={cn("text-[10px] font-bold tabular-nums", Number(edge) > 5 ? "text-emerald-600" : Number(edge) > 2 ? "text-amber-500" : "text-muted-foreground")}>
-                      +{edge}%
-                    </span>
-                    <span className="text-[10px] text-[#7c5dac] font-bold tabular-nums">{play.confidence}%</span>
-                    <ArrowRight className="w-3.5 h-3.5 text-[#d4a853]" />
+                  <div className="flex items-center justify-between">
+                    <Badge className={cn("text-[8px] px-1.5 py-0 h-4 font-extrabold border", tierStyle.bg, tierStyle.text, tierStyle.border)}>
+                      {play.tier}
+                    </Badge>
+                    <span className="text-[10px] font-bold text-emerald-600 tabular-nums">+{edge}%</span>
+                    <span className="text-[9px] text-[#7c5dac] font-bold tabular-nums">{play.confidence}%</span>
                   </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        ) : (
+          /* ── All other modes: standard list ── */
+          <div className="space-y-2">
+            {filteredPlays.map((play) => {
+              const tierStyle = TIER_STYLES[play.tier];
+              const edge = ((play.predicted - play.line) / play.line * 100).toFixed(1);
+              return (
+                <div
+                  key={play.id}
+                  className={cn(
+                    glassCard, "p-4 space-y-2 hover:border-[#d4a853]/40 transition-all cursor-pointer", tierStyle.glow,
+                    selectedPlayId === play.id && "ring-2 ring-[#d4a853]/60 border-[#d4a853]/50 bg-[#f5e6c8]/20"
+                  )}
+                  onClick={() => {
+                    if (selectedPlayId === play.id) {
+                      navigate("/predictions");
+                    } else {
+                      setSelectedPlayId(play.id);
+                    }
+                  }}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-bold text-foreground">{play.player}</span>
+                      <span className="text-[10px] text-muted-foreground font-medium">{play.team}</span>
+                    </div>
+                    <Badge className={cn("text-[9px] px-2 py-0.5 h-5 font-extrabold border", tierStyle.bg, tierStyle.text, tierStyle.border)}>
+                      {play.tier}-Tier
+                    </Badge>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs font-semibold text-[#6b4c9a] bg-[#f3eef9]/80 px-2 py-0.5 rounded-md">{play.stat}</span>
+                      <span className="text-xs text-foreground tabular-nums">
+                        <span className="font-bold text-emerald-600">{play.predicted}</span>
+                        <span className="text-muted-foreground mx-1">vs</span>
+                        <span className="font-medium">{play.line}</span>
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className={cn("text-[10px] font-bold tabular-nums", Number(edge) > 5 ? "text-emerald-600" : Number(edge) > 2 ? "text-amber-500" : "text-muted-foreground")}>
+                        +{edge}%
+                      </span>
+                      <span className="text-[10px] text-[#7c5dac] font-bold tabular-nums">{play.confidence}%</span>
+                      <ArrowRight className="w-3.5 h-3.5 text-[#d4a853]" />
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </section>
 
       {/* ═══ LIVE DASHBOARD GRID ═══ */}
