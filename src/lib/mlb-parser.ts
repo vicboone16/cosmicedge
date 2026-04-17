@@ -225,7 +225,6 @@ export function deriveMLBGameState(events: MlbParsedEvent[]): MlbGameState {
 
     switch (ev.eventType) {
       case "single":
-        // advance runners roughly
         state.runners.third = state.runners.second;
         state.runners.second = state.runners.first;
         state.runners.first = true;
@@ -234,7 +233,6 @@ export function deriveMLBGameState(events: MlbParsedEvent[]): MlbGameState {
         state.runners.third = state.runners.second;
         state.runners.second = false;
         state.runners.first = false;
-        // batter on second
         state.runners.second = true;
         break;
       case "triple":
@@ -256,7 +254,6 @@ export function deriveMLBGameState(events: MlbParsedEvent[]): MlbGameState {
         break;
       }
       case "caught_stealing": case "pickoff":
-        // remove the lead runner heuristically
         if (state.runners.third) state.runners.third = false;
         else if (state.runners.second) state.runners.second = false;
         else state.runners.first = false;
@@ -268,7 +265,6 @@ export function deriveMLBGameState(events: MlbParsedEvent[]): MlbGameState {
         break;
       case "double_play":
         state.outs = Math.min(3, state.outs + 2);
-        // remove lead runner
         if (state.runners.third) state.runners.third = false;
         else if (state.runners.second) state.runners.second = false;
         else state.runners.first = false;
