@@ -166,7 +166,7 @@ export default function CommandCenterTab() {
                       const m = key as AstraMode;
                       setLocalMode(m);
                       localStorage.setItem("astra-mode", m);
-                      setMode(m);
+                      if (user) setMode(m);
                     }}
                     className={cn(
                       "flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-semibold whitespace-nowrap transition-all border",
