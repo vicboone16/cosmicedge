@@ -192,7 +192,6 @@ export function LiveDiamondCanvas({ gameState, latestEvent, homeAbbr, awayAbbr }
         <circle cx={200} cy={258} r={118} fill="url(#dirtGrad)" />
 
         {/* ── Basepath dirt between bases (squares connecting bases) ───── */}
-        {/* visual "skinned" basepath — just subtle tone overlays on dirt */}
         <line x1={THIRD.x} y1={THIRD.y} x2={SECOND.x} y2={SECOND.y} stroke="hsl(25 48% 36%)" strokeWidth={18} strokeLinecap="round" />
         <line x1={SECOND.x} y1={SECOND.y} x2={FIRST.x} y2={FIRST.y} stroke="hsl(25 48% 36%)" strokeWidth={18} strokeLinecap="round" />
 
@@ -201,14 +200,12 @@ export function LiveDiamondCanvas({ gameState, latestEvent, homeAbbr, awayAbbr }
         {/* pitching rubber */}
         <rect x={194} y={MOUND.y - 2} width={12} height={4} rx={1} fill="rgba(255,255,255,0.80)" />
 
-        {/* ── Grass infield cutouts (between baselines and infield dirt) ─── */}
-        {/* left-field triangle infield grass patch */}
+        {/* ── Grass infield cutouts ─── */}
         <polygon
           points={`${HOME.x},${HOME.y} ${THIRD.x},${THIRD.y} ${SECOND.x},${SECOND.y}`}
           fill="hsl(120 52% 21%)"
           opacity={0.55}
         />
-        {/* right-field triangle */}
         <polygon
           points={`${HOME.x},${HOME.y} ${FIRST.x},${FIRST.y} ${SECOND.x},${SECOND.y}`}
           fill="hsl(120 52% 21%)"
@@ -251,7 +248,7 @@ export function LiveDiamondCanvas({ gameState, latestEvent, homeAbbr, awayAbbr }
           />
         )}
 
-        {/* ── Outs indicator (circles top-right of diamond area) ───────── */}
+        {/* ── Outs indicator ───────────────────────────────────────────── */}
         <g transform={`translate(322, 165)`}>
           <text x={0} y={0} fontSize={8} fill="rgba(255,255,255,0.5)" fontWeight="600" letterSpacing="0.5">OUTS</text>
           {[0, 1, 2].map(i => (
@@ -265,7 +262,7 @@ export function LiveDiamondCanvas({ gameState, latestEvent, homeAbbr, awayAbbr }
           ))}
         </g>
 
-        {/* ── Inning indicator (top-left of diamond area) ───────────────── */}
+        {/* ── Inning indicator ─────────────────────────────────────────── */}
         <g transform={`translate(58, 165)`}>
           <text x={0} y={0} fontSize={8} fill="rgba(255,255,255,0.5)" fontWeight="600" letterSpacing="0.5">INNING</text>
           <text x={0} y={14} fontSize={15} fill="rgba(255,255,255,0.85)" fontWeight="800">{arrowUp} {inningLabel}</text>
@@ -273,13 +270,10 @@ export function LiveDiamondCanvas({ gameState, latestEvent, homeAbbr, awayAbbr }
 
         {/* ── Score bar at top ──────────────────────────────────────────── */}
         <rect x={0} y={0} width={400} height={36} fill="rgba(0,0,0,0.55)" />
-        {/* Away */}
         <text x={16} y={14} fontSize={9} fill="rgba(255,255,255,0.55)" fontWeight="600" letterSpacing="0.5">AWAY</text>
         <text x={16} y={29} fontSize={15} fill="rgba(255,255,255,0.90)" fontWeight="800">{awayAbbr}</text>
         <text x={72} y={27} fontSize={20} fill="rgba(255,255,255,0.95)" fontWeight="900" textAnchor="middle">{awayScore}</text>
-        {/* separator */}
         <text x={200} y={27} fontSize={18} fill="rgba(255,255,255,0.30)" textAnchor="middle" fontWeight="300">—</text>
-        {/* Home */}
         <text x={328} y={27} fontSize={20} fill="rgba(255,255,255,0.95)" fontWeight="900" textAnchor="middle">{homeScore}</text>
         <text x={370} y={14} fontSize={9} fill="rgba(255,255,255,0.55)" fontWeight="600" letterSpacing="0.5" textAnchor="end">HOME</text>
         <text x={384} y={29} fontSize={15} fill="rgba(255,255,255,0.90)" fontWeight="800" textAnchor="end">{homeAbbr}</text>
