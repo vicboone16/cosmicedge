@@ -18,7 +18,7 @@ interface MlbWatchViewProps {
   awayAbbr: string;
 }
 
-// ─── Latest play card ──────────────────────────────────────────────────────
+// ─── Latest play card ─────────────────────────────────────────────────────────
 
 function MlbLatestPlayCard({ event }: { event: MlbParsedEvent | null }) {
   if (!event) {
@@ -96,7 +96,7 @@ function MlbLatestPlayCard({ event }: { event: MlbParsedEvent | null }) {
   );
 }
 
-// ─── Recent events list ────────────────────────────────────────────────────
+// ─── Recent events list ──────────────────────────────────────────────────────
 
 function MlbRecentEventsList({ events }: { events: MlbParsedEvent[] }) {
   const recent = events.slice(-12).reverse();
@@ -154,14 +154,12 @@ function MlbRecentEventsList({ events }: { events: MlbParsedEvent[] }) {
   );
 }
 
-// ─── Main component ────────────────────────────────────────────────────────
+// ─── Main component ──────────────────────────────────────────────────────────
 
 export function MlbWatchView({ gameId, homeAbbr, awayAbbr }: MlbWatchViewProps) {
-  // Pull MLB PBP events — try pbp_events table first (cosmic pipeline), fallback later
   const { data: rawEvents } = useQuery({
     queryKey: ["mlb-watch-pbp", gameId],
     queryFn: async () => {
-      // Try game_key lookup
       const { data: gameRow } = await supabase
         .from("games")
         .select("start_time, home_abbr, away_abbr, external_id")
@@ -170,9 +168,6 @@ export function MlbWatchView({ gameId, homeAbbr, awayAbbr }: MlbWatchViewProps) 
 
       if (!gameRow) return [];
 
-      const dateStr = gameRow.start_time?.split(/[T ]/)[0];
-
-      // Try cosmic pbp_events
       const { data: cosmicEvents } = await supabase
         .from("pbp_events")
         .select("*")
@@ -182,7 +177,6 @@ export function MlbWatchView({ gameId, homeAbbr, awayAbbr }: MlbWatchViewProps) 
 
       if (cosmicEvents && cosmicEvents.length > 0) return cosmicEvents;
 
-      // Fallback: mlb_pbp_events if that table exists
       const { data: mlbEvents } = await supabase
         .from("mlb_pbp_events" as any)
         .select("*")
@@ -197,7 +191,6 @@ export function MlbWatchView({ gameId, homeAbbr, awayAbbr }: MlbWatchViewProps) 
     refetchInterval: 8_000,
   });
 
-  // Normalize raw rows into MlbParsedEvent[]
   const parsedEvents = useMemo<MlbParsedEvent[]>(() => {
     if (!rawEvents || rawEvents.length === 0) return [];
     return rawEvents.map((ev: any, i: number) => {
@@ -228,18 +221,13 @@ export function MlbWatchView({ gameId, homeAbbr, awayAbbr }: MlbWatchViewProps) 
 
   return (
     <div className="space-y-4">
-      {/* Field */}
       <LiveDiamondCanvas
         gameState={gameState}
         latestEvent={latestEvent}
         homeAbbr={homeAbbr}
         awayAbbr={awayAbbr}
       />
-
-      {/* Latest play */}
       <MlbLatestPlayCard event={latestEvent} />
-
-      {/* Recent plays */}
       <MlbRecentEventsList events={parsedEvents} />
     </div>
   );
