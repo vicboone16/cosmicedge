@@ -187,6 +187,12 @@ export default function CommandCenterTab() {
             );
           })}
         </div>
+        {/* Active mode description strip */}
+        <div className="flex items-center gap-1.5 px-1 pt-1 relative z-10">
+          <span className="text-sm">{MODE_META[effectiveMode]?.emoji}</span>
+          <span className="text-[11px] text-[#7c5dac] font-semibold">{MODE_META[effectiveMode]?.label}:</span>
+          <span className="text-[11px] text-muted-foreground leading-snug">{MODE_META[effectiveMode]?.desc}</span>
+        </div>
       </TooltipProvider>
 
       {/* ═══ ASK ASTRA ═══ */}
