@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Send } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "@/hooks/use-toast";
 
 interface Message {
   id: string;
@@ -110,19 +111,25 @@ const ChatPage = () => {
     const content = newMessage.trim();
     setNewMessage("");
 
-    await supabase.from("messages").insert({
-      conversation_id: conversationId,
-      sender_id: user.id,
-      content,
-    } as any);
+    try {
+      const { error } = await supabase.from("messages").insert({
+        conversation_id: conversationId,
+        sender_id: user.id,
+        content,
+      } as any);
 
-    // Update conversation timestamp
-    await supabase
-      .from("conversations")
-      .update({ updated_at: new Date().toISOString() } as any)
-      .eq("id", conversationId);
+      if (error) throw error;
 
-    setSending(false);
+      await supabase
+        .from("conversations")
+        .update({ updated_at: new Date().toISOString() } as any)
+        .eq("id", conversationId);
+    } catch {
+      setNewMessage(content);
+      toast({ title: "Failed to send message", description: "Please try again.", variant: "destructive" });
+    } finally {
+      setSending(false);
+    }
   };
 
   const getMemberName = (senderId: string) => {
