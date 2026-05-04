@@ -104,7 +104,7 @@ export default function CommandCenterTab() {
     setVerdict(null);
     try {
       const { data, error } = await supabase.functions.invoke("astra-decision-engine", {
-        body: { question: text, mode: activeMode },
+        body: { question: text, mode: effectiveMode },
       });
       if (error) throw error;
       if (data?.assessment) setVerdict(data.assessment as AstraVerdict);
