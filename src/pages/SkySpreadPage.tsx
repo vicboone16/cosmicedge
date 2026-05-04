@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Star, Filter, ArrowUpDown, CheckSquare, Square, Zap, TrendingUp, AlertTriangle, ChevronDown, ChevronUp, Pin, PinOff, Trash2, CheckCircle, RefreshCw, Wallet, DollarSign, Edit2, Target, FileText } from "lucide-react";
+import { Star, Filter, ArrowUpDown, CheckSquare, Square, Zap, TrendingUp, AlertTriangle, ChevronDown, ChevronUp, Pin, PinOff, Trash2, CheckCircle, RefreshCw, Wallet, DollarSign, Edit2, Target, FileText, Calculator } from "lucide-react";
 import { GuidanceCard } from "@/components/ui/GuidanceCard";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -15,6 +15,7 @@ import BankrollTab from "@/components/skyspread/BankrollTab";
 import { TrackedPropsWidget } from "@/components/tracking/TrackedProps";
 import BetSlipImportDialog from "@/components/skyspread/BetSlipImportDialog";
 import BetSlipCards from "@/components/skyspread/BetSlipCards";
+import { BetCalculatorTab } from "@/components/skyspread/BetCalculatorTab";
 import { toast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -308,7 +309,7 @@ const SkySpreadPage = () => {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const userId = user?.id ?? null;
-  const [activeTab, setActiveTab] = useState<"ledger" | "tracked" | "slips" | "bankroll">("ledger");
+  const [activeTab, setActiveTab] = useState<"ledger" | "tracked" | "slips" | "bankroll" | "calc">("ledger");
   const [ledgerTab, setLedgerTab] = useState<"open" | "settled">("open");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [sortBy, setSortBy] = useState<string>("confidence");
@@ -565,18 +566,19 @@ const SkySpreadPage = () => {
         </div>
 
         {/* Tab Switcher */}
-        <div className="flex gap-1 mt-3">
+        <div className="flex gap-1 mt-3 overflow-x-auto no-scrollbar">
           {([
             { key: "ledger" as const, label: "Ledger", icon: Star },
             { key: "tracked" as const, label: "Tracked", icon: Target },
             { key: "slips" as const, label: "Slips", icon: FileText },
             { key: "bankroll" as const, label: "Bankroll", icon: Wallet },
+            { key: "calc" as const, label: "Tools & Import", icon: Calculator },
           ]).map(({ key, label, icon: Icon }) => (
             <button
               key={key}
               onClick={() => setActiveTab(key)}
               className={cn(
-                "flex-1 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center justify-center gap-1.5",
+                "shrink-0 py-1.5 px-3 rounded-lg text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 whitespace-nowrap",
                 activeTab === key ? "bg-primary text-primary-foreground" : "bg-secondary/60 text-muted-foreground hover:text-foreground"
               )}
             >
@@ -589,9 +591,11 @@ const SkySpreadPage = () => {
       <div className="px-4 py-4 space-y-4">
         <GuidanceCard title="SkySpread Betting Hub" dismissKey="skyspread_intro" variant="onboarding">
           <p>Track your bets, manage slips, and monitor live positions all in one place. Use <strong>Tracked Props</strong> to watch individual player lines, or import parlays via <strong>Slips</strong>.</p>
-          <p className="mt-1">The <strong>Bankroll</strong> tab tracks your overall P&L and unit performance.</p>
+          <p className="mt-1">The <strong>Bankroll</strong> tab tracks your overall P&L and unit performance. Use <strong>Tools & Import</strong> to calculate bets, build parlays, check EV, hedge, and import bets from a spreadsheet (paste CSV or upload a file).</p>
         </GuidanceCard>
-        {activeTab === "bankroll" ? (
+        {activeTab === "calc" ? (
+          <BetCalculatorTab userId={userId} />
+        ) : activeTab === "bankroll" ? (
           <BankrollTab userId={userId} />
         ) : activeTab === "tracked" ? (
           <TrackedPropsWidget showHeader={false} />

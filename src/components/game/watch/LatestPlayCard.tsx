@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import { motion, AnimatePresence } from "framer-motion";
 import type { NormalizedPbpEvent } from "@/lib/pbp-event-parser";
 
 interface LatestPlayCardProps {
@@ -60,47 +61,73 @@ export function LatestPlayCard({ event, homeAbbr, awayAbbr }: LatestPlayCardProp
   const periodLabel = event.period <= 4 ? `Q${event.period}` : `OT${event.period - 4}`;
 
   return (
-    <div className="p-3 rounded-lg border border-border/40 bg-card/60 backdrop-blur-sm space-y-2">
-      {/* Event type badge + score */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className={cn(
-            "text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border",
-            colorClass
-          )}>
-            {label}
-          </span>
-          {event.teamId && (
-            <span className="text-[10px] font-bold text-primary">{event.teamId}</span>
-          )}
+    <AnimatePresence mode="wait">
+      <motion.div
+        key={event.sourceEventId}
+        initial={{ opacity: 0, x: -10, backgroundColor: "hsla(var(--primary), 0.10)" }}
+        animate={{ opacity: 1, x: 0, backgroundColor: "transparent" }}
+        exit={{ opacity: 0, x: 10 }}
+        transition={{
+          opacity: { duration: 0.2 },
+          x: { type: "spring", stiffness: 300, damping: 28 },
+          backgroundColor: { duration: 1.0, ease: "easeOut" },
+        }}
+        className="relative p-3 rounded-lg border border-border/40 bg-card/60 backdrop-blur-sm space-y-2"
+      >
+        {/* Event type badge + score */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className={cn(
+              "text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border",
+              colorClass
+            )}>
+              {label}
+            </span>
+            {event.teamId && (
+              <span className="text-[10px] font-bold text-primary">{event.teamId}</span>
+            )}
+          </div>
+          <div className="flex items-center gap-1.5 text-[10px] tabular-nums text-muted-foreground">
+            <span>{periodLabel}</span>
+            <span>·</span>
+            <span>{event.clockDisplay || "—"}</span>
+          </div>
         </div>
-        <div className="flex items-center gap-1.5 text-[10px] tabular-nums text-muted-foreground">
-          <span>{periodLabel}</span>
-          <span>·</span>
-          <span>{event.clockDisplay || "—"}</span>
-        </div>
-      </div>
 
-      {/* Description */}
-      <p className="text-sm text-foreground leading-relaxed">
-        {event.rawDescription || "—"}
-      </p>
+        {/* Description */}
+        <p className="text-sm text-foreground leading-relaxed">
+          {event.rawDescription || "—"}
+        </p>
 
-      {/* Score after */}
-      {event.scoreAwayAfter != null && event.scoreHomeAfter != null && (
-        <div className="flex items-center gap-2 text-[10px] tabular-nums text-muted-foreground">
-          <span className="font-bold">{awayAbbr}</span>
-          <span>{event.scoreAwayAfter}</span>
-          <span>—</span>
-          <span>{event.scoreHomeAfter}</span>
-          <span className="font-bold">{homeAbbr}</span>
-        </div>
-      )}
+        {/* Score after */}
+        {event.scoreAwayAfter != null && event.scoreHomeAfter != null && (
+          <div className="flex items-center gap-2 text-[10px] tabular-nums text-muted-foreground">
+            <span className="font-bold">{awayAbbr}</span>
+            <span>{event.scoreAwayAfter}</span>
+            <span>—</span>
+            <span>{event.scoreHomeAfter}</span>
+            <span className="font-bold">{homeAbbr}</span>
+          </div>
+        )}
 
-      {/* Player */}
-      {event.primaryPlayerId && (
-        <p className="text-[10px] text-primary/70">{event.primaryPlayerId}</p>
-      )}
-    </div>
+        {/* Player */}
+        {event.primaryPlayerId && (
+          <p className="text-[10px] text-primary/70">{event.primaryPlayerId}</p>
+        )}
+
+        {/* Scoring flash badge */}
+        {event.isScoringPlay && event.pointsScored && (
+          <motion.div
+            initial={{ scale: 0, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ delay: 0.15, type: "spring", stiffness: 400, damping: 18 }}
+            className="absolute top-2 right-2 text-[11px] font-black"
+            style={{ color: "hsl(var(--cosmic-green))", textShadow: "0 1px 6px rgba(0,0,0,0.3)" }}
+          >
+            +{event.pointsScored}
+          </motion.div>
+        )}
+      </motion.div>
+    </AnimatePresence>
   );
 }
