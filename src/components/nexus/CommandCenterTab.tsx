@@ -97,14 +97,14 @@ export default function CommandCenterTab() {
   const [pulseExpanded, setPulseExpanded] = useState(false);
   const [selectedPlayId, setSelectedPlayId] = useState<string | null>(null);
 
-  const askAstra = async () => {
-    const text = query.trim();
+  const askAstra = async (overrideText?: string) => {
+    const text = (overrideText ?? query).trim();
     if (!text || isAsking) return;
     setIsAsking(true);
     setVerdict(null);
     try {
       const { data, error } = await supabase.functions.invoke("astra-decision-engine", {
-        body: { question: text, mode: activeMode },
+        body: { question: text, mode: effectiveMode },
       });
       if (error) throw error;
       if (data?.assessment) setVerdict(data.assessment as AstraVerdict);
@@ -220,7 +220,7 @@ export default function CommandCenterTab() {
         {QUICK_CHIPS.map((chip) => (
           <button
             key={chip.label}
-            onClick={() => setQuery(chip.label)}
+            onClick={() => { setQuery(chip.label); askAstra(chip.label); }}
             className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-semibold bg-[#f3eef9]/60 border border-[#d4c4ec]/50 text-[#6b4c9a] hover:text-[#5a3d8a] hover:bg-[#e8dff5] transition-all"
           >
             <chip.icon className="w-3 h-3" />{chip.label}
