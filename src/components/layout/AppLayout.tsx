@@ -54,27 +54,13 @@ export function AppLayout() {
     refetchInterval: 30000,
   });
 
-  // Query unread message count
+  // Unread conversation count — single RPC call instead of N+1 loop
   const { data: unreadMsgCount } = useQuery({
     queryKey: ["unread-messages", user?.id],
     queryFn: async () => {
       if (!user) return 0;
-      const { data: memberships } = await supabase
-        .from("conversation_members")
-        .select("conversation_id, last_read_at")
-        .eq("user_id", user.id) as any;
-      if (!memberships || memberships.length === 0) return 0;
-      let unread = 0;
-      for (const m of memberships) {
-        const { count } = await supabase
-          .from("messages")
-          .select("*", { count: "exact", head: true })
-          .eq("conversation_id", m.conversation_id)
-          .neq("sender_id", user.id)
-          .gt("created_at", m.last_read_at || "1970-01-01") as any;
-        if (count && count > 0) unread++;
-      }
-      return unread;
+      const { data } = await (supabase as any).rpc("get_unread_conversation_count");
+      return (data as number) || 0;
     },
     enabled: !!user,
     refetchInterval: 30000,
