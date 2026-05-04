@@ -78,7 +78,7 @@ RETURNS TABLE (
       up.username,
       up.avatar_url
     FROM   other_members om
-    LEFT JOIN user_profiles up ON up.user_id = om.other_user_id
+    LEFT JOIN profiles up ON up.user_id = om.other_user_id
   )
   SELECT
     c.id,
