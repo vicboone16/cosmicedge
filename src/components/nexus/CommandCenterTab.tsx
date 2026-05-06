@@ -113,6 +113,20 @@ function getTier(prop: TopProp): "S" | "A" | "B" | "C" {
   return "C";
 }
 
+/* ─── Normal CDF approximation (Abramowitz & Stegun) ─── */
+function normCdfApprox(z: number): number {
+  const t = 1.0 / (1.0 + 0.2316419 * Math.abs(z));
+  const poly = ((((1.330274429 * t - 1.821255978) * t + 1.781477937) * t - 0.356563782) * t + 0.319381530) * t;
+  const approx = 1.0 - 0.3989422804014327 * Math.exp(-0.5 * z * z) * poly;
+  return z < 0 ? 1.0 - approx : approx;
+}
+
+function getPOverPct(prop: TopProp): number | null {
+  if (prop.mu == null || prop.sigma == null || prop.sigma <= 0 || prop.line == null) return null;
+  const z = (prop.line - prop.mu) / prop.sigma;
+  return Math.round(Math.max(1, Math.min(99, (1 - normCdfApprox(z)) * 100)));
+}
+
 /* ─── Confidence arc SVG ─── */
 function ConfidenceRing({ pct, size = 52, color = "#d4a853" }: { pct: number; size?: number; color?: string }) {
   const r = 14;
@@ -646,9 +660,8 @@ export default function CommandCenterTab() {
                   const tier = getTier(play);
                   const tierStyle = TIER_STYLES[tier];
                   const edgeScore = play.edge_score_v11 ?? play.edge_score;
-                  const edgePct = play.line && play.line > 0
-                    ? (((play.mu - play.line) / play.line) * 100).toFixed(1)
-                    : null;
+                  const pOverPct = getPOverPct(play);
+                  const sideLabel = (play.side || "over").toUpperCase();
                   return (
                     <div
                       key={play.id}
@@ -671,27 +684,29 @@ export default function CommandCenterTab() {
                           {tier}-Tier
                         </Badge>
                       </div>
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <span className="text-xs font-semibold text-[#6b4c9a] bg-[#f3eef9]/80 px-2 py-0.5 rounded-md">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="text-xs font-semibold text-[#6b4c9a] bg-[#f3eef9]/80 px-2 py-0.5 rounded-md shrink-0">
                             {getPropLabel(play.prop_type)}
                           </span>
-                          {play.line != null && (
-                            <span className="text-xs text-foreground tabular-nums">
-                              <span className="font-bold text-emerald-600">{play.mu.toFixed(1)}</span>
-                              <span className="text-muted-foreground mx-1">vs</span>
-                              <span className="font-medium">{play.line}</span>
+                          {pOverPct != null && play.line != null && (
+                            <span className="text-xs tabular-nums flex items-center gap-1 min-w-0">
+                              <span className={cn("font-extrabold tabular-nums",
+                                pOverPct >= 56 ? "text-emerald-600" : pOverPct <= 44 ? "text-rose-500" : "text-amber-500")}>
+                                {pOverPct}%
+                              </span>
+                              <span className={cn("text-[10px] font-bold px-1.5 py-0.5 rounded-full shrink-0",
+                                sideLabel === "OVER"
+                                  ? "bg-emerald-500/10 text-emerald-600"
+                                  : "bg-rose-500/10 text-rose-500")}>
+                                {sideLabel}
+                              </span>
+                              <span className="text-muted-foreground font-medium">{play.line}</span>
                             </span>
                           )}
                         </div>
-                        <div className="flex items-center gap-2">
-                          {edgePct && (
-                            <span className={cn("text-[10px] font-bold tabular-nums",
-                              Number(edgePct) > 5 ? "text-emerald-600" : Number(edgePct) > 2 ? "text-amber-500" : "text-muted-foreground")}>
-                              +{edgePct}%
-                            </span>
-                          )}
-                          <span className="text-[10px] text-[#7c5dac] font-bold tabular-nums">{Math.round(edgeScore)}%</span>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <span className="text-[10px] text-[#7c5dac] font-bold tabular-nums">{Math.round(edgeScore)}</span>
                           <ArrowRight className="w-3.5 h-3.5 text-[#d4a853]" />
                         </div>
                       </div>
