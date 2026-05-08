@@ -313,6 +313,21 @@ const COUNTING_PROPS = new Set([
   "pts_reb_ast", "pts_reb", "pts_ast", "reb_ast", "turnovers",
 ]);
 
+/* ──────────── NBA default sigmas for sparse-data fallback ──────────── */
+const NBA_DEFAULT_SIGMA: Record<string, number> = {
+  points: 6.0,
+  rebounds: 2.5,
+  assists: 2.0,
+  threes: 1.5,
+  steals: 0.9,
+  blocks: 0.9,
+  turnovers: 1.2,
+  pts_reb_ast: 7.5,
+  pts_reb: 7.0,
+  pts_ast: 6.5,
+  reb_ast: 3.0,
+};
+
 /* ──────────── Main handler ──────────── */
 
 Deno.serve(async (req) => {
@@ -618,15 +633,31 @@ Deno.serve(async (req) => {
 
         const f: Features = featRows[0];
 
-        if (f.games_count < 3) continue;
-
         // ── A. NebulaProp Baseline Distribution ──
-        const wL10 = Math.min(f.games_count, 10) / 10;
-        const mu0 = f.mu_rolling_l10 * wL10 + f.mu_season * (1 - wL10);
-        const sigma0 = Math.max(
-          f.sigma_rolling_l10 * wL10 + f.sigma_season * (1 - wL10),
-          1.0,
-        );
+        let mu0: number;
+        let sigma0: number;
+        let noHistory = false;
+
+        if (f.games_count < 3 || (f.mu_season <= 0 && f.mu_rolling_l10 <= 0)) {
+          // Sparse data: anchor to book line with type-default sigma so
+          // PacePulse + TransitLift can still produce meaningful signal.
+          mu0 = prop.line;
+          sigma0 = NBA_DEFAULT_SIGMA[prop.prop_type] ?? 4.0;
+          noHistory = true;
+        } else {
+          const wL10 = Math.min(f.games_count, 10) / 10;
+          mu0 = f.mu_rolling_l10 * wL10 + f.mu_season * (1 - wL10);
+          sigma0 = Math.max(
+            f.sigma_rolling_l10 * wL10 + f.sigma_season * (1 - wL10),
+            1.0,
+          );
+          // Trend momentum: shift mu toward recent form vs season baseline.
+          // A player averaging 10% above season in last 10 games gets +4% mu push.
+          if (f.games_count >= 5 && f.mu_season > 0) {
+            const trendRatio = (f.mu_rolling_l10 - f.mu_season) / f.mu_season;
+            mu0 = mu0 * (1 + clamp(trendRatio * 0.4, -0.06, 0.06));
+          }
+        }
 
         // ── B. PacePulse Environment Adjustments ──
         // Only apply to counting stats
@@ -698,9 +729,12 @@ Deno.serve(async (req) => {
 
         const odds = side === "over" ? (prop.over_price ?? null) : (prop.under_price ?? null);
 
-        const oneLiner = `μ=${mu_final.toFixed(1)} σ=${sigma_final.toFixed(1)} → ${(p_over_final * 100).toFixed(0)}% over ${line}`;
+        const oneLiner = noHistory
+          ? `${(p_over_final * 100).toFixed(0)}% over ${line} (μ=${mu_final.toFixed(1)}, sparse)`
+          : `μ=${mu_final.toFixed(1)} σ=${sigma_final.toFixed(1)} → ${(p_over_final * 100).toFixed(0)}% over ${line}`;
 
         const qualityFlags: string[] = [];
+        if (noHistory) qualityFlags.push("no_history");
         if (f.games_count < 5) qualityFlags.push("low_sample");
         if (f.role_up) qualityFlags.push("role_up");
         if ((f.coeff_of_var ?? 0) > 0.4) qualityFlags.push("high_volatility");
