@@ -112,6 +112,15 @@ const QUICK_CHIPS = [
   { label: "Hedge this", icon: Heart },
 ];
 
+/* ─── Prop stat → readable label map ─── */
+const PROP_STAT_LABEL: Record<string, string> = {
+  player_points: "Points", player_rebounds: "Rebounds", player_assists: "Assists",
+  player_threes: "3PM", player_blocks: "Blocks", player_steals: "Steals",
+  player_turnovers: "TOV", player_points_rebounds_assists: "PRA",
+  player_points_rebounds: "Pts+Reb", player_points_assists: "Pts+Ast",
+  player_rebounds_assists: "Reb+Ast", player_blocks_steals: "Blk+Stl",
+};
+
 /* ─── PRA Sniper plays with stat breakdowns ─── */
 const MOCK_PRA_PLAYS = [
   {
@@ -167,23 +176,20 @@ const MOCK_TOP_PLAYS = [
   { id: "7", player: "Domantas Sabonis", team: "SAC", stat: "Rebounds", tier: "A" as const, predicted: 13.2, line: 11.5, confidence: 81 },
 ];
 
-const MOCK_TRAP_ALERTS = [
-  { id: "t1", game: "MIA @ CLE", line: "CLE -7.5", note: "Model sees CLE -4.2. Line inflated by public money.", risk: 78 },
-  { id: "t2", game: "LAL @ GSW", line: "O 228.5", note: "Both teams bottom-5 pace last 10. Model projects 219.", risk: 65 },
-];
+function propStatLabel(key: string): string {
+  return PROP_STAT_LABEL[key] || key.replace("player_", "").replace(/_/g, "+");
+}
 
-const MOCK_OPPORTUNITIES = [
-  { id: "o1", player: "Dejounte Murray", stat: "Steals", edge: 18, confidence: 84 },
-  { id: "o2", player: "Chet Holmgren", stat: "Blocks", edge: 22, confidence: 79 },
-  { id: "o3", player: "Darius Garland", stat: "Assists", edge: 15, confidence: 76 },
-];
+function edgeToTier(edge: number): "S" | "A" | "B" | "C" {
+  if (edge >= 80) return "S";
+  if (edge >= 65) return "A";
+  if (edge >= 50) return "B";
+  return "C";
+}
 
-const MOCK_SLIP_HEALTH = [
-  { stat: "PRA", hitRate: 72, trend: "up" as const },
-  { stat: "Points", hitRate: 64, trend: "up" as const },
-  { stat: "Rebounds", hitRate: 58, trend: "flat" as const },
-  { stat: "Blocks+Steals", hitRate: 41, trend: "down" as const },
-];
+function isPRAMarket(key: string): boolean {
+  return key === "player_points_rebounds_assists";
+}
 
 const TIER_STYLES: Record<string, { bg: string; text: string; border: string; glow: string }> = {
   S: { bg: "bg-gradient-to-r from-amber-400/90 to-yellow-500/90", text: "text-amber-950", border: "border-amber-400/60", glow: "shadow-amber-400/30" },
@@ -447,14 +453,118 @@ export default function CommandCenterTab() {
   });
   const liveGamesCount = liveGames?.length || 0;
 
-  /* ─── Filter plays by mode ─── */
+  // Today's top plays — real data from v_prop_overlay_enhanced
+  const { data: rawTopPlays } = useQuery({
+    queryKey: ["cc-top-plays"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("v_prop_overlay_enhanced" as any)
+        .select("id, player_name, player_team, prop_type, line, mu, edge_score, edge_score_v11, hit_l10, streak, one_liner")
+        .order("edge_score_v11", { ascending: false, nullsFirst: false } as any)
+        .order("edge_score", { ascending: false })
+        .limit(40);
+      return (data || []) as any[];
+    },
+    staleTime: 120_000,
+    refetchInterval: 300_000,
+  });
+
+  // Opportunities — highest-edge props not in top plays
+  const { data: rawOpportunities } = useQuery({
+    queryKey: ["cc-opportunities"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("v_prop_overlay_enhanced" as any)
+        .select("id, player_name, player_team, prop_type, line, mu, edge_score, edge_score_v11")
+        .not("mu", "is", null)
+        .order("edge_score_v11", { ascending: false, nullsFirst: false } as any)
+        .limit(20);
+      return (data || []) as any[];
+    },
+    staleTime: 120_000,
+  });
+
+  // Slip health — user bet history by market type
+  const { data: slipHealth } = useQuery({
+    queryKey: ["cc-slip-health", user?.id],
+    queryFn: async () => {
+      if (!user) return [];
+      const { data } = await supabase
+        .from("bets")
+        .select("market_type, result")
+        .eq("user_id", user.id)
+        .in("status", ["settled", "won", "lost", "push"])
+        .limit(200);
+      if (!data || data.length === 0) return [];
+      const byMarket: Record<string, { wins: number; total: number }> = {};
+      for (const bet of data) {
+        const key = bet.market_type || "other";
+        if (!byMarket[key]) byMarket[key] = { wins: 0, total: 0 };
+        byMarket[key].total++;
+        if (bet.result === "win") byMarket[key].wins++;
+      }
+      return Object.entries(byMarket)
+        .map(([stat, d]) => ({
+          stat: stat.replace("player_", "").replace(/_/g, "+"),
+          hitRate: Math.round((d.wins / d.total) * 100),
+          trend: d.wins / d.total >= 0.6 ? "up" as const : d.wins / d.total >= 0.45 ? "flat" as const : "down" as const,
+        }))
+        .sort((a, b) => b.hitRate - a.hitRate)
+        .slice(0, 4);
+    },
+    enabled: !!user,
+    staleTime: 300_000,
+  });
+
+  const effectiveMode = activeMode;
+
   const filteredPlays = useMemo(() => {
-    if (activeMode === "pra_sniper") return MOCK_TOP_PLAYS.filter(p => p.stat === "PRA");
-    if (activeMode === "sniper") return MOCK_TOP_PLAYS.filter(p => p.tier === "S" || p.tier === "A");
-    if (activeMode === "hedge") return [...MOCK_TOP_PLAYS].sort((a, b) => b.confidence - a.confidence).slice(0, 3);
-    if (activeMode === "shadow") return [...MOCK_TOP_PLAYS].reverse().slice(0, 4);
-    return MOCK_TOP_PLAYS;
-  }, [activeMode]);
+    const plays = (rawTopPlays || []).map((p: any) => {
+      const edgeScore = p.edge_score_v11 ?? p.edge_score ?? 50;
+      return {
+        id: p.id,
+        player: p.player_name || "Unknown",
+        team: p.player_team || "",
+        stat: propStatLabel(p.prop_type || ""),
+        statKey: p.prop_type || "",
+        tier: edgeToTier(edgeScore) as "S" | "A" | "B" | "C",
+        predicted: typeof p.mu === "number" ? p.mu : 0,
+        line: typeof p.line === "number" ? p.line : 0,
+        confidence: Math.round(edgeScore),
+      };
+    });
+
+    if (effectiveMode === "pra_sniper") return plays.filter(p => isPRAMarket(p.statKey)).slice(0, 8);
+    if (effectiveMode === "sniper") return plays.filter(p => p.tier === "S" || p.tier === "A").slice(0, 8);
+    if (effectiveMode === "hedge") return [...plays].sort((a, b) => b.confidence - a.confidence).slice(0, 5);
+    if (effectiveMode === "shadow") return [...plays].reverse().slice(0, 5);
+    return plays.slice(0, 8);
+  }, [rawTopPlays, effectiveMode]);
+
+  const displayOpportunities = useMemo(() => {
+    return (rawOpportunities || [])
+      .slice(0, 3)
+      .map((p: any) => {
+        const edgeScore = p.edge_score_v11 ?? p.edge_score ?? 0;
+        const line = typeof p.line === "number" ? p.line : 0;
+        const mu = typeof p.mu === "number" ? p.mu : 0;
+        return {
+          id: p.id,
+          player: p.player_name || "Unknown",
+          stat: propStatLabel(p.prop_type || ""),
+          edge: line > 0 ? Math.round(Math.abs((mu - line) / line) * 100) : Math.round(edgeScore / 5),
+          confidence: Math.round(edgeScore),
+        };
+      });
+  }, [rawOpportunities]);
+
+  const displaySlipHealth = slipHealth && slipHealth.length > 0
+    ? slipHealth
+    : [
+        { stat: "PRA", hitRate: 0, trend: "flat" as const },
+        { stat: "Points", hitRate: 0, trend: "flat" as const },
+        { stat: "Rebounds", hitRate: 0, trend: "flat" as const },
+      ];
 
   return (
     /* Single TooltipProvider wraps everything — no nesting issues */
@@ -755,47 +865,82 @@ export default function CommandCenterTab() {
               </div>
             </DashboardCard>
 
-            {/* Slip Health */}
-            <DashboardCard title="Slip Health" icon={BarChart3} accent="neutral" onClick={() => navigate("/skyspread")}>
-              <div className="space-y-1.5">
-                {MOCK_SLIP_HEALTH.map(s => (
-                  <div key={s.stat} className="flex items-center gap-2">
-                    <span className="text-[9px] font-medium text-foreground w-20 truncate">{s.stat}</span>
-                    <div className="flex-1 h-1.5 bg-[#d4c4ec]/30 rounded-full overflow-hidden">
-                      <div
-                        className={cn("h-full rounded-full transition-all", s.hitRate >= 65 ? "bg-emerald-500" : s.hitRate >= 50 ? "bg-amber-500" : "bg-red-400")}
-                        style={{ width: `${s.hitRate}%` }}
-                      />
+          {/* Trap Watch — live games with close spreads */}
+          <DashboardCard title="Trap Watch" icon={AlertTriangle} accent="danger" onClick={() => navigate("/astra")}>
+            <div className="space-y-1.5">
+              {liveGames && liveGames.length > 0 ? (
+                liveGames.slice(0, 2).map((g: any) => {
+                  const diff = Math.abs((g.home_score ?? 0) - (g.away_score ?? 0));
+                  return (
+                    <div key={g.id} className="space-y-0.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-bold text-foreground">{g.away_abbr} @ {g.home_abbr}</span>
+                        <span className="text-[9px] text-red-500 font-bold tabular-nums">{diff <= 5 ? "Close" : "Live"}</span>
+                      </div>
+                      <p className="text-[9px] text-muted-foreground leading-snug">
+                        {g.away_score ?? 0}–{g.home_score ?? 0} · {diff <= 3 ? "One-possession game — volatile odds" : diff <= 8 ? "Watch for swing momentum" : "Game in hand"}
+                      </p>
                     </div>
-                    <span className="text-[9px] font-bold tabular-nums text-foreground w-7 text-right">{s.hitRate}%</span>
-                    <span className="text-[9px]">{s.trend === "up" ? "🔥" : s.trend === "down" ? "⚠️" : "—"}</span>
-                  </div>
-                ))}
-              </div>
-            </DashboardCard>
+                  );
+                })
+              ) : (
+                <p className="text-[9px] text-muted-foreground text-center py-1">No live games · Check back at game time</p>
+              )}
+            </div>
+          </DashboardCard>
 
-            {/* Opportunities */}
-            <DashboardCard title="Opportunities" icon={Zap} accent="gold" onClick={() => navigate("/predictions")}>
-              <div className="space-y-1.5">
-                {MOCK_OPPORTUNITIES.map(opp => (
-                  <div key={opp.id} className="flex items-center justify-between">
-                    <div className="min-w-0 flex-1">
-                      <p className="text-[10px] font-bold text-foreground truncate">{opp.player}</p>
-                      <p className="text-[9px] text-muted-foreground">{opp.stat}</p>
-                    </div>
-                    <div className="text-right shrink-0 ml-2">
-                      <p className="text-[10px] font-bold text-emerald-600 tabular-nums">+{opp.edge}% edge</p>
-                      <Badge className={cn("text-[8px] px-1 py-0 h-3.5 font-bold border-0",
-                        opp.confidence >= 80 ? "bg-amber-400/80 text-amber-950" : "bg-[#c4b0e0]/50 text-[#6b4c9a]")}>
-                        {opp.confidence}%
-                      </Badge>
-                    </div>
+          {/* Slip Health */}
+          <DashboardCard title="Slip Health" icon={BarChart3} accent="neutral" onClick={() => navigate("/skyspread")}>
+            <div className="space-y-1.5">
+              {displaySlipHealth.map(s => (
+                <div key={s.stat} className="flex items-center gap-2">
+                  <span className="text-[9px] font-medium text-foreground w-20 truncate">{s.stat}</span>
+                  <div className="flex-1 h-1.5 bg-[#d4c4ec]/30 rounded-full overflow-hidden">
+                    <div
+                      className={cn("h-full rounded-full transition-all", s.hitRate >= 65 ? "bg-emerald-500" : s.hitRate >= 50 ? "bg-amber-500" : "bg-red-400")}
+                      style={{ width: `${s.hitRate}%` }}
+                    />
                   </div>
-                ))}
-              </div>
-            </DashboardCard>
-          </div>
-        </section>
+                  <span className="text-[9px] font-bold tabular-nums text-foreground w-7 text-right">
+                    {s.hitRate > 0 ? `${s.hitRate}%` : "—"}
+                  </span>
+                  <span className="text-[9px]">
+                    {s.trend === "up" ? "🔥" : s.trend === "down" ? "⚠️" : "—"}
+                  </span>
+                </div>
+              ))}
+              {(!slipHealth || slipHealth.length === 0) && (
+                <p className="text-[9px] text-muted-foreground text-center py-1">Settle bets to track hit rates</p>
+              )}
+            </div>
+          </DashboardCard>
+
+          {/* Opportunity Feed */}
+          <DashboardCard title="Opportunities" icon={Zap} accent="gold" onClick={() => navigate("/predictions")}>
+            <div className="space-y-1.5">
+              {displayOpportunities.length > 0 ? displayOpportunities.map(opp => (
+                <div key={opp.id} className="flex items-center justify-between">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[10px] font-bold text-foreground truncate">{opp.player}</p>
+                    <p className="text-[9px] text-muted-foreground">{opp.stat}</p>
+                  </div>
+                  <div className="text-right shrink-0 ml-2">
+                    <p className="text-[10px] font-bold text-emerald-600 tabular-nums">+{opp.edge}% edge</p>
+                    <Badge className={cn("text-[8px] px-1 py-0 h-3.5 font-bold border-0",
+                      opp.confidence >= 80 ? "bg-amber-400/80 text-amber-950" : "bg-[#c4b0e0]/50 text-[#6b4c9a]"
+                    )}>
+                      {opp.confidence}%
+                    </Badge>
+                  </div>
+                </div>
+              )) : (
+                <p className="text-[9px] text-muted-foreground text-center py-1">Loading opportunities…</p>
+              )}
+            </div>
+          </DashboardCard>
+
+        </div>
+      </section>
 
         {/* ═══ BETTING PROFILE STRIP ═══ */}
         <section className="relative z-10">
