@@ -90,7 +90,7 @@ const PersonalCosmicContent = () => {
       const { data } = await supabase
         .from("profiles")
         .select("sun_sign, moon_sign, rising_sign, display_name")
-        .eq("id", user.id)
+        .eq("user_id", user.id)
         .maybeSingle();
       return data;
     },

@@ -45,11 +45,11 @@ const SettingsPage = () => {
   // Load current chart from profiles
   useEffect(() => {
     if (!user) return;
-    supabase.from("profiles").select("sun_sign, moon_sign, rising_sign").eq("id", user.id).maybeSingle().then(({ data }) => {
+    supabase.from("profiles").select("sun_sign, moon_sign, rising_sign").eq("user_id", user.id).maybeSingle().then(({ data }) => {
       if (data) {
-        setSunSign(data.sun_sign || "");
-        setMoonSign(data.moon_sign || "");
-        setRisingSign(data.rising_sign || "");
+        setSunSign((data as any).sun_sign || "");
+        setMoonSign((data as any).moon_sign || "");
+        setRisingSign((data as any).rising_sign || "");
       }
     });
   }, [user]);
@@ -57,12 +57,11 @@ const SettingsPage = () => {
   const saveChart = async () => {
     if (!user) return;
     setChartSaving(true);
-    const { error } = await supabase.from("profiles").upsert({
-      id: user.id,
+    const { error } = await supabase.from("profiles").update({
       sun_sign: sunSign || null,
       moon_sign: moonSign || null,
       rising_sign: risingSign || null,
-    } as any);
+    } as any).eq("user_id", user.id);
     setChartSaving(false);
     if (error) {
       toast({ title: "Error saving chart", description: error.message, variant: "destructive" });

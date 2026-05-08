@@ -193,7 +193,7 @@ const FriendsPage = () => {
     // No existing conversation — create one
     const { data: newConvo, error: convoErr } = await supabase
       .from("conversations")
-      .insert({ is_group: false } as any)
+      .insert({ is_group: false, created_by: user.id } as any)
       .select("id")
       .single() as any;
 
