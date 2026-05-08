@@ -12,7 +12,7 @@ const CelestialInsightsPage = () => {
           <Star className="h-5 w-5 text-primary" />
           <h1 className="text-xl font-bold font-display">Celestial Insights</h1>
         </div>
-        <Tabs defaultValue="transits" className="w-full">
+        <Tabs defaultValue="personal" className="w-full">
           <TabsList className="w-full">
             <TabsTrigger value="transits" className="flex-1 gap-1.5">
               <Star className="h-3.5 w-3.5" />
