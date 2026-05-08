@@ -40,7 +40,18 @@ const STATUS_COLORS: Record<string, string> = {
   lost: "bg-cosmic-red/15 text-cosmic-red",
   push: "bg-cosmic-gold/15 text-cosmic-gold",
   void: "bg-muted text-muted-foreground",
+  settled: "bg-muted text-muted-foreground",
 };
+
+function getBetStatusDisplay(bet: BetRow): { label: string; className: string } {
+  const result = bet.result?.toLowerCase();
+  if (result === "win") return { label: "WON ✓", className: "bg-cosmic-green/20 text-cosmic-green" };
+  if (result === "loss") return { label: "LOST", className: "bg-cosmic-red/15 text-cosmic-red" };
+  if (result === "push") return { label: "PUSH", className: "bg-cosmic-gold/15 text-cosmic-gold" };
+  if (result === "void") return { label: "VOID", className: "bg-muted text-muted-foreground" };
+  const status = (bet.status || "open").toLowerCase();
+  return { label: status.toUpperCase(), className: STATUS_COLORS[status] || STATUS_COLORS.open };
+}
 
 const EDGE_TIER_COLORS: Record<string, string> = {
   elite: "text-cosmic-gold",
@@ -435,7 +446,10 @@ const SkySpreadPage = () => {
   });
 
   // Filter bets by ledger tab
-  const isSettledBet = (b: BetRow) => b.status === "settled" || b.status === "won" || b.status === "lost" || b.status === "push" || b.status === "void";
+  const SETTLED_STATUSES = new Set(["settled", "won", "lost", "push", "void"]);
+  const SETTLED_RESULTS = new Set(["win", "loss", "push", "void"]);
+  const isSettledBet = (b: BetRow) =>
+    SETTLED_STATUSES.has(b.status || "") || SETTLED_RESULTS.has((b.result || "").toLowerCase());
   const filteredBets = (bets || []).filter(b => ledgerTab === "settled" ? isSettledBet(b) : !isSettledBet(b));
 
   // Fetch live game data for all bet game_ids
@@ -766,9 +780,14 @@ const SkySpreadPage = () => {
                         <p className="text-xs font-semibold text-foreground truncate">
                           {bet.away_team && bet.home_team ? `${bet.away_team} @ ${bet.home_team}` : bet.selection}
                         </p>
-                        <span className={cn("text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full", STATUS_COLORS[bet.status || "open"])}>
-                          {bet.status || "open"}
-                        </span>
+                        {(() => {
+                          const { label, className } = getBetStatusDisplay(bet);
+                          return (
+                            <span className={cn("text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full", className)}>
+                              {label}
+                            </span>
+                          );
+                        })()}
                       </div>
 
                       {/* Live Score Banner on Bet Card */}
@@ -801,6 +820,35 @@ const SkySpreadPage = () => {
                       {gameFinal && (
                         <div className="mb-2">
                           <PeriodScoresTicker gameId={bet.game_id} league={bet.sport || "NBA"} isLive={false} />
+                        </div>
+                      )}
+                      {/* Quick-settle row: shows when game is final but bet not yet settled */}
+                      {gameFinal && !isSettledBet(bet) && (
+                        <div className="flex items-center gap-1.5 mb-2 p-2 rounded-lg bg-secondary/40 border border-border/50">
+                          <span className="text-[9px] text-muted-foreground font-semibold uppercase mr-1">Settle:</span>
+                          {(["win", "loss", "push"] as const).map(r => (
+                            <button
+                              key={r}
+                              onClick={async (e) => {
+                                e.stopPropagation();
+                                await supabase.from("bets").update({
+                                  result: r,
+                                  status: "settled",
+                                  settled_at: new Date().toISOString(),
+                                } as any).eq("id", bet.id);
+                                queryClient.invalidateQueries({ queryKey: ["skyspread-bets"] });
+                                toast({ title: r === "win" ? "Bet marked as Won ✓" : r === "loss" ? "Bet marked as Lost" : "Bet marked as Push" });
+                              }}
+                              className={cn(
+                                "text-[9px] font-bold uppercase px-2 py-0.5 rounded-full transition-colors",
+                                r === "win" ? "bg-cosmic-green/15 text-cosmic-green hover:bg-cosmic-green/30" :
+                                r === "loss" ? "bg-cosmic-red/15 text-cosmic-red hover:bg-cosmic-red/30" :
+                                "bg-cosmic-gold/15 text-cosmic-gold hover:bg-cosmic-gold/30"
+                              )}
+                            >
+                              {r}
+                            </button>
+                          ))}
                         </div>
                       )}
 
@@ -851,6 +899,29 @@ const SkySpreadPage = () => {
 
                   {isExpanded && (
                     <div className="mt-3 pt-3 border-t border-border/50 space-y-2 pl-6">
+                      {/* Settlement summary */}
+                      {isSettledBet(bet) && (
+                        <div className="flex items-center gap-3 py-1.5 px-2 rounded-lg bg-secondary/40">
+                          {(() => {
+                            const r = (bet.result || "").toLowerCase();
+                            if (r === "win") return <span className="text-xs font-bold text-cosmic-green">WON ✓</span>;
+                            if (r === "loss") return <span className="text-xs font-bold text-cosmic-red">LOST ✗</span>;
+                            if (r === "push") return <span className="text-xs font-bold text-cosmic-gold">PUSH —</span>;
+                            return <span className="text-xs text-muted-foreground">Settled</span>;
+                          })()}
+                          {bet.payout != null && (
+                            <span className={cn("text-xs font-bold tabular-nums",
+                              Number(bet.payout) > 0 ? "text-cosmic-green" : "text-muted-foreground")}>
+                              {Number(bet.payout) > 0 ? `+$${Number(bet.payout).toFixed(2)}` : `$0`}
+                            </span>
+                          )}
+                          {bet.settled_at && (
+                            <span className="text-[9px] text-muted-foreground ml-auto">
+                              {format(new Date(bet.settled_at), "MMM d")}
+                            </span>
+                          )}
+                        </div>
+                      )}
                       {bet.why_summary && (
                         <div>
                           <p className="text-[10px] font-semibold text-cosmic-indigo uppercase tracking-wider">Why</p>
