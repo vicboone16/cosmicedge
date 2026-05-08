@@ -14,8 +14,9 @@ export default {
     },
     extend: {
       fontFamily: {
-        sans: ["Inter", "sans-serif"],
-        display: ["Inter", "sans-serif"],
+        sans: ["Plus Jakarta Sans", "Inter", "sans-serif"],
+        display: ["Syne", "sans-serif"],
+        mono: ["JetBrains Mono", "Fira Code", "monospace"],
       },
       colors: {
         border: "hsl(var(--border))",
@@ -111,6 +112,22 @@ export default {
           "0%, 100%": { opacity: "0.4", transform: "scale(1)" },
           "50%": { opacity: "0.8", transform: "scale(1.12)" },
         },
+        "page-in": {
+          from: { opacity: "0", transform: "translateY(10px)" },
+          to: { opacity: "1", transform: "translateY(0)" },
+        },
+        "page-out": {
+          from: { opacity: "1" },
+          to: { opacity: "0" },
+        },
+        "fade-up": {
+          from: { opacity: "0", transform: "translateY(8px)" },
+          to: { opacity: "1", transform: "translateY(0)" },
+        },
+        "shimmer": {
+          "0%": { backgroundPosition: "-200% 0" },
+          "100%": { backgroundPosition: "200% 0" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -121,6 +138,10 @@ export default {
         "nebula-pulse": "nebula-pulse 8s ease-in-out infinite",
         "nebula-drift": "nebula-drift 12s ease-in-out infinite",
         "nebula-pulse-slow": "nebula-pulse-slow 10s ease-in-out infinite",
+        "page-in": "page-in 0.22s cubic-bezier(0.25,0.46,0.45,0.94) both",
+        "page-out": "page-out 0.18s cubic-bezier(0.25,0.46,0.45,0.94) both",
+        "fade-up": "fade-up 0.3s cubic-bezier(0.25,0.46,0.45,0.94) both",
+        "shimmer": "shimmer 2.2s linear infinite",
       },
     },
   },

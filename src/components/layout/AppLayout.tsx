@@ -1,4 +1,5 @@
-import { Outlet, useNavigate } from "react-router-dom";
+import { Outlet, useNavigate, useLocation } from "react-router-dom";
+import { AnimatePresence, motion } from "framer-motion";
 import { BottomNav } from "./BottomNav";
 import { CosmicBackground } from "./CosmicBackground";
 import { PropDrawerProvider } from "@/hooks/use-prop-drawer";
@@ -20,6 +21,7 @@ export function AppLayout() {
   const { user, signOut } = useAuth();
   const { isAdmin } = useIsAdmin();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const envRef = useMemo(() => {
     try {
@@ -224,7 +226,18 @@ export function AppLayout() {
       )}
       <PropDrawerProvider>
         <main className="pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))] overflow-x-hidden">
-          <Outlet />
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div
+              key={location.key}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2, ease: [0.25, 0.46, 0.45, 0.94] }}
+              style={{ willChange: "opacity, transform" }}
+            >
+              <Outlet />
+            </motion.div>
+          </AnimatePresence>
         </main>
       </PropDrawerProvider>
       <BottomNav />
