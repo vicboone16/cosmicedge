@@ -5,7 +5,6 @@ import { CosmicBackground } from "./CosmicBackground";
 import { PropDrawerProvider } from "@/hooks/use-prop-drawer";
 import { useAuth } from "@/hooks/use-auth";
 import { useIsAdmin } from "@/hooks/use-admin";
-import { useMemo } from "react";
 import { User, LogIn, Moon, Settings, Users, LogOut, Shield, Sparkles, FlaskConical, Telescope, Calculator, BarChart3, HelpCircle, MessageCircle } from "lucide-react";
 import {
   DropdownMenu,
@@ -22,21 +21,6 @@ export function AppLayout() {
   const { isAdmin } = useIsAdmin();
   const navigate = useNavigate();
   const location = useLocation();
-
-  const envRef = useMemo(() => {
-    try {
-      const url = import.meta.env.VITE_SUPABASE_URL || "";
-      return new URL(url).hostname.split(".")[0];
-    } catch { return "unknown"; }
-  }, []);
-  const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID ?? "";
-  const isPublished =
-    window.location.hostname.includes("lovable.app") ||
-    window.location.hostname.includes("novabehavior.com") ||
-    window.location.hostname.includes("cosmicedge");
-  // LIVE = published domain with matching project id; TEST = everything else
-  const isLive = isPublished && envRef === projectId;
-  const refLabel = isLive ? "LIVE" : "TEST";
 
   // Query pending friend requests for badge
   const { data: pendingCount } = useQuery({
@@ -197,19 +181,6 @@ export function AppLayout() {
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
-      {/* Environment badge — admin only */}
-      {isAdmin && (
-        <div className="fixed top-0 left-0 z-50 p-3 safe-area-top safe-area-left">
-          <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-mono font-bold border ${
-            isLive
-              ? "bg-emerald-950/80 text-emerald-400 border-emerald-700"
-              : "bg-red-950/80 text-red-400 border-red-700"
-          }`}>
-            {refLabel}
-            <span className="opacity-60">{envRef.slice(0, 6)}</span>
-          </span>
-        </div>
-      )}
       <PropDrawerProvider>
         <main className="pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))] overflow-x-hidden">
           <AnimatePresence mode="wait" initial={false}>
