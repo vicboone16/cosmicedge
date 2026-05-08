@@ -350,9 +350,9 @@ const GameDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { formatInUserTZ, getTZAbbrev } = useTimezone();
-  const [activeTab, setActiveTab] = useState<"odds" | "insights" | "matchup" | "pbp" | "stats" | "oracle" | "liveprops">("insights");
+  const [activeTab, setActiveTab] = useState<"odds" | "matchup" | "pbp" | "stats" | "oracle" | "liveprops">("oracle");
   const { isAdmin } = useIsAdmin();
-  const [gameSubTab, setGameSubTab] = useState<"gamelines" | "player_props" | "team_props" | "game_props">("gamelines");
+  const [gameSubTab, setGameSubTab] = useState<"gamelines" | "player_props" | "props">("gamelines");
   const [transitSelectedPlayer, setTransitSelectedPlayer] = useState<{ id: string; name: string; position: string | null; team: string | null; birth_date: string | null } | null>(null);
 
   const { data: game, isLoading } = useQuery({
@@ -589,11 +589,10 @@ const GameDetail = () => {
         {([
             { val: "oracle" as const, label: "Oracle" },
             { val: "liveprops" as const, label: "Live Props" },
-            { val: "insights" as const, label: "Insights" },
             { val: "matchup" as const, label: "Matchup" },
             { val: "odds" as const, label: "Odds" },
-            ...(isAdmin ? [{ val: "pbp" as const, label: "Plays" }] : []),
             { val: "stats" as const, label: "Stats" },
+            ...(isAdmin ? [{ val: "pbp" as const, label: "Plays" }] : []),
           ]).map(t => (
             <button
               key={t.val}
@@ -660,9 +659,8 @@ const GameDetail = () => {
             <div className="flex gap-3 overflow-x-auto no-scrollbar">
               {([
                 { val: "gamelines" as const, label: "Gamelines" },
-                { val: "player_props" as const, label: "Player props" },
-                { val: "team_props" as const, label: "Team props" },
-                { val: "game_props" as const, label: "Game props" },
+                { val: "player_props" as const, label: "Player Props" },
+                { val: "props" as const, label: "Alt Props" },
               ]).map(t => (
                 <button
                   key={t.val}
@@ -697,15 +695,27 @@ const GameDetail = () => {
                     <div className="cosmic-card rounded-xl p-3 text-center">
                       <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Spread</span>
                       <div className="mt-2 space-y-1">
-                        <p className="text-sm font-semibold tabular-nums">{game.odds.spread.line ? `${game.odds.spread.line > 0 ? "+" : ""}${-game.odds.spread.line}` : "—"}</p>
-                        <p className="text-sm font-semibold tabular-nums">{game.odds.spread.line ? `${game.odds.spread.line > 0 ? "" : "+"}${game.odds.spread.line}` : "—"}</p>
+                        <div className="flex items-center justify-center gap-1">
+                          <p className="text-sm font-semibold tabular-nums">{game.odds.spread.line != null ? `${-game.odds.spread.line > 0 ? "+" : ""}${-game.odds.spread.line}` : "—"}</p>
+                          {game.odds.spread.away != null && <p className="text-[10px] text-muted-foreground tabular-nums">({formatOdds(game.odds.spread.away)})</p>}
+                        </div>
+                        <div className="flex items-center justify-center gap-1">
+                          <p className="text-sm font-semibold tabular-nums">{game.odds.spread.line != null ? `${game.odds.spread.line > 0 ? "+" : ""}${game.odds.spread.line}` : "—"}</p>
+                          {game.odds.spread.home != null && <p className="text-[10px] text-muted-foreground tabular-nums">({formatOdds(game.odds.spread.home)})</p>}
+                        </div>
                       </div>
                     </div>
                     <div className="cosmic-card rounded-xl p-3 text-center">
                       <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Total</span>
                       <div className="mt-2 space-y-1">
-                        <p className="text-sm font-semibold tabular-nums">{game.odds.total.line ? `O ${game.odds.total.line}` : "—"}</p>
-                        <p className="text-sm font-semibold tabular-nums">{game.odds.total.line ? `U ${game.odds.total.line}` : "—"}</p>
+                        <div className="flex items-center justify-center gap-1">
+                          <p className="text-sm font-semibold tabular-nums">{game.odds.total.line ? `O ${game.odds.total.line}` : "—"}</p>
+                          {game.odds.total.over != null && <p className="text-[10px] text-muted-foreground tabular-nums">({formatOdds(game.odds.total.over)})</p>}
+                        </div>
+                        <div className="flex items-center justify-center gap-1">
+                          <p className="text-sm font-semibold tabular-nums">{game.odds.total.line ? `U ${game.odds.total.line}` : "—"}</p>
+                          {game.odds.total.under != null && <p className="text-[10px] text-muted-foreground tabular-nums">({formatOdds(game.odds.total.under)})</p>}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -729,17 +739,13 @@ const GameDetail = () => {
               </>
             )}
 
-            {gameSubTab === "team_props" && (
-              <LiveOddsTracker gameId={game.id} homeAbbr={game.home_abbr} awayAbbr={game.away_abbr} league={game.league} />
-            )}
-
-            {gameSubTab === "game_props" && (
+            {gameSubTab === "props" && (
               <LiveOddsTracker gameId={game.id} homeAbbr={game.home_abbr} awayAbbr={game.away_abbr} league={game.league} />
             )}
           </>
         )}
 
-        {activeTab === "insights" && (
+        {activeTab === "matchup" && (
           <>
             {/* Zodiac Matchup */}
             {awayZodiac && homeZodiac && elementCompat && (
@@ -888,11 +894,7 @@ const GameDetail = () => {
                 homeAbbr={game.home_abbr}
               />
             )}
-          </>
-        )}
 
-        {activeTab === "matchup" && (
-          <>
             <GameMatchupTab
               gameId={game.id}
               homeAbbr={game.home_abbr}
