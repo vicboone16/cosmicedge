@@ -116,7 +116,7 @@ const PersonalCosmicContent = () => {
     queryFn: async () => {
       if (!user?.id) return null;
       const { data } = await (supabase as any)
-        .from("user_profiles")
+        .from("profiles")
         .select("sun_sign, moon_sign, rising_sign, display_name, birth_date")
         .eq("user_id", user.id)
         .maybeSingle();
