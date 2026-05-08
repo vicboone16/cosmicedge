@@ -174,7 +174,6 @@ const FriendsPage = () => {
         .in("conversation_id", myConvoIds) as any;
 
       if (sharedConvos && sharedConvos.length > 0) {
-        // Check it's a 1:1 (not a group) by finding a non-group conversation
         for (const sc of sharedConvos as any[]) {
           const { data: convo } = await supabase
             .from("conversations")
@@ -190,25 +189,31 @@ const FriendsPage = () => {
       }
     }
 
-    // No existing conversation — create one
-    const { data: newConvo, error: convoErr } = await supabase
-      .from("conversations")
-      .insert({ is_group: false, created_by: user.id } as any)
-      .select("id")
-      .single() as any;
+    // Generate the conversation ID client-side so we can add members before
+    // the SELECT policy (requires membership) would block a server-side .select().
+    const conversationId = crypto.randomUUID();
 
-    if (convoErr || !newConvo) {
+    const { error: convoErr } = await supabase
+      .from("conversations")
+      .insert({ id: conversationId, is_group: false, created_by: user.id } as any);
+
+    if (convoErr) {
       toast({ title: "Error", description: "Could not start conversation", variant: "destructive" });
       return;
     }
 
-    // Add both users as members
-    await supabase.from("conversation_members").insert([
-      { conversation_id: newConvo.id, user_id: user.id } as any,
-      { conversation_id: newConvo.id, user_id: friendUserId } as any,
+    // Add both users as members immediately
+    const { error: memberErr } = await supabase.from("conversation_members").insert([
+      { conversation_id: conversationId, user_id: user.id } as any,
+      { conversation_id: conversationId, user_id: friendUserId } as any,
     ]);
 
-    navigate(`/messages/${newConvo.id}`);
+    if (memberErr) {
+      toast({ title: "Error", description: "Could not add members to conversation", variant: "destructive" });
+      return;
+    }
+
+    navigate(`/messages/${conversationId}`);
   };
 
   const UserCard = ({ profile: p, actions, clickable = false }: { profile: FriendProfile; actions: React.ReactNode; clickable?: boolean }) => (
