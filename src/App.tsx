@@ -27,6 +27,7 @@ const PlayerPage = lazy(() => import("./pages/PlayerPage"));
 const CelestialInsightsPage = lazy(() => import("./pages/CelestialInsightsPage"));
 const Results = lazy(() => import("./pages/Results"));
 const Analytics = lazy(() => import("./pages/Analytics"));
+const PerformancePage = lazy(() => import("./pages/PerformancePage"));
 const SettingsPage = lazy(() => import("./pages/SettingsPage"));
 const SkySpreadPage = lazy(() => import("./pages/SkySpreadPage"));
 const PlayerPropsPage = lazy(() => import("./pages/PlayerPropsPage"));
@@ -117,8 +118,9 @@ const App = () => {
                   <Route path="/team/:league/:abbr" element={<RequireAuth><TeamPage /></RequireAuth>} />
                   <Route path="/player/:id" element={<RequireAuth><PlayerPage /></RequireAuth>} />
                   <Route path="/transits" element={<RequireAuth><CelestialInsightsPage /></RequireAuth>} />
-                  <Route path="/results" element={<RequireAuth><Results /></RequireAuth>} />
-                  <Route path="/analytics" element={<RequireAuth><Analytics /></RequireAuth>} />
+                  <Route path="/performance" element={<RequireAuth><PerformancePage /></RequireAuth>} />
+                  <Route path="/results" element={<Navigate to="/performance" replace />} />
+                  <Route path="/analytics" element={<Navigate to="/performance" replace />} />
                   <Route path="/settings" element={<RequireAuth><SettingsPage /></RequireAuth>} />
                   <Route path="/calendar" element={<Navigate to="/transits" replace />} />
                   <Route path="/celestial" element={<Navigate to="/transits" replace />} />
