@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { useIsAdmin } from "@/hooks/use-admin";
 import { PbpWatchView } from "./PbpWatchView";
 import { MlbWatchView } from "./MlbWatchView";
+import { useToast } from "@/hooks/use-toast";
 
 interface PlayByPlayTabProps {
   gameId: string;
@@ -168,7 +169,9 @@ interface NormalizedEvent {
 export function PlayByPlayTab({ gameId, homeAbbr, awayAbbr, league, gameStatus }: PlayByPlayTabProps) {
   const [periodFilter, setPeriodFilter] = useState<number | null>(null);
   const [mode, setMode] = useState<"read" | "watch">("read");
+  const [triggering, setTriggering] = useState<string | null>(null);
   const { isAdmin } = useIsAdmin();
+  const { toast } = useToast();
   const isNBA = league === "NBA";
   const isMLB = league === "MLB";
   const isNHL = league === "NHL";
@@ -522,21 +525,33 @@ export function PlayByPlayTab({ gameId, homeAbbr, awayAbbr, league, gameStatus }
             <div className="border-t border-border/20 pt-1.5">
               <p className="text-[9px] font-semibold text-destructive/80">⚡ Reason: {emptyReason}</p>
             </div>
-            {isLiveGame && (
-              <div className="text-[9px] text-cosmic-gold space-y-0.5">
-                <p>⚠ Game is live — check:</p>
-                {isNBA ? (
-                  <>
-                    <p className="pl-2">• nba-bdl-burst-loop running?</p>
-                    <p className="pl-2">• BDL game_id → internal UUID mapping exists?</p>
-                    <p className="pl-2">• pbp-watch-sync triggered?</p>
-                  </>
-                ) : (
-                  <>
-                    <p className="pl-2">• BDL live sync running for {league}?</p>
-                    <p className="pl-2">• play_by_play records being inserted for game_id?</p>
-                  </>
-                )}
+            {isLiveGame && isNBA && (
+              <div className="border-t border-border/20 pt-1.5 space-y-1.5">
+                <p className="text-[9px] font-semibold text-cosmic-gold">⚠ Manual triggers (game is live):</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {[
+                    { label: "▶ Burst Loop", fn: "nba-bdl-burst-loop", body: {} },
+                    { label: "▶ PBP Sync", fn: "pbp-watch-sync", body: { game_id: gameId } },
+                    { label: "▶ Scoreboard", fn: "sync-scoreboard", body: {} },
+                  ].map(({ label, fn, body }) => (
+                    <button
+                      key={fn}
+                      disabled={!!triggering}
+                      onClick={async () => {
+                        setTriggering(fn);
+                        try {
+                          const { error } = await supabase.functions.invoke(fn, { body });
+                          toast({ title: error ? `${fn} error` : `${fn} triggered`, description: error?.message, variant: error ? "destructive" : "default" });
+                        } finally {
+                          setTriggering(null);
+                        }
+                      }}
+                      className="text-[9px] px-2 py-0.5 rounded bg-cosmic-gold/20 text-cosmic-gold border border-cosmic-gold/30 hover:bg-cosmic-gold/30 disabled:opacity-50 transition-colors"
+                    >
+                      {triggering === fn ? "running…" : label}
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
           </div>
