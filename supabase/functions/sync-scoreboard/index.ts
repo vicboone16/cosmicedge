@@ -151,6 +151,25 @@ Deno.serve(async (req) => {
       const venueLat = e.venue?.address?.latitude ?? e.competitions?.[0]?.venue?.address?.latitude ?? null;
       const venueLng = e.venue?.address?.longitude ?? e.competitions?.[0]?.venue?.address?.longitude ?? null;
 
+      // Current period (quarter) — try multiple ESPN field paths
+      const currentPeriod: number =
+        Number(e.period ?? e.competitions?.[0]?.status?.period ?? e.status?.period ?? 0);
+
+      // Current clock — "10:45", "0:00", etc.
+      const currentClock: string | null =
+        e.clock ?? e.status?.displayClock ?? e.competitions?.[0]?.status?.displayClock ?? null;
+
+      // Per-quarter linescores — ESPN provides these as arrays of score values
+      // Flat actor format: home.linescores = [{displayValue:"28"}, ...]
+      // Competitors format: competitions[0].competitors[i].linescores = [{displayValue:"28"}, ...]
+      const homeLinescores: number[] = (
+        home?.linescores ?? home?.line_scores ?? homeComp?.linescores ?? []
+      ).map((s: any) => Number(s?.displayValue ?? s?.value ?? s ?? 0)).filter(Number.isFinite);
+
+      const awayLinescores: number[] = (
+        away?.linescores ?? away?.line_scores ?? awayComp?.linescores ?? []
+      ).map((s: any) => Number(s?.displayValue ?? s?.value ?? s ?? 0)).filter(Number.isFinite);
+
       gameUpserts.push({
         league,
         home_abbr: homeAbbr,
@@ -167,34 +186,48 @@ Deno.serve(async (req) => {
         venue_lng: venueLng ? Number(venueLng) : null,
         source: "espn_apify",
         updated_at: now,
+        // Extra fields used after upsert to write quarter data — NOT stored in games table
+        _currentPeriod: currentPeriod,
+        _currentClock: currentClock,
+        _homeLinescores: homeLinescores,
+        _awayLinescores: awayLinescores,
+        _mappedStatus: mappedStatus,
+        _homeScore: homeScore,
+        _awayScore: awayScore,
       });
     }
 
     // Upsert games using external_id to avoid duplicates
     // IMPORTANT: never overwrite non-null scores/status with null values
     let upserted = 0;
+    let snapshots = 0;
+    let quarterRows = 0;
+
     for (const g of gameUpserts) {
+      // Strip private metadata fields before writing to games table
+      const { _currentPeriod, _currentClock, _homeLinescores, _awayLinescores, _mappedStatus, _homeScore, _awayScore, ...gameRow } = g as any;
+
       let existing: { id: string; status: string; home_score: number | null } | null = null;
 
-      if (g.external_id) {
+      if (gameRow.external_id) {
         const { data } = await supabase
           .from("games")
           .select("id, status, home_score")
-          .eq("external_id", g.external_id as string)
+          .eq("external_id", gameRow.external_id as string)
           .maybeSingle();
         existing = data;
       }
 
       if (!existing) {
         // Match by league + teams + date
-        const startDate = g.start_time ? (g.start_time as string).split("T")[0] : null;
+        const startDate = gameRow.start_time ? (gameRow.start_time as string).split("T")[0] : null;
         if (startDate) {
           const { data } = await supabase
             .from("games")
             .select("id, status, home_score")
-            .eq("league", g.league as string)
-            .eq("home_abbr", g.home_abbr as string)
-            .eq("away_abbr", g.away_abbr as string)
+            .eq("league", gameRow.league as string)
+            .eq("home_abbr", gameRow.home_abbr as string)
+            .eq("away_abbr", gameRow.away_abbr as string)
             .gte("start_time", `${startDate}T00:00:00Z`)
             .lte("start_time", `${startDate}T23:59:59Z`)
             .maybeSingle();
@@ -202,30 +235,68 @@ Deno.serve(async (req) => {
         }
       }
 
+      let gameId: string | null = null;
+
       if (existing) {
+        gameId = existing.id;
         // Build safe update: never regress status or clear scores
-        const safeUpdate: Record<string, unknown> = { ...g };
+        const safeUpdate: Record<string, unknown> = { ...gameRow };
         const existingIsActive = existing.status === "live" || existing.status === "final";
-        const incomingIsScheduled = g.status === "scheduled";
+        const incomingIsScheduled = gameRow.status === "scheduled";
 
         // Don't overwrite live/final status with scheduled
         if (existingIsActive && incomingIsScheduled) {
           delete safeUpdate.status;
         }
         // Don't clear scores if they already exist
-        if (existing.home_score != null && g.home_score == null) {
+        if (existing.home_score != null && gameRow.home_score == null) {
           delete safeUpdate.home_score;
           delete safeUpdate.away_score;
         }
 
         await supabase.from("games").update(safeUpdate).eq("id", existing.id);
-      } else if (g.start_time) {
-        await supabase.from("games").insert(g);
+      } else if (gameRow.start_time) {
+        const { data: inserted } = await supabase.from("games").insert(gameRow).select("id").maybeSingle();
+        gameId = inserted?.id ?? null;
       }
       upserted++;
+
+      // ── Write quarter data for live/final games ──────────────────────────
+      if (!gameId || _mappedStatus === "scheduled") continue;
+
+      // 1. game_state_snapshots: current score + period (fallback for burst loop)
+      //    Only write if we have a real score to avoid polluting with zeros
+      if (_mappedStatus === "live" && _currentPeriod > 0 && (_homeScore > 0 || _awayScore > 0)) {
+        await supabase.from("game_state_snapshots").insert({
+          game_id: gameId,
+          status: _mappedStatus,
+          home_score: _homeScore,
+          away_score: _awayScore,
+          quarter: String(_currentPeriod),
+          clock: _currentClock ?? null,
+        });
+        snapshots++;
+      }
+
+      // 2. game_quarters: per-quarter breakdown from ESPN linescores
+      //    ESPN provides these for completed + in-progress games
+      if (_homeLinescores.length > 0) {
+        const numPeriods = Math.max(_homeLinescores.length, _awayLinescores.length);
+        for (let i = 0; i < numPeriods; i++) {
+          const qNum = i + 1;
+          const hScore = _homeLinescores[i] ?? null;
+          const aScore = _awayLinescores[i] ?? null;
+          if (hScore == null && aScore == null) continue;
+          await supabase.from("game_quarters").upsert(
+            { game_id: gameId, quarter: qNum, home_score: hScore, away_score: aScore },
+            { onConflict: "game_id,quarter" }
+          );
+          quarterRows++;
+        }
+      }
     }
 
-    console.log(`[sync-scoreboard] Processed ${allEvents.length} events, upserted ${upserted} games`);
+    console.log(`[sync-scoreboard] Processed ${allEvents.length} events, upserted ${upserted} games, ${snapshots} snapshots, ${quarterRows} quarter rows`);
 
     return new Response(JSON.stringify({ ok: true, events: allEvents.length, upserted }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
