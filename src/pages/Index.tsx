@@ -13,6 +13,8 @@ import { format, addDays, isToday } from "date-fns";
 import { TrendingPlaysStrip } from "@/components/slate/TrendingPlaysStrip";
 import { LiveNowStrip } from "@/components/slate/LiveNowStrip";
 import { LiveRadarPill } from "@/components/slate/LiveRadarPill";
+import { TopCosmicPicksStrip } from "@/components/slate/TopCosmicPicksStrip";
+import { CosmicParlayCard } from "@/components/slate/CosmicParlayCard";
 import { GuidanceCard } from "@/components/ui/GuidanceCard";
 import { TwinklingStars } from "@/components/slate/TwinklingStars";
 
@@ -113,6 +115,8 @@ const Index = () => {
           <>
             <LiveNowStrip games={liveGames} />
             <TrendingPlaysStrip />
+            <TopCosmicPicksStrip games={filteredGames} />
+            <CosmicParlayCard games={filteredGames} />
             <LiveRadarPill />
           </>
         )}
