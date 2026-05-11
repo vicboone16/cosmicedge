@@ -35,6 +35,10 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { AlertSetupDialog } from "@/components/live/AlertSetupDialog";
 import ArchetypeCard from "@/components/cosmic/ArchetypeCard";
 import { LiveStoryLayer } from "@/components/game/LiveStoryLayer";
+import { LineMovementPanel } from "@/components/playoffs/LineMovementPanel";
+import { PbpFreshnessBadge } from "@/components/playoffs/PbpFreshnessBadge";
+import { PbpScrubberDrawer } from "@/components/playoffs/PbpScrubberDrawer";
+import { usePbpWatchdog } from "@/hooks/use-pbp-watchdog";
 
 function formatOdds(odds: number | null): string {
   if (odds == null || odds === 0) return "—";
@@ -354,6 +358,8 @@ const GameDetail = () => {
   const { isAdmin } = useIsAdmin();
   const [gameSubTab, setGameSubTab] = useState<"gamelines" | "player_props" | "props">("gamelines");
   const [transitSelectedPlayer, setTransitSelectedPlayer] = useState<{ id: string; name: string; position: string | null; team: string | null; birth_date: string | null } | null>(null);
+  const [scrubberOpen, setScrubberOpen] = useState(false);
+  const { data: watchdog = {} } = usePbpWatchdog(id ? [id] : []);
 
   const { data: game, isLoading } = useQuery({
     queryKey: ["game", id],
@@ -729,6 +735,12 @@ const GameDetail = () => {
 
                 {/* Period Markets (legacy) */}
                 <PeriodOddsSection gameId={game.id} league={game.league} />
+
+                {/* Line Movement */}
+                <section>
+                  <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-3">Line Movement</h3>
+                  <LineMovementPanel gameId={game.id} />
+                </section>
               </>
             )}
 
@@ -1049,13 +1061,31 @@ const GameDetail = () => {
         )}
 
         {activeTab === "pbp" && isAdmin && (
-          <PlayByPlayTab
-            gameId={game.id}
-            homeAbbr={game.home_abbr}
-            awayAbbr={game.away_abbr}
-            league={game.league}
-            gameStatus={game.status || undefined}
-          />
+          <>
+            <div className="flex items-center justify-between">
+              <PbpFreshnessBadge row={watchdog[id!]} />
+              <button
+                onClick={() => setScrubberOpen(true)}
+                className="text-xs font-semibold text-primary border border-primary/30 rounded-full px-3 py-1 hover:bg-primary/10 transition-colors"
+              >
+                Scrub PBP
+              </button>
+            </div>
+            <PlayByPlayTab
+              gameId={game.id}
+              homeAbbr={game.home_abbr}
+              awayAbbr={game.away_abbr}
+              league={game.league}
+              gameStatus={game.status || undefined}
+            />
+            <PbpScrubberDrawer
+              open={scrubberOpen}
+              onOpenChange={setScrubberOpen}
+              gameKey={id!}
+              homeAbbr={game.home_abbr}
+              awayAbbr={game.away_abbr}
+            />
+          </>
         )}
 
         {activeTab === "oracle" && (
