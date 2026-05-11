@@ -102,6 +102,7 @@ export function useOracle(
   const sport = league as Sport;
 
   // Fetch team ratings from team_season_pace
+  // Fetch current season + previous season so we get data even if current-season rows are missing
   const { data: paceData, isLoading } = useQuery({
     queryKey: ["team-pace-oracle", homeAbbr, awayAbbr, season, league],
     queryFn: async () => {
@@ -109,9 +110,16 @@ export function useOracle(
         .from("team_season_pace")
         .select("*")
         .eq("league", league)
-        .eq("season", season)
-        .in("team_abbr", [homeAbbr, awayAbbr]);
-      return data || [];
+        .in("season", [season, season - 1])
+        .in("team_abbr", [homeAbbr, awayAbbr])
+        .order("season", { ascending: false });
+      // For each team pick the most recent season available
+      const seen = new Set<string>();
+      return (data || []).filter(r => {
+        if (seen.has(r.team_abbr)) return false;
+        seen.add(r.team_abbr);
+        return true;
+      });
     },
     staleTime: 300_000,
     enabled: !!gameId && !!homeAbbr && !!awayAbbr,
