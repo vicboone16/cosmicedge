@@ -9,6 +9,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { PeriodScoresTicker } from "@/components/game/PeriodScoresTicker";
 import { useOracle } from "@/hooks/use-oracle";
 import { QuickPropsRail } from "@/components/slate/QuickPropsRail";
+import { PbpFreshnessBadge } from "@/components/playoffs/PbpFreshnessBadge";
+import type { WatchdogRow } from "@/hooks/use-pbp-watchdog";
 
 function formatOdds(odds: number | null): string {
   if (odds == null || odds === 0) return "—";
@@ -42,7 +44,7 @@ const LiveSnapshot = memo(function LiveSnapshot({ gameId }: { gameId: string }) 
   );
 });
 
-export const GameCard = memo(function GameCard({ game }: { game: GameWithOdds }) {
+export const GameCard = memo(function GameCard({ game, watchdogRow }: { game: GameWithOdds; watchdogRow?: WatchdogRow }) {
   const navigate = useNavigate();
   const { formatInUserTZ, getTZAbbrev } = useTimezone();
   const isLive = game.status === "live" || game.status === "in_progress";
@@ -109,6 +111,7 @@ export const GameCard = memo(function GameCard({ game }: { game: GameWithOdds })
               <span className="h-2 w-2 rounded-full bg-cosmic-green animate-pulse-glow" />
               <span className="text-xs font-semibold text-cosmic-green uppercase tracking-wider">Live</span>
               <LiveSnapshot gameId={game.id} />
+              <PbpFreshnessBadge row={watchdogRow} />
             </span>
           )}
           {isFinal && (

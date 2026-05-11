@@ -6,6 +6,7 @@ import { AstroHeader } from "@/components/AstroHeader";
 import { useGames } from "@/hooks/use-games";
 import { useTimezone } from "@/hooks/use-timezone";
 import { useIsAdmin } from "@/hooks/use-admin";
+import { usePbpWatchdog } from "@/hooks/use-pbp-watchdog";
 import { Switch } from "@/components/ui/switch";
 import type { League } from "@/lib/mock-data";
 import { format, addDays, isToday } from "date-fns";
@@ -42,6 +43,10 @@ const Index = () => {
     upcoming: filteredGames.filter((g) => g.status === "scheduled"),
     final: filteredGames.filter((g) => g.status === "final"),
   }), [filteredGames]);
+
+  // PBP freshness watchdog for live games
+  const liveGameIds = useMemo(() => liveGames.map((g) => g.id), [liveGames]);
+  const { data: watchdog = {} } = usePbpWatchdog(liveGameIds);
 
   const isBlockedLeague = selectedLeague === "NCAAF" || selectedLeague === "NFL" || (selectedLeague === "NCAAB" && !isAdmin);
 
@@ -158,7 +163,7 @@ const Index = () => {
                 </h2>
                 <div className="space-y-3">
                   {liveGames.map((game) => (
-                    <GameCard key={game.id} game={game} />
+                    <GameCard key={game.id} game={game} watchdogRow={watchdog[game.id]} />
                   ))}
                 </div>
               </section>
