@@ -101,9 +101,10 @@ Deno.serve(async (req) => {
 
     if (todayGames?.length) {
       for (const g of todayGames) {
-        const gameKey = `NBA_${today}_${g.away_abbr}_${g.home_abbr}`;
+        // g.id is the UUID from the games table — use it directly as game_key
+        // so cosmic_games and games are linked by the same UUID
         await sb.from("cosmic_games").upsert({
-          game_key: gameKey, league: "NBA", game_date: today,
+          game_key: g.id, league: "NBA", game_date: today,
           home_team_abbr: g.home_abbr, away_team_abbr: g.away_abbr,
           start_time_utc: g.start_time, season: "2025-26",
           status: g.status || "scheduled",

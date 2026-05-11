@@ -245,24 +245,59 @@ function FormulaSandbox({ initialSlug }: { initialSlug?: string | null }) {
   );
 }
 
+// Confidence tier thresholds matching use-top-props.ts
+function getConfTier(score: number | null): string {
+  if (score == null) return "Watch";
+  if (score >= 70) return "Elite";
+  if (score >= 60) return "Strong";
+  if (score >= 55) return "Playable";
+  return "Watch";
+}
+
 // ── Backtest Console ──
 function BacktestConsole() {
   const [league, setLeague] = useState("NBA");
   const [marketType, setMarketType] = useState("points");
   const [running, setRunning] = useState(false);
 
-  const mockResults = {
-    hitRate: 58.3,
-    roi: 4.7,
-    avgEdge: 2.1,
-    totalGames: 412,
-    byConf: [
-      { tier: "Elite", hitRate: 71.2, count: 45 },
-      { tier: "Strong", hitRate: 62.1, count: 98 },
-      { tier: "Playable", hitRate: 55.8, count: 142 },
-      { tier: "Watch", hitRate: 48.9, count: 127 },
-    ],
-  };
+  const { data: realResults, isLoading: resultsLoading } = useQuery({
+    queryKey: ["backtest-results", marketType],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("bets")
+        .select("result, confidence, market_type, odds, stake, payout")
+        .in("result", ["win", "loss", "push"])
+        .eq("market_type", marketType)
+        .limit(2000);
+
+      const rows = data || [];
+      const settled = rows.filter(r => r.result === "win" || r.result === "loss");
+      if (settled.length === 0) return null;
+
+      const wins = settled.filter(r => r.result === "win").length;
+      const hitRate = (wins / settled.length) * 100;
+
+      const totalStake = rows.reduce((s, r) => s + (Number(r.stake) || 1), 0);
+      const totalPayout = rows.reduce((s, r) => s + (Number(r.payout) || 0), 0);
+      const roi = totalStake > 0 ? ((totalPayout - totalStake) / totalStake) * 100 : 0;
+
+      const avgEdge = settled.reduce((s, r) => s + (Number(r.confidence) || 0), 0) / settled.length;
+
+      const tiers = ["Elite", "Strong", "Playable", "Watch"];
+      const byConf = tiers.map(tier => {
+        const tierRows = settled.filter(r => getConfTier(r.confidence) === tier);
+        const tierWins = tierRows.filter(r => r.result === "win").length;
+        return {
+          tier,
+          hitRate: tierRows.length > 0 ? (tierWins / tierRows.length) * 100 : 0,
+          count: tierRows.length,
+        };
+      });
+
+      return { hitRate, roi, avgEdge, totalGames: settled.length, byConf };
+    },
+    staleTime: 300_000,
+  });
 
   const handleRun = () => {
     setRunning(true);
@@ -321,25 +356,33 @@ function BacktestConsole() {
       {/* Results */}
       <div className="cosmic-card rounded-xl p-4 space-y-3">
         <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Results</h4>
-        <div className="grid grid-cols-4 gap-2">
-          <OutputBox label="Hit Rate" value={`${mockResults.hitRate}%`} />
-          <OutputBox label="ROI" value={`${mockResults.roi}%`} />
-          <OutputBox label="Avg Edge" value={`+${mockResults.avgEdge}`} />
-          <OutputBox label="Games" value={mockResults.totalGames.toString()} />
-        </div>
-
-        <h5 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest pt-2">By Confidence Tier</h5>
-        <div className="space-y-1.5">
-          {mockResults.byConf.map(c => (
-            <div key={c.tier} className="flex items-center justify-between text-xs">
-              <span className="text-muted-foreground">{c.tier}</span>
-              <div className="flex items-center gap-3">
-                <span className="font-bold tabular-nums text-foreground">{c.hitRate}%</span>
-                <span className="text-[10px] text-muted-foreground tabular-nums">n={c.count}</span>
-              </div>
+        {resultsLoading ? (
+          <div className="flex items-center justify-center py-4"><Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /></div>
+        ) : !realResults ? (
+          <p className="text-[10px] text-muted-foreground text-center py-2">No settled bets found for this market.</p>
+        ) : (
+          <>
+            <div className="grid grid-cols-4 gap-2">
+              <OutputBox label="Hit Rate" value={`${realResults.hitRate.toFixed(1)}%`} />
+              <OutputBox label="ROI" value={`${realResults.roi.toFixed(1)}%`} />
+              <OutputBox label="Avg Edge" value={`+${realResults.avgEdge.toFixed(1)}`} />
+              <OutputBox label="Games" value={realResults.totalGames.toString()} />
             </div>
-          ))}
-        </div>
+
+            <h5 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest pt-2">By Confidence Tier</h5>
+            <div className="space-y-1.5">
+              {realResults.byConf.filter(c => c.count > 0).map(c => (
+                <div key={c.tier} className="flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground">{c.tier}</span>
+                  <div className="flex items-center gap-3">
+                    <span className="font-bold tabular-nums text-foreground">{c.hitRate.toFixed(1)}%</span>
+                    <span className="text-[10px] text-muted-foreground tabular-nums">n={c.count}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
