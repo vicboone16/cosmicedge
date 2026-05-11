@@ -47,6 +47,7 @@ const AdminGamesPage = lazy(() => import("./pages/AdminGamesPage"));
 const AdminPage = lazy(() => import("./pages/AdminPage"));
 const TTEdgePage = lazy(() => import("./pages/TTEdgePage"));
 const HealthPage = lazy(() => import("./pages/HealthPage"));
+const PlayoffsPage = lazy(() => import("./pages/Playoffs"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const PrivacyPage = lazy(() => import("./pages/PrivacyPage"));
 const PaywallPage = lazy(() => import("./pages/PaywallPage"));
@@ -118,6 +119,7 @@ const App = () => {
                   <Route path="/game/:id" element={<RequireAuth><GameDetail /></RequireAuth>} />
                   <Route path="/team/:league/:abbr" element={<RequireAuth><TeamPage /></RequireAuth>} />
                   <Route path="/player/:id" element={<RequireAuth><PlayerPage /></RequireAuth>} />
+                  <Route path="/playoffs" element={<RequireAuth><PlayoffsPage /></RequireAuth>} />
                   <Route path="/transits" element={<RequireAuth><CelestialInsightsPage /></RequireAuth>} />
                   <Route path="/performance" element={<RequireAuth><PerformancePage /></RequireAuth>} />
                   <Route path="/results" element={<Navigate to="/performance" replace />} />
