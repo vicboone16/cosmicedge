@@ -1,6 +1,9 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Star, Filter, ArrowUpDown, CheckSquare, Square, Zap, TrendingUp, AlertTriangle, ChevronDown, ChevronUp, Pin, PinOff, Trash2, CheckCircle, RefreshCw, Wallet, DollarSign, Edit2, Target, FileText, Calculator } from "lucide-react";
+import { Star, Filter, ArrowUpDown, CheckSquare, Square, Zap, TrendingUp, AlertTriangle, ChevronDown, ChevronUp, Pin, PinOff, Trash2, CheckCircle, RefreshCw, Wallet, DollarSign, Edit2, Target, FileText, Calculator, Sparkles, Clock } from "lucide-react";
+import { SmartParlayBuilder } from "@/components/skyspread/SmartParlayBuilder";
+import { MorningEveningTracker } from "@/components/skyspread/MorningEveningTracker";
+import { CosmicConfidenceTag } from "@/components/skyspread/CosmicConfidenceTag";
 import { GuidanceCard } from "@/components/ui/GuidanceCard";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -443,7 +446,7 @@ const SkySpreadPage = () => {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const userId = user?.id ?? null;
-  const [activeTab, setActiveTab] = useState<"ledger" | "tracked" | "slips" | "bankroll" | "calc">("ledger");
+  const [activeTab, setActiveTab] = useState<"ledger" | "tracked" | "slips" | "bankroll" | "calc" | "parlays" | "tracker">("ledger");
   const [ledgerTab, setLedgerTab] = useState<"open" | "settled">("open");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [sortBy, setSortBy] = useState<string>("confidence");
@@ -804,6 +807,8 @@ const SkySpreadPage = () => {
             { key: "tracked" as const, label: "Tracked", icon: Target },
             { key: "slips" as const, label: "Slips", icon: FileText },
             { key: "bankroll" as const, label: "Bankroll", icon: Wallet },
+            { key: "parlays" as const, label: "Parlays", icon: Sparkles },
+            { key: "tracker" as const, label: "Tracker", icon: Clock },
             { key: "calc" as const, label: "Tools & Import", icon: Calculator },
           ]).map(({ key, label, icon: Icon }) => (
             <button
@@ -827,6 +832,10 @@ const SkySpreadPage = () => {
         </GuidanceCard>
         {activeTab === "calc" ? (
           <BetCalculatorTab userId={userId} />
+        ) : activeTab === "parlays" ? (
+          <SmartParlayBuilder />
+        ) : activeTab === "tracker" ? (
+          <MorningEveningTracker />
         ) : activeTab === "bankroll" ? (
           <BankrollTab userId={userId} />
         ) : activeTab === "tracked" ? (
@@ -1120,11 +1129,14 @@ const SkySpreadPage = () => {
                         </div>
                       </div>
 
-                      {bet.edge_tier && (
-                        <span className={cn("text-[10px] font-semibold uppercase mt-1 inline-block", EDGE_TIER_COLORS[bet.edge_tier])}>
-                          {bet.edge_tier} edge
-                        </span>
-                      )}
+                      <div className="flex items-center gap-1.5 mt-1">
+                        {bet.edge_tier && (
+                          <span className={cn("text-[10px] font-semibold uppercase inline-block", EDGE_TIER_COLORS[bet.edge_tier])}>
+                            {bet.edge_tier} edge
+                          </span>
+                        )}
+                        <CosmicConfidenceTag gameId={bet.game_id} edgeTier={bet.edge_tier} />
+                      </div>
                     </div>
 
                     <button onClick={() => setExpandedId(isExpanded ? null : bet.id)} className="text-muted-foreground hover:text-foreground">

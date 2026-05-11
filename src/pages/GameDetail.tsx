@@ -39,6 +39,11 @@ import { LineMovementPanel } from "@/components/playoffs/LineMovementPanel";
 import { PbpFreshnessBadge } from "@/components/playoffs/PbpFreshnessBadge";
 import { PbpScrubberDrawer } from "@/components/playoffs/PbpScrubberDrawer";
 import { usePbpWatchdog } from "@/hooks/use-pbp-watchdog";
+import { CosmicMatchupCard } from "@/components/game/CosmicMatchupCard";
+import { TeamAstroContext } from "@/components/game/TeamAstroContext";
+import { CosmicConfidenceMeter } from "@/components/game/CosmicConfidenceMeter";
+import { AstroPropsCallouts } from "@/components/game/AstroPropsCallouts";
+import { AstroCartographyFallback } from "@/components/game/AstroCartographyFallback";
 
 function formatOdds(odds: number | null): string {
   if (odds == null || odds === 0) return "—";
@@ -806,6 +811,39 @@ const GameDetail = () => {
               </section>
             )}
 
+            {/* #4 — Cosmic Matchup (team_astro deep dive) */}
+            <CosmicMatchupCard
+              homeAbbr={game.home_abbr}
+              awayAbbr={game.away_abbr}
+              league={game.league}
+            />
+
+            {/* #5 — Team Astro DNA */}
+            <TeamAstroContext
+              homeAbbr={game.home_abbr}
+              awayAbbr={game.away_abbr}
+            />
+
+            {/* #6 — Cosmic Confidence Meter */}
+            <CosmicConfidenceMeter
+              gameId={game.id}
+              startTime={game.start_time}
+              homeAbbr={game.home_abbr}
+              awayAbbr={game.away_abbr}
+              league={game.league}
+              venueLat={game.venue_lat ?? null}
+            />
+
+            {/* #7 — Astro-Backed Props */}
+            <AstroPropsCallouts
+              gameId={game.id}
+              startTime={game.start_time}
+              homeAbbr={game.home_abbr}
+              awayAbbr={game.away_abbr}
+              league={game.league}
+              venueLat={game.venue_lat ?? null}
+            />
+
             {/* Celestial Insights */}
             <section className="space-y-3">
               <h3 className="text-xs font-semibold text-primary uppercase tracking-widest flex items-center gap-1.5">
@@ -885,7 +923,7 @@ const GameDetail = () => {
               onSelectPlayer={setTransitSelectedPlayer}
             />
 
-            {/* Astrocartography at Venue */}
+            {/* Astrocartography at Venue — player-level */}
             {players && players.length > 0 && (
               <AstrocartographySection
                 gameId={game.id}
@@ -896,6 +934,16 @@ const GameDetail = () => {
                 awayAbbr={game.away_abbr}
               />
             )}
+
+            {/* Astrocartography Fallback — team-level venue influence (shows when player section doesn't render) */}
+            <AstroCartographyFallback
+              homeAbbr={game.home_abbr}
+              awayAbbr={game.away_abbr}
+              venue={game.venue ?? null}
+              venueLat={game.venue_lat ?? null}
+              venueLng={game.venue_lng ?? null}
+              hasPlayerSection={!!(players && players.length > 0)}
+            />
 
             {/* Synastry */}
             {awayPlayers.length > 0 && homePlayers.length > 0 && (
