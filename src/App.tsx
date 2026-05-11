@@ -153,6 +153,8 @@ const App = () => {
                   <Route path="/admin/boltodds" element={<RequireAuth><BoltOddsMonitorPage /></RequireAuth>} />
                   <Route path="/admin/pbp-watchdog" element={<RequireAuth><AdminPbpWatchdogPage /></RequireAuth>} />
                   <Route path="/subscription" element={<RequireAuth><SubscriptionPage /></RequireAuth>} />
+                  {/* Redirect /account to /profile */}
+                  <Route path="/account" element={<Navigate to="/profile" replace />} />
                 </Route>
                 <Route path="/auth" element={<AuthPage />} />
                 <Route path="/privacy" element={<PrivacyPage />} />
