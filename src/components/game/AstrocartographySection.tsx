@@ -177,6 +177,114 @@ function PlayerAstrocarto({ playerId, playerName, team, venueLat, venueLng }: {
   );
 }
 
+/** Derives a location-advantage insight from all player astrocarto results */
+function useLocationAdvantage(
+  players: { id: string; name: string; team: string | null }[],
+  homeAbbr: string,
+  awayAbbr: string,
+  venueLat: number,
+  venueLng: number,
+) {
+  // Aggregate close-line counts per team from the individual player queries
+  // We use the cached query data from React Query
+  const { data: advantage } = useQuery({
+    queryKey: ["astrocarto-advantage", homeAbbr, awayAbbr, venueLat, venueLng],
+    queryFn: async () => {
+      // Fetch all player astrocarto in parallel
+      const results = await Promise.allSettled(
+        players.slice(0, 6).map(async (p) => {
+          const params = new URLSearchParams({
+            mode: "astrocartography",
+            entity_id: p.id,
+            entity_type: "player",
+            lat: String(venueLat),
+            lng: String(venueLng),
+          });
+          const resp = await fetch(
+            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/astrologyapi?${params}`,
+            {
+              headers: {
+                Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+                apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+              },
+            }
+          );
+          if (!resp.ok) return null;
+          const data = await resp.json();
+          return { team: p.team, result: data.result };
+        })
+      );
+
+      let homeCloseLines = 0;
+      let awayCloseLines = 0;
+      let homeBeneficLines = 0;
+      let awayBeneficLines = 0;
+      let homeMaleficLines = 0;
+      let awayMaleficLines = 0;
+
+      const benefics = ["venus", "jupiter", "sun"];
+      const malefics = ["mars", "saturn"];
+
+      for (const r of results) {
+        if (r.status !== "fulfilled" || !r.value?.result) continue;
+        const { team, result } = r.value;
+        const lines = result?.planetary_lines || result?.angular_planets || result?.lines || [];
+
+        for (const line of lines) {
+          const dist = Math.abs(line.distance_degrees ?? line.orb ?? 999);
+          if (dist > 3) continue; // only count close lines
+
+          const planet = (line.planet || line.name || "").toLowerCase();
+          const isHome = team === homeAbbr;
+
+          if (isHome) homeCloseLines++;
+          else awayCloseLines++;
+
+          if (benefics.some((b) => planet.includes(b))) {
+            if (isHome) homeBeneficLines++;
+            else awayBeneficLines++;
+          }
+          if (malefics.some((m) => planet.includes(m))) {
+            if (isHome) homeMaleficLines++;
+            else awayMaleficLines++;
+          }
+        }
+      }
+
+      // Build insight
+      const homeScore = homeBeneficLines * 2 + homeCloseLines - homeMaleficLines;
+      const awayScore = awayBeneficLines * 2 + awayCloseLines - awayMaleficLines;
+      const diff = homeScore - awayScore;
+
+      let insight = "";
+      let favoredTeam: "home" | "away" | "neutral" = "neutral";
+
+      if (Math.abs(diff) < 2) {
+        insight = `This venue is astrologically neutral — neither team has a clear planetary-line advantage. Look to player-level lines for prop edges.`;
+      } else if (diff >= 2) {
+        favoredTeam = "home";
+        const beneficNote = homeBeneficLines > 0
+          ? `${homeBeneficLines} benefic line${homeBeneficLines > 1 ? "s" : ""} (Jupiter/Venus/Sun) near this location boost ${homeAbbr}'s star players.`
+          : `${homeAbbr} players have more active planetary lines at this venue.`;
+        insight = `This location astrologically favors ${homeAbbr}. ${beneficNote}${homeBeneficLines > awayBeneficLines ? " Overs on their scoring props." : ""}${awayMaleficLines > 0 ? ` ${awayAbbr} faces ${awayMaleficLines} malefic line${awayMaleficLines > 1 ? "s" : ""} (Mars/Saturn) — defensive struggles or foul trouble possible.` : ""}`;
+      } else {
+        favoredTeam = "away";
+        const beneficNote = awayBeneficLines > 0
+          ? `${awayBeneficLines} benefic line${awayBeneficLines > 1 ? "s" : ""} near this location boost ${awayAbbr}'s star players.`
+          : `${awayAbbr} players have more active planetary lines at this venue.`;
+        insight = `Despite being on the road, this location astrologically favors ${awayAbbr}. ${beneficNote}${homeMaleficLines > 0 ? ` ${homeAbbr} faces ${homeMaleficLines} malefic line${homeMaleficLines > 1 ? "s" : ""} — look for under props.` : ""}`;
+      }
+
+      return { insight, favoredTeam, homeCloseLines, awayCloseLines };
+    },
+    staleTime: 24 * 60 * 60 * 1000,
+    retry: 1,
+    enabled: players.length > 0,
+  });
+
+  return advantage;
+}
+
 export function AstrocartographySection({ gameId, players, venueLat, venueLng, homeAbbr, awayAbbr }: Props) {
   if (!venueLat || !venueLng || players.length === 0) return null;
 
@@ -187,9 +295,11 @@ export function AstrocartographySection({ gameId, players, venueLat, venueLng, h
 
   if (selectedPlayers.length === 0) return null;
 
+  const advantage = useLocationAdvantage(selectedPlayers, homeAbbr, awayAbbr, venueLat, venueLng);
+
   return (
     <section>
-      <h3 className="text-xs font-semibold text-primary uppercase tracking-widest mb-3 flex items-center gap-1.5">
+      <h3 className="text-xs font-semibold text-primary uppercase tracking-widest mb-2 flex items-center gap-1.5">
         <Globe className="h-3.5 w-3.5" />
         Astrocartography at Venue
       </h3>
@@ -197,6 +307,40 @@ export function AstrocartographySection({ gameId, players, venueLat, venueLng, h
         <MapPin className="h-3 w-3" />
         <span>{venueLat.toFixed(2)}°, {venueLng.toFixed(2)}°</span>
       </div>
+
+      {/* Location advantage insight */}
+      {advantage?.insight && (
+        <div className={cn(
+          "rounded-lg px-3 py-2.5 mb-3 border",
+          advantage.favoredTeam === "home"
+            ? "bg-cosmic-green/8 border-cosmic-green/20"
+            : advantage.favoredTeam === "away"
+              ? "bg-primary/8 border-primary/20"
+              : "bg-secondary/30 border-border/20",
+        )}>
+          <div className="flex items-start gap-2">
+            <span className="text-sm mt-0.5">
+              {advantage.favoredTeam === "neutral" ? "⚖️" : "🌍"}
+            </span>
+            <div>
+              <p className={cn(
+                "text-[10px] font-semibold mb-0.5",
+                advantage.favoredTeam === "home" ? "text-cosmic-green"
+                  : advantage.favoredTeam === "away" ? "text-primary"
+                  : "text-foreground",
+              )}>
+                {advantage.favoredTeam === "neutral"
+                  ? "Neutral Venue Energy"
+                  : `Location Favors ${advantage.favoredTeam === "home" ? homeAbbr : awayAbbr}`}
+              </p>
+              <p className="text-[9px] text-muted-foreground leading-relaxed">
+                {advantage.insight}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 gap-2">
         {selectedPlayers.map((p) => (
           <PlayerAstrocarto
