@@ -1,5 +1,6 @@
 import { cn } from "@/lib/utils";
 import { TrendingUp, TrendingDown, Bookmark, MessageSquare, PlusCircle, X } from "lucide-react";
+import { PropLast10Splits } from "@/components/prop-drawer/PropLast10Splits";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Drawer, DrawerContent, DrawerClose } from "@/components/ui/drawer";
@@ -217,6 +218,11 @@ export function PropIntelligenceDrawer({ prop, open, onOpenChange }: Props) {
                 <> · L10 Hit: <span className="font-bold text-foreground">{(prop.hit_l10 * 10).toFixed(0)}/10</span></>
               )}
             </p>
+          </Section>
+
+          {/* ─── SECTION 5b: LAST 10 SPLITS ─── */}
+          <Section title="Last 10 Games">
+            <PropLast10Splits playerId={prop.player_id} propType={prop.prop_type} line={prop.line} />
           </Section>
 
           {/* ─── SECTION 6: MATCHUP CONTEXT ─── */}
