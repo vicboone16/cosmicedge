@@ -29,8 +29,11 @@ export function usePbpWatchdog(gameKeys: string[]) {
       const out: Record<string, WatchdogRow> = {};
       if (gameKeys.length === 0) return out;
 
+      // nba_pbp_events is written by the BDL burst loop every minute.
+      // pbp_events has a ~2min lag (pbp-watch-sync normalization step).
+      // Check nba_pbp_events for true pipeline freshness.
       const { data: pbpRows } = await supabase
-        .from("pbp_events" as any)
+        .from("nba_pbp_events" as any)
         .select("game_key, created_at")
         .in("game_key", gameKeys)
         .order("created_at", { ascending: false })

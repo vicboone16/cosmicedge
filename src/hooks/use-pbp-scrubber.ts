@@ -33,8 +33,11 @@ export function usePbpScrubber(gameKey: string | null) {
     enabled: !!gameKey,
     staleTime: 30_000,
     queryFn: async () => {
+      // Read from nba_pbp_events (written by BDL burst loop) — the raw source.
+      // pbp_events (normalized via pbp-watch-sync) has the same shape but a
+      // ~2min lag; fall through to it only if needed in future.
       const { data } = await supabase
-        .from("pbp_events" as any)
+        .from("nba_pbp_events" as any)
         .select("period, home_score, away_score, description, team_abbr, player_name, created_at")
         .eq("game_key", gameKey!)
         .order("period", { ascending: true })
