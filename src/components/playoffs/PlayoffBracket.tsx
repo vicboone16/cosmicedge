@@ -5,7 +5,7 @@
  */
 import { Trophy, ChevronRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import type { PlayoffSeries } from "@/hooks/use-playoff-series";
+import type { PlayoffSeries, PlayoffGame } from "@/hooks/use-playoff-series";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -15,6 +15,9 @@ interface Props {
 
 function SeriesCard({ s, onClick }: { s: PlayoffSeries; onClick: () => void }) {
   const leading = s.teamA.wins > s.teamB.wins ? "A" : s.teamB.wins > s.teamA.wins ? "B" : "tied";
+  const liveGame: PlayoffGame | undefined = s.games.find(
+    (g) => g.status === "live" || g.status === "in_progress"
+  );
 
   return (
     <button
@@ -107,9 +110,14 @@ function SeriesCard({ s, onClick }: { s: PlayoffSeries; onClick: () => void }) {
 
       {/* Game number / status */}
       <div className="mt-2 flex items-center justify-between">
-        <span className="text-[9px] text-muted-foreground">
+        <span className="text-[9px] text-muted-foreground flex items-center gap-1">
+          {liveGame && (
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+          )}
           {s.isComplete
             ? `${s.winner} wins ${Math.max(s.teamA.wins, s.teamB.wins)}-${Math.min(s.teamA.wins, s.teamB.wins)}`
+            : liveGame
+            ? `${liveGame.awayScore ?? 0} – ${liveGame.homeScore ?? 0} · Live`
             : `Game ${s.gameNumber}`}
         </span>
         <ChevronRight className="h-3 w-3 text-muted-foreground" />
