@@ -39,13 +39,21 @@ export interface PlayoffSeries {
   league: string;
 }
 
-/** Map series length to round name based on typical NBA/NHL playoff structure */
-function inferRound(seriesGames: PlayoffGame[], allSeries: Map<string, PlayoffGame[]>): string {
-  // Use the total number of active series to infer round
-  const totalSeries = allSeries.size;
-  if (totalSeries >= 7) return "First Round";
-  if (totalSeries >= 3) return "Second Round";
-  if (totalSeries >= 2) return "Conference Finals";
+/** Infer round name from the number of ACTIVE (incomplete) series */
+function inferRound(activeSeries: Map<string, PlayoffGame[]>): string {
+  const activeCount = [...activeSeries.values()].filter((games) => {
+    let wA = 0, wB = 0;
+    const abbrs = makeSeriesKey(games[0].homeAbbr, games[0].awayAbbr).split("-");
+    for (const g of games) {
+      if (g.status !== "final") continue;
+      const winner = (g.homeScore ?? 0) > (g.awayScore ?? 0) ? g.homeAbbr : g.awayAbbr;
+      if (winner === abbrs[0]) wA++; else wB++;
+    }
+    return wA < 4 && wB < 4;
+  }).length;
+  if (activeCount >= 7) return "First Round";
+  if (activeCount >= 3) return "Second Round";
+  if (activeCount >= 2) return "Conference Finals";
   return "Finals";
 }
 
@@ -63,6 +71,7 @@ export function usePlayoffSeries(league: string, season?: number) {
 
   return useQuery({
     queryKey: ["playoff-series", league, currentSeason],
+    refetchInterval: 60_000,
     queryFn: async (): Promise<PlayoffSeries[]> => {
       // Fetch all playoff-window games for this league
       const { data: games } = await supabase
@@ -116,8 +125,8 @@ export function usePlayoffSeries(league: string, season?: number) {
       const seriesList: PlayoffSeries[] = [];
 
       for (const [key, seriesGames] of seriesMap.entries()) {
-        // Only include matchups with 2+ games (filter out regular season stragglers)
-        if (seriesGames.length < 2) continue;
+        // Only include matchups with at least 1 game (Game 1 of a fresh series must show)
+        if (seriesGames.length < 1) continue;
 
         const [abbrA, abbrB] = key.split("-");
         let winsA = 0;
@@ -171,7 +180,7 @@ export function usePlayoffSeries(league: string, season?: number) {
           gameNumber: winsA + winsB + 1,
           isComplete,
           winner,
-          round: inferRound(seriesGames, seriesMap),
+          round: inferRound(seriesMap),
           league,
         });
       }
