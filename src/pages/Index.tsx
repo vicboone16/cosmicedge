@@ -17,13 +17,20 @@ import { TopCosmicPicksStrip } from "@/components/slate/TopCosmicPicksStrip";
 import { CosmicParlayCard } from "@/components/slate/CosmicParlayCard";
 import { GuidanceCard } from "@/components/ui/GuidanceCard";
 import { TwinklingStars } from "@/components/slate/TwinklingStars";
+import { useNavigate } from "react-router-dom";
+import { Trophy } from "lucide-react";
 
 const Index = () => {
+  const navigate = useNavigate();
   const [selectedLeague, setSelectedLeague] = useState<League | "ALL">("ALL");
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [showNcaab, setShowNcaab] = useState(false);
   const { userTimezone } = useTimezone();
   const { isAdmin } = useIsAdmin();
+
+  // Show playoff banner April–June
+  const month = new Date().getMonth();
+  const isPlayoffSeason = month >= 3 && month <= 5;
   const { data: games, isLoading, isError, refetch, isFetching } = useGames(selectedLeague, selectedDate, userTimezone);
 
   const canGoForward = selectedDate < addDays(new Date(), 7);
@@ -106,6 +113,23 @@ const Index = () => {
 
       {/* Content */}
       <div className="px-4 py-4 space-y-5">
+        {/* Playoff season entry point */}
+        {isPlayoffSeason && (
+          <button
+            onClick={() => navigate("/playoffs")}
+            className="w-full flex items-center justify-between rounded-xl bg-gradient-to-r from-cosmic-gold/20 to-primary/10 border border-cosmic-gold/30 px-4 py-3 hover:border-cosmic-gold/50 transition-colors active:scale-[0.98]"
+          >
+            <div className="flex items-center gap-3">
+              <Trophy className="h-5 w-5 text-cosmic-gold shrink-0" />
+              <div className="text-left">
+                <p className="text-sm font-bold text-foreground">2026 NBA Playoffs</p>
+                <p className="text-[10px] text-muted-foreground">Bracket · Cosmic Narratives · Series Tracker</p>
+              </div>
+            </div>
+            <span className="text-[10px] font-semibold text-cosmic-gold uppercase tracking-wider">Open →</span>
+          </button>
+        )}
+
         <GuidanceCard title="Welcome to Cosmic Edge" dismissKey="slate_welcome" variant="onboarding">
           <p>Your daily game slate — tap any game card to open full matchup analysis, props, live watch mode, and astrological insights.</p>
           <p className="mt-1">Use the bottom nav to explore <strong>Astra AI</strong>, <strong>SkySpread</strong> betting tools, and <strong>Nexus</strong> intelligence hub.</p>
