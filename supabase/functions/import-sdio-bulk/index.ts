@@ -266,8 +266,51 @@ Deno.serve(async (req) => {
         .select("external_id")
         .in("external_id", extIds);
       const existingSet = new Set((existing || []).map((e) => e.external_id));
-      const newGames = gameRows.filter((r: any) => !existingSet.has(r.external_id));
+      let newGames = gameRows.filter((r: any) => !existingSet.has(r.external_id));
       skipped += gameRows.length - newGames.length;
+
+      // ── Cross-source dedup: check if a game with same league+teams+date already exists ──
+      // This prevents creating duplicates when another source (TSDB, manual, etc.) already
+      // ingested the same game with a different external_id.
+      if (newGames.length > 0) {
+        // Determine date range for all new games
+        const dates = newGames.map((r: any) => r.start_time.split("T")[0]);
+        const minDate = dates.sort()[0];
+        const maxDate = dates.sort().pop()!;
+        // Pad ±1 day for timezone edge cases (ET vs UTC can shift the date)
+        const padMin = new Date(new Date(minDate).getTime() - 86400000).toISOString().split("T")[0];
+        const padMax = new Date(new Date(maxDate).getTime() + 86400000).toISOString().split("T")[0];
+
+        // Fetch all existing games in this date range for the league
+        const { data: existingInRange } = await supabase
+          .from("games")
+          .select("home_abbr, away_abbr, start_time")
+          .eq("league", league)
+          .gte("start_time", `${padMin}T00:00:00Z`)
+          .lte("start_time", `${padMax}T23:59:59Z`);
+
+        // Build a lookup: "HOME|AWAY|YYYY-MM-DD" → true (with ±1 day fuzzy matching)
+        const existingMatchIndex = new Set<string>();
+        for (const g of existingInRange || []) {
+          const d = g.start_time.split("T")[0];
+          const dt = new Date(d);
+          for (let offset = -1; offset <= 1; offset++) {
+            const day = new Date(dt.getTime() + offset * 86400000).toISOString().split("T")[0];
+            existingMatchIndex.add(`${g.home_abbr}|${g.away_abbr}|${day}`);
+          }
+        }
+
+        const beforeCount = newGames.length;
+        newGames = newGames.filter((r: any) => {
+          const gameDate = r.start_time.split("T")[0];
+          return !existingMatchIndex.has(`${r.home_abbr}|${r.away_abbr}|${gameDate}`);
+        });
+        const dedupSkipped = beforeCount - newGames.length;
+        if (dedupSkipped > 0) {
+          console.log(`Cross-source dedup: skipped ${dedupSkipped} games that already exist from another source`);
+        }
+        skipped += dedupSkipped;
+      }
 
       for (let i = 0; i < newGames.length; i += 100) {
         const batch = newGames.slice(i, i + 100);
@@ -499,8 +542,45 @@ Deno.serve(async (req) => {
         }
       }
 
-      for (let i = 0; i < newGames.length; i += 100) {
-        const batch = newGames.slice(i, i + 100);
+      // ── Cross-source dedup: prevent duplicates from different data sources ──
+      let filteredNewGames = newGames;
+      if (newGames.length > 0) {
+        const dates = newGames.map((r: any) => r.start_time.split("T")[0]);
+        const minDate = [...dates].sort()[0];
+        const maxDate = [...dates].sort().pop()!;
+        const padMin = new Date(new Date(minDate).getTime() - 86400000).toISOString().split("T")[0];
+        const padMax = new Date(new Date(maxDate).getTime() + 86400000).toISOString().split("T")[0];
+
+        const { data: existingInRange } = await supabase
+          .from("games")
+          .select("home_abbr, away_abbr, start_time")
+          .eq("league", league)
+          .gte("start_time", `${padMin}T00:00:00Z`)
+          .lte("start_time", `${padMax}T23:59:59Z`);
+
+        const existingMatchIndex = new Set<string>();
+        for (const g of existingInRange || []) {
+          const d = g.start_time.split("T")[0];
+          const dt = new Date(d);
+          for (let offset = -1; offset <= 1; offset++) {
+            const day = new Date(dt.getTime() + offset * 86400000).toISOString().split("T")[0];
+            existingMatchIndex.add(`${g.home_abbr}|${g.away_abbr}|${day}`);
+          }
+        }
+
+        filteredNewGames = newGames.filter((r: any) => {
+          const gameDate = r.start_time.split("T")[0];
+          return !existingMatchIndex.has(`${r.home_abbr}|${r.away_abbr}|${gameDate}`);
+        });
+        const dedupSkipped = newGames.length - filteredNewGames.length;
+        if (dedupSkipped > 0) {
+          console.log(`Schedule cross-source dedup: skipped ${dedupSkipped} games already in DB from another source`);
+        }
+        skipped += dedupSkipped;
+      }
+
+      for (let i = 0; i < filteredNewGames.length; i += 100) {
+        const batch = filteredNewGames.slice(i, i + 100);
         const { data, error } = await supabase
           .from("games")
           .insert(batch)

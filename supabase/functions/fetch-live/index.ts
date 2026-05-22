@@ -50,16 +50,19 @@ Deno.serve(async (req) => {
         const homeTeam = lg.teams?.home?.name || "";
         const awayTeam = lg.teams?.away?.name || "";
 
-        // Try to match to our games table
+        // Try to match to our games table — use .limit(1) instead of .maybeSingle()
+        // to avoid errors when duplicate game records exist for the same matchup
         const today = new Date().toISOString().slice(0, 10);
-        const { data: dbGame } = await supabase
+        const { data: dbGames } = await supabase
           .from("games")
           .select("id")
           .eq("league", "NBA")
           .gte("start_time", `${today}T00:00:00`)
           .lte("start_time", `${today}T23:59:59`)
           .or(`home_team.ilike.%${homeTeam.split(" ").pop()}%,away_team.ilike.%${awayTeam.split(" ").pop()}%`)
-          .maybeSingle();
+          .order("created_at", { ascending: true })
+          .limit(1);
+        const dbGame = dbGames?.[0] || null;
 
         if (dbGame) {
           await supabase.from("games").update({
